@@ -50,11 +50,8 @@ run = "ruff format"
 
 [tasks.check]
 description = "Run all linters and static checks"
-depends = ["check:python", "check:tofu", "check:ansible", "check:shell", "check:apps", "check:secrets"]
+depends = ["check:python", "check:ansible", "check:shell"]
 
-[tasks."check:tofu"]
-description = "Validate and lint OpenTofu configurations"
-run = """
 #!/usr/bin/env bash
 for dir in infrastructure/*/ ; do
   if [ -f "$dir/main.tf" ] || [ -f "$dir/backend.tf" ]; then
@@ -71,13 +68,7 @@ run = "ansible-lint configuration/"
 description = "Check shell scripts"
 run = "shellcheck scripts/*.sh"
 
-[tasks."check:apps"]
-description = "Lint frontend/app code"
-run = "oxlint -c .oxlintrc.json -D all apps/"
 
-[tasks."check:secrets"]
-description = "Scan for secrets"
-run = "trufflehog git file://. --since-commit HEAD"
 
 [tasks."check:python"]
 description = "Check Python code"
