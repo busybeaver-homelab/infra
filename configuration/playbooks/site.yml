@@ -1,5 +1,8 @@
 ---
 # Master Playbook Entrypoint
+- name: Apply base hardening to all managed hosts
+  ansible.builtin.import_playbook: base.yml
+
 - name: Import common playbooks
   ansible.builtin.import_playbook: common.yml
 
