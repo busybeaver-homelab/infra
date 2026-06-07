@@ -1,26 +1,32 @@
-name: Ansible Syntax Check and Validation
+name: Ansible Check
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'configuration/**'
+      - 'secrets/credentials.ci.sops.yaml'
       - '.github/workflows/ansible-check.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'configuration/**'
+      - 'secrets/credentials.ci.sops.yaml'
       - '.github/workflows/ansible-check.yml'
+  schedule:
+    - cron: '0 3 * * 1' # Every Monday at 03:00 UTC
 
 permissions:
   contents: read
 
 jobs:
-  ansible:
-    name: Ansible Playbook Check
+  ansible-check:
+    name: Ansible Lint and Syntax Check
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -33,15 +39,35 @@ jobs:
       - name: Install UV
         uses: astral-sh/setup-uv@v5
 
-      - name: Setup environment dependencies
-        run: |
-          uv sync
+      - name: Install Mise
+        uses: jdx/mise-action@v2
+        with:
+          experimental: true
 
-      - name: Run Ansible Syntax Verification
-        run: |
-          # Verify master playbook site.yml syntax
-          uv run ansible-playbook --syntax-check configuration/playbooks/site.yml
+      - name: Install Python dependencies
+        run: uv sync
 
-      - name: Run Ansible Lint (Strict Production Profile)
+      - name: Decrypt CI secrets
         run: |
-          uv run ansible-lint
+          sops --decrypt secrets/credentials.ci.sops.yaml > /tmp/credentials.ci.yaml
+
+      - name: Run ansible-lint
+        run: mise exec -- ansible-lint configuration/
+
+      - name: Syntax check all playbooks
+        run: |
+          mise exec -- ansible-playbook --syntax-check \
+            -i configuration/inventories/ \
+            configuration/playbooks/site.yml
+
+      - name: Dry-run (check mode) with CI secrets
+        run: |
+          mise exec -- ansible-playbook --check \
+            -i configuration/inventories/ \
+            -e @/tmp/credentials.ci.yaml \
+            configuration/playbooks/site.yml
+        continue-on-error: true  # check mode may fail if hosts unreachable in CI
+
+      - name: Remove decrypted secrets
+        if: always()
+        run: rm -f /tmp/credentials.ci.yaml
