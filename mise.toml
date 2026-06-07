@@ -17,3 +17,23 @@ go             = "1.26"
 [env]
 _.python.venv = ".venv"
 
+[tasks.lint]
+description = "Run all pre-commit hooks for linting and formatting"
+run = "lefthook run pre-commit"
+
+[tasks."fmt:tofu"]
+description = "Format OpenTofu configurations"
+run = "tofu fmt -recursive"
+
+[tasks."fmt:python"]
+description = "Format Python code"
+run = "ruff format"
+
+[tasks."check:python"]
+description = "Check Python code"
+run = "ruff check"
+
+[tasks."test:infra"]
+description = "Run Terratest for infrastructure"
+dir = "infrastructure/tests"
+run = "go test ./... -v -timeout 10m"

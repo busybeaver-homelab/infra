@@ -34,7 +34,7 @@ pre-commit:
 
     # 6. Secrets Scanner (Trufflehog)
     trufflehog:
-      run: trufflehog git file://. --since-commit HEAD --only-verified --fail
+      run: trufflehog filesystem {staged_files} --only-verified --fail
 
     # 7. Ansible Linter
     ansible-lint:
