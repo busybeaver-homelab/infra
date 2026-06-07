@@ -19,7 +19,7 @@ _.python.venv = ".venv"
 
 [tasks.lint]
 description = "Run all pre-commit hooks for linting and formatting"
-run = "lefthook run pre-commit"
+run = "lefthook run pre-commit --all-files"
 
 [tasks."fmt:tofu"]
 description = "Format OpenTofu configurations"
