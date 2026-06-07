@@ -75,6 +75,12 @@ jobs:
           tofu init -backend=false
           tofu validate
 
+      - name: Initialize and Validate OCI Module
+        run: |
+          cd infrastructure/oci
+          tofu init -backend=false
+          tofu validate
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
