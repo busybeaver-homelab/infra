@@ -13,6 +13,9 @@ act            = "0.2"
 trufflehog     = "3"
 bats           = "1.11"
 go             = "1.26"
+oxlint         = "0.15"
+shfmt          = "3.10"
+
 
 [env]
 _.python.venv = ".venv"
