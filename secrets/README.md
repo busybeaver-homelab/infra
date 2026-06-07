@@ -79,3 +79,16 @@ If a tool strictly requires a physical key file on disk:
   env:
     SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
 ```
+
+---
+
+## 🔧 Git Diff Driver Setup (One-Time, Per Developer)
+
+To enable plaintext diffs for SOPS-encrypted files locally, run once:
+
+```bash
+git config diff.sops.textconv "sops --decrypt"
+```
+
+This is a local-only git config — it is never committed. It lets `git diff` pipe
+SOPS files through `sops --decrypt` before displaying the diff.
