@@ -1,0 +1,10 @@
+---
+- name: Configure homelab servers and services
+  hosts: homelab
+  gather_facts: true
+  tasks:
+    - name: Ensure Docker is running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true

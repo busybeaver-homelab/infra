@@ -1,0 +1,7 @@
+---
+- name: Configure UniFi devices and networks
+  hosts: unifi
+  gather_facts: false
+  tasks:
+    - name: Ping UniFi controller
+      ansible.builtin.ping:

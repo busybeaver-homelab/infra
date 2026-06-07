@@ -1,0 +1,12 @@
+---
+- name: Apply common configurations to all hosts
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Ensure common packages are installed
+      ansible.builtin.package:
+        name:
+          - curl
+          - git
+          - tmux
+        state: present

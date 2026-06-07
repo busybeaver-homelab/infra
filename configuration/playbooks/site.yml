@@ -1,0 +1,10 @@
+---
+# Master Playbook Entrypoint
+- name: Import common playbooks
+  ansible.builtin.import_playbook: common.yml
+
+- name: Import homelab playbooks
+  ansible.builtin.import_playbook: homelab.yml
+
+- name: Import unifi playbooks
+  ansible.builtin.import_playbook: unifi.yml
