@@ -77,7 +77,7 @@ run = "oxlint -c .oxlintrc.json -D all apps/"
 
 [tasks."check:secrets"]
 description = "Scan for secrets"
-run = "trufflehog git file://. --since=HEAD"
+run = "trufflehog git file://. --since-commit HEAD"
 
 [tasks."check:python"]
 description = "Check Python code"
