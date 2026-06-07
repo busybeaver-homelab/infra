@@ -1,0 +1,28 @@
+---
+# configuration/inventories/terraform.terraform_state.yml
+# Ansible Dynamic Inventory configuration using the cloud.terraform collection
+# This dynamically discovers hosts provisioned via OpenTofu/Terraform.
+
+plugin: cloud.terraform.terraform_state
+
+# Specify the binary to use (OpenTofu 'tofu' in our case)
+binary_path: tofu
+
+# Specify the backend type (GCS is used for our remote state storage)
+backend_type: gcs
+
+# GCS backend configuration details (uses lookup helper for dynamic injection in CI)
+backend_config:
+  bucket: "{{ lookup('env', 'TF_STATE_BUCKET') | default('homelab-infra-tfstate', true) }}"
+  prefix: "state/gcp"
+
+# Specify which host attributes to use for inventory hostnames
+hostnames:
+  - name
+  - public_ip
+  - private_ip
+
+# Dynamically construct inventory groups from resource metadata
+groups:
+  gcp: "provider_name == 'registry.terraform.io/hashicorp/google'"
+  homelab: "provider_name == 'registry.terraform.io/hashicorp/google' and 'homelab' in tags"
