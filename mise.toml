@@ -10,3 +10,7 @@ ruff = "0.9"
 shellcheck = "0.10"
 "terraform-docs" = "0.19"
 act = "0.2"
+
+[env]
+_.python.venv = ".venv"
+
