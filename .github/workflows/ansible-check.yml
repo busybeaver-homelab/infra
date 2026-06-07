@@ -23,6 +23,7 @@ jobs:
   ansible-check:
     name: Ansible Lint and Syntax Check
     runs-on: ubuntu-latest
+    environment: ci
     permissions:
       contents: read
     env:
