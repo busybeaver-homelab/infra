@@ -12,7 +12,7 @@ cd "$PROJECT_ROOT"
 
 # Find all directories containing *.tf files (excluding hidden directories)
 find infrastructure -type f -name "*.tf" -not -path "*/.*" -exec dirname {} \; | sort -u | while read -r dir; do
-    echo "[INFO] Generating documentation for: $dir"
-    # Run terraform-docs with the root configuration file
-    terraform-docs --config .terraform-docs.yml "$dir"
+  echo "[INFO] Generating documentation for: $dir"
+  # Run terraform-docs with the root configuration file
+  terraform-docs --config .terraform-docs.yml "$dir"
 done
