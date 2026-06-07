@@ -10,7 +10,7 @@
 
 | Name | Version |
 |------|---------|
-| <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | ~> 4.0 |
+| <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | 4.52.7 |
 
 ## Modules
 
@@ -28,6 +28,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_cloudflare_api_token"></a> [cloudflare\_api\_token](#input\_cloudflare\_api\_token) | The API token for authenticating with Cloudflare. | `string` | n/a | yes |
 | <a name="input_cloudflare_zone_id"></a> [cloudflare\_zone\_id](#input\_cloudflare\_zone\_id) | The target DNS zone ID in Cloudflare. | `string` | n/a | yes |
+| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF\_VAR\_state\_encryption\_passphrase environment variable. | `string` | n/a | yes |
 
 ## Outputs
 
