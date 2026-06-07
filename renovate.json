@@ -4,7 +4,7 @@
     "config:recommended",
     ":labels(dependencies)"
   ],
-  "dependencyDashboard": true,
+  "dependencyDashboard": false,
   "lockFileMaintenance": {
     "enabled": true,
     "automerge": true
@@ -44,7 +44,7 @@
     {
       "customType": "regex",
       "description": "Enable dependency updates for custom variables in Bash/Shell scripts using comments",
-      "fileMatch": ["^scripts/.*\\.sh$", "^\\.github/workflows/.*\\.yml$"],
+      "fileMatch": ["^scripts/.*\\.sh$"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+[A-Za-z0-9_]+_VERSION=\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
