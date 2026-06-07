@@ -17,6 +17,12 @@ for file in "$@"; do
         continue
     fi
 
+    # Skip .sops.yaml or .sops.yml configuration files
+    base_name=$(basename "$file")
+    if [ "$base_name" = ".sops.yaml" ] || [ "$base_name" = ".sops.yml" ]; then
+        continue
+    fi
+
     # Check for "sops:" keyword in YAML/YML or '"sops":' in JSON
     if ! grep -q -E '"sops":|sops:' "$file"; then
         echo -e "${RED}[ERROR] Security leak detected!${NC}"
