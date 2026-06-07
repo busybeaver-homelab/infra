@@ -178,3 +178,7 @@ venv/
 ### App Builds & Artifacts ###
 /dist/
 
+### Git Worktrees ###
+.worktrees/
+worktrees/
+
