@@ -66,3 +66,20 @@ jobs:
             echo "Push or Scheduled run detected. Running Lefthook on all files..."
             mise exec -- lefthook run pre-commit --all-files
           fi
+
+  bats:
+    name: Script Tests (Bats-core)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Mise
+        uses: jdx/mise-action@v2
+        with:
+          experimental: true
+
+      - name: Run Bats tests
+        run: mise exec -- bats tests/scripts/
