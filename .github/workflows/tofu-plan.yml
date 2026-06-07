@@ -23,17 +23,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # Required for secure Google OIDC authentication
+    env:
+      TF_VAR_state_encryption_passphrase: ${{ secrets.TOFU_ENCRYPTION_PASSPHRASE }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud (OIDC)
-        uses: google-github-actions/auth@v2
-        with:
-          # In production, these should be stored as repository variables/secrets or configured here
-          workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'github-actions-sa@homelab-infra-project.iam.gserviceaccount.com'
 
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -51,7 +45,6 @@ jobs:
         run: |
           mkdir -p dist
           if [ ! -f dist/sample-app.zip ]; then
-            echo "Creating a mock sample-app.zip for OpenTofu validation..."
             echo "placeholder" > mock.txt
             zip dist/sample-app.zip mock.txt
             rm mock.txt
@@ -81,6 +74,12 @@ jobs:
           tofu init -backend=false
           tofu validate
 
+      - name: Initialize and Validate GitHub Module
+        run: |
+          cd infrastructure/github
+          tofu init -backend=false
+          tofu validate
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -94,3 +93,5 @@ jobs:
           fi
           cd infrastructure/tests
           go test ./... -v -timeout 10m
+        env:
+          TF_VAR_state_encryption_passphrase: ${{ secrets.TOFU_ENCRYPTION_PASSPHRASE }}
