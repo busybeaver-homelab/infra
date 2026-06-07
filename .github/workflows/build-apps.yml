@@ -32,17 +32,17 @@ jobs:
 
       - name: Build applications
         run: |
-          # Create apps/ directory if it doesn't exist, though we will scaffold it in P6-7
-          mkdir -p apps
-          echo "Building applications..."
-          # Placeholder for compilation/build steps (e.g. npm ci && npm run build)
+          echo "Building sample-app..."
+          cd apps/sample-app
+          npm install
+          npm test
           
       - name: Package Applications (Zip)
         run: |
           mkdir -p dist
-          # Create structured zip package of apps
-          # zip -r dist/app.zip apps/
-          echo "Packaging application artifacts to dist/"
+          cd apps/sample-app
+          zip -r ../../dist/sample-app.zip . -x "node_modules/*"
+          echo "Successfully packaged sample-app.zip to dist/"
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
