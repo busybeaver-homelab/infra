@@ -22,3 +22,17 @@ variable "state_encryption_passphrase" {
   description = "Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF_VAR_state_encryption_passphrase environment variable."
   sensitive   = true
 }
+
+variable "ci_secrets" {
+  type        = map(string)
+  description = "A map of sensitive secrets to inject into the 'ci' environment."
+  sensitive   = true
+  default     = {}
+}
+
+variable "reviewers_for_production" {
+  type        = list(string)
+  description = "List of GitHub user or team IDs that can approve production deployments."
+  default     = []
+}
+
