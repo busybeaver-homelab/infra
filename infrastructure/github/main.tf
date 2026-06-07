@@ -31,21 +31,72 @@ resource "github_repository_vulnerability_alerts" "repo" {
   repository = github_repository.repo.name
 }
 
-resource "github_branch_protection" "main_protection" {
-  repository_id = github_repository.repo.node_id
-  pattern       = "main"
+data "github_app" "renovate" {
+  slug = "renovate"
+}
 
-  enforce_admins = true
+resource "github_repository_ruleset" "main_protection" {
+  name        = "Protect Main Branch"
+  repository  = github_repository.repo.name
+  target      = "branch"
+  enforcement = "active"
 
-  required_pull_request_reviews {
-    dismiss_stale_reviews           = true
-    require_code_owner_reviews      = false
-    required_approving_review_count = 1
+  conditions {
+    ref_name {
+      include = ["~DEFAULT_BRANCH"]
+      exclude = []
+    }
   }
 
-  required_status_checks {
-    strict   = true
-    contexts = ["lint", "test"] # Standard CI status checks
+  bypass_actors {
+    actor_id    = data.github_app.renovate.id
+    actor_type  = "Integration"
+    bypass_mode = "always"
+  }
+
+  bypass_actors {
+    actor_id    = 5 # Repository Admin
+    actor_type  = "RepositoryRole"
+    bypass_mode = "always"
+  }
+
+  rules {
+    creation                = true
+    update                  = true
+    deletion                = true
+    required_linear_history = true
+    required_signatures     = false
+
+    pull_request {
+      dismiss_stale_reviews_on_push     = true
+      require_code_owner_review         = false
+      require_last_push_approval        = false
+      required_approving_review_count   = 1
+      required_review_thread_resolution = true
+    }
+
+    required_status_checks {
+      strict_required_status_checks_policy = true
+
+      required_check {
+        context = "Security Vulnerability Scan (Trivy)"
+      }
+      required_check {
+        context = "Code Quality and Lint Checks"
+      }
+      required_check {
+        context = "Script Tests (Bats-core)"
+      }
+      required_check {
+        context = "Build & Zip Applications"
+      }
+      required_check {
+        context = "OpenTofu Validation and Plan"
+      }
+      required_check {
+        context = "Ansible Lint and Syntax Check"
+      }
+    }
   }
 }
 
