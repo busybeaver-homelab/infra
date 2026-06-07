@@ -1,0 +1,48 @@
+# Lefthook Configuration File
+# https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: true
+  commands:
+    # 1. OpenTofu Formatter
+    tofu-fmt:
+      glob: "*.tf"
+      run: tofu fmt -check {staged_files}
+
+    # 2. OpenTofu Linter
+    tofu-lint:
+      glob: "*.tf"
+      run: tflint --filter={staged_files}
+
+    # 3. Python Linter and Formatter (Ruff)
+    ruff-format:
+      glob: "*.py"
+      run: ruff format --check {staged_files}
+    ruff-lint:
+      glob: "*.py"
+      run: ruff check {staged_files}
+
+    # 4. Shell Linter (Shellcheck)
+    shellcheck:
+      glob: "*.sh"
+      run: shellcheck {staged_files}
+
+    # 5. Secrets Scanner (Trufflehog)
+    trufflehog:
+      run: trufflehog git file://. --staged --only-verified --fail
+
+    # 6. Ansible Linter
+    ansible-lint:
+      glob: "configuration/**/*.{yml,yaml}"
+      run: ansible-lint {staged_files}
+
+    # 7. Custom SOPS Metadata Verification (P2-4)
+    # Checks that all committed *.sops.yaml files are actually encrypted
+    verify-sops-encryption:
+      glob: "*.sops.{yml,yaml,json}"
+      run: bash scripts/verify-sops-encryption.sh {staged_files}
+
+    # 8. Custom Ansible Vault Prevention (P2-5)
+    # Blocks any commits containing files with $ANSIBLE_VAULT to enforce SOPS usage
+    block-ansible-vault:
+      run: bash scripts/block-ansible-vault.sh {staged_files}
