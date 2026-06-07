@@ -1,0 +1,57 @@
+name: OpenTofu Plan
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/tofu-plan.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/tofu-plan.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: OpenTofu Validation and Plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Required for secure Google OIDC authentication
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          # In production, these should be stored as repository variables/secrets or configured here
+          workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-actions-sa@homelab-infra-project.iam.gserviceaccount.com'
+
+      - name: Install OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: '1.8'
+
+      - name: Initialize and Validate GCP Module
+        run: |
+          cd infrastructure/gcp
+          tofu init -backend=false
+          tofu validate
+
+      - name: Initialize and Validate Cloudflare Module
+        run: |
+          cd infrastructure/cloudflare
+          tofu init -backend=false
+          tofu validate
+
+      - name: Initialize and Validate Homelab Module
+        run: |
+          cd infrastructure/homelab
+          tofu init -backend=false
+          tofu validate
