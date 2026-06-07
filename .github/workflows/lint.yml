@@ -5,6 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *' # Every night at 2 AM
 
 permissions:
   contents: read
@@ -38,4 +40,12 @@ jobs:
 
       - name: Run Lefthook Linters
         run: |
-          mise exec -- lefthook run pre-commit --all-files
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Pull request detected. Fetching base branch for comparison..."
+            git fetch origin ${{ github.base_ref }} --depth=1
+            echo "Running Lefthook on changed files..."
+            git diff --name-only -z origin/${{ github.base_ref }}...HEAD | mise exec -- lefthook run pre-commit --files-from-stdin
+          else
+            echo "Push or Scheduled run detected. Running Lefthook on all files..."
+            mise exec -- lefthook run pre-commit --all-files
+          fi

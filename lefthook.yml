@@ -12,7 +12,7 @@ pre-commit:
     # 2. OpenTofu Linter
     tofu-lint:
       glob: "*.tf"
-      run: tflint --filter={staged_files}
+      run: tflint --recursive
 
     # 3. Auto-generate OpenTofu documentation
     terraform-docs:
