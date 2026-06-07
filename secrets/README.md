@@ -92,3 +92,29 @@ git config diff.sops.textconv "sops --decrypt"
 
 This is a local-only git config — it is never committed. It lets `git diff` pipe
 SOPS files through `sops --decrypt` before displaying the diff.
+
+---
+
+## 🔐 OpenTofu State Encryption Passphrase
+
+OpenTofu state files are encrypted at rest using AES-GCM-256 with a PBKDF2-derived key.
+The passphrase is **never committed** — it lives only on your local machine and in GitHub Secrets.
+
+### Local Setup (One-Time)
+
+Run `scripts/bootstrap.sh` — it auto-generates a passphrase at
+`~/.config/homelab-infra/tofu-passphrase` and prints the export command.
+
+Add to your shell rc file (`~/.zshrc` or `~/.bashrc`):
+
+```bash
+export TF_VAR_state_encryption_passphrase="$(cat ~/.config/homelab-infra/tofu-passphrase)"
+```
+
+### GitHub Actions Setup
+
+Add the passphrase as a GitHub Actions secret named `TOFU_ENCRYPTION_PASSPHRASE`.
+The value is the contents of `~/.config/homelab-infra/tofu-passphrase`.
+
+> **WARNING:** Losing the passphrase makes all encrypted state files permanently
+> unrecoverable. Keep at least one secure backup (e.g., a password manager entry).
