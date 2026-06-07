@@ -57,11 +57,10 @@ Temporary Items
 **/.terraform/*
 **/.tofu/*
 
-# .tfstate and .tofu.state files
-*.tfstate
-*.tfstate.*
-*.tofu.state
-*.tofu.state.*
+# State files — encrypted state IS committed (OpenTofu AES-GCM, enforced=true).
+# Plaintext state is blocked by OpenTofu when enforced=true.
+# Backup files (.tfstate.backup) are never committed — they are unencrypted snapshots.
+*.tfstate.backup
 
 # Crash log files
 crash.log
