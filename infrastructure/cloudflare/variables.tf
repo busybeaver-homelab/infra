@@ -10,8 +10,3 @@ variable "cloudflare_zone_id" {
   sensitive   = true
 }
 
-variable "domain_name" {
-  type        = string
-  description = "The domain name managed by Cloudflare."
-  sensitive   = true
-}
