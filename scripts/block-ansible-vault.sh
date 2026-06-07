@@ -16,10 +16,16 @@ for file in "$@"; do
         continue
     fi
 
+    # Skip scanning this script itself to avoid false positives
+    if [[ "$file" == *"block-ansible-vault.sh" ]]; then
+        continue
+    fi
+
     # Ignore binary files
     if grep -qI "" "$file" 2>/dev/null; then
-        # Check for "$ANSIBLE_VAULT" string
-        if grep -Fq '$ANSIBLE_VAULT' "$file"; then
+        # Check for "$ANSIBLE_VAULT;" header string
+        # shellcheck disable=SC2016
+        if grep -Fq '$ANSIBLE_VAULT;' "$file"; then
             echo -e "${RED}[ERROR] Ansible Vault file detected!${NC}"
             echo -e "File ${RED}$file${NC} contains '\$ANSIBLE_VAULT'."
             echo -e "Ansible Vault is forbidden in this repository to enforce the SOPS-only secret rule."
