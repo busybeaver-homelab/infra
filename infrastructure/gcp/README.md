@@ -10,7 +10,7 @@
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | ~> 6.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 6.50.0 |
 
 ## Modules
 
@@ -28,6 +28,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_gcp_project_id"></a> [gcp\_project\_id](#input\_gcp\_project\_id) | The Google Cloud project ID. | `string` | n/a | yes |
 | <a name="input_gcp_region"></a> [gcp\_region](#input\_gcp\_region) | The primary Google Cloud region. | `string` | `"us-central1"` | no |
+| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF\_VAR\_state\_encryption\_passphrase environment variable. | `string` | n/a | yes |
 
 ## Outputs
 
