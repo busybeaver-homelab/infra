@@ -1,0 +1,9 @@
+# .gitattributes
+# SOPS diff driver — shows decrypted plaintext in `git diff` locally.
+# Requires: `git config diff.sops.textconv "sops --decrypt"` (run once, see secrets/README.md).
+*.sops.yaml    diff=sops merge=binary
+*.sops.yml     diff=sops merge=binary
+*.sops.json    diff=sops merge=binary
+*.ci.sops.yaml diff=sops merge=binary
+*.ci.sops.yml  diff=sops merge=binary
+*.ci.sops.json diff=sops merge=binary
