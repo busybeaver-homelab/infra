@@ -1,0 +1,47 @@
+---
+# Base hardening tasks for Ubuntu Server 22.04.
+# NOTE: Ubuntu Core support requires a separate role with snap-based package management.
+# See meta/main.yml for the Ubuntu Core tracking note.
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - unzip
+      - ca-certificates
+      - gnupg
+      - python3-pip
+    state: present
+  become: true
+
+- name: Configure SSH — disable root login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PermitRootLogin'
+    line: 'PermitRootLogin no'
+    state: present
+    validate: '/usr/sbin/sshd -t -f %s'
+  become: true
+  notify: Restart sshd
+
+- name: Configure SSH — disable password authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    state: present
+    validate: '/usr/sbin/sshd -t -f %s'
+  become: true
+  notify: Restart sshd
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ base_timezone }}"
+  become: true

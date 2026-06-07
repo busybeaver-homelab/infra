@@ -1,0 +1,6 @@
+---
+# Default variables for base-ubuntu-server role.
+# Sensitive values (SSH keys, passwords) are loaded via community.sops vars plugin
+# from secrets/credentials.ci.sops.yaml (CI) or secrets/credentials.sops.yaml (prod).
+
+base_timezone: "UTC"

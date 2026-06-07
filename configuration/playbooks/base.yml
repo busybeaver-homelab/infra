@@ -1,0 +1,6 @@
+---
+- name: Base Ubuntu Server hardening
+  hosts: all
+  gather_facts: true
+  roles:
+    - role: base-ubuntu-server

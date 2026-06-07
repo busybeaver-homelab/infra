@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  role_name: base_ubuntu_server
+  author: homelab-infra
+  description: Base hardening role for Ubuntu Server 22.04
+  license: MIT
+  min_ansible_version: "2.17"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy  # 22.04 LTS
+  # TODO(future): Add Ubuntu Core platform support.
+  # Ubuntu Core uses snap for package management and requires a separate
+  # Molecule driver (Vagrant or LXD) — Docker does not support snapd reliably.
+dependencies: []
