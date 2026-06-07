@@ -38,6 +38,23 @@ jobs:
         with:
           tofu_version: '1.8'
 
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: app-packages
+          path: dist/
+
+      - name: Ensure Dist Directory and Packages Exist (Mock if missing)
+        run: |
+          mkdir -p dist
+          if [ ! -f dist/sample-app.zip ]; then
+            echo "Creating a mock sample-app.zip for OpenTofu validation..."
+            echo "placeholder" > mock.txt
+            zip dist/sample-app.zip mock.txt
+            rm mock.txt
+          fi
+
       - name: Initialize and Validate GCP Module
         run: |
           cd infrastructure/gcp

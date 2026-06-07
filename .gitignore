@@ -175,3 +175,6 @@ venv/
 ### Mise ###
 .mise.local.toml
 
+### App Builds & Artifacts ###
+/dist/
+
