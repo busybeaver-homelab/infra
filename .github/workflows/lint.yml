@@ -12,6 +12,23 @@ permissions:
   contents: read
 
 jobs:
+  trivy:
+    name: Security Vulnerability Scan (Trivy)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'config'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
   lint:
     name: Code Quality and Lint Checks
     runs-on: ubuntu-latest
