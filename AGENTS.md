@@ -50,6 +50,7 @@ Automated gates must be respected:
 *   **Conventional Commits:** You must format every commit message according to the Conventional Commits specification.
     *   *Examples:* `feat(gcp): add compute engine instance`, `fix(unifi): update dhcp leases sops secret`.
 *   **Branch Naming:** All task branches must be named following the pattern: `<type>/<scope>/<short-desc>` (e.g., `feat/gcp/state-bucket`).
+*   **Plan File Location:** All plan files should be stored at: `docs/plans` (e.g., `docs/plans/2026-06-01_short-plan-name.md`).
 *   **Git Worktrees Mandatory:** When running tasks that add, update, or delete files, you **must** use isolated git worktrees rather than modifying the main workspace directly. Consult the `.agent/skills/using-git-worktrees/SKILL.md` skill for the proper directory selection and setup process.
 
 
