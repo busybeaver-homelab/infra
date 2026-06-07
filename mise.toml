@@ -14,6 +14,7 @@ trufflehog     = "3"
 bats           = "1.11"
 go             = "1.26"
 oxlint         = "0.15"
+oxfmt          = "0.15"
 shfmt          = "3.10"
 
 
@@ -50,7 +51,7 @@ run = "ruff format"
 
 [tasks.check]
 description = "Run all linters and static checks"
-depends = ["check:python", "check:ansible", "check:shell"]
+depends = ["check:python", "check:ansible", "check:shell", "check:general"]
 
 
 [tasks."check:ansible"]
@@ -66,6 +67,10 @@ run = "shellcheck scripts/*.sh"
 [tasks."check:python"]
 description = "Check Python code"
 run = "ruff check"
+
+[tasks."check:general"]
+description = "Check general files (JS/TS) with oxlint"
+run = "oxlint -c .oxlintrc.json apps/"
 
 [tasks.test]
 description = "Run all test suites"

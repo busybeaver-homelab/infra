@@ -22,17 +22,17 @@ pre-commit:
     # Oxc Formatter (JSON, YAML, Markdown, JS)
     oxfmt:
       glob: "*.{js,json,md,yml,yaml}"
-      run: mise run oxfmt -c .oxfmtrc.json {staged_files}
+      run: oxfmt -c .oxfmtrc.json --no-error-on-unmatched-pattern {staged_files}
 
     # Oxc Linter (Frontend/Apps)
     oxlint:
       glob: "apps/**/*.{js,ts,jsx,tsx}"
-      run: mise run oxlint -c .oxlintrc.json -D all {staged_files}
+      run: oxlint -c .oxlintrc.json -D all {staged_files}
 
     # Shell Script Formatter (shfmt)
     shfmt:
       glob: "*.sh"
-      run: mise run shfmt -w -i 2 -ci {staged_files}
+      run: shfmt -w -i 2 -ci {staged_files}
 
     # 4. Python Linter and Formatter (Ruff)
     ruff-format:
