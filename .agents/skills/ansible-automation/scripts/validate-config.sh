@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-CONFIG_FILE="${{1:?Usage: $0 <config_file>}}"
+CONFIG_FILE="${1:?Usage: $0 <config_file>}"
 
 echo "Validating: $CONFIG_FILE"
 
