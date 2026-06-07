@@ -1,0 +1,24 @@
+---
+dependency:
+  name: galaxy
+
+driver:
+  name: docker
+  # NOTE: Ubuntu Core requires Vagrant or LXD driver (snapd is not supported in Docker).
+  # Current scope: Ubuntu Server 22.04 only.
+
+platforms:
+  - name: ubuntu-server-22
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    pre_build_image: true
+    privileged: false
+    command: /lib/systemd/systemd
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      callbacks_enabled: profile_tasks
+
+verifier:
+  name: ansible

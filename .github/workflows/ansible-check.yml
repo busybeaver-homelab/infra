@@ -54,6 +54,14 @@ jobs:
       - name: Run ansible-lint
         run: mise exec -- ansible-lint configuration/
 
+      - name: Run Molecule tests
+        run: |
+          cd configuration/roles/base-ubuntu-server
+          molecule test
+        env:
+          PY_COLORS: '1'
+          ANSIBLE_FORCE_COLOR: '1'
+
       - name: Syntax check all playbooks
         run: |
           mise exec -- ansible-playbook --syntax-check \
