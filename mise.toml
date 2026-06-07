@@ -9,7 +9,10 @@ python = "3.12"
 ruff = "0.9"
 shellcheck = "0.10"
 "terraform-docs" = "0.19"
-act = "0.2"
+act            = "0.2"
+trufflehog     = "3"
+bats           = "1.11"
+go             = "1.26"
 
 [env]
 _.python.venv = ".venv"
