@@ -28,13 +28,90 @@ run = "lefthook run pre-commit --all-files"
 description = "Format OpenTofu configurations"
 run = "tofu fmt -recursive"
 
+[tasks.fmt]
+description = "Run all formatters"
+depends = ["fmt:tofu", "fmt:python", "fmt:ansible", "fmt:general", "fmt:shell"]
+
+[tasks."fmt:ansible"]
+description = "Format Ansible Playbooks & Roles"
+run = "ansible-lint --write"
+
+[tasks."fmt:general"]
+description = "Format JSON, Markdown, YAML, and JS files"
+run = "oxfmt -c .oxfmtrc.json apps/"
+
+[tasks."fmt:shell"]
+description = "Format shell scripts"
+run = "shfmt -w -i 2 -ci scripts/ tests/scripts/"
+
 [tasks."fmt:python"]
 description = "Format Python code"
 run = "ruff format"
 
+[tasks.check]
+description = "Run all linters and static checks"
+depends = ["check:python", "check:tofu", "check:ansible", "check:shell", "check:apps", "check:secrets"]
+
+[tasks."check:tofu"]
+description = "Validate and lint OpenTofu configurations"
+run = """
+#!/usr/bin/env bash
+for dir in infrastructure/*/ ; do
+  if [ -f "$dir/main.tf" ] || [ -f "$dir/backend.tf" ]; then
+    (cd "$dir" && tofu validate && tflint)
+  fi
+done
+"""
+
+[tasks."check:ansible"]
+description = "Lint Ansible configurations"
+run = "ansible-lint configuration/"
+
+[tasks."check:shell"]
+description = "Check shell scripts"
+run = "shellcheck scripts/*.sh"
+
+[tasks."check:apps"]
+description = "Lint frontend/app code"
+run = "oxlint -c .oxlintrc.json -D all apps/"
+
+[tasks."check:secrets"]
+description = "Scan for secrets"
+run = "trufflehog git file://. --since=HEAD"
+
 [tasks."check:python"]
 description = "Check Python code"
 run = "ruff check"
+
+[tasks.test]
+description = "Run all test suites"
+depends = ["test:infra", "test:ansible", "test:scripts"]
+
+[tasks."test:ansible"]
+description = "Run Molecule tests for Ansible roles"
+dir = "configuration/roles/base-ubuntu-server"
+run = "molecule test"
+
+[tasks."test:scripts"]
+description = "Run Bats tests for scripts"
+run = "bats tests/scripts/"
+
+[tasks."ci:local"]
+description = "Run GitHub Actions workflows locally"
+run = "act -W .github/workflows/"
+
+[tasks."docs:generate"]
+description = "Generate OpenTofu module documentation"
+run = "terraform-docs markdown table --output-file README.md --output-mode inject infrastructure/"
+
+[tasks."bootstrap:sops"]
+description = "Setup local SOPS and Age keys"
+run = """
+#!/usr/bin/env bash
+mkdir -p ~/.config/sops/age
+age-keygen -o ~/.config/sops/age/keys.txt
+echo "AGE key generated. Please update .sops.yaml with the public key."
+"""
 
 [tasks."test:infra"]
 description = "Run Terratest for infrastructure"
