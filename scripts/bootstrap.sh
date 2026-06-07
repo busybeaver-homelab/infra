@@ -12,15 +12,15 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+  echo -e "${GREEN}[INFO]${NC} $1"
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
+  echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+  echo -e "${RED}[ERROR]${NC} $1"
 }
 
 # 1. Detect OS
@@ -28,24 +28,24 @@ OS="$(uname -s)"
 log_info "Detected Operating System: $OS"
 
 # 2. Install Mise if not installed
-if ! command -v mise &> /dev/null; then
-    log_info "Mise is not installed. Installing Mise..."
-    if [ "$OS" = "Darwin" ] && command -v brew &> /dev/null; then
-        log_info "Installing Mise via Homebrew..."
-        brew install mise
-    else
-        log_info "Installing Mise via curl script..."
-        curl https://mise.run | sh
-        # Add to path for current session execution
-        export PATH="$HOME/.local/share/mise/bin:$PATH"
-    fi
+if ! command -v mise &>/dev/null; then
+  log_info "Mise is not installed. Installing Mise..."
+  if [ "$OS" = "Darwin" ] && command -v brew &>/dev/null; then
+    log_info "Installing Mise via Homebrew..."
+    brew install mise
+  else
+    log_info "Installing Mise via curl script..."
+    curl https://mise.run | sh
+    # Add to path for current session execution
+    export PATH="$HOME/.local/share/mise/bin:$PATH"
+  fi
 else
-    log_info "Mise is already installed."
+  log_info "Mise is already installed."
 fi
 
 # Ensure mise is in path for the rest of this script
 if [ -d "$HOME/.local/share/mise/bin" ]; then
-    export PATH="$HOME/.local/share/mise/bin:$PATH"
+  export PATH="$HOME/.local/share/mise/bin:$PATH"
 fi
 
 # 3. Run mise install to install pinned tools (opentofu, age, etc.)
@@ -57,39 +57,39 @@ AGE_KEY_DIR="$HOME/.config/sops/age"
 AGE_KEY_FILE="$AGE_KEY_DIR/keys.txt"
 
 if [ ! -f "$AGE_KEY_FILE" ]; then
-    log_info "No age key found at $AGE_KEY_FILE. Generating a new key pair..."
-    mkdir -p "$AGE_KEY_DIR"
-    
-    # We use mise exec to run age-keygen in case age isn't in global shell yet
-    if mise exec age -- age-keygen -o "$AGE_KEY_FILE" &> /dev/null; then
-        log_info "Successfully generated age key pair at $AGE_KEY_FILE"
-        # Print public key
-        PUBLIC_KEY=$(mise exec age -- age-keygen -y "$AGE_KEY_FILE")
-        log_info "Public Key: $PUBLIC_KEY"
-        log_warn "Please back up the private key file: $AGE_KEY_FILE"
-    else
-        log_error "Failed to generate age key. Is 'age' installed via mise?"
-        exit 1
-    fi
-else
-    log_info "An age key pair already exists at $AGE_KEY_FILE."
+  log_info "No age key found at $AGE_KEY_FILE. Generating a new key pair..."
+  mkdir -p "$AGE_KEY_DIR"
+
+  # We use mise exec to run age-keygen in case age isn't in global shell yet
+  if mise exec age -- age-keygen -o "$AGE_KEY_FILE" &>/dev/null; then
+    log_info "Successfully generated age key pair at $AGE_KEY_FILE"
+    # Print public key
     PUBLIC_KEY=$(mise exec age -- age-keygen -y "$AGE_KEY_FILE")
-    log_info "Current Public Key: $PUBLIC_KEY"
+    log_info "Public Key: $PUBLIC_KEY"
+    log_warn "Please back up the private key file: $AGE_KEY_FILE"
+  else
+    log_error "Failed to generate age key. Is 'age' installed via mise?"
+    exit 1
+  fi
+else
+  log_info "An age key pair already exists at $AGE_KEY_FILE."
+  PUBLIC_KEY=$(mise exec age -- age-keygen -y "$AGE_KEY_FILE")
+  log_info "Current Public Key: $PUBLIC_KEY"
 fi
 
 # 5. Bootstrap uv virtual environment
 log_info "Bootstrapping Python virtual environment with uv..."
-if ! command -v uv &> /dev/null; then
-    log_info "uv is not installed. Installing uv..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    # Add to path for current session
-    export PATH="$HOME/.local/bin:$PATH"
+if ! command -v uv &>/dev/null; then
+  log_info "uv is not installed. Installing uv..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  # Add to path for current session
+  export PATH="$HOME/.local/bin:$PATH"
 fi
 
 # Create virtual environment if it doesn't exist
 if [ ! -d ".venv" ]; then
-    log_info "Creating .venv virtual environment..."
-    uv venv
+  log_info "Creating .venv virtual environment..."
+  uv venv
 fi
 
 log_info "Syncing Python dependencies from pyproject.toml..."
@@ -98,19 +98,19 @@ uv pip install -e .
 # 5b. Generate or retrieve OpenTofu state encryption passphrase
 TOFU_PASSPHRASE_FILE="${HOME}/.config/homelab-infra/tofu-passphrase"
 if [ ! -f "${TOFU_PASSPHRASE_FILE}" ]; then
-    log_info "Generating OpenTofu state encryption passphrase..."
-    mkdir -p "$(dirname "${TOFU_PASSPHRASE_FILE}")"
-    if command -v openssl >/dev/null 2>&1; then
-        openssl rand -base64 32 > "${TOFU_PASSPHRASE_FILE}"
-    else
-        head -c 32 /dev/urandom | base64 > "${TOFU_PASSPHRASE_FILE}"
-    fi
-    chmod 600 "${TOFU_PASSPHRASE_FILE}"
-    log_info "Passphrase written to: ${TOFU_PASSPHRASE_FILE}"
-    log_warn "IMPORTANT: Back up ${TOFU_PASSPHRASE_FILE} securely."
-    log_warn "If you lose it, the local state files become unrecoverable."
+  log_info "Generating OpenTofu state encryption passphrase..."
+  mkdir -p "$(dirname "${TOFU_PASSPHRASE_FILE}")"
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 32 >"${TOFU_PASSPHRASE_FILE}"
+  else
+    head -c 32 /dev/urandom | base64 >"${TOFU_PASSPHRASE_FILE}"
+  fi
+  chmod 600 "${TOFU_PASSPHRASE_FILE}"
+  log_info "Passphrase written to: ${TOFU_PASSPHRASE_FILE}"
+  log_warn "IMPORTANT: Back up ${TOFU_PASSPHRASE_FILE} securely."
+  log_warn "If you lose it, the local state files become unrecoverable."
 else
-    log_info "OpenTofu passphrase already exists at: ${TOFU_PASSPHRASE_FILE}"
+  log_info "OpenTofu passphrase already exists at: ${TOFU_PASSPHRASE_FILE}"
 fi
 
 log_info "Bootstrap complete!"
