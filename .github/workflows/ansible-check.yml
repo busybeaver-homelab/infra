@@ -1,0 +1,47 @@
+name: Ansible Syntax Check and Validation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'configuration/**'
+      - '.github/workflows/ansible-check.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'configuration/**'
+      - '.github/workflows/ansible-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ansible:
+    name: Ansible Playbook Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+
+      - name: Setup environment dependencies
+        run: |
+          uv sync
+
+      - name: Run Ansible Syntax Verification
+        run: |
+          # Verify master playbook site.yml syntax
+          uv run ansible-playbook --syntax-check configuration/playbooks/site.yml
+
+      - name: Run Ansible Lint (Strict Production Profile)
+        run: |
+          uv run ansible-lint

@@ -1,0 +1,41 @@
+name: Lint and Validate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Code Quality and Lint Checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up python (required for uv/ansible-lint)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Mise
+        uses: jdx/mise-action@v2
+        with:
+          experimental: true
+
+      - name: Setup environment dependencies
+        run: |
+          uv sync
+
+      - name: Run Lefthook Linters
+        run: |
+          mise exec -- lefthook run pre-commit --all-files
