@@ -7,5 +7,13 @@
   "rules": {
     "eslint/no-console": "warn",
     "eslint/no-debugger": "warn"
+    ,"eslint/max-nested-callbacks": "off",
+    "eslint/max-lines-per-function": "off",
+    "eslint/no-console": "off",
+    "eslint/no-magic-numbers": "off",
+    "eslint/sort-keys": "off",
+    "typescript-eslint/no-require-imports": "off",
+    "unicorn/prefer-node-protocol": "off"
+
   }
 }
