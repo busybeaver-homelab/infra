@@ -95,8 +95,28 @@ fi
 log_info "Syncing Python dependencies from pyproject.toml..."
 uv pip install -e .
 
+# 5b. Generate or retrieve OpenTofu state encryption passphrase
+TOFU_PASSPHRASE_FILE="${HOME}/.config/homelab-infra/tofu-passphrase"
+if [ ! -f "${TOFU_PASSPHRASE_FILE}" ]; then
+    log_info "Generating OpenTofu state encryption passphrase..."
+    mkdir -p "$(dirname "${TOFU_PASSPHRASE_FILE}")"
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -base64 32 > "${TOFU_PASSPHRASE_FILE}"
+    else
+        head -c 32 /dev/urandom | base64 > "${TOFU_PASSPHRASE_FILE}"
+    fi
+    chmod 600 "${TOFU_PASSPHRASE_FILE}"
+    log_info "Passphrase written to: ${TOFU_PASSPHRASE_FILE}"
+    log_warn "IMPORTANT: Back up ${TOFU_PASSPHRASE_FILE} securely."
+    log_warn "If you lose it, the local state files become unrecoverable."
+else
+    log_info "OpenTofu passphrase already exists at: ${TOFU_PASSPHRASE_FILE}"
+fi
+
 log_info "Bootstrap complete!"
 log_info "To enable mise in your shell, add this to your rc file (~/.zshrc, ~/.bashrc, etc.):"
 echo -e "  ${YELLOW}eval \"\$(mise activate zsh)\"${NC}  # or bash, fish, etc."
 log_info "To use the generated age key with SOPS, make sure this environment variable is set:"
 echo -e "  ${YELLOW}export SOPS_AGE_KEY_FILE=\"$AGE_KEY_FILE\"${NC}"
+log_info "To enable OpenTofu state encryption, add this to your shell rc file:"
+echo -e "  ${YELLOW}export TF_VAR_state_encryption_passphrase=\"\$(cat ${TOFU_PASSPHRASE_FILE})\"${NC}"
