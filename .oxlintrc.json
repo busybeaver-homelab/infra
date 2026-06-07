@@ -1,18 +1,15 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
   "env": {
-    "browser": true,
+    "browser": false,
     "node": true
   },
-  "rules": {
-    "eslint/no-console": "warn",
-    "eslint/no-debugger": "warn"
-  },
   "categories": {
-    "correctness": "off",
-    "suspicious": "off",
+    "correctness": "error",
+    "suspicious": "warn",
     "pedantic": "off",
-    "style": "off",
+    "perf": "warn",
+    "style": "warn",
     "nursery": "off",
     "restriction": "off"
   }
