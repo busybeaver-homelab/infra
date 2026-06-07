@@ -17,8 +17,14 @@ func TestGCPModuleValidates(t *testing.T) {
 		TerraformDir:    "../gcp",
 		TerraformBinary: "tofu",
 		Vars: map[string]interface{}{
-			"gcp_project_id": "ci-dummy-project",
-			"gcp_region":     "us-central1",
+			"gcp_project_id":              "ci-dummy-project",
+			"gcp_region":                  "us-central1",
+			"state_encryption_passphrase": "ci-dummy-passphrase-for-validation-only",
+		},
+		// EnvVars ensures the passphrase is available during `tofu init` where
+		// the encryption block is evaluated as a static value (TF_VAR_* form).
+		EnvVars: map[string]string{
+			"TF_VAR_state_encryption_passphrase": "ci-dummy-passphrase-for-validation-only",
 		},
 		NoColor: true,
 	}
