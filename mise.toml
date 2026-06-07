@@ -52,13 +52,6 @@ run = "ruff format"
 description = "Run all linters and static checks"
 depends = ["check:python", "check:ansible", "check:shell"]
 
-#!/usr/bin/env bash
-for dir in infrastructure/*/ ; do
-  if [ -f "$dir/main.tf" ] || [ -f "$dir/backend.tf" ]; then
-    (cd "$dir" && tofu validate && tflint)
-  fi
-done
-"""
 
 [tasks."check:ansible"]
 description = "Lint Ansible configurations"
