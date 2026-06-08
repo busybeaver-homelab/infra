@@ -106,11 +106,11 @@ resource "github_repository_environment" "ci" {
 }
 
 resource "github_actions_environment_secret" "ci_secrets" {
-  for_each        = nonsensitive(var.ci_secrets)
+  for_each        = nonsensitive(toset(keys(var.ci_secrets)))
   repository      = github_repository.repo.name
   environment     = github_repository_environment.ci.environment
   secret_name     = each.key
-  plaintext_value = each.value
+  plaintext_value = var.ci_secrets[each.key]
 }
 
 resource "github_repository_environment" "production" {

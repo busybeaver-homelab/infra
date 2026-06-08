@@ -62,16 +62,23 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [github_branch_protection.main_protection](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/branch_protection) | resource |
-| [github_repository.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/data-sources/repository) | data source |
+| [github_actions_environment_secret.ci_secrets](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/actions_environment_secret) | resource |
+| [github_repository.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository) | resource |
+| [github_repository_environment.ci](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_environment) | resource |
+| [github_repository_environment.production](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_environment) | resource |
+| [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_ruleset) | resource |
+| [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_vulnerability_alerts) | resource |
+| [github_app.renovate](https://registry.terraform.io/providers/integrations/github/latest/docs/data-sources/app) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_ci_secrets"></a> [ci\_secrets](#input\_ci\_secrets) | A map of sensitive secrets to inject into the 'ci' environment. | `map(string)` | `{}` | no |
 | <a name="input_github_owner"></a> [github\_owner](#input\_github\_owner) | The target GitHub organization or user account. | `string` | n/a | yes |
 | <a name="input_github_token"></a> [github\_token](#input\_github\_token) | Personal Access Token for GitHub authentication. | `string` | n/a | yes |
 | <a name="input_repository_name"></a> [repository\_name](#input\_repository\_name) | The name of the target GitHub repository. | `string` | `"homelab-infra"` | no |
+| <a name="input_reviewers_for_production"></a> [reviewers\_for\_production](#input\_reviewers\_for\_production) | List of GitHub user or team IDs that can approve production deployments. | `list(string)` | `[]` | no |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF\_VAR\_state\_encryption\_passphrase environment variable. | `string` | n/a | yes |
 
 ## Outputs
