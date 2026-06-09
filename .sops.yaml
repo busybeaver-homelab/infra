@@ -14,14 +14,10 @@ creation_rules:
   # 2. Rules for Admin/Production secrets (evaluated second)
   - path_regex: .*\.sops\.ya?ml$
     key_groups:
-      - age:
-          - age1tvjjrqfkhm3zwakv8cy4kk8kzhglz8yhwj3gz8tyhmawmdnfkussnvhm3w # Admin Production Public Key
-        pgp:
-          - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Homelab Production Backup
+      - pgp:
+          - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Homelab Production
 
   - path_regex: .*\.sops\.json$
     key_groups:
-      - age:
-          - age1tvjjrqfkhm3zwakv8cy4kk8kzhglz8yhwj3gz8tyhmawmdnfkussnvhm3w # Admin Production Public Key
-        pgp:
-          - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Homelab Production Backup
+      - pgp:
+          - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Homelab Production
