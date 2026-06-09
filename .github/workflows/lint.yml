@@ -60,7 +60,7 @@ jobs:
       - name: Install Mise
         uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
         with:
-          experimental: true
+          cache: true
 
       - name: Setup environment dependencies
         run: |
@@ -91,7 +91,7 @@ jobs:
       - name: Install Mise
         uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
         with:
-          experimental: true
+          cache: true
 
       - name: Run Bats tests
         run: mise exec -- bats tests/scripts/
