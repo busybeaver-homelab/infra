@@ -16,6 +16,10 @@ on:
   schedule:
     - cron: '0 3 * * 1' # Every Monday at 03:00 UTC
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -26,22 +30,26 @@ jobs:
     environment: ci
     permissions:
       contents: read
+    timeout-minutes: 20
     env:
       SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@f67e240f2d1852441a790575791491841d4022d2 # v5.3.0
         with:
           python-version: '3.12'
 
       - name: Install UV
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@81414bc91b6f007328bf205c0883b6326cd665b1 # v5.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
 
       - name: Install Mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
         with:
           experimental: true
 
