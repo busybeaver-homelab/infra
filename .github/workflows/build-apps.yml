@@ -12,6 +12,10 @@ on:
       - 'apps/**'
       - '.github/workflows/build-apps.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -21,14 +25,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    timeout-minutes: 10
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Node.js (or appropriate build runtime)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fedd5a4 # v4.1.0
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'apps/sample-app/package-lock.json'
 
       - name: Build applications
         run: |
@@ -45,7 +52,7 @@ jobs:
           echo "Successfully packaged sample-app.zip to dist/"
 
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea2ffd6fb66b502a35368a4f0 # v4.4.3
         with:
           name: app-packages
           path: dist/
