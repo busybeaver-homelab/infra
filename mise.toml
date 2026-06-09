@@ -93,14 +93,93 @@ run = "act -W .github/workflows/"
 description = "Generate OpenTofu module documentation"
 run = "terraform-docs markdown table --output-file README.md --output-mode inject infrastructure/"
 
-[tasks."bootstrap:sops"]
-description = "Setup local SOPS and Age keys"
-run = """
+[tasks."secret:prod:set"]
+description = "Set or override a production secret"
+usage = '''
+arg "<key>" help="Name of the secret to set"
+arg "[file]" help="File containing the secret value (if omitted, clipboard is used)"
+'''
+run = '''
 #!/usr/bin/env bash
-mkdir -p ~/.config/sops/age
-age-keygen -o ~/.config/sops/age/keys.txt
-echo "AGE key generated. Please update .sops.yaml with the public key."
-"""
+set -euo pipefail
+KEY="${usage_key}"
+FILE="${usage_file}"
+
+if [ -n "$FILE" ]; then
+  VAL=$(cat "$FILE")
+else
+  VAL=$(pbpaste)
+fi
+
+# Convert value to JSON string for sops
+JSON_VAL=$(echo -n "$VAL" | python -c 'import sys, json; print(json.dumps(sys.stdin.read()))')
+
+sops set secrets/credentials.sops.yaml "[\"$KEY\"]" "$JSON_VAL"
+echo "Set secret $KEY in secrets/credentials.sops.yaml"
+'''
+
+[tasks."secret:prod:get"]
+description = "Get a production secret"
+usage = 'arg "<key>" help="Name of the secret to get"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+sops -d --extract "[\"${usage_key}\"]" secrets/credentials.sops.yaml
+'''
+
+[tasks."secret:prod:delete"]
+description = "Delete a production secret"
+usage = 'arg "<key>" help="Name of the secret to delete"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+sops unset secrets/credentials.sops.yaml "[\"${usage_key}\"]"
+echo "Deleted secret ${usage_key} from secrets/credentials.sops.yaml"
+'''
+
+[tasks."secret:ci:set"]
+description = "Set or override a CI secret"
+usage = '''
+arg "<key>" help="Name of the secret to set"
+arg "[file]" help="File containing the secret value (if omitted, clipboard is used)"
+'''
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+KEY="${usage_key}"
+FILE="${usage_file}"
+
+if [ -n "$FILE" ]; then
+  VAL=$(cat "$FILE")
+else
+  VAL=$(pbpaste)
+fi
+
+# Convert value to JSON string for sops
+JSON_VAL=$(echo -n "$VAL" | python -c 'import sys, json; print(json.dumps(sys.stdin.read()))')
+
+sops set secrets/credentials.ci.sops.yaml "[\"$KEY\"]" "$JSON_VAL"
+echo "Set secret $KEY in secrets/credentials.ci.sops.yaml"
+'''
+
+[tasks."secret:ci:get"]
+description = "Get a CI secret"
+usage = 'arg "<key>" help="Name of the secret to get"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+sops -d --extract "[\"${usage_key}\"]" secrets/credentials.ci.sops.yaml
+'''
+
+[tasks."secret:ci:delete"]
+description = "Delete a CI secret"
+usage = 'arg "<key>" help="Name of the secret to delete"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+sops unset secrets/credentials.ci.sops.yaml "[\"${usage_key}\"]"
+echo "Deleted secret ${usage_key} from secrets/credentials.ci.sops.yaml"
+'''
 
 [tasks."test:infra"]
 description = "Run Terratest for infrastructure"
