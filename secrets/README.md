@@ -1,21 +1,17 @@
 # Secrets Management & SOPS Configuration Guide
 
-This repository uses **SOPS (Secrets OPerations Suite)** and **age** keys for encrypting sensitive files such as OpenTofu/Terraform variables and Ansible host vars.
+This repository uses **SOPS (Secrets OPerations Suite)** for encrypting sensitive files such as OpenTofu/Terraform variables and Ansible host vars. Admin/production secrets are encrypted with **GPG**, while CI/CD uses **age** decoy keys.
 
 ---
 
 ## 🔑 Decoy/CI Testing Keys
 
-Below are the **decoy keys** generated for CI/CD testing, local evaluation, and dry-runs. These are completely public and committed to the repository for convenience in non-production environments.
+Below are the **decoy age keys** generated for CI/CD testing, local evaluation, and dry-runs. These are completely public and committed to the repository for convenience in non-production environments.
 
 > [!WARNING]
 > **NEVER** use these decoy keys for real production systems. They are public and insecure.
 
-### 1. Admin Environment Key (Local Admins)
-- **Public Key:** `age1tvjjrqfkhm3zwakv8cy4kk8kzhglz8yhwj3gz8tyhmawmdnfkussnvhm3w`
-- **Private Key:** `AGE-SECRET-KEY-1QA35AYVMEUFTPF9809M6WNK68LHK385DUEUSLX9XGRZQN9LQXU3QRY78FS`
-
-### 2. CI/CD Environment Key (Decoy CI Actions)
+### CI/CD Environment Key (Decoy CI Actions)
 - **Public Key:** `age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v`
 - **Private Key:** `AGE-SECRET-KEY-17PR87XDZLMHYWLR542HNRFPWV53GWRHA0TQ904YJ2850Q3333TSSULL055`
 
@@ -23,26 +19,23 @@ Below are the **decoy keys** generated for CI/CD testing, local evaluation, and 
 
 ## 💻 Local Setup (Admins Only)
 
-To decrypt and manage production files locally, you must have your own private `age` key configured:
+To decrypt and manage production files locally, you must have the production GPG private key available in your local keyring.
 
-1. **Locate or generate your key:**
-   Standard key location: `~/.config/sops/age/keys.txt`
-   If you do not have one, run:
+1. **Import the production GPG key:**
+   Request the private key from a current admin and import it:
    ```bash
-   mkdir -p ~/.config/sops/age
-   age-keygen -o ~/.config/sops/age/keys.txt
+   gpg --import /path/to/production-private-key.asc
    ```
 
-2. **Configure your shell environment:**
-   SOPS automatically looks for `SOPS_AGE_KEY_FILE`. Ensure this variable is set in your `.zshrc`, `.bashrc`, or environment:
-   ```bash
-   export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
-   ```
-
-3. **Import the Admin GPG Backup Key (Optional):**
-   This repository includes a backup GPG public key so you can easily encrypt secrets for both keys. To import this public key into your local keyring:
+2. **Import the production backup public key:**
+   This allows you to encrypt new secrets to the production key:
    ```bash
    gpg --import secrets/gpg-production-backup.pub
+   ```
+
+3. **Verify the key is available:**
+   ```bash
+   gpg --list-keys 5EE1590FF82DC2A3829D224FAA73ACF495CC009D
    ```
 
 ---
