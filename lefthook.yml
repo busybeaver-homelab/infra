@@ -4,19 +4,20 @@
 pre-commit:
   parallel: true
   commands:
-    # 1. OpenTofu Formatter
+    # OpenTofu Formatter
     tofu-fmt:
+      root: "infrastructure/"
       glob: "*.tf"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
-      run: tofu fmt -check {staged_files}
+      run: tofu fmt -recursive {staged_files}
+      stage_fixed: true
 
-    # 2. OpenTofu Linter
+    # OpenTofu Linter
     tofu-lint:
       root: "infrastructure/"
       glob: "*.tf"
       run: tflint --recursive
 
-    # 3. Auto-generate OpenTofu documentation
+    # Auto-generate OpenTofu documentation
     terraform-docs:
       glob: "*.tf"
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
@@ -32,7 +33,6 @@ pre-commit:
     # Oxc Linter (Frontend/Apps)
     oxlint:
       glob: "apps/**/*.{js,ts,jsx,tsx}"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: oxlint -c .oxlintrc.json {staged_files}
 
     # Shell Script Formatter (shfmt)
@@ -42,41 +42,42 @@ pre-commit:
       run: shfmt -w -i 2 -ci {staged_files}
       stage_fixed: true
 
-    # 4. Python Linter and Formatter (Ruff)
+    # Python Linter and Formatter (Ruff)
     ruff-format:
       glob: "*.py"
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: ruff format --check {staged_files}
+      stage_fixed: true
     ruff-lint:
       glob: "*.py"
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: ruff check {staged_files}
 
-    # 5. Shell Linter (Shellcheck)
+    # Shell Linter (Shellcheck)
     shellcheck:
       glob: "*.sh"
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: shellcheck {staged_files}
 
-    # 6. Secrets Scanner (Trufflehog)
+    # Secrets Scanner (Trufflehog)
     trufflehog:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: trufflehog filesystem {staged_files} --only-verified --fail
 
-    # 7. Ansible Linter
+    # Ansible Linter
     ansible-lint:
-      glob: "configuration/**/*.{yml,yaml}"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      root: "infrastructure/"
+      glob: "*.{yml,yaml}"
       run: ansible-lint {staged_files}
 
-    # 8. Custom SOPS Metadata Verification (P2-4)
+    # Custom SOPS Metadata Verification (P2-4)
     # Checks that all committed *.sops.yaml files are actually encrypted
     verify-sops-encryption:
       glob: "*.sops.{yml,yaml,json}"
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/verify-sops-encryption.sh {staged_files}
 
-    # 9. Custom Ansible Vault Prevention (P2-5)
+    # Custom Ansible Vault Prevention (P2-5)
     # Blocks any commits containing files with $ANSIBLE_VAULT to enforce SOPS usage
     block-ansible-vault:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
