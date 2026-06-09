@@ -24,6 +24,13 @@ dev-dependencies = [
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+exclude = [
+    ".agent",
+    ".agents",
+    ".ruff_cache",
+    ".venv",
+    ".worktrees"
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "RET", "SIM", "ARG", "PTH", "RUF"]
