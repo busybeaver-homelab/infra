@@ -39,6 +39,12 @@ To decrypt and manage production files locally, you must have your own private `
    export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
    ```
 
+3. **Import the Admin GPG Backup Key (Optional):**
+   This repository includes a backup GPG public key so you can easily encrypt secrets for both keys. To import this public key into your local keyring:
+   ```bash
+   gpg --import secrets/gpg-production-backup.pub
+   ```
+
 ---
 
 ## 🚀 GitHub Actions Secret Injection
