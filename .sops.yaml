@@ -1,3 +1,4 @@
+---
 creation_rules:
   # 1. Rules for Decoy/CI testing secrets (evaluated first)
   - path_regex: .*\.ci\.sops\.ya?ml$
@@ -24,4 +25,3 @@ creation_rules:
           - age1tvjjrqfkhm3zwakv8cy4kk8kzhglz8yhwj3gz8tyhmawmdnfkussnvhm3w # Admin Production Public Key
         pgp:
           - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Homelab Production Backup
-
