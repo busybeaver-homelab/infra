@@ -185,3 +185,6 @@ echo "Deleted secret ${usage_key} from secrets/credentials.ci.sops.yaml"
 description = "Run Terratest for infrastructure"
 dir = "infrastructure/tests"
 run = "go test ./... -v -timeout 10m"
+
+[settings]
+lockfile = true
