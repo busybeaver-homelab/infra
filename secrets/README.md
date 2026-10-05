@@ -12,6 +12,7 @@ Below are the **decoy age keys** generated for CI/CD testing, local evaluation, 
 > **NEVER** use these decoy keys for real production systems. They are public and insecure.
 
 ### CI/CD Environment Key (Decoy CI Actions)
+
 - **Public Key:** `age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v`
 - **Private Key:** `AGE-SECRET-KEY-REDACTED-LEAKED-AGE-KEY`
 
@@ -23,12 +24,14 @@ To decrypt and manage production files locally, you must have the production GPG
 
 1. **Import the production GPG key:**
    Request the private key from a current admin and import it:
+
    ```bash
    gpg --import /path/to/production-private-key.asc
    ```
 
 2. **Import the production backup public key:**
    This allows you to encrypt new secrets to the production key:
+
    ```bash
    gpg --import secrets/gpg-production-backup.pub
    ```
@@ -45,19 +48,22 @@ To decrypt and manage production files locally, you must have the production GPG
 To run automated checks (like Ansible syntax tests or OpenTofu validations) against encrypted decoy configuration files in CI/CD pipelines, you must inject the private key safely via **GitHub Secrets**.
 
 ### Step 1: Add the Secret to GitHub
+
 1. In your GitHub repository, navigate to **Settings > Secrets and variables > Actions**.
 2. Click **New repository secret**.
 3. Configure the secret:
    - **Name:** `SOPS_AGE_KEY`
-   - **Secret:** *(Paste the private key)*
+   - **Secret:** _(Paste the private key)_
      ```text
      AGE-SECRET-KEY-REDACTED-LEAKED-AGE-KEY
      ```
 
 ### Step 2: Use the Secret in GitHub Actions Workflow
+
 In your GitHub Actions workflow files (`.github/workflows/*.yml`), inject the secret as an environment variable or write it to the default path before executing SOPS/OpenTofu/Ansible tasks.
 
 #### Option A: Inject via Env Variable (Recommended)
+
 This is the simplest way. Pass the secret as `SOPS_AGE_KEY` directly to steps that execute OpenTofu or Ansible:
 
 ```yaml
@@ -68,6 +74,7 @@ This is the simplest way. Pass the secret as `SOPS_AGE_KEY` directly to steps th
 ```
 
 #### Option B: Write Secret to File
+
 If a tool strictly requires a physical key file on disk:
 
 ```yaml

@@ -51,18 +51,18 @@ graph TD
 
 This repository pins tools globally in `.mise.toml` to ensure every administrator and CI agent runs the identical binary versions:
 
-| Tool | Version | Purpose |
-| :--- | :--- | :--- |
-| **OpenTofu** | `1.8` | Declarative cloud and local resource provisioning |
-| **Ansible** | `10` | Idempotent software installation and configuration management |
-| **SOPS** | `3.9` | File-level encryption/decryption of secrets |
-| **Age** | `1.2` | Simple, modern, and secure tool for key generation |
-| **Lefthook** | `1.10` | Parallel pre-commit Git hooks for security and quality |
-| **Python** | `3.12` | Root runtimes for Ansible and scripting |
-| **Ruff** | `0.9` | Lightning-fast Python linter and formatter |
-| **ShellCheck** | `0.10` | Bash/shell script static analyzer |
-| **Terraform-Docs** | `0.19` | Automated markdown documentation for OpenTofu modules |
-| **Act** | `0.2` | Local execution of GitHub Actions workflows |
+| Tool               | Version | Purpose                                                       |
+| :----------------- | :------ | :------------------------------------------------------------ |
+| **OpenTofu**       | `1.8`   | Declarative cloud and local resource provisioning             |
+| **Ansible**        | `10`    | Idempotent software installation and configuration management |
+| **SOPS**           | `3.9`   | File-level encryption/decryption of secrets                   |
+| **Age**            | `1.2`   | Simple, modern, and secure tool for key generation            |
+| **Lefthook**       | `1.10`  | Parallel pre-commit Git hooks for security and quality        |
+| **Python**         | `3.12`  | Root runtimes for Ansible and scripting                       |
+| **Ruff**           | `0.9`   | Lightning-fast Python linter and formatter                    |
+| **ShellCheck**     | `0.10`  | Bash/shell script static analyzer                             |
+| **Terraform-Docs** | `0.19`  | Automated markdown documentation for OpenTofu modules         |
+| **Act**            | `0.2`   | Local execution of GitHub Actions workflows                   |
 
 ---
 
@@ -83,6 +83,7 @@ Before setting up the repository, ensure your control machine has the following 
 Get your local workspace up and running in under two minutes:
 
 ### Step 1: Clone and Run the Bootstrap Script
+
 Run the automated bootstrap script to install Mise (if missing), run `mise install` to provision global tools, generate a local secret keypair, and set up your Python virtual environment:
 
 ```bash
@@ -92,22 +93,27 @@ cd homelab-infra
 ```
 
 ### Step 2: Configure Your Shell Integration
+
 Ensure `mise` is integrated with your terminal so the path resolves the pinned tools and automatically activates the Python environment when entering the workspace:
 
-*For Zsh (~/.zshrc):*
+_For Zsh (~/.zshrc):_
+
 ```bash
 echo 'eval "$(mise activate zsh)"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-*For Bash (~/.bashrc):*
+_For Bash (~/.bashrc):_
+
 ```bash
 echo 'eval "$(mise activate bash)"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
 ### Step 3: Configure Your SOPS Keys
+
 Make sure your private age key location is set in your environment:
+
 ```bash
 export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
 ```
@@ -143,15 +149,20 @@ The structure of the repository is modular and structured as follows:
 We enforce strict quality and security gates to maintain an exceptional and secure codebase:
 
 ### 1. Pre-Commit Hooks (Lefthook)
+
 Lefthook is run automatically before every commit to protect the main branch from unencrypted secrets, lint failures, and formatting issues.
+
 - To run hooks manually: `mise exec lefthook -- lefthook run pre-commit`
 
 ### 2. Conventional Commits
+
 All commits must follow the **Conventional Commits** specification:
+
 - `feat(scope): ...` for new features/resources
 - `fix(scope): ...` for bug fixes
 - `docs(scope): ...` for documentation updates
 - `chore(scope): ...` for tooling and dependencies
 
 ### 3. AI Agent Instructions
+
 If you are pair-programming with AI agents (such as Antigravity), they are bound by the strict operational rules located in `AGENTS.md`. Please do not bypass Git hooks using `--no-verify`.
