@@ -2,17 +2,17 @@ name: OpenTofu Plan
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'infrastructure/**'
-      - '.github/workflows/tofu-plan.yml'
+      - "infrastructure/**"
+      - ".github/workflows/tofu-plan.yml"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'infrastructure/**'
-      - '.github/workflows/tofu-plan.yml'
+      - "infrastructure/**"
+      - ".github/workflows/tofu-plan.yml"
   schedule:
-    - cron: '0 3 * * 1' # Every Monday at 03:00 UTC
+    - cron: "0 3 * * 1" # Every Monday at 03:00 UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -38,7 +38,7 @@ jobs:
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@ae80549da5ee748e640f13a02d4a22b315519323 # v1.0.8
         with:
-          tofu_version: '1.8'
+          tofu_version: "1.8"
 
       - name: Download Build Artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372ec807db5 # v4.1.8
@@ -89,7 +89,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@3041dec5d691a404719b52867abc1d1a1dd1a182 # v5.2.0
         with:
-          go-version: '1.26'
+          go-version: "1.26"
           cache: true
           cache-dependency-path: infrastructure/tests/go.sum
 

@@ -2,19 +2,19 @@ name: Ansible Check
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'configuration/**'
-      - 'secrets/credentials.ci.sops.yaml'
-      - '.github/workflows/ansible-check.yml'
+      - "configuration/**"
+      - "secrets/credentials.ci.sops.yaml"
+      - ".github/workflows/ansible-check.yml"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'configuration/**'
-      - 'secrets/credentials.ci.sops.yaml'
-      - '.github/workflows/ansible-check.yml'
+      - "configuration/**"
+      - "secrets/credentials.ci.sops.yaml"
+      - ".github/workflows/ansible-check.yml"
   schedule:
-    - cron: '0 3 * * 1' # Every Monday at 03:00 UTC
+    - cron: "0 3 * * 1" # Every Monday at 03:00 UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,7 +40,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@f67e240f2d1852441a790575791491841d4022d2 # v5.3.0
         with:
-          python-version-file: '.python-version'
+          python-version-file: ".python-version"
 
       - name: Install UV
         uses: astral-sh/setup-uv@81414bc91b6f007328bf205c0883b6326cd665b1 # v5.3.0
@@ -68,8 +68,8 @@ jobs:
           cd configuration/roles/base-ubuntu-server
           molecule test
         env:
-          PY_COLORS: '1'
-          ANSIBLE_FORCE_COLOR: '1'
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
 
       - name: Syntax check all playbooks
         run: |
@@ -83,7 +83,7 @@ jobs:
             -i configuration/inventories/ \
             -e @/tmp/credentials.ci.yaml \
             configuration/playbooks/site.yml
-        continue-on-error: true  # check mode may fail if hosts unreachable in CI
+        continue-on-error: true # check mode may fail if hosts unreachable in CI
 
       - name: Remove decrypted secrets
         if: always()

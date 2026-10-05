@@ -1,12 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxfmt/configuration_schema.json",
-  "ignorePatterns": [
-    ".agent/**",
-    ".agents/**",
-    ".ruff_cache/**",
-    ".venv/**",
-    ".worktrees/**"
-  ],
+  "ignorePatterns": [".agent/**", ".agents/**", ".ruff_cache/**", ".venv/**", ".worktrees/**"],
   "tabWidth": 2,
   "printWidth": 100,
   "useTabs": false
