@@ -1,11 +1,11 @@
 [tools]
-opentofu = "1.8"
+opentofu = "1.9"
 tflint = "0.55"
 ansible = "10"
 sops = "3.9"
 age = "1.2"
 lefthook = "1.10"
-python = "3.12"
+python = "3.13"
 ruff = "0.9"
 shellcheck = "0.10"
 "terraform-docs" = "0.19"
