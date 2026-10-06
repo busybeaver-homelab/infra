@@ -28,6 +28,7 @@ Keep declarative infrastructure well-structured and secure:
   - `versions.tf` (required OpenTofu and provider versions)
 - **Ambiguous Sensitivity:** All variables and outputs that deal with state, domain names, network IDs, or credentials must default to `sensitive = true`.
 - **TFLint & Formats:** Always run `tofu fmt` and `tflint` locally before completing a task. Never commit unformatted `.tf` code.
+- **Always Free Tier Hard Gate:** All cloud infrastructure must strictly use the Always Free Tier. If resources will be used/added that are not in the always free tier, this is a hard gate that must be explicitly approved first by the user.
 
 ---
 
