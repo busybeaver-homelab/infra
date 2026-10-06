@@ -1,0 +1,12 @@
+---
+roles:
+  - name: dev-sec.os-hardening
+  - name: dev-sec.ssh-hardening
+  - name: geerlingguy.security
+  - name: geerlingguy.firewall
+  - name: geerlingguy.swap
+  - name: geerlingguy.ntp
+  - name: geerlingguy.docker
+  - name: artis3n.tailscale
+  - name: singleplatform-eng.users
+  - name: ajsalminen.hosts
