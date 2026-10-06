@@ -1,0 +1,16 @@
+---
+- name: Configure OCI Instances
+  hosts: oci
+  become: true
+  roles:
+    - ajsalminen.hosts
+    - base-ubuntu-server
+    - geerlingguy.swap
+    - geerlingguy.ntp
+    - dev-sec.os-hardening
+    - dev-sec.ssh-hardening
+    - geerlingguy.security
+    - geerlingguy.firewall
+    - geerlingguy.docker
+    - artis3n.tailscale
+    - singleplatform-eng.users
