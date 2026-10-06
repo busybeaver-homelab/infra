@@ -14,32 +14,14 @@
     name:
       - curl
       - wget
+      - jq
       - unzip
       - ca-certificates
       - gnupg
       - python3-pip
+      - tzdata
     state: present
   become: true
-
-- name: Configure SSH — disable root login
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: "^PermitRootLogin"
-    line: "PermitRootLogin no"
-    state: present
-    validate: "/usr/sbin/sshd -t -f %s"
-  become: true
-  notify: Restart sshd
-
-- name: Configure SSH — disable password authentication
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: "^PasswordAuthentication"
-    line: "PasswordAuthentication no"
-    state: present
-    validate: "/usr/sbin/sshd -t -f %s"
-  become: true
-  notify: Restart sshd
 
 - name: Set timezone
   community.general.timezone:

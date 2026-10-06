@@ -11,7 +11,10 @@ platforms:
   - name: ubuntu-server-22
     image: geerlingguy/docker-ubuntu2204-ansible:latest
     pre_build_image: true
-    privileged: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
     command: /lib/systemd/systemd
 
 provisioner:
@@ -19,6 +22,7 @@ provisioner:
   config_options:
     defaults:
       callbacks_enabled: profile_tasks
+      remote_tmp: /tmp
 
 verifier:
   name: ansible
