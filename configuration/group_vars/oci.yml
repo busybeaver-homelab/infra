@@ -22,8 +22,5 @@ sysctl_overwrite:
 # Allocate 2GB swap file (crucial for 1GB RAM AMD micro instances)
 swap_file_size_mb: "2048"
 
-# Tailscale settings (artis3n.tailscale)
-tailscale_args: "--ssh"
-
 # Users management (singleplatform-eng.users)
 users: []

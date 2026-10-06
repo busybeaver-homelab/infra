@@ -12,5 +12,4 @@
     - geerlingguy.security
     - geerlingguy.firewall
     - geerlingguy.docker
-    - artis3n.tailscale
     - singleplatform-eng.users
