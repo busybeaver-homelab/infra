@@ -7,6 +7,5 @@
       ansible.builtin.package:
         name:
           - curl
-          - git
           - tmux
         state: present
