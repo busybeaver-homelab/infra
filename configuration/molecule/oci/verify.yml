@@ -1,0 +1,25 @@
+---
+- name: Verify OCI Instance Configuration
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Verify base packages are installed
+      ansible.builtin.package:
+        name:
+          - curl
+          - wget
+          - jq
+          - unzip
+          - ca-certificates
+        state: present
+      check_mode: true
+      register: pkg_check
+      failed_when: pkg_check.changed
+
+    - name: Verify dedicated docker service user was created
+      ansible.builtin.user:
+        name: dockerapp
+        state: present
+      check_mode: true
+      register: user_check
+      failed_when: user_check.changed

@@ -1,0 +1,16 @@
+---
+- name: Converge OCI Instance Base Configuration
+  hosts: all
+  become: true
+  vars_files:
+    - ../../group_vars/oci.yml
+  pre_tasks:
+    - name: Set test user for verification
+      ansible.builtin.set_fact:
+        users:
+          - username: dockerapp
+            name: Docker Application Service User
+            shell: /usr/sbin/nologin
+  roles:
+    - role: base-ubuntu-server
+    - role: singleplatform-eng.users
