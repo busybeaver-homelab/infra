@@ -66,8 +66,8 @@ pre-commit:
 
     # Ansible Linter
     ansible-lint:
-      root: "infrastructure/"
-      glob: "*.{yml,yaml}"
+      glob: "configuration/**/*.{yml,yaml}"
+      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: ansible-lint {staged_files}
 
     # Custom SOPS Metadata Verification (P2-4)

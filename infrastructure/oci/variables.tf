@@ -35,10 +35,26 @@ variable "compartment_ocid" {
   sensitive   = true
 }
 
-# Compute variables (enabled in Task 7)
-# variable "availability_domain" { ... }
-# variable "instance_image_ocid_amd" { ... }
-# variable "instance_image_ocid_arm" { ... }
+variable "availability_domain" {
+  type        = string
+  description = "Availability domain for compute instances."
+  sensitive   = true
+  default     = ""
+}
+
+variable "instance_image_ocid_amd" {
+  type        = string
+  description = "OCID of the Ubuntu Minimal OS image for AMD64 instances."
+  sensitive   = true
+  default     = ""
+}
+
+variable "instance_image_ocid_arm" {
+  type        = string
+  description = "OCID of the Ubuntu Minimal OS image for ARM64 (Ampere) instances."
+  sensitive   = true
+  default     = ""
+}
 
 variable "state_encryption_passphrase" {
   type        = string
@@ -80,6 +96,16 @@ variable "subnet_cidr" {
   default     = "10.0.1.0/24"
 }
 
-# Compute bootstrap variables (enabled in Task 7)
-# variable "tailscale_auth_key" { ... }
-# variable "ssh_public_key" { ... }
+variable "tailscale_auth_key" {
+  type        = string
+  description = "Tailscale authentication key for instance bootstrapping."
+  sensitive   = true
+  default     = ""
+}
+
+variable "ssh_public_key" {
+  type        = string
+  description = "SSH public key for emergency access to compute instances."
+  sensitive   = true
+  default     = ""
+}
