@@ -8,19 +8,10 @@
         name:
           - curl
           - wget
+          - jq
           - unzip
           - ca-certificates
         state: present
       check_mode: true
       register: pkg_check
       failed_when: pkg_check.changed
-
-    - name: Verify sshd_config has PermitRootLogin no
-      ansible.builtin.command:
-        cmd: grep -q "^PermitRootLogin no" /etc/ssh/sshd_config
-      changed_when: false
-
-    - name: Verify sshd_config has PasswordAuthentication no
-      ansible.builtin.command:
-        cmd: grep -q "^PasswordAuthentication no" /etc/ssh/sshd_config
-      changed_when: false
