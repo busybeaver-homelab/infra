@@ -1,11 +1,23 @@
-output "instance_id" {
-  value       = oci_core_instance.main.id
-  description = "OCID of the provisioned OCI compute instance."
+output "budget_id" {
+  value       = oci_budget_budget.zero_spend.id
+  description = "OCID of the zero-spend monthly budget."
   sensitive   = true
 }
 
-output "private_ip" {
-  value       = oci_core_instance.main.private_ip
-  description = "Private IP address of the OCI compute instance."
+output "vcn_id" {
+  value       = oci_core_vcn.main.id
+  description = "OCID of the homelab VCN."
+  sensitive   = true
+}
+
+output "nat_gateway_id" {
+  value       = oci_core_nat_gateway.main.id
+  description = "OCID of the NAT gateway."
+  sensitive   = true
+}
+
+output "subnet_id" {
+  value       = oci_core_subnet.private.id
+  description = "OCID of the private compute subnet."
   sensitive   = true
 }
