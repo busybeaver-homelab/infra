@@ -1,0 +1,32 @@
+---
+dependency:
+  name: galaxy
+  options:
+    role-file: ../../roles/requirements.yml
+
+driver:
+  name: docker
+
+platforms:
+  - name: oci-ubuntu-server-22
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    pre_build_image: true
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /lib/systemd/systemd
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      callbacks_enabled: profile_tasks
+      remote_tmp: /tmp
+      roles_path: ~/.ansible/roles:../../roles:../roles:roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+
+verifier:
+  name: ansible
