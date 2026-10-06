@@ -8,8 +8,8 @@ driver:
   name: docker
 
 platforms:
-  - name: oci-ubuntu-server-22
-    image: geerlingguy/docker-ubuntu2204-ansible:latest
+  - name: oci-ubuntu-server-26
+    image: geerlingguy/docker-ubuntu2604-ansible:latest
     pre_build_image: true
     privileged: true
     volumes:

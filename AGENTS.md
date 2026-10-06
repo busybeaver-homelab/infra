@@ -67,7 +67,7 @@ Before claiming a task is complete, verify your work:
     - **Script changes:** `mise exec -- shellcheck scripts/*.sh` · `mise exec -- bats tests/scripts/`
     - **Python changes:** `uv run ruff check` · `uv run ruff format --check`
     - **Pre-commit gate (all changes):** `mise exec lefthook -- lefthook run pre-commit`
-    > **Note:** Ubuntu Core Molecule scenarios are out-of-scope for now. Current Molecule tests target Ubuntu Server 22.04 via the Docker driver only. When Ubuntu Core support is needed, switch to a Vagrant or LXD driver.
+    > **Note:** Ubuntu Core Molecule scenarios are out-of-scope for now. Current Molecule tests target Ubuntu Server 26.04 via the Docker driver only. When Ubuntu Core support is needed, switch to a Vagrant or LXD driver.
 2.  **Verify exit status** — all commands above must exit 0 before proceeding.
 3.  **Perform a self-review diff** of your modifications to ensure no stray code, unused variables, or comments remain.
 4.  **Update the task tracker** located at `docs/plans/task.md` with progress.
