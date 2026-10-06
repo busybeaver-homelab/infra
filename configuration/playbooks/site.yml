@@ -11,3 +11,6 @@
 
 - name: Import unifi playbooks
   ansible.builtin.import_playbook: unifi.yml
+
+- name: Import OCI playbooks
+  ansible.builtin.import_playbook: oci.yml

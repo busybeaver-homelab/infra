@@ -1,0 +1,29 @@
+---
+# Group variables for OCI compute instances
+
+# Firewall settings (geerlingguy.firewall)
+firewall_enabled: true
+firewall_allowed_tcp_ports:
+  - "22"
+
+# Security settings (geerlingguy.security)
+# Explicit comment: Disable geerlingguy.security SSH hardening because
+# dev-sec.ssh-hardening is used instead for advanced SSH configuration.
+security_ssh_hardening: false
+security_fail2ban_enabled: true
+security_autoupdate_enabled: true
+
+# OS Hardening settings (dev-sec.os-hardening)
+sysctl_overwrite:
+  # Enable IPv4 traffic forwarding - required for Docker bridge networking
+  net.ipv4.ip_forward: 1
+
+# Swap settings (geerlingguy.swap)
+# Allocate 2GB swap file (crucial for 1GB RAM AMD micro instances)
+swap_file_size_mb: "2048"
+
+# Tailscale settings (artis3n.tailscale)
+tailscale_args: "--ssh"
+
+# Users management (singleplatform-eng.users)
+users: []
