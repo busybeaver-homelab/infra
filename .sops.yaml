@@ -1,23 +1,13 @@
 ---
 creation_rules:
   # 1. Rules for Decoy/CI testing secrets (evaluated first)
-  - path_regex: .*\.ci\.sops\.ya?ml$
-    key_groups:
-      - age:
-          - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v # CI Decoy Public Key
-
-  - path_regex: .*\.ci\.sops\.json$
+  - path_regex: ^secrets/credentials\.ci\.sops\.ya?ml$
     key_groups:
       - age:
           - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v # CI Decoy Public Key
 
   # 2. Rules for Admin/Production secrets (evaluated second)
-  - path_regex: .*\.sops\.ya?ml$
-    key_groups:
-      - pgp:
-          - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Homelab Production
-
-  - path_regex: .*\.sops\.json$
+  - path_regex: ^secrets/credentials\.sops\.ya?ml$
     key_groups:
       - pgp:
           - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Homelab Production
