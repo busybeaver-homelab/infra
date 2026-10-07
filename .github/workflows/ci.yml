@@ -153,6 +153,9 @@ jobs:
             mise exec -- lefthook run pre-commit --all-files
           fi
 
+      - name: Verify SOPS secrets schema parity
+        run: mise exec -- bash scripts/check-secrets-schema-parity.sh secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml
+
       - name: Verify zero uncommitted formatting diff
         run: git diff --no-textconv --exit-code
 

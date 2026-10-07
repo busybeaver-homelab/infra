@@ -5,12 +5,14 @@
 | ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.8.0 |
 | <a name="requirement_oci"></a> [oci](#requirement\_oci) | ~> 6.0 |
+| <a name="requirement_sops"></a> [sops](#requirement\_sops) | ~> 1.1.1 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
 | <a name="provider_oci"></a> [oci](#provider\_oci) | 6.37.0 |
+| <a name="provider_sops"></a> [sops](#provider\_sops) | 1.1.1 |
 
 ## Resources
 
@@ -27,6 +29,7 @@
 | [oci_core_vcn.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_vcn) | resource |
 | [oci_objectstorage_bucket.backups](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/objectstorage_bucket) | resource |
 | [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/data-sources/objectstorage_namespace) | data source |
+| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/latest/docs/data-sources/file) | data source |
 
 ## Inputs
 
@@ -43,6 +46,7 @@
 | <a name="input_instance_image_ocid_arm"></a> [instance\_image\_ocid\_arm](#input\_instance\_image\_ocid\_arm) | OCID of the Ubuntu Minimal OS image for ARM64 (Ampere) instances. | `string` | `""` | no |
 | <a name="input_private_key"></a> [private\_key](#input\_private\_key) | PEM-encoded private key for OCI API authentication. | `string` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | OCI region (e.g., eu-frankfurt-1). | `string` | `"eu-frankfurt-1"` | no |
+| <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input\_secrets\_file\_path) | Path to the canonical SOPS credentials file (defaults to production credentials). | `string` | `"../../secrets/credentials.sops.yaml"` | no |
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | SSH public key for emergency access to compute instances. | `string` | `""` | no |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF\_VAR\_state\_encryption\_passphrase environment variable. | `string` | `""` | no |
 | <a name="input_subnet_cidr"></a> [subnet\_cidr](#input\_subnet\_cidr) | IPv4 CIDR block for the private compute subnet. | `string` | n/a | yes |

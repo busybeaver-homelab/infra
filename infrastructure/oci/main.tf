@@ -1,3 +1,9 @@
+# --- Encrypted Secrets Integration (SOPS) ---
+
+data "sops_file" "secrets" {
+  source_file = var.secrets_file_path
+}
+
 # --- Budget & Spend Monitoring ---
 
 resource "oci_budget_budget" "zero_spend" {
@@ -86,7 +92,8 @@ resource "oci_core_subnet" "private" {
 # --- Compute Instances (Always Free Tier) ---
 
 locals {
-  tailscale_tags = join(",", concat(var.tailscale_common_tags, var.tailscale_extra_tags_oci))
+  tailscale_tags     = join(",", concat(var.tailscale_common_tags, var.tailscale_extra_tags_oci))
+  tailscale_auth_key = coalesce(var.tailscale_auth_key != "" ? var.tailscale_auth_key : null, try(data.sops_file.secrets.data["oci.tailscale_auth_key"], ""))
 }
 
 # 2x AMD Compute Instances (VM.Standard.E2.1.Micro)
@@ -114,7 +121,7 @@ resource "oci_core_instance" "amd" {
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
     user_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
-      tailscale_auth_key = var.tailscale_auth_key
+      tailscale_auth_key = local.tailscale_auth_key
       hostname           = "oci-amd-${count.index + 1}"
       tailscale_tags     = local.tailscale_tags
     }))
@@ -150,7 +157,7 @@ resource "oci_core_instance" "ampere" {
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
     user_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
-      tailscale_auth_key = var.tailscale_auth_key
+      tailscale_auth_key = local.tailscale_auth_key
       hostname           = "oci-arm-1"
       tailscale_tags     = local.tailscale_tags
     }))

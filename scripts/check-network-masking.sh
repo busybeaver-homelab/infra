@@ -70,8 +70,11 @@ for file in "${targets[@]}"; do
     continue
   fi
 
-  # Skip test fixtures and plans
-  if [[ "$normalized_file" == tests/fixtures/* ]] || [[ "$normalized_file" == */tests/fixtures/* ]] || [[ "$normalized_file" == docs/plans/* ]] || [[ "$normalized_file" == */docs/plans/* ]]; then
+  # Skip agent skills/documentation, test fixtures, and plans
+  if [[ "$normalized_file" == .agents/* ]] || [[ "$normalized_file" == */.agents/* ]] ||
+    [[ "$normalized_file" == .agent/* ]] || [[ "$normalized_file" == */.agent/* ]] ||
+    [[ "$normalized_file" == tests/fixtures/* ]] || [[ "$normalized_file" == */tests/fixtures/* ]] ||
+    [[ "$normalized_file" == docs/plans/* ]] || [[ "$normalized_file" == */docs/plans/* ]]; then
     continue
   fi
 
