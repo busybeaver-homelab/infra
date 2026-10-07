@@ -2,7 +2,8 @@
 dependency:
   name: galaxy
   options:
-    role-file: ../../roles/requirements.yml
+    role-file: ${MOLECULE_PROJECT_DIRECTORY}/roles/requirements.yml
+    roles-path: ~/.ansible/roles
 
 driver:
   name: docker
@@ -19,14 +20,20 @@ platforms:
 
 provisioner:
   name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles"
+    SOPS_AGE_KEY: "AGE-SECRET-KEY-17PR87XDZLMHYWLR542HNRFPWV53GWRHA0TQ904YJ2850Q3333TSSULL055"
   config_options:
     defaults:
       callbacks_enabled: profile_tasks
       remote_tmp: /tmp
-      roles_path: ~/.ansible/roles:../../roles:../roles:roles
+      roles_path: ${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles
   playbooks:
     converge: converge.yml
     verify: verify.yml
 
 verifier:
   name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles"
+    SOPS_AGE_KEY: "AGE-SECRET-KEY-17PR87XDZLMHYWLR542HNRFPWV53GWRHA0TQ904YJ2850Q3333TSSULL055"

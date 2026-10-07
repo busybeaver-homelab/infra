@@ -17,7 +17,8 @@ firewall_ip6_additional_rules:
 # SSH Hardening (dev-sec.ssh-hardening)
 # Completely disable OpenSSH server daemon; Tailscale SSH handles all incoming SSH.
 ssh_server_enabled: false
-ssh_client_hardening: true
+ssh_server_hardening: false
+ssh_client_hardening: false
 
 # Security settings (geerlingguy.security)
 # Explicit comment: Disable geerlingguy.security SSH hardening because
