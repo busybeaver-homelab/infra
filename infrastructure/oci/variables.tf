@@ -134,3 +134,9 @@ variable "default_freeform_tags" {
     "project" = "homelab"
   }
 }
+
+variable "secrets_file_path" {
+  type        = string
+  description = "Path to the canonical SOPS credentials file (defaults to production credentials)."
+  default     = "../../secrets/credentials.sops.yaml"
+}

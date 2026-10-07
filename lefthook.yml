@@ -95,6 +95,13 @@ pre-commit:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-network-masking.sh {staged_files}
 
+    # Secrets Schema Parity Check (P2-8)
+    # Verifies key hierarchy parity between production and CI SOPS credentials files
+    secrets-schema-parity:
+      glob: "secrets/credentials*.sops.{yml,yaml}"
+      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      run: bash scripts/check-secrets-schema-parity.sh secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml
+
 commit-msg:
   commands:
     conventional-commits:
