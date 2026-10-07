@@ -11,3 +11,5 @@ creation_rules:
     key_groups:
       - pgp:
           - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Homelab Production
+        age:
+          - age15vgve3yy0m2k9mqca9ntc8zt235ruf3nxnnacce2evl2ncz68u3q5uf9jq # Offline Disaster Recovery Key

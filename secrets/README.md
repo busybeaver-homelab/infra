@@ -43,6 +43,41 @@ To decrypt and manage production files locally, you must have the production GPG
 
 ---
 
+## 🛟 Offline Disaster Recovery & Emergency Decryption
+
+Production secrets (`secrets/credentials.sops.yaml`) are multi-recipient encrypted to both the primary admin GPG key and a **secondary offline Age recovery key**.
+
+- **Public Key:** `age15vgve3yy0m2k9mqca9ntc8zt235ruf3nxnnacce2evl2ncz68u3q5uf9jq`
+- **Key Storage:** The corresponding private key is stored **offline only** on an encrypted hardware security token (YubiKey) and a paper backup stored in a physical fireproof safe. It is **never** stored on an internet-connected device or committed to version control.
+
+### Generating a New Offline Recovery Keypair
+
+If rotating the recovery key:
+
+```bash
+# On an air-gapped machine:
+age-keygen -o /tmp/recovery-age-key.txt
+# Public key is printed to stderr/header; copy public key to .sops.yaml
+# Print or transfer private key to hardware token / safe paper backup
+# Securely shred the temporary file:
+shred -u /tmp/recovery-age-key.txt
+```
+
+### Break-Glass Disaster Recovery Procedure
+
+If the primary GPG key is lost, corrupted, or inaccessible during an emergency:
+
+1. Retrieve the physical paper backup or hardware security token from the safe.
+2. Export the offline recovery key into a strictly ephemeral, restricted subshell:
+   ```bash
+   read -rs OFFLINE_KEY # type or paste private key safely
+   SOPS_AGE_KEY="$OFFLINE_KEY" sops -d secrets/credentials.sops.yaml > /tmp/recovered-credentials.yaml
+   unset OFFLINE_KEY
+   ```
+3. Generate a new primary administrative keypair, update `.sops.yaml`, re-encrypt the credentials file, and securely wipe `/tmp/recovered-credentials.yaml`.
+
+---
+
 ## 🚀 GitHub Actions Secret Injection
 
 To run automated checks (like Ansible syntax tests or OpenTofu validations) against encrypted decoy configuration files in CI/CD pipelines, you must inject the private key safely via **GitHub Secrets**.
