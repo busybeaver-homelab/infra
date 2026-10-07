@@ -10,4 +10,8 @@ variable "proxmox_api_token" {
   sensitive   = true
 }
 
-
+variable "proxmox_insecure" {
+  type        = bool
+  description = "Whether to bypass TLS certificate verification when connecting to the Proxmox VE API. Must default to false."
+  default     = false
+}
