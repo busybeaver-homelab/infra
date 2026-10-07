@@ -2,6 +2,8 @@
 - name: Converge OCI Instance Base Configuration
   hosts: all
   become: true
+  vars:
+    is_ci_environment: true
   vars_files:
     - ../../group_vars/oci.yml
   pre_tasks:
@@ -19,6 +21,15 @@
       community.sops.load_vars:
         file: "{{ playbook_dir }}/../../../secrets/credentials.ci.sops.yaml"
       no_log: true
+
+    - name: Validate environment sentinel
+      ansible.builtin.assert:
+        that:
+          - (is_production | default(false) | bool) or (is_ci_environment | default(false) | bool)
+        fail_msg: >-
+          Refusing to execute playbook: Loaded secrets file does not have is_production: true,
+          and is_ci_environment is not set to true. Verify credentials and decryption keys.
+        success_msg: "Environment sentinel verified successfully."
 
     - name: Ensure breakglass user exists with active shadow password
       ansible.builtin.user:
