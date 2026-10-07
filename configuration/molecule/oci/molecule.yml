@@ -10,6 +10,8 @@ driver:
 
 platforms:
   - name: oci-ubuntu-server-26
+    groups:
+      - oci
     image: geerlingguy/docker-ubuntu2604-ansible:latest@sha256:f588e42eff0a028a431f95d9cbb5a942bc6ccddae6289f494f73fa191700d44f
     pre_build_image: true
     privileged: true
@@ -20,6 +22,9 @@ platforms:
 
 provisioner:
   name: ansible
+  inventory:
+    links:
+      group_vars: ../../group_vars
   env:
     ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles"
     SOPS_AGE_KEY_FILE: "${HOME}/.config/sops/age/keys.txt"
