@@ -68,7 +68,6 @@ No modules.
 | [github_repository_environment.production](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_environment) | resource |
 | [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_ruleset) | resource |
 | [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_vulnerability_alerts) | resource |
-| [github_app.renovate](https://registry.terraform.io/providers/integrations/github/latest/docs/data-sources/app) | data source |
 
 ## Inputs
 
