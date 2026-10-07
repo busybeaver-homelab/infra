@@ -1,67 +1,10 @@
 ---
 - name: Converge OCI Instance Base Configuration
-  hosts: all
-  become: true
+  ansible.builtin.import_playbook: ../../playbooks/oci.yml
   vars:
     is_ci_environment: true
-  vars_files:
-    - ../../group_vars/oci.yml
-  pre_tasks:
-    - name: Update apt cache
-      ansible.builtin.apt:
-        update_cache: true
-        cache_valid_time: 3600
-
-    - name: Ensure openssh-server is installed for deactivation verification
-      ansible.builtin.apt:
-        name: openssh-server
-        state: present
-
-    - name: Load SOPS credentials
-      community.sops.load_vars:
-        file: "{{ playbook_dir }}/../../../secrets/credentials.ci.sops.yaml"
-      no_log: true
-
-    - name: Validate environment sentinel
-      ansible.builtin.assert:
-        that:
-          - (is_production | default(false) | bool) or (is_ci_environment | default(false) | bool)
-        fail_msg: >-
-          Refusing to execute playbook: Loaded secrets file does not have is_production: true,
-          and is_ci_environment is not set to true. Verify credentials and decryption keys.
-        success_msg: "Environment sentinel verified successfully."
-
-    - name: Ensure breakglass user exists with active shadow password
-      ansible.builtin.user:
-        name: "{{ oci.breakglass_user }}"
-        password: "{{ oci.breakglass_password_hash }}"
-        update_password: always
-        groups:
-          - sudo
-        append: true
-        shell: /bin/bash
-        state: present
-      no_log: true
-
-    - name: Set test user for verification
-      ansible.builtin.set_fact:
-        users:
-          - username: dockerapp
-            name: Docker Application Service User
-            shell: /usr/sbin/nologin
-  roles:
-    - role: base-ubuntu-server
-    - role: dev-sec.ssh-hardening
-    - role: geerlingguy.firewall
-    - role: singleplatform-eng.users
-  post_tasks:
-    - name: Ensure OpenSSH server service and socket are stopped and disabled
-      ansible.builtin.systemd_service:
-        name: "{{ item }}"
-        state: stopped
-        enabled: false
-      loop:
-        - ssh.service
-        - ssh.socket
-      failed_when: false
-      when: not (ssh_server_enabled | default(true) | bool)
+    custom_sops_secrets_file: credentials.ci.sops.yaml
+    users:
+      - username: dockerapp
+        name: Docker Application Service User
+        shell: /usr/sbin/nologin
