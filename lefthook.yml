@@ -62,7 +62,7 @@ pre-commit:
     # Secrets Scanner (Trufflehog)
     trufflehog:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
-      run: trufflehog filesystem {staged_files} --only-verified --fail
+      run: trufflehog filesystem {staged_files} --results=verified,unknown --fail
 
     # Ansible Linter
     ansible-lint:
@@ -82,3 +82,9 @@ pre-commit:
     block-ansible-vault:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/block-ansible-vault.sh {staged_files}
+
+    # Custom Private Key Detector (P0-TASK-5)
+    # Scans staged files for raw Age keys and PEM/SSH private key headers
+    detect-private-keys:
+      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      run: bash scripts/detect-private-keys.sh {staged_files}
