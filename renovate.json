@@ -11,16 +11,16 @@
   ],
   "dependencyDashboard": false,
   "lockFileMaintenance": {
-    "automerge": true
+    "automerge": false
   },
   "packageRules": [
     {
       "description": "Automatically merge safe minor and patch updates",
       "matchUpdateTypes": ["minor", "patch"],
       "matchCurrentVersion": "!/^0\\./",
-      "automerge": true,
+      "automerge": false,
       "automergeType": "pr",
-      "platformAutomerge": true
+      "platformAutomerge": false
     }
   ],
   "terraform": {
@@ -42,7 +42,7 @@
     {
       "customType": "regex",
       "description": "Enable dependency updates for custom variables in Bash/Shell scripts using comments",
-      "fileMatch": ["^scripts/.*\\.sh$"],
+      "managerFilePatterns": ["^scripts/.*\\.sh$"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+[A-Za-z0-9_]+_VERSION=\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
