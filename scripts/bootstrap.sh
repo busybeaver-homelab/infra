@@ -52,6 +52,27 @@ fi
 log_info "Running 'mise install' to configure global tools..."
 mise install
 
+# 3b. Install git hooks with lefthook
+log_info "Installing git hooks with lefthook..."
+mise exec lefthook -- lefthook install --force
+HOOK_PATH="$(git rev-parse --git-path hooks)/pre-commit"
+if [ -f "$HOOK_PATH" ]; then
+  # Ensure pre-commit hook fails closed if lefthook cannot be located
+  python3 -c "
+import sys
+p = sys.argv[1]
+with open(p, 'r') as f:
+    content = f.read()
+target = 'echo \"Can\'t find lefthook in PATH\"'
+replacement = '''echo \"ERROR: Can\'t find lefthook in PATH or mise! Hooks cannot run.\" >&2
+      echo \"Run ./scripts/bootstrap.sh or \'mise install\' to configure environment.\" >&2
+      exit 1'''
+if target in content:
+    with open(p, 'w') as f:
+        f.write(content.replace(target, replacement))
+" "$HOOK_PATH"
+fi
+
 # 4. Generate initial age key for SOPS
 AGE_KEY_DIR="$HOME/.config/sops/age"
 AGE_KEY_FILE="$AGE_KEY_DIR/keys.txt"
