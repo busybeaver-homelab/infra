@@ -12,10 +12,6 @@
 | ---- | ------- |
 | <a name="provider_google"></a> [google](#provider\_google) | 6.50.0 |
 
-## Modules
-
-No modules.
-
 ## Resources
 
 | Name | Type |

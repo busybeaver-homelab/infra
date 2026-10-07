@@ -12,10 +12,6 @@
 | ---- | ------- |
 | <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | 4.52.7 |
 
-## Modules
-
-No modules.
-
 ## Resources
 
 | Name | Type |

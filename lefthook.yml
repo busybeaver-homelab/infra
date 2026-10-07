@@ -89,6 +89,12 @@ pre-commit:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/detect-private-keys.sh {staged_files}
 
+    # Custom Network Masking Guard (P2-7)
+    # Scans staged files for unencrypted RFC1918 and CGNAT IPv4 addresses
+    network-masking:
+      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      run: bash scripts/check-network-masking.sh {staged_files}
+
 commit-msg:
   commands:
     conventional-commits:
