@@ -105,3 +105,10 @@ EOF
   run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
   [ "$status" -ne 0 ]
 }
+
+@test ".sops.yaml contains secondary offline age recovery recipient for credentials.sops.yaml" {
+  local age_recipients
+  age_recipients=$(mise exec -- yq eval '.creation_rules[] | select(.path_regex == "^secrets/credentials\.sops\.ya?ml$") | .key_groups[].age // []' "${REPO_ROOT}/.sops.yaml")
+  [ -n "$age_recipients" ]
+  [[ "$age_recipients" =~ "age1" ]]
+}
