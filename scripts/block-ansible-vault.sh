@@ -10,11 +10,18 @@ NC='\033[0m' # No Color
 
 exit_code=0
 
+is_git=false
+repo_root=""
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  is_git=true
+  repo_root=$(git rev-parse --show-toplevel)
+fi
+
 get_content() {
   local target_path="$1"
   local norm_path="$2"
 
-  if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git cat-file -e ":$norm_path" 2>/dev/null; then
+  if [ "$is_git" = true ] && git cat-file -e ":$norm_path" 2>/dev/null; then
     git show ":$norm_path"
   elif [ -f "$target_path" ]; then
     cat "$target_path"
@@ -25,11 +32,9 @@ get_content() {
 
 for file in "$@"; do
   # Determine normalized relative path to repository root if inside git
-  if git rev-parse --show-toplevel >/dev/null 2>&1; then
-    repo_root=$(git rev-parse --show-toplevel)
-    normalized_file=$(python3 -c "import os, sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))" "$file" "$repo_root" 2>/dev/null || echo "$file")
-  else
-    normalized_file="${file#./}"
+  normalized_file="${file#./}"
+  if [ -n "$repo_root" ]; then
+    normalized_file="${normalized_file#"$repo_root"/}"
   fi
 
   # Skip scanning this script itself by exact path match
