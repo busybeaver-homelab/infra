@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: restic_backup
+  author: homelab-infra
+  description: Hardened encrypted restic backup role for Ubuntu Server 26.04
+  license: MIT
+  min_ansible_version: "2.17"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - resolute # 26.04 LTS
+dependencies: []

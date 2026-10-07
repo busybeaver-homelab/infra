@@ -57,3 +57,9 @@ swap_file_size_mb: "2048"
 
 # Users management (singleplatform-eng.users)
 users: []
+
+# Restic Backup Settings (restic_backup role)
+restic_backup_repository: "s3:{{ oci_restic.s3_endpoint }}/{{ oci_restic.bucket }}/{{ inventory_hostname }}"
+restic_backup_s3_access_key: "{{ oci_restic.s3_access_key_id }}"
+restic_backup_s3_secret_key: "{{ oci_restic.s3_secret_access_key }}"
+restic_backup_password: "{{ oci_restic.password }}"

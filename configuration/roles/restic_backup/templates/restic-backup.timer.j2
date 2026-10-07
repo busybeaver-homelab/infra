@@ -1,0 +1,10 @@
+[Unit]
+Description=Trigger Encrypted Nightly Restic Backup
+
+[Timer]
+OnCalendar={{ restic_backup_schedule_calendar }}
+RandomizedDelaySec={{ restic_backup_random_delay_sec }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -45,3 +45,15 @@ output "arm_private_ip" {
   description = "Private IP address of the Ampere A1 compute instance."
   sensitive   = true
 }
+
+output "backup_bucket_name" {
+  value       = oci_objectstorage_bucket.backups.name
+  description = "Name of the OCI Object Storage bucket for instance backups."
+  sensitive   = true
+}
+
+output "backup_s3_endpoint" {
+  value       = "https://${data.oci_objectstorage_namespace.main.namespace}.compat.objectstorage.${var.region}.oraclecloud.com"
+  description = "S3 compatibility endpoint URL for Restic backups."
+  sensitive   = true
+}
