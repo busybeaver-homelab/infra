@@ -19,7 +19,7 @@ func TestOCIModuleValidates(t *testing.T) {
 		Vars: map[string]interface{}{
 			"tenancy_ocid":                "ocid1.tenancy.oc1..dummy",
 			"user_ocid":                   "ocid1.user.oc1..dummy",
-			"fingerprint":                 "ci-dummy-fingerprint",
+			"fingerprint":                 "20:3b:97:13:55:1c:5b:0d:d3:37:d8:50:4e:c4:13:b6",
 			"private_key":                 "ci-dummy-private-key",
 			"region":                      "eu-frankfurt-1",
 			"compartment_ocid": "ocid1.compartment.oc1..dummy",
@@ -46,7 +46,7 @@ func TestOCIModuleValidatesWithCustomTailscaleTags(t *testing.T) {
 		Vars: map[string]interface{}{
 			"tenancy_ocid":             "ocid1.tenancy.oc1..dummy",
 			"user_ocid":                "ocid1.user.oc1..dummy",
-			"fingerprint":              "ci-dummy-fingerprint",
+			"fingerprint":              "20:3b:97:13:55:1c:5b:0d:d3:37:d8:50:4e:c4:13:b6",
 			"private_key":              "ci-dummy-private-key",
 			"region":                   "eu-frankfurt-1",
 			"compartment_ocid":         "ocid1.compartment.oc1..dummy",
@@ -93,7 +93,7 @@ func TestOCIModuleValidatesWithCustomDefaultTags(t *testing.T) {
 		Vars: map[string]interface{}{
 			"tenancy_ocid":                "ocid1.tenancy.oc1..dummy",
 			"user_ocid":                   "ocid1.user.oc1..dummy",
-			"fingerprint":                 "ci-dummy-fingerprint",
+			"fingerprint":                 "20:3b:97:13:55:1c:5b:0d:d3:37:d8:50:4e:c4:13:b6",
 			"private_key":                 "ci-dummy-private-key",
 			"region":           "eu-frankfurt-1",
 			"compartment_ocid": "ocid1.compartment.oc1..dummy",
@@ -112,3 +112,4 @@ func TestOCIModuleValidatesWithCustomDefaultTags(t *testing.T) {
 	terraform.Validate(t, opts)
 	assert.NotNil(t, opts)
 }
+

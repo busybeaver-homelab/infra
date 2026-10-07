@@ -14,7 +14,7 @@ resource "oci_budget_budget" "zero_spend" {
   targets        = [var.compartment_ocid]
   display_name   = "zero-spend-monthly-budget"
   description    = "Enforce zero/minimal spend limit for Always Free resources"
-  freeform_tags  = var.default_freeform_tags
+  freeform_tags  = local.effective_tags
 }
 
 resource "oci_budget_alert_rule" "threshold_alert" {
@@ -25,15 +25,10 @@ resource "oci_budget_alert_rule" "threshold_alert" {
   recipients     = var.budget_alert_recipients
   display_name   = "budget-100-percent-alert"
   message        = "Warning: OCI Free Tier spending has reached 100% of the $1 threshold!"
+  freeform_tags  = local.effective_tags
 }
 
 # --- Compute Instances (Always Free Tier) ---
-
-locals {
-  tailscale_tags     = join(",", concat(var.tailscale_common_tags, var.tailscale_extra_tags_oci))
-  tailscale_auth_key = coalesce(var.tailscale_auth_key != "" ? var.tailscale_auth_key : null, try(data.sops_file.secrets.data["oci.tailscale_auth_key"], ""))
-  admin_cidr         = coalesce(var.admin_cidr != "" ? var.admin_cidr : null, try(data.sops_file.secrets.data["oci.admin_cidr"], null), var.vcn_cidr)
-}
 
 # 2x AMD Compute Instances (VM.Standard.E2.1.Micro)
 resource "oci_core_instance" "amd" {
@@ -43,7 +38,7 @@ resource "oci_core_instance" "amd" {
   display_name         = "oci-amd-${count.index + 1}"
   shape                = "VM.Standard.E2.1.Micro"
   preserve_boot_volume = false
-  freeform_tags        = var.default_freeform_tags
+  freeform_tags        = local.effective_tags
 
   instance_options {
     are_legacy_imds_endpoints_disabled = true
@@ -91,7 +86,7 @@ resource "oci_core_instance" "ampere" {
   display_name         = "oci-arm-1"
   shape                = "VM.Standard.A1.Flex"
   preserve_boot_volume = false
-  freeform_tags        = var.default_freeform_tags
+  freeform_tags        = local.effective_tags
 
   instance_options {
     are_legacy_imds_endpoints_disabled = true
@@ -151,7 +146,7 @@ resource "oci_objectstorage_bucket" "backups" {
   access_type    = "NoPublicAccess"
   versioning     = "Disabled"
 
-  freeform_tags = merge(var.default_freeform_tags, {
+  freeform_tags = merge(local.effective_tags, {
     "Environment" = "Production"
     "Role"        = "Backup"
   })

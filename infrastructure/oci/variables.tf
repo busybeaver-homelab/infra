@@ -2,18 +2,33 @@ variable "tenancy_ocid" {
   type        = string
   description = "OCID of the OCI tenancy."
   sensitive   = true
+
+  validation {
+    condition     = can(regex("^ocid1\\.tenancy\\.oc1\\..*", var.tenancy_ocid))
+    error_message = "The tenancy_ocid must be a valid OCI tenancy OCID starting with 'ocid1.tenancy.oc1..'."
+  }
 }
 
 variable "user_ocid" {
   type        = string
   description = "OCID of the OCI user for authentication."
   sensitive   = true
+
+  validation {
+    condition     = can(regex("^ocid1\\.user\\.oc1\\..*", var.user_ocid))
+    error_message = "The user_ocid must be a valid OCI user OCID starting with 'ocid1.user.oc1..'."
+  }
 }
 
 variable "fingerprint" {
   type        = string
   description = "Fingerprint of the OCI API key."
   sensitive   = true
+
+  validation {
+    condition     = can(regex("^([0-9a-fA-F]{2}:){15}[0-9a-fA-F]{2}$", var.fingerprint))
+    error_message = "The fingerprint must be a valid 16-octet hex MD5 fingerprint separated by colons."
+  }
 }
 
 variable "private_key" {
@@ -33,6 +48,11 @@ variable "compartment_ocid" {
   type        = string
   description = "OCID of the OCI compartment to deploy resources into."
   sensitive   = true
+
+  validation {
+    condition     = can(regex("^ocid1\\.(compartment|tenancy)\\.oc1\\..*", var.compartment_ocid))
+    error_message = "The compartment_ocid must be a valid OCI compartment or tenancy OCID starting with 'ocid1.compartment.oc1..' or 'ocid1.tenancy.oc1..'."
+  }
 }
 
 variable "availability_domain" {
