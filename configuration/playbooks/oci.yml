@@ -41,3 +41,15 @@
     - geerlingguy.firewall
     - geerlingguy.docker
     - singleplatform-eng.users
+
+  post_tasks:
+    - name: Ensure OpenSSH server service and socket are stopped and disabled
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - ssh.service
+        - ssh.socket
+      failed_when: false
+      when: not (ssh_server_enabled | default(true) | bool)

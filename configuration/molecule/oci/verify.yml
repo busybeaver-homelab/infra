@@ -1,6 +1,7 @@
 ---
 - name: Verify OCI Instance Configuration
   hosts: all
+  become: true
   gather_facts: false
   tasks:
     - name: Verify base packages are installed
@@ -23,3 +24,70 @@
       check_mode: true
       register: user_check
       failed_when: user_check.changed
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert OpenSSH service is not active
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['ssh.service']['state'] | default('stopped') != 'running'
+        fail_msg: "OpenSSH service (ssh.service) should not be active"
+
+    - name: Assert OpenSSH socket is not active
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['ssh.socket']['state'] | default('stopped') != 'running'
+        fail_msg: "OpenSSH socket (ssh.socket) should not be active"
+
+    - name: Check /etc/firewall.bash exists
+      ansible.builtin.stat:
+        path: /etc/firewall.bash
+      register: firewall_script
+
+    - name: Assert firewall script exists and is executable
+      ansible.builtin.assert:
+        that:
+          - firewall_script.stat.exists
+          - firewall_script.stat.executable
+        fail_msg: "/etc/firewall.bash does not exist or is not executable"
+
+    - name: Read iptables rules
+      ansible.builtin.command: iptables -S
+      register: iptables_rules
+      changed_when: false
+
+    - name: Assert iptables contains Tailscale UDP 41641 and tailscale0 interface rules
+      ansible.builtin.assert:
+        that:
+          - "'-p udp -m udp --dport 41641 -j ACCEPT' in iptables_rules.stdout"
+          - "'-i tailscale0 -j ACCEPT' in iptables_rules.stdout"
+          - "'--dport 22 -j ACCEPT' not in iptables_rules.stdout"
+        fail_msg: "Firewall rules do not match expected Tailscale and SSH restrictions"
+
+    - name: Load SOPS credentials for breakglass verification
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../../../secrets/credentials.ci.sops.yaml"
+      no_log: true
+
+    - name: Verify breakglass user exists in passwd database
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ oci.breakglass_user }}"
+      no_log: true
+
+    - name: Verify breakglass user has shadow entry
+      ansible.builtin.getent:
+        database: shadow
+        key: "{{ oci.breakglass_user }}"
+      no_log: true
+
+    - name: Assert breakglass user shadow entry is active SHA-512 hash matching SOPS
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.getent_shadow[oci.breakglass_user][0] is defined
+          - ansible_facts.getent_shadow[oci.breakglass_user][0].startswith('$6$')
+          - ansible_facts.getent_shadow[oci.breakglass_user][0] == oci.breakglass_password_hash
+        fail_msg: "Breakglass user password hash in /etc/shadow does not match expected SHA-512 hash"
+        quiet: true
+      no_log: true
