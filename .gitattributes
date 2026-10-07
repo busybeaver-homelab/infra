@@ -1,9 +1,12 @@
 # .gitattributes
-# SOPS diff driver — shows decrypted plaintext in `git diff` locally.
+# SOPS diff driver — shows decrypted plaintext in `git diff` locally for CI decoy secrets ONLY.
 # Requires: `git config diff.sops.textconv "sops --decrypt"` (run once, see secrets/README.md).
-*.sops.yaml    diff=sops merge=binary
-*.sops.yml     diff=sops merge=binary
-*.sops.json    diff=sops merge=binary
-*.ci.sops.yaml diff=sops merge=binary
-*.ci.sops.yml  diff=sops merge=binary
-*.ci.sops.json diff=sops merge=binary
+secrets/credentials.ci.sops.yaml diff=sops merge=binary
+
+# Production secrets MUST NOT use sops textconv to avoid leaking plaintext during git diff
+secrets/credentials.sops.yaml -diff merge=binary
+
+# Default binary merge for any other potential sops files without textconv diff
+*.sops.yaml merge=binary
+*.sops.yml  merge=binary
+*.sops.json merge=binary
