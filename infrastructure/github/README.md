@@ -54,10 +54,6 @@ See `variables.tf` for full descriptions. All variables are `sensitive = true`.
 | ---- | ------- |
 | <a name="provider_github"></a> [github](#provider\_github) | 6.12.1 |
 
-## Modules
-
-No modules.
-
 ## Resources
 
 | Name | Type |

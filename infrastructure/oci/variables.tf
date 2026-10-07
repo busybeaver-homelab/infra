@@ -86,14 +86,12 @@ variable "vcn_cidr" {
   type        = string
   description = "IPv4 CIDR block for the Virtual Cloud Network (VCN)."
   sensitive   = true
-  default     = "10.0.0.0/16"
 }
 
 variable "subnet_cidr" {
   type        = string
   description = "IPv4 CIDR block for the private compute subnet."
   sensitive   = true
-  default     = "10.0.1.0/24"
 }
 
 variable "tailscale_auth_key" {

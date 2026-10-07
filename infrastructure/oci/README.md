@@ -12,10 +12,6 @@
 | ---- | ------- |
 | <a name="provider_oci"></a> [oci](#provider\_oci) | 6.37.0 |
 
-## Modules
-
-No modules.
-
 ## Resources
 
 | Name | Type |
@@ -49,14 +45,14 @@ No modules.
 | <a name="input_region"></a> [region](#input\_region) | OCI region (e.g., eu-frankfurt-1). | `string` | `"eu-frankfurt-1"` | no |
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | SSH public key for emergency access to compute instances. | `string` | `""` | no |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF\_VAR\_state\_encryption\_passphrase environment variable. | `string` | `""` | no |
-| <a name="input_subnet_cidr"></a> [subnet\_cidr](#input\_subnet\_cidr) | IPv4 CIDR block for the private compute subnet. | `string` | `"10.0.1.0/24"` | no |
+| <a name="input_subnet_cidr"></a> [subnet\_cidr](#input\_subnet\_cidr) | IPv4 CIDR block for the private compute subnet. | `string` | n/a | yes |
 | <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input\_tailscale\_auth\_key) | Tailscale authentication key for instance bootstrapping. | `string` | `""` | no |
 | <a name="input_tailscale_common_tags"></a> [tailscale\_common\_tags](#input\_tailscale\_common\_tags) | Common Tailscale tags applied across all cloud instances. | `list(string)` | <pre>[<br/>  "tag:type-server",<br/>  "tag:os-linux",<br/>  "tag:hosting-cloud"<br/>]</pre> | no |
 | <a name="input_tailscale_extra_tags_oci"></a> [tailscale\_extra\_tags\_oci](#input\_tailscale\_extra\_tags\_oci) | OCI-specific Tailscale tags applied to OCI compute instances. | `list(string)` | <pre>[<br/>  "tag:location-ger",<br/>  "tag:env-oci"<br/>]</pre> | no |
 | <a name="input_tenancy_name"></a> [tenancy\_name](#input\_tenancy\_name) | Name of the tenancy used for prefixing globally unique resources like object storage buckets. | `string` | `"homelab"` | no |
 | <a name="input_tenancy_ocid"></a> [tenancy\_ocid](#input\_tenancy\_ocid) | OCID of the OCI tenancy. | `string` | n/a | yes |
 | <a name="input_user_ocid"></a> [user\_ocid](#input\_user\_ocid) | OCID of the OCI user for authentication. | `string` | n/a | yes |
-| <a name="input_vcn_cidr"></a> [vcn\_cidr](#input\_vcn\_cidr) | IPv4 CIDR block for the Virtual Cloud Network (VCN). | `string` | `"10.0.0.0/16"` | no |
+| <a name="input_vcn_cidr"></a> [vcn\_cidr](#input\_vcn\_cidr) | IPv4 CIDR block for the Virtual Cloud Network (VCN). | `string` | n/a | yes |
 
 ## Outputs
 
