@@ -23,6 +23,13 @@
 | [oci_core_instance.amd](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_instance) | resource |
 | [oci_core_instance.ampere](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_instance) | resource |
 | [oci_core_nat_gateway.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_nat_gateway) | resource |
+| [oci_core_network_security_group.homelab](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group) | resource |
+| [oci_core_network_security_group_security_rule.egress_dns_tcp](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule) | resource |
+| [oci_core_network_security_group_security_rule.egress_dns_udp](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule) | resource |
+| [oci_core_network_security_group_security_rule.egress_https](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule) | resource |
+| [oci_core_network_security_group_security_rule.egress_tailscale_wireguard](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule) | resource |
+| [oci_core_network_security_group_security_rule.ingress_admin_ssh](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule) | resource |
+| [oci_core_network_security_group_security_rule.ingress_tailscale_wireguard](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule) | resource |
 | [oci_core_route_table.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_route_table) | resource |
 | [oci_core_security_list.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_security_list) | resource |
 | [oci_core_subnet.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_subnet) | resource |
@@ -35,6 +42,7 @@
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_admin_cidr"></a> [admin\_cidr](#input\_admin\_cidr) | IPv4 CIDR block authorized for emergency SSH access (e.g. bastion, management subnet, or CGNAT). | `string` | `""` | no |
 | <a name="input_availability_domain"></a> [availability\_domain](#input\_availability\_domain) | Availability domain for compute instances. | `string` | `""` | no |
 | <a name="input_budget_alert_recipients"></a> [budget\_alert\_recipients](#input\_budget\_alert\_recipients) | Email address(es) to receive budget alert notifications (comma-separated). | `string` | `"admin@example.com"` | no |
 | <a name="input_budget_alert_threshold"></a> [budget\_alert\_threshold](#input\_budget\_alert\_threshold) | Percentage threshold of the budget amount to trigger alert notification. | `number` | `100` | no |

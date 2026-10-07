@@ -103,6 +103,13 @@ variable "ssh_public_key" {
   default     = ""
 }
 
+variable "admin_cidr" {
+  type        = string
+  description = "IPv4 CIDR block authorized for emergency SSH access (e.g. bastion, management subnet, or CGNAT)."
+  sensitive   = true
+  default     = ""
+}
+
 variable "tenancy_name" {
   type        = string
   description = "Name of the tenancy used for prefixing globally unique resources like object storage buckets."
