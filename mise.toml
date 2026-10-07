@@ -16,6 +16,7 @@ go             = "1.27"
 oxlint         = "1.84"
 oxfmt          = "0.71"
 shfmt          = "3.14"
+yq             = "4"
 
 
 [env]
