@@ -19,10 +19,13 @@ platforms:
 
 provisioner:
   name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: ../../..:~/.ansible/roles
   config_options:
     defaults:
       callbacks_enabled: profile_tasks
       remote_tmp: /tmp
+      roles_path: ../../..:~/.ansible/roles
 
 verifier:
   name: ansible
