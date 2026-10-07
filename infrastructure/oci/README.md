@@ -41,6 +41,7 @@ No modules.
 | <a name="input_budget_alert_threshold"></a> [budget\_alert\_threshold](#input\_budget\_alert\_threshold) | Percentage threshold of the budget amount to trigger alert notification. | `number` | `100` | no |
 | <a name="input_budget_amount"></a> [budget\_amount](#input\_budget\_amount) | Monthly spending limit in USD for the OCI budget (set to 1 for zero-spend monitoring). | `number` | `1` | no |
 | <a name="input_compartment_ocid"></a> [compartment\_ocid](#input\_compartment\_ocid) | OCID of the OCI compartment to deploy resources into. | `string` | n/a | yes |
+| <a name="input_default_freeform_tags"></a> [default\_freeform\_tags](#input\_default\_freeform\_tags) | Default freeform tags applied to all OCI resources. | `map(string)` | <pre>{<br/>  "project": "homelab"<br/>}</pre> | no |
 | <a name="input_fingerprint"></a> [fingerprint](#input\_fingerprint) | Fingerprint of the OCI API key. | `string` | n/a | yes |
 | <a name="input_instance_image_ocid_amd"></a> [instance\_image\_ocid\_amd](#input\_instance\_image\_ocid\_amd) | OCID of the Ubuntu Minimal OS image for AMD64 instances. | `string` | `""` | no |
 | <a name="input_instance_image_ocid_arm"></a> [instance\_image\_ocid\_arm](#input\_instance\_image\_ocid\_arm) | OCID of the Ubuntu Minimal OS image for ARM64 (Ampere) instances. | `string` | `""` | no |

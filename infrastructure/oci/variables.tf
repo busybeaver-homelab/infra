@@ -128,3 +128,11 @@ variable "tailscale_extra_tags_oci" {
   description = "OCI-specific Tailscale tags applied to OCI compute instances."
   default     = ["tag:location-ger", "tag:env-oci"]
 }
+
+variable "default_freeform_tags" {
+  type        = map(string)
+  description = "Default freeform tags applied to all OCI resources."
+  default = {
+    "project" = "homelab"
+  }
+}
