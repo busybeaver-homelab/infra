@@ -12,7 +12,6 @@
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_proxmox_api_endpoint"></a> [proxmox\_api\_endpoint](#input\_proxmox\_api\_endpoint) | The HTTPS API endpoint of the Proxmox VE server. | `string` | n/a | yes |
 | <a name="input_proxmox_api_token"></a> [proxmox\_api\_token](#input\_proxmox\_api\_token) | The Proxmox API token (username@realm!tokenid=secret). | `string` | n/a | yes |
-| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF\_VAR\_state\_encryption\_passphrase environment variable. | `string` | n/a | yes |
 
 ## Outputs
 
