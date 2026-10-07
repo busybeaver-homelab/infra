@@ -8,6 +8,7 @@ resource "oci_budget_budget" "zero_spend" {
   targets        = [var.compartment_ocid]
   display_name   = "zero-spend-monthly-budget"
   description    = "Enforce zero/minimal spend limit for Always Free resources"
+  freeform_tags  = var.default_freeform_tags
 }
 
 resource "oci_budget_alert_rule" "threshold_alert" {
@@ -27,18 +28,21 @@ resource "oci_core_vcn" "main" {
   cidr_blocks    = [var.vcn_cidr]
   display_name   = "homelab-vcn"
   dns_label      = "homelab"
+  freeform_tags  = var.default_freeform_tags
 }
 
 resource "oci_core_nat_gateway" "main" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
   display_name   = "homelab-nat-gateway"
+  freeform_tags  = var.default_freeform_tags
 }
 
 resource "oci_core_route_table" "private" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
   display_name   = "homelab-private-rt"
+  freeform_tags  = var.default_freeform_tags
 
   route_rules {
     destination       = "0.0.0.0/0"
@@ -52,6 +56,7 @@ resource "oci_core_security_list" "private" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
   display_name   = "homelab-private-sl"
+  freeform_tags  = var.default_freeform_tags
 
   egress_security_rules {
     destination = "0.0.0.0/0"
@@ -75,6 +80,7 @@ resource "oci_core_subnet" "private" {
   prohibit_public_ip_on_vnic = true
   route_table_id             = oci_core_route_table.private.id
   security_list_ids          = [oci_core_security_list.private.id]
+  freeform_tags              = var.default_freeform_tags
 }
 
 # --- Compute Instances (Always Free Tier) ---
@@ -90,6 +96,7 @@ resource "oci_core_instance" "amd" {
   compartment_id      = var.compartment_ocid
   display_name        = "oci-amd-${count.index + 1}"
   shape               = "VM.Standard.E2.1.Micro"
+  freeform_tags       = var.default_freeform_tags
 
   create_vnic_details {
     subnet_id        = oci_core_subnet.private.id
@@ -120,6 +127,7 @@ resource "oci_core_instance" "ampere" {
   compartment_id      = var.compartment_ocid
   display_name        = "oci-arm-1"
   shape               = "VM.Standard.A1.Flex"
+  freeform_tags       = var.default_freeform_tags
 
   shape_config {
     ocpus         = 4
@@ -163,9 +171,10 @@ resource "oci_objectstorage_bucket" "backups" {
   access_type    = "NoPublicAccess"
   versioning     = "Disabled"
 
-  freeform_tags = {
+  freeform_tags = merge(var.default_freeform_tags, {
     "Environment" = "Production"
     "Role"        = "Backup"
-  }
+  })
 }
+
 

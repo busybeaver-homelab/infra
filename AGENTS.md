@@ -33,6 +33,7 @@ Keep declarative infrastructure well-structured and secure:
 - **Ambiguous Sensitivity:** All variables and outputs that deal with state, domain names, network IDs, or credentials must default to `sensitive = true`.
 - **TFLint & Formats:** Always run `tofu fmt` and `tflint` locally before completing a task. Never commit unformatted `.tf` code.
 - **Always Free Tier Hard Gate:** All cloud infrastructure must strictly use the Always Free Tier. If resources will be used/added that are not in the always free tier, this is a hard gate that must be explicitly approved first by the user.
+- **Mandatory Resource Tagging:** All cloud resources across all providers must be tagged/labeled with `project = "homelab"` (e.g., via `freeform_tags` in OCI, `labels` in GCP, or `tags` in Azure). For resources requiring additional resource-specific tags, default tags must be merged using `merge(var.default_freeform_tags, { ... })` (or provider equivalent) so that `project = "homelab"` is never omitted.
 
 ---
 

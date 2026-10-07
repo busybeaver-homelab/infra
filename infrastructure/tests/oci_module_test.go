@@ -79,3 +79,35 @@ func TestOCICloudInitTemplateStructure(t *testing.T) {
 	assert.Contains(t, cloudInitStr, "--authkey=\"${tailscale_auth_key}\"")
 	assert.Contains(t, cloudInitStr, "--hostname=\"${hostname}\"")
 }
+
+// TestOCIModuleValidatesWithCustomDefaultTags verifies that the OCI module accepts
+// and validates a custom default_freeform_tags map variable.
+func TestOCIModuleValidatesWithCustomDefaultTags(t *testing.T) {
+	t.Parallel()
+
+	opts := &terraform.Options{
+		TerraformDir:    "../oci",
+		TerraformBinary: "tofu",
+		Vars: map[string]interface{}{
+			"tenancy_ocid":                "ocid1.tenancy.oc1..dummy",
+			"user_ocid":                   "ocid1.user.oc1..dummy",
+			"fingerprint":                 "ci-dummy-fingerprint",
+			"private_key":                 "ci-dummy-private-key",
+			"region":                      "eu-frankfurt-1",
+			"compartment_ocid":            "ocid1.compartment.oc1..dummy",
+			"state_encryption_passphrase": "ci-dummy-passphrase-for-validation-only",
+			"default_freeform_tags": map[string]string{
+				"project": "custom-homelab",
+				"env":     "ci",
+			},
+		},
+		EnvVars: map[string]string{
+			"TF_VAR_state_encryption_passphrase": "ci-dummy-passphrase-for-validation-only",
+		},
+		NoColor: true,
+	}
+
+	terraform.RunTerraformCommand(t, opts, "init", "-backend=false", "-no-color")
+	terraform.Validate(t, opts)
+	assert.NotNil(t, opts)
+}
