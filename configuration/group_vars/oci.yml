@@ -14,8 +14,27 @@ firewall_ip6_additional_rules:
   # Allow all incoming IPv6 traffic on Tailscale WireGuard overlay interface
   - "ip6tables -A INPUT -i tailscale0 -j ACCEPT"
 
-# SSH Hardening (dev-sec.ssh-hardening)
-# Completely disable OpenSSH server daemon; Tailscale SSH handles all incoming SSH.
+# SSH Configuration & Hardening (dev-sec.ssh-hardening)
+# 1. ssh_server_enabled: false
+#    - OpenSSH server daemon (sshd) and socket are completely stopped, disabled, and blocked
+#      at the firewall (port 22 closed) to reduce the attack surface to zero listening OpenSSH ports.
+#    - Primary administrative access is handled exclusively by Tailscale SSH running inside the
+#      tailscaled daemon over the encrypted WireGuard overlay interface (tailscale0).
+#    - Emergency break-glass access is out-of-band via OCI Cloud Shell / Web Serial Console
+#      (direct TTY login with break-glass credentials), completely independent of SSH network daemons.
+# 2. ssh_server_hardening: false
+#    - Tailscale SSH implements its own self-contained SSH server in Go and does not read /etc/ssh/sshd_config.
+#    - Since OpenSSH server is stopped and disabled, generating a hardened /etc/ssh/sshd_config is inert.
+#    - Leaving server hardening enabled would enforce 'PasswordAuthentication no' in sshd_config,
+#      which would lockout password authentication if an operator ever temporarily starts sshd
+#      during out-of-band recovery.
+#    - Avoids template parser incompatibilities between Ansible Core 2.21+ strict literal parsing
+#      and legacy dev-sec.ssh-hardening templates (trim_blocks: "true").
+# 3. ssh_client_hardening: false
+#    - Modern Ubuntu 26.04 LTS already ships with OpenSSH 9.6+ and system crypto policies that disable
+#      legacy/insecure ciphers (3DES, RC4, Blowfish, DSA) out of the box for outbound connections.
+#    - Avoids identical template parser incompatibilities in dev-sec.ssh-hardening client templates
+#      while keeping client configuration clean, minimal, and native to Ubuntu 26.04.
 ssh_server_enabled: false
 ssh_server_hardening: false
 ssh_client_hardening: false
