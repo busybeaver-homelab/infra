@@ -65,7 +65,7 @@ func TestOCIModuleValidatesWithCustomTailscaleTags(t *testing.T) {
 }
 
 // TestOCICloudInitTemplateStructure verifies that cloud-init.yaml contains the required
-// Tailscale bootstrap command structure and the --advertise-tags parameter.
+// Tailscale bootstrap command structure, official signed repository, and the --advertise-tags parameter.
 func TestOCICloudInitTemplateStructure(t *testing.T) {
 	t.Parallel()
 
@@ -76,6 +76,10 @@ func TestOCICloudInitTemplateStructure(t *testing.T) {
 	assert.Contains(t, cloudInitStr, "--advertise-tags=\"${tailscale_tags}\"")
 	assert.Contains(t, cloudInitStr, "--authkey=\"${tailscale_auth_key}\"")
 	assert.Contains(t, cloudInitStr, "--hostname=\"${hostname}\"")
+	assert.Contains(t, cloudInitStr, "signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg")
+	assert.Contains(t, cloudInitStr, "https://pkgs.tailscale.com/stable/ubuntu jammy main")
+	assert.NotContains(t, cloudInitStr, "tailscale.com/install.sh")
+	assert.NotContains(t, cloudInitStr, "--ephemeral")
 }
 
 // TestOCIModuleValidatesWithCustomDefaultTags verifies that the OCI module accepts
