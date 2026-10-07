@@ -4,7 +4,7 @@ creation_rules:
   - path_regex: ^secrets/credentials\.ci\.sops\.ya?ml$
     key_groups:
       - age:
-          - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v # CI Decoy Public Key
+          - age1e0pws4km4hd9ecasjlscn9d5kzsz69fuxdn5udf57wgktjz3jcnsjz8gvr # CI Decoy Public Key
 
   # 2. Rules for Admin/Production secrets (evaluated second)
   - path_regex: ^secrets/credentials\.sops\.ya?ml$

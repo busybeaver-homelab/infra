@@ -13,8 +13,8 @@ Below are the **decoy age keys** generated for CI/CD testing, local evaluation, 
 
 ### CI/CD Environment Key (Decoy CI Actions)
 
-- **Public Key:** `age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v`
-- **Private Key:** `AGE-SECRET-KEY-REDACTED-LEAKED-AGE-KEY`
+- **Public Key:** `age1e0pws4km4hd9ecasjlscn9d5kzsz69fuxdn5udf57wgktjz3jcnsjz8gvr`
+- **Private Key:** Generated locally at `~/.config/sops/age/keys.txt` and injected via GitHub Actions secret `SOPS_AGE_KEY`. Plaintext keys are strictly forbidden in this repository.
 
 ---
 
@@ -53,9 +53,9 @@ To run automated checks (like Ansible syntax tests or OpenTofu validations) agai
 2. Click **New repository secret**.
 3. Configure the secret:
    - **Name:** `SOPS_AGE_KEY`
-   - **Secret:** _(Paste the private key)_
+   - **Secret:** _(Paste the private key from `~/.config/sops/age/keys.txt`)_
      ```text
-     AGE-SECRET-KEY-REDACTED-LEAKED-AGE-KEY
+     <paste-contents-of-~/.config/sops/age/keys.txt>
      ```
 
 ### Step 2: Use the Secret in GitHub Actions Workflow
