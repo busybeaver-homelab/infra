@@ -1,0 +1,36 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  become: true
+  pre_tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure test directory exists in backup path
+      ansible.builtin.file:
+        path: /opt/containers/web
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create test file for backup verification
+      ansible.builtin.copy:
+        content: "test file for encrypted restic backup\n"
+        dest: /opt/containers/web/docker-compose.yml
+        owner: root
+        group: root
+        mode: "0644"
+
+  vars:
+    restic_backup_repository: "/var/cache/restic/test-repo"
+    restic_backup_password: "test-encryption-password-molecule!"
+    restic_backup_paths:
+      - "/etc"
+      - "/opt/containers"
+
+  roles:
+    - role: restic_backup

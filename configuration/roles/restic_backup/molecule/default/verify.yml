@@ -1,0 +1,86 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Verify restic package is installed
+      ansible.builtin.package:
+        name: restic
+        state: present
+      check_mode: true
+      register: restic_backup_pkg_check
+      failed_when: restic_backup_pkg_check.changed
+
+    - name: Verify restic binary execution
+      ansible.builtin.command: restic version
+      register: restic_backup_binary_version
+      changed_when: false
+      failed_when: "'restic' not in restic_backup_binary_version.stdout"
+
+    - name: Stat restic config directory
+      ansible.builtin.stat:
+        path: /etc/restic
+      register: restic_backup_dir_stat
+
+    - name: Assert restic config directory permissions
+      ansible.builtin.assert:
+        that:
+          - restic_backup_dir_stat.stat.exists
+          - restic_backup_dir_stat.stat.mode == '0700'
+          - restic_backup_dir_stat.stat.pw_name == 'root'
+
+    - name: Stat restic backup.env
+      ansible.builtin.stat:
+        path: /etc/restic/backup.env
+      register: restic_backup_env_stat
+
+    - name: Assert backup.env permissions and ownership
+      ansible.builtin.assert:
+        that:
+          - restic_backup_env_stat.stat.exists
+          - restic_backup_env_stat.stat.mode == '0600'
+          - restic_backup_env_stat.stat.pw_name == 'root'
+          - restic_backup_env_stat.stat.gr_name == 'root'
+
+    - name: Stat runner script
+      ansible.builtin.stat:
+        path: /usr/local/sbin/restic-backup-runner.sh
+      register: restic_backup_runner_stat
+
+    - name: Assert runner script permissions
+      ansible.builtin.assert:
+        that:
+          - restic_backup_runner_stat.stat.exists
+          - restic_backup_runner_stat.stat.mode == '0750'
+          - restic_backup_runner_stat.stat.pw_name == 'root'
+
+    - name: Verify restic-backup.timer is started and enabled
+      ansible.builtin.systemd_service:
+        name: restic-backup.timer
+        state: started
+        enabled: true
+      check_mode: true
+      register: restic_backup_timer_stat
+      failed_when: restic_backup_timer_stat.changed
+
+    - name: Verify systemd unit configurations
+      ansible.builtin.command: systemd-analyze verify /etc/systemd/system/restic-backup.service /etc/systemd/system/restic-backup.timer
+      changed_when: false
+
+    - name: Execute restic backup runner script
+      ansible.builtin.command: /usr/local/sbin/restic-backup-runner.sh
+      changed_when: false
+
+    - name: Verify restic snapshot was recorded
+      ansible.builtin.command: restic snapshots
+      environment:
+        RESTIC_REPOSITORY: "/var/cache/restic/test-repo"
+        RESTIC_PASSWORD: "test-encryption-password-molecule!"
+      register: restic_backup_snapshots_stat
+      changed_when: false
+
+    - name: Assert snapshot contains scheduled tag
+      ansible.builtin.assert:
+        that:
+          - "'scheduled' in restic_backup_snapshots_stat.stdout"

@@ -109,3 +109,10 @@ variable "ssh_public_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "tenancy_name" {
+  type        = string
+  description = "Name of the tenancy used for prefixing globally unique resources like object storage buckets."
+  sensitive   = true
+  default     = "homelab"
+}

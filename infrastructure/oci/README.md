@@ -29,6 +29,8 @@ No modules.
 | [oci_core_security_list.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_security_list) | resource |
 | [oci_core_subnet.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_subnet) | resource |
 | [oci_core_vcn.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_vcn) | resource |
+| [oci_objectstorage_bucket.backups](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/objectstorage_bucket) | resource |
+| [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/data-sources/objectstorage_namespace) | data source |
 
 ## Inputs
 
@@ -48,6 +50,7 @@ No modules.
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF\_VAR\_state\_encryption\_passphrase environment variable. | `string` | `""` | no |
 | <a name="input_subnet_cidr"></a> [subnet\_cidr](#input\_subnet\_cidr) | IPv4 CIDR block for the private compute subnet. | `string` | `"10.0.1.0/24"` | no |
 | <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input\_tailscale\_auth\_key) | Tailscale authentication key for instance bootstrapping. | `string` | `""` | no |
+| <a name="input_tenancy_name"></a> [tenancy\_name](#input\_tenancy\_name) | Name of the tenancy used for prefixing globally unique resources like object storage buckets. | `string` | `"homelab"` | no |
 | <a name="input_tenancy_ocid"></a> [tenancy\_ocid](#input\_tenancy\_ocid) | OCID of the OCI tenancy. | `string` | n/a | yes |
 | <a name="input_user_ocid"></a> [user\_ocid](#input\_user\_ocid) | OCID of the OCI user for authentication. | `string` | n/a | yes |
 | <a name="input_vcn_cidr"></a> [vcn\_cidr](#input\_vcn\_cidr) | IPv4 CIDR block for the Virtual Cloud Network (VCN). | `string` | `"10.0.0.0/16"` | no |
@@ -60,6 +63,8 @@ No modules.
 | <a name="output_amd_private_ips"></a> [amd\_private\_ips](#output\_amd\_private\_ips) | Private IP addresses of the AMD compute instances. |
 | <a name="output_arm_instance_id"></a> [arm\_instance\_id](#output\_arm\_instance\_id) | OCID of the Ampere A1 compute instance. |
 | <a name="output_arm_private_ip"></a> [arm\_private\_ip](#output\_arm\_private\_ip) | Private IP address of the Ampere A1 compute instance. |
+| <a name="output_backup_bucket_name"></a> [backup\_bucket\_name](#output\_backup\_bucket\_name) | Name of the OCI Object Storage bucket for instance backups. |
+| <a name="output_backup_s3_endpoint"></a> [backup\_s3\_endpoint](#output\_backup\_s3\_endpoint) | S3 compatibility endpoint URL for Restic backups. |
 | <a name="output_budget_id"></a> [budget\_id](#output\_budget\_id) | OCID of the zero-spend monthly budget. |
 | <a name="output_nat_gateway_id"></a> [nat\_gateway\_id](#output\_nat\_gateway\_id) | OCID of the NAT gateway. |
 | <a name="output_subnet_id"></a> [subnet\_id](#output\_subnet\_id) | OCID of the private compute subnet. |

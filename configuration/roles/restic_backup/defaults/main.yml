@@ -1,0 +1,46 @@
+---
+# Defaults for restic_backup role
+
+# Repository & Authentication Credentials (override via inventory/group_vars/SOPS)
+restic_backup_repository: ""
+restic_backup_s3_access_key: ""
+restic_backup_s3_secret_key: ""
+restic_backup_password: ""
+
+# Directories and paths to include in the backup
+restic_backup_paths:
+  - "/etc"
+  - "/root"
+  - "/usr/local/etc"
+  - "/opt/containers"
+
+# Exclusion patterns
+restic_backup_excludes:
+  - "*.log"
+  - "*.log.*"
+  - "*.tmp"
+  - "*.temp"
+  - "*.bak"
+  - "*.swp"
+  - "*~"
+  - ".cache/"
+  - "cache/"
+  - "tmp/"
+  - "lost+found/"
+  - "/var/run/docker.sock"
+  - "*.pid"
+
+# Retention policy
+restic_backup_keep_daily: 3
+restic_backup_keep_weekly: 1
+restic_backup_keep_monthly: 0
+
+# Systemd timer schedule
+restic_backup_schedule_calendar: "*-*-* 03:00:00 UTC"
+restic_backup_random_delay_sec: 1800
+
+# Directory paths on the target host
+restic_backup_cache_dir: "/var/cache/restic"
+restic_backup_log_dir: "/var/log/restic"
+restic_backup_config_dir: "/etc/restic"
+restic_backup_runner_script_path: "/usr/local/sbin/restic-backup-runner.sh"

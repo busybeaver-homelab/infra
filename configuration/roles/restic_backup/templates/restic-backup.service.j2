@@ -1,0 +1,35 @@
+[Unit]
+Description=Encrypted Nightly Restic Backup
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile={{ restic_backup_config_dir }}/backup.env
+ExecStart={{ restic_backup_runner_script_path }}
+
+# --- Process & Security Hardening ---
+User=root
+Group=root
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+MemoryDenyWriteExecute=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# Explicit read-write filesystem paths
+ReadWritePaths={{ restic_backup_cache_dir }} {{ restic_backup_log_dir }} /tmp
+# Read-only filesystem paths
+ReadOnlyPaths={% for p in restic_backup_paths %}-{{ p }} {% endfor %}
+
+# Resource Priority
+Nice=19
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

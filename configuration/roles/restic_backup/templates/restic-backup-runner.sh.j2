@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Managed by Ansible - do not edit manually
+set -euo pipefail
+
+# Ensure environment variables are loaded
+if [ -f "{{ restic_backup_config_dir }}/backup.env" ]; then
+  # shellcheck source=/dev/null
+  set -a
+  source "{{ restic_backup_config_dir }}/backup.env"
+  set +a
+fi
+
+echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Starting restic backup procedure..."
+
+# Execute post-hooks on exit (even on failure)
+run_post_hooks() {
+  local exit_code=$?
+  if [ -d "{{ restic_backup_config_dir }}/hooks.d/post.d" ] && [ -n "$(ls -A "{{ restic_backup_config_dir }}/hooks.d/post.d" 2>/dev/null)" ]; then
+    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Executing post-backup hooks..."
+    run-parts --regex='.*' "{{ restic_backup_config_dir }}/hooks.d/post.d" || true
+  fi
+  exit "$exit_code"
+}
+trap run_post_hooks EXIT
+
+# Execute pre-hooks
+if [ -d "{{ restic_backup_config_dir }}/hooks.d/pre.d" ] && [ -n "$(ls -A "{{ restic_backup_config_dir }}/hooks.d/pre.d" 2>/dev/null)" ]; then
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Executing pre-backup hooks..."
+  run-parts --regex='.*' "{{ restic_backup_config_dir }}/hooks.d/pre.d"
+fi
+
+# Initialize repository if not already initialized
+echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Checking repository status..."
+if ! restic snapshots >/dev/null 2>&1; then
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Initializing new restic repository..."
+  restic init
+fi
+
+# Collect existing paths to backup
+BACKUP_PATHS=()
+for path in {% for path in restic_backup_paths %}"{{ path }}" {% endfor %}; do
+  if [ -e "$path" ]; then
+    BACKUP_PATHS+=("$path")
+  else
+    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Warning: Backup path $path does not exist, skipping..."
+  fi
+done
+
+if [ {{ '${#' }}BACKUP_PATHS[@]} -eq 0 ]; then
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: No backup paths exist to back up."
+  exit 1
+fi
+
+# Run backup
+echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running restic backup..."
+restic backup \
+  --exclude-file="{{ restic_backup_config_dir }}/excludes.txt" \
+  --tag "scheduled" \
+  "${BACKUP_PATHS[@]}"
+
+# Prune snapshots according to retention policy
+echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Applying snapshot retention policy..."
+restic forget \
+  --keep-daily "{{ restic_backup_keep_daily }}" \
+  --keep-weekly "{{ restic_backup_keep_weekly }}" \
+{% if restic_backup_keep_monthly > 0 %}
+  --keep-monthly "{{ restic_backup_keep_monthly }}" \
+{% endif %}
+  --prune
+
+# Perform integrity check on data subset
+echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running subset integrity check..."
+restic check --read-data-subset=1%
+
+echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Backup completed successfully."

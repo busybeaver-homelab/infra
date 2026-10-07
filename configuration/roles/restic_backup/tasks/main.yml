@@ -1,0 +1,85 @@
+---
+# Tasks for restic_backup role
+
+- name: Install restic package
+  ansible.builtin.apt:
+    name: restic
+    state: present
+    update_cache: false
+  become: true
+
+- name: Create restic configuration and state directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ restic_backup_config_dir }}", mode: "0700" }
+    - { path: "{{ restic_backup_config_dir }}/hooks.d", mode: "0750" }
+    - { path: "{{ restic_backup_config_dir }}/hooks.d/pre.d", mode: "0750" }
+    - { path: "{{ restic_backup_config_dir }}/hooks.d/post.d", mode: "0750" }
+    - { path: "{{ restic_backup_cache_dir }}", mode: "0700" }
+    - { path: "{{ restic_backup_log_dir }}", mode: "0750" }
+    - { path: "/opt/containers", mode: "0755" }
+  become: true
+
+- name: Deploy restic backup environment file
+  ansible.builtin.template:
+    src: backup.env.j2
+    dest: "{{ restic_backup_config_dir }}/backup.env"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+
+- name: Deploy restic backup exclusion patterns
+  ansible.builtin.template:
+    src: excludes.txt.j2
+    dest: "{{ restic_backup_config_dir }}/excludes.txt"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Deploy restic backup runner script
+  ansible.builtin.template:
+    src: restic-backup-runner.sh.j2
+    dest: "{{ restic_backup_runner_script_path }}"
+    owner: root
+    group: root
+    mode: "0750"
+  become: true
+
+- name: Deploy restic backup systemd service unit
+  ansible.builtin.template:
+    src: restic-backup.service.j2
+    dest: /etc/systemd/system/restic-backup.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd daemon
+  become: true
+
+- name: Deploy restic backup systemd timer unit
+  ansible.builtin.template:
+    src: restic-backup.timer.j2
+    dest: /etc/systemd/system/restic-backup.timer
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd daemon
+    - Restart restic backup timer
+  become: true
+
+- name: Flush handlers to ensure systemd is reloaded
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure restic-backup timer is enabled and started
+  ansible.builtin.systemd:
+    name: restic-backup.timer
+    enabled: true
+    state: started
+  become: true
