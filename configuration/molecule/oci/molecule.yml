@@ -22,7 +22,7 @@ provisioner:
   name: ansible
   env:
     ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles"
-    SOPS_AGE_KEY: "AGE-SECRET-KEY-17PR87XDZLMHYWLR542HNRFPWV53GWRHA0TQ904YJ2850Q3333TSSULL055"
+    SOPS_AGE_KEY_FILE: "${HOME}/.config/sops/age/keys.txt"
   config_options:
     defaults:
       callbacks_enabled: profile_tasks
@@ -36,4 +36,4 @@ verifier:
   name: ansible
   env:
     ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles"
-    SOPS_AGE_KEY: "AGE-SECRET-KEY-17PR87XDZLMHYWLR542HNRFPWV53GWRHA0TQ904YJ2850Q3333TSSULL055"
+    SOPS_AGE_KEY_FILE: "${HOME}/.config/sops/age/keys.txt"
