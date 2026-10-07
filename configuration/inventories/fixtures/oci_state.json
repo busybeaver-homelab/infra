@@ -1,0 +1,85 @@
+{
+  "version": 4,
+  "terraform_version": "1.9.0",
+  "serial": 1,
+  "lineage": "b7d6a5c4-1234-5678-9abc-def012345678",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "oci_core_instance",
+      "name": "amd",
+      "provider": "provider[\"registry.terraform.io/oracle/oci\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "id": "ocid1.instance.oc1.eu-frankfurt-1.dummyamd1",
+            "display_name": "oci-amd-1",
+            "shape": "VM.Standard.E2.1.Micro",
+            "availability_domain": "dummy-ad-1",
+            "compartment_id": "ocid1.compartment.oc1..dummy",
+            "private_ip": "198.51.100.10",
+            "public_ip": "",
+            "freeform_tags": {
+              "project": "homelab",
+              "role": "compute",
+              "env": "production"
+            },
+            "state": "RUNNING"
+          },
+          "sensitive_attributes": []
+        },
+        {
+          "index_key": 1,
+          "schema_version": 0,
+          "attributes": {
+            "id": "ocid1.instance.oc1.eu-frankfurt-1.dummyamd2",
+            "display_name": "oci-amd-2",
+            "shape": "VM.Standard.E2.1.Micro",
+            "availability_domain": "dummy-ad-1",
+            "compartment_id": "ocid1.compartment.oc1..dummy",
+            "private_ip": "198.51.100.11",
+            "public_ip": "",
+            "freeform_tags": {
+              "project": "homelab",
+              "role": "compute",
+              "env": "production"
+            },
+            "state": "RUNNING"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "oci_core_instance",
+      "name": "ampere",
+      "provider": "provider[\"registry.terraform.io/oracle/oci\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "ocid1.instance.oc1.eu-frankfurt-1.dummyarm1",
+            "display_name": "oci-arm-1",
+            "shape": "VM.Standard.A1.Flex",
+            "availability_domain": "dummy-ad-1",
+            "compartment_id": "ocid1.compartment.oc1..dummy",
+            "private_ip": "198.51.100.12",
+            "public_ip": "",
+            "freeform_tags": {
+              "project": "homelab",
+              "role": "server",
+              "env": "production"
+            },
+            "state": "RUNNING"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}

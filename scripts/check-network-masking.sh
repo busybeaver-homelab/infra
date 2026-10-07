@@ -74,6 +74,7 @@ for file in "${targets[@]}"; do
   if [[ "$normalized_file" == .agents/* ]] || [[ "$normalized_file" == */.agents/* ]] ||
     [[ "$normalized_file" == .agent/* ]] || [[ "$normalized_file" == */.agent/* ]] ||
     [[ "$normalized_file" == tests/fixtures/* ]] || [[ "$normalized_file" == */tests/fixtures/* ]] ||
+    [[ "$normalized_file" == */fixtures/* ]] ||
     [[ "$normalized_file" == docs/plans/* ]] || [[ "$normalized_file" == */docs/plans/* ]]; then
     continue
   fi

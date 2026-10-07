@@ -325,6 +325,12 @@ jobs:
       - name: Run ansible-lint
         run: mise exec -- ansible-lint configuration/
 
+      - name: Test Dynamic Ansible Inventory parsing
+        run: |
+          cp configuration/inventories/fixtures/oci_state.json /tmp/homelab_test_oci_state.json
+          mise exec -- ansible-inventory -i configuration/inventories/test.terraform_state.yml --graph
+          mise exec -- ansible-inventory -i configuration/inventories/test.terraform_state.yml --host oci-amd-1
+
       - name: Syntax check all playbooks
         run: |
           mise exec -- ansible-playbook --syntax-check \

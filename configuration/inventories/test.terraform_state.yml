@@ -1,0 +1,25 @@
+---
+# Test Inventory Configuration for validating OpenTofu state parsing with cloud.terraform
+plugin: cloud.terraform.terraform_state
+binary_path: tofu
+
+backend_type: local
+backend_config:
+  path: "/tmp/homelab_test_oci_state.json"
+
+provider_mapping:
+  - provider_name: registry.terraform.io/oracle/oci
+    types:
+      - oci_core_instance
+
+hostnames:
+  - display_name
+  - id
+
+compose:
+  ansible_host: display_name ~ '.homelab.ts.net'
+  tailscale_ip: private_ip
+
+keyed_groups:
+  - prefix: tag
+    key: freeform_tags
