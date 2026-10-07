@@ -116,3 +116,15 @@ variable "tenancy_name" {
   sensitive   = true
   default     = "homelab"
 }
+
+variable "tailscale_common_tags" {
+  type        = list(string)
+  description = "Common Tailscale tags applied across all cloud instances."
+  default     = ["tag:type-server", "tag:os-linux", "tag:hosting-cloud"]
+}
+
+variable "tailscale_extra_tags_oci" {
+  type        = list(string)
+  description = "OCI-specific Tailscale tags applied to OCI compute instances."
+  default     = ["tag:location-ger", "tag:env-oci"]
+}

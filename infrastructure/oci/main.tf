@@ -79,6 +79,10 @@ resource "oci_core_subnet" "private" {
 
 # --- Compute Instances (Always Free Tier) ---
 
+locals {
+  tailscale_tags = join(",", concat(var.tailscale_common_tags, var.tailscale_extra_tags_oci))
+}
+
 # 2x AMD Compute Instances (VM.Standard.E2.1.Micro)
 resource "oci_core_instance" "amd" {
   count               = 2
@@ -105,6 +109,7 @@ resource "oci_core_instance" "amd" {
     user_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
       tailscale_auth_key = var.tailscale_auth_key
       hostname           = "oci-amd-${count.index + 1}"
+      tailscale_tags     = local.tailscale_tags
     }))
   }
 }
@@ -139,6 +144,7 @@ resource "oci_core_instance" "ampere" {
     user_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
       tailscale_auth_key = var.tailscale_auth_key
       hostname           = "oci-arm-1"
+      tailscale_tags     = local.tailscale_tags
     }))
   }
 }

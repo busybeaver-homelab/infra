@@ -7,4 +7,4 @@ packages:
 
 runcmd:
   - curl -fsSL https://tailscale.com/install.sh | sh
-  - tailscale up --authkey="${tailscale_auth_key}" --ssh --hostname="${hostname}"
+  - tailscale up --authkey="${tailscale_auth_key}" --ssh --hostname="${hostname}" --advertise-tags="${tailscale_tags}"
