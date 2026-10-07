@@ -4,15 +4,18 @@
   become: true
   pre_tasks:
     - name: Load SOPS credentials
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../../secrets/{{ custom_sops_secrets_file | default('credentials.sops.yaml') }}"
       when: oci is not defined
-      block:
-        - name: Load production SOPS credentials
-          community.sops.load_vars:
-            file: "{{ playbook_dir }}/../../secrets/credentials.sops.yaml"
-      rescue:
-        - name: Fallback to CI decoy SOPS credentials
-          community.sops.load_vars:
-            file: "{{ playbook_dir }}/../../secrets/credentials.ci.sops.yaml"
+
+    - name: Validate environment sentinel
+      ansible.builtin.assert:
+        that:
+          - (is_production | default(false) | bool) or (is_ci_environment | default(false) | bool)
+        fail_msg: >-
+          Refusing to execute playbook: Loaded secrets file does not have is_production: true,
+          and is_ci_environment is not set to true. Verify credentials and decryption keys.
+        success_msg: "Environment sentinel verified successfully."
 
     - name: Ensure breakglass user exists with active shadow password
       ansible.builtin.user:
