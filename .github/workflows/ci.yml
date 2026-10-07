@@ -1,0 +1,448 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * 1" # Every Monday at 03:00 UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect Changed Paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      lint: ${{ steps.filter.outputs.lint }}
+      shell: ${{ steps.filter.outputs.shell }}
+      tofu: ${{ steps.filter.outputs.tofu }}
+      ansible: ${{ steps.filter.outputs.ansible }}
+      molecule: ${{ steps.filter.outputs.molecule }}
+      apps: ${{ steps.filter.outputs.apps }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Detect Changed Paths
+        id: filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            lint:
+              - '**/*.{yml,yaml,json,md,py,sh,tf,hcl}'
+              - '.tflint.hcl'
+              - 'lefthook.yml'
+              - 'mise.toml'
+              - 'mise.lock'
+              - 'uv.lock'
+              - '.github/**'
+            shell:
+              - 'scripts/**'
+              - 'tests/scripts/**'
+              - '.github/workflows/ci.yml'
+            tofu:
+              - 'infrastructure/**'
+              - '.github/workflows/ci.yml'
+              - 'apps/**'
+            ansible:
+              - 'configuration/**'
+              - 'secrets/credentials.ci.sops.yaml'
+              - '.github/workflows/ci.yml'
+            molecule:
+              - 'configuration/**'
+              - 'secrets/credentials.ci.sops.yaml'
+              - '.github/workflows/ci.yml'
+            apps:
+              - 'apps/**'
+              - '.github/workflows/ci.yml'
+
+  security-scan:
+    name: Security Scan (Zizmor & Trivy)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Mise
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+        with:
+          cache: true
+
+      - name: Run Zizmor Workflow Security Audit
+        run: |
+          mise exec -- uvx zizmor --format sarif . > zizmor.sarif
+        continue-on-error: true
+
+      - name: Upload Zizmor SARIF
+        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d # v3.28.10
+        if: always()
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
+        continue-on-error: true
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@18f259c5e261ebd1660144983293406f5c128cb5 # v0.28.0
+        with:
+          scan-type: "fs"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          exit-code: "0"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d # v3.28.10
+        if: always()
+        with:
+          sarif_file: "trivy-results.sarif"
+          category: "trivy"
+        continue-on-error: true
+
+  lint-format:
+    name: Code Quality and Lint Checks
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.lint == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Mise
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+        with:
+          cache: true
+
+      - name: Setup environment dependencies
+        run: mise exec -- uv sync --locked
+
+      - name: Run Lefthook Linters
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Pull request detected. Fetching base branch for comparison..."
+            git fetch origin "${BASE_REF}" --depth=1
+            echo "Running Lefthook on changed files..."
+            git diff --name-only -z "origin/${BASE_REF}...HEAD" | mise exec -- lefthook run pre-commit --files-from-stdin
+          else
+            echo "Push or Scheduled run detected. Running Lefthook on all files..."
+            mise exec -- lefthook run pre-commit --all-files
+          fi
+
+      - name: Verify zero uncommitted formatting diff
+        run: git diff --no-textconv --exit-code
+
+  shell-bats:
+    name: Script Tests (Bats-core)
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.shell == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Mise
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+        with:
+          cache: true
+
+      - name: Run Bats tests
+        run: mise exec -- bats tests/scripts/
+
+  build-apps:
+    name: Build & Zip Applications
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.apps == 'true' || needs.changes.outputs.tofu == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Mise
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+        with:
+          cache: true
+
+      - name: Build applications
+        run: |
+          echo "Building sample-app..."
+          cd apps/sample-app
+          mise exec -- npm ci
+          mise exec -- npm test
+
+      - name: Package Applications (Zip)
+        run: |
+          mkdir -p dist
+          cd apps/sample-app
+          zip -r ../../dist/sample-app.zip . -x "node_modules/*"
+          echo "Successfully packaged sample-app.zip to dist/"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea2ffd6fb66b502a35368a4f0 # v4.4.3
+        with:
+          name: app-packages
+          path: dist/
+          retention-days: 5
+
+  tofu-validate:
+    name: OpenTofu Validation & Terratest
+    needs: [changes, build-apps]
+    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.tofu == 'true') && (needs.build-apps.result == 'success' || needs.build-apps.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: ci
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    env:
+      TF_VAR_state_encryption_passphrase: ${{ secrets.TOFU_ENCRYPTION_PASSPHRASE }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Mise
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+        with:
+          cache: true
+
+      - name: Check OpenTofu Formatting
+        run: mise exec -- tofu fmt -check -recursive infrastructure/
+
+      - name: Cache TFLint Plugins
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772115f6ec1 # v4.2.2
+        with:
+          path: ~/.tflint.d/plugins
+          key: tflint-${{ runner.os }}-${{ hashFiles('.tflint.hcl') }}
+
+      - name: Initialize and Run TFLint
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mise exec -- tflint --init
+          mise exec -- tflint --recursive
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372ec807db5 # v4.1.8
+        continue-on-error: true
+        with:
+          name: app-packages
+          path: dist/
+
+      - name: Ensure Dist Directory and Packages Exist (Mock if missing)
+        run: |
+          mkdir -p dist
+          if [ ! -f dist/sample-app.zip ]; then
+            echo "placeholder" > mock.txt
+            zip dist/sample-app.zip mock.txt
+            rm mock.txt
+          fi
+
+      - name: Validate OpenTofu Modules
+        run: |
+          for module in gcp cloudflare homelab oci azure github; do
+            echo "=== Validating module: $module ==="
+            (cd "infrastructure/$module" && mise exec -- tofu init -backend=false && mise exec -- tofu validate)
+          done
+
+      - name: Run Terratest (module validation)
+        run: |
+          cd infrastructure/tests
+          mise exec -- go test ./... -v -timeout 10m
+
+  ansible-check:
+    name: Ansible Lint & Syntax Check
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.ansible == 'true'
+    runs-on: ubuntu-latest
+    environment: ci
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Mise
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+        with:
+          cache: true
+
+      - name: Setup environment dependencies
+        run: mise exec -- uv sync --locked
+
+      - name: Install Ansible Galaxy roles and collections
+        run: |
+          mise exec -- ansible-galaxy install -r configuration/roles/requirements.yml -p ~/.ansible/roles --force
+          mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml
+
+      - name: Decrypt CI secrets (scoped permissions)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
+        run: |
+          (umask 077 && mise exec -- sops --decrypt secrets/credentials.ci.sops.yaml > "${RUNNER_TEMP}/credentials.ci.yaml")
+
+      - name: Run ansible-lint
+        run: mise exec -- ansible-lint configuration/
+
+      - name: Syntax check all playbooks
+        run: |
+          mise exec -- ansible-playbook --syntax-check \
+            -i configuration/inventories/ \
+            configuration/playbooks/site.yml
+          mise exec -- ansible-playbook --syntax-check \
+            -i configuration/inventories/ \
+            configuration/playbooks/oci.yml
+
+      - name: Dry-run (check mode) with CI secrets
+        run: |
+          mise exec -- ansible-playbook --check \
+            -i configuration/inventories/ \
+            -e @"${RUNNER_TEMP}/credentials.ci.yaml" \
+            configuration/playbooks/site.yml
+        continue-on-error: true # check mode may fail if hosts unreachable in CI
+
+      - name: Remove decrypted secrets
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/credentials.ci.yaml"
+
+  molecule:
+    name: Molecule (${{ matrix.scenario }})
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.molecule == 'true'
+    runs-on: ubuntu-latest
+    environment: ci
+    permissions:
+      contents: read
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - base-ubuntu-server
+          - restic_backup
+          - oci
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Mise
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+        with:
+          cache: true
+
+      - name: Setup environment dependencies
+        run: mise exec -- uv sync --locked
+
+      - name: Install Ansible Galaxy roles and collections
+        run: |
+          mise exec -- ansible-galaxy install -r configuration/roles/requirements.yml -p ~/.ansible/roles --force
+          mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml
+
+      - name: Setup SOPS Age Key for Molecule
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
+        run: |
+          mkdir -p "${HOME}/.config/sops/age"
+          (umask 077 && echo "${SOPS_AGE_KEY}" > "${HOME}/.config/sops/age/keys.txt")
+
+      - name: Run Molecule test (base-ubuntu-server)
+        if: matrix.scenario == 'base-ubuntu-server'
+        run: |
+          cd configuration/roles/base-ubuntu-server
+          mise exec -- molecule test
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
+
+      - name: Run Molecule test (restic_backup)
+        if: matrix.scenario == 'restic_backup'
+        run: |
+          cd configuration/roles/restic_backup
+          mise exec -- molecule test
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
+
+      - name: Run Molecule test (oci)
+        if: matrix.scenario == 'oci'
+        run: |
+          cd configuration/molecule/oci
+          mise exec -- molecule test
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
+
+      - name: Cleanup SOPS Age Key
+        if: always()
+        run: rm -f "${HOME}/.config/sops/age/keys.txt"
+
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs:
+      - changes
+      - security-scan
+      - lint-format
+      - shell-bats
+      - build-apps
+      - tofu-validate
+      - ansible-check
+      - molecule
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Aggregate CI Status
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          echo "=== Evaluating CI Job Results ==="
+          echo "${NEEDS_JSON}" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+
+          failed_jobs=$(echo "${NEEDS_JSON}" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | .key')
+
+          if [ -n "${failed_jobs}" ]; then
+            echo "Error: The following required jobs did not succeed:"
+            echo "${failed_jobs}"
+            exit 1
+          fi
+          echo "All CI jobs succeeded or were cleanly skipped. Gate passed."
