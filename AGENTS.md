@@ -13,6 +13,10 @@ Security is the absolute highest priority in this repository.
 - **Re-Encrypt Immediately:** If you decrypt a secret for local editing or verification, ensure it is re-encrypted before completing your task.
 - **Privacy in Conversations:** Never output decrypted secrets, private keys, or API tokens into the chat/transcript.
 - **Masking Network Details:** All internal IPs, subnets, internal hostnames, and server domains are classified as sensitive. Treat them as encrypted secrets; do not hardcode them in open playbooks, variables, or OpenTofu manifests.
+- **Canonical Two-File Secrets Architecture:** All secrets, tokens, and credentials across the entire repository **must** reside exclusively in exactly two canonical files:
+  - `secrets/credentials.ci.sops.yaml`: Encrypted via Age for continuous integration pipelines, automated linting, and Molecule testing.
+  - `secrets/credentials.sops.yaml`: Encrypted via GPG for production operations and administrative deployments.
+  - Creating separate, domain-specific, or ad-hoc secret files (e.g., `secrets.*.sops.yaml`) is strictly forbidden. All secrets must be consolidated into these two canonical files.
 
 ---
 
