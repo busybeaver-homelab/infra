@@ -48,7 +48,6 @@
 | <a name="input_region"></a> [region](#input\_region) | OCI region (e.g., eu-frankfurt-1). | `string` | `"eu-frankfurt-1"` | no |
 | <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input\_secrets\_file\_path) | Path to the canonical SOPS credentials file (defaults to production credentials). | `string` | `"../../secrets/credentials.sops.yaml"` | no |
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | SSH public key for emergency access to compute instances. | `string` | `""` | no |
-| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF\_VAR\_state\_encryption\_passphrase environment variable. | `string` | `""` | no |
 | <a name="input_subnet_cidr"></a> [subnet\_cidr](#input\_subnet\_cidr) | IPv4 CIDR block for the private compute subnet. | `string` | n/a | yes |
 | <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input\_tailscale\_auth\_key) | Tailscale authentication key for instance bootstrapping. | `string` | `""` | no |
 | <a name="input_tailscale_common_tags"></a> [tailscale\_common\_tags](#input\_tailscale\_common\_tags) | Common Tailscale tags applied across all cloud instances. | `list(string)` | <pre>[<br/>  "tag:type-server",<br/>  "tag:os-linux",<br/>  "tag:hosting-cloud"<br/>]</pre> | no |

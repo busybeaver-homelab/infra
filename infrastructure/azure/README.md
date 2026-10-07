@@ -35,5 +35,4 @@ This directory contains the OpenTofu configurations for managing Microsoft Azure
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_azure_subscription_id"></a> [azure\_subscription\_id](#input\_azure\_subscription\_id) | The Azure subscription ID. | `string` | n/a | yes |
 | <a name="input_budget_contact_emails"></a> [budget\_contact\_emails](#input\_budget\_contact\_emails) | List of email addresses to notify when budget thresholds are exceeded. | `list(string)` | `[]` | no |
-| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state encryption (AES-GCM via PBKDF2). Never hardcode — inject via TF\_VAR\_state\_encryption\_passphrase environment variable. | `string` | n/a | yes |
 <!-- END_TF_DOCS -->

@@ -16,11 +16,10 @@ func TestAzureModuleValidates(t *testing.T) {
 		TerraformDir:    "../azure",
 		TerraformBinary: "tofu",
 		Vars: map[string]interface{}{
-			"azure_subscription_id":       "ci-dummy-subscription-id",
-			"state_encryption_passphrase": "ci-dummy-passphrase-for-validation-only",
+			"azure_subscription_id": "ci-dummy-subscription-id",
 		},
 		EnvVars: map[string]string{
-			"TF_VAR_state_encryption_passphrase": "ci-dummy-passphrase-for-validation-only",
+			"TOFU_STATE_PASSPHRASE": "ci-dummy-passphrase-for-validation-only",
 		},
 		NoColor: true,
 	}
