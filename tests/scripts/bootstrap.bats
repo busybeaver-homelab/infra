@@ -41,3 +41,8 @@ teardown() {
   run shellcheck "${BOOTSTRAP_SCRIPT}"
   [ "$status" -eq 0 ]
 }
+
+@test "bootstrap.sh runs lefthook install" {
+  run grep -F "lefthook install" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -eq 0 ]
+}
