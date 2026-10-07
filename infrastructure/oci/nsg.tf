@@ -4,7 +4,7 @@ resource "oci_core_network_security_group" "homelab" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
   display_name   = "homelab-nsg"
-  freeform_tags  = var.default_freeform_tags
+  freeform_tags  = local.effective_tags
 }
 
 # --- Ingress Rules ---

@@ -5,21 +5,21 @@ resource "oci_core_vcn" "main" {
   cidr_blocks    = [var.vcn_cidr]
   display_name   = "homelab-vcn"
   dns_label      = "homelab"
-  freeform_tags  = var.default_freeform_tags
+  freeform_tags  = local.effective_tags
 }
 
 resource "oci_core_nat_gateway" "main" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
   display_name   = "homelab-nat-gateway"
-  freeform_tags  = var.default_freeform_tags
+  freeform_tags  = local.effective_tags
 }
 
 resource "oci_core_route_table" "private" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
   display_name   = "homelab-private-rt"
-  freeform_tags  = var.default_freeform_tags
+  freeform_tags  = local.effective_tags
 
   route_rules {
     destination       = "0.0.0.0/0"
@@ -33,7 +33,7 @@ resource "oci_core_security_list" "private" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
   display_name   = "homelab-private-sl"
-  freeform_tags  = var.default_freeform_tags
+  freeform_tags  = local.effective_tags
 
   egress_security_rules {
     destination = "0.0.0.0/0"
@@ -64,5 +64,5 @@ resource "oci_core_subnet" "private" {
   prohibit_public_ip_on_vnic = true
   route_table_id             = oci_core_route_table.private.id
   security_list_ids          = [oci_core_security_list.private.id]
-  freeform_tags              = var.default_freeform_tags
+  freeform_tags              = local.effective_tags
 }

@@ -23,7 +23,7 @@
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_gcp_project_id"></a> [gcp\_project\_id](#input\_gcp\_project\_id) | The Google Cloud project ID. | `string` | n/a | yes |
-| <a name="input_gcp_region"></a> [gcp\_region](#input\_gcp\_region) | The primary Google Cloud region. | `string` | `"us-central1"` | no |
+| <a name="input_gcp_region"></a> [gcp\_region](#input\_gcp\_region) | The primary Google Cloud region. Must be in the GCP Always Free Tier eligible regions: us-central1, us-east1, us-west1. | `string` | `"us-central1"` | no |
 
 ## Outputs
 
