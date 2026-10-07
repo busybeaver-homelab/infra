@@ -31,10 +31,6 @@ resource "github_repository_vulnerability_alerts" "repo" {
   repository = github_repository.repo.name
 }
 
-data "github_app" "renovate" {
-  slug = "renovate"
-}
-
 resource "github_repository_ruleset" "main_protection" {
   name        = "Protect Main Branch"
   repository  = github_repository.repo.name
@@ -49,15 +45,9 @@ resource "github_repository_ruleset" "main_protection" {
   }
 
   bypass_actors {
-    actor_id    = data.github_app.renovate.id
-    actor_type  = "Integration"
-    bypass_mode = "always"
-  }
-
-  bypass_actors {
     actor_id    = 5 # Repository Admin
     actor_type  = "RepositoryRole"
-    bypass_mode = "always"
+    bypass_mode = "pull_request"
   }
 
   rules {
@@ -79,22 +69,7 @@ resource "github_repository_ruleset" "main_protection" {
       strict_required_status_checks_policy = true
 
       required_check {
-        context = "Security Vulnerability Scan (Trivy)"
-      }
-      required_check {
-        context = "Code Quality and Lint Checks"
-      }
-      required_check {
-        context = "Script Tests (Bats-core)"
-      }
-      required_check {
-        context = "Build & Zip Applications"
-      }
-      required_check {
-        context = "OpenTofu Validation and Plan"
-      }
-      required_check {
-        context = "Ansible Lint and Syntax Check"
+        context = "ci-gate"
       }
     }
   }
@@ -103,6 +78,11 @@ resource "github_repository_ruleset" "main_protection" {
 resource "github_repository_environment" "ci" {
   environment = "ci"
   repository  = github_repository.repo.name
+
+  deployment_branch_policy {
+    protected_branches     = true
+    custom_branch_policies = false
+  }
 }
 
 resource "github_actions_environment_secret" "ci_secrets" {
@@ -116,6 +96,11 @@ resource "github_actions_environment_secret" "ci_secrets" {
 resource "github_repository_environment" "production" {
   environment = "production"
   repository  = github_repository.repo.name
+
+  deployment_branch_policy {
+    protected_branches     = true
+    custom_branch_policies = false
+  }
 
   reviewers {
     users = var.reviewers_for_production
