@@ -1,19 +1,36 @@
 ---
-# Ansible Dynamic Inventory — reads hosts from local OpenTofu state files.
-# OpenTofu state is stored encrypted (AES-GCM) in each module directory.
-# The TOFU_ENCRYPTION_PASSPHRASE env var must be set for decryption to succeed.
+# Ansible Dynamic Inventory — reads OCI compute instances from Cloudflare R2 OpenTofu state.
+# OpenTofu state is stored in Cloudflare R2 (EU jurisdiction) and encrypted with AES-GCM.
+# The TOFU_STATE_PASSPHRASE env var must be set for state decryption in RAM.
 
 plugin: cloud.terraform.terraform_state
-
-# Use the OpenTofu binary
 binary_path: tofu
 
-# Read from local state file — homelab module provisions SSH-accessible hosts
-backend_type: local
+backend_type: s3
 backend_config:
-  path: "infrastructure/homelab/terraform.tfstate"
+  endpoint: "https://<account_id>.eu.r2.cloudflarestorage.com"
+  bucket: "homelab-infra-tfstate"
+  key: "homelab-infra/state/oci/tofu.tfstate"
+  region: "auto"
+  force_path_style: true
+  skip_credentials_validation: true
+  skip_region_validation: true
+  skip_requesting_account_id: true
+  skip_s3_checksum: true
 
-# Map OpenTofu output values to Ansible inventory variables
-hostname_from_provider: true
+provider_mapping:
+  - provider_name: registry.terraform.io/oracle/oci
+    types:
+      - oci_core_instance
+
+hostnames:
+  - display_name
+  - id
+
 compose:
-  ansible_host: ip_address
+  ansible_host: display_name ~ '.' ~ (tailnet_domain | default('homelab')) ~ '.ts.net'
+  tailscale_ip: private_ip
+
+keyed_groups:
+  - prefix: tag
+    key: freeform_tags
