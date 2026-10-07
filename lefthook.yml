@@ -88,3 +88,8 @@ pre-commit:
     detect-private-keys:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/detect-private-keys.sh {staged_files}
+
+commit-msg:
+  commands:
+    conventional-commits:
+      run: bash scripts/verify-commit-msg.sh {1}
