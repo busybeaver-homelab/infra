@@ -3,8 +3,21 @@
 
 # Firewall settings (geerlingguy.firewall)
 firewall_enabled: true
-firewall_allowed_tcp_ports:
-  - "22"
+firewall_allowed_tcp_ports: []
+firewall_allowed_udp_ports:
+  # Tailscale WireGuard direct peer-to-peer port
+  - "41641"
+firewall_additional_rules:
+  # Allow all incoming traffic on Tailscale WireGuard overlay interface
+  - "iptables -A INPUT -i tailscale0 -j ACCEPT"
+firewall_ip6_additional_rules:
+  # Allow all incoming IPv6 traffic on Tailscale WireGuard overlay interface
+  - "ip6tables -A INPUT -i tailscale0 -j ACCEPT"
+
+# SSH Hardening (dev-sec.ssh-hardening)
+# Completely disable OpenSSH server daemon; Tailscale SSH handles all incoming SSH.
+ssh_server_enabled: false
+ssh_client_hardening: true
 
 # Security settings (geerlingguy.security)
 # Explicit comment: Disable geerlingguy.security SSH hardening because
