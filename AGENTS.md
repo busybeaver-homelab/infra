@@ -17,6 +17,8 @@ Security is the absolute highest priority in this repository.
   - `secrets/credentials.ci.sops.yaml`: Encrypted via Age for continuous integration pipelines, automated linting, and Molecule testing.
   - `secrets/credentials.sops.yaml`: Encrypted via GPG for production operations and administrative deployments.
   - Creating separate, domain-specific, or ad-hoc secret files (e.g., `secrets.*.sops.yaml`) is strictly forbidden. All secrets must be consolidated into these two canonical files.
+- **No Textconv Diff on Production Secrets:** Always execute git diff operations with `--no-textconv` (e.g., `git diff --no-textconv`) when inspecting diffs or changes to ensure decrypted secrets are never accidentally materialized or printed into tool execution output or chat history.
+- **Forbid Secret Getter Invocations:** AI agents are strictly forbidden from executing commands such as `mise run secret:*:get` or any scripts/commands whose purpose is to dump or display decrypted secret keys and credentials in logs or chat.
 
 ---
 
