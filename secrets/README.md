@@ -159,3 +159,30 @@ The value is the contents of `~/.config/homelab-infra/tofu-passphrase`.
 
 > **WARNING:** Losing the passphrase makes all encrypted state files permanently
 > unrecoverable. Keep at least one secure backup (e.g., a password manager entry).
+
+---
+
+## 📦 Canonical Secret Keys Inventory
+
+All sensitive configuration parameters are strictly encapsulated in the two canonical files (`secrets/credentials.sops.yaml` for production and `secrets/credentials.ci.sops.yaml` for CI). Both files enforce 100% schema parity.
+
+### OpenTofu Remote State Backend (Cloudflare R2)
+
+| Secret Key                                 | Description                                                           | Sourced By                                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `opentofu.cloudflare_r2_access_key_id`     | Cloudflare R2 API Token Access Key ID for S3 remote state backend     | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml` |
+| `opentofu.cloudflare_r2_secret_access_key` | Cloudflare R2 API Token Secret Access Key for S3 remote state backend | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml` |
+
+To set or update production credentials:
+
+```bash
+mise run secret:prod:set "opentofu.cloudflare_r2_access_key_id"
+mise run secret:prod:set "opentofu.cloudflare_r2_secret_access_key"
+```
+
+To set or update CI decoy credentials:
+
+```bash
+mise run secret:ci:set "opentofu.cloudflare_r2_access_key_id"
+mise run secret:ci:set "opentofu.cloudflare_r2_secret_access_key"
+```

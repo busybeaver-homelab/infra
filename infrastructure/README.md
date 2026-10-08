@@ -86,9 +86,31 @@ export CLOUDFLARE_ACCOUNT_ID="<your-cloudflare-account-id>"
 export CLOUDFLARE_ZONE_ID="<your-cloudflare-zone-id>"
 
 # Cloudflare R2 S3-Compatible API (Stage 2)
+# Note: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are auto-resolved from SOPS
+# (opentofu.cloudflare_r2_access_key_id and opentofu.cloudflare_r2_secret_access_key)
+# if present. Alternatively, they can be explicitly exported in your shell:
 export AWS_ACCESS_KEY_ID="<your-r2-access-key-id>"
 export AWS_SECRET_ACCESS_KEY="<your-r2-secret-access-key>"
 ```
+
+### 🔑 Cloudflare R2 API Token Setup (Dashboard)
+
+Because OpenTofu remote state backend credentials cannot be evaluated dynamically inside the state itself (the S3 backend block is statically parsed before resources exist), the R2 API token is provisioned out-of-band via the Cloudflare dashboard and stored in the canonical SOPS secret store:
+
+1. Navigate to **Cloudflare Dashboard > R2 > Manage R2 API Tokens**.
+2. Click **Create API Token**.
+3. Configure Token Permissions:
+   - **Permissions:** _Object Read & Write_ (grants bucket item read and write)
+   - **Bucket Scope:** Specific bucket (`homelab-infra-tfstate`)
+   - **TTL:** Forever (or per rotation schedule)
+4. Note the generated **Access Key ID** and **Secret Access Key**.
+5. Store credentials in the canonical SOPS production file:
+   ```bash
+   mise run secret:prod:set "opentofu.cloudflare_r2_access_key_id"
+   mise run secret:prod:set "opentofu.cloudflare_r2_secret_access_key"
+   ```
+
+Once stored, `./scripts/bootstrap-state-backend.sh` and CI drift detection workflows auto-resolve these credentials from SOPS automatically.
 
 ### Option 2: Manual Step-by-Step Execution
 
