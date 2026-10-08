@@ -2,6 +2,7 @@
 Description=Encrypted Nightly Restic Backup
 After=network-online.target docker.service
 Wants=network-online.target
+OnFailure=restic-backup-failure@%n.service
 
 [Service]
 Type=oneshot
@@ -23,6 +24,8 @@ LockPersonality=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+SystemCallFilter=@system-service
 
 # Explicit read-write filesystem paths
 ReadWritePaths={{ restic_backup_cache_dir }} {{ restic_backup_log_dir }} /tmp

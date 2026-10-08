@@ -43,6 +43,42 @@
           - restic_backup_env_stat.stat.pw_name == 'root'
           - restic_backup_env_stat.stat.gr_name == 'root'
 
+    - name: Stat restic password file
+      ansible.builtin.stat:
+        path: /etc/restic/password
+      register: restic_backup_password_stat
+
+    - name: Assert password file permissions and ownership
+      ansible.builtin.assert:
+        that:
+          - restic_backup_password_stat.stat.exists
+          - restic_backup_password_stat.stat.mode == '0400'
+          - restic_backup_password_stat.stat.pw_name == 'root'
+          - restic_backup_password_stat.stat.gr_name == 'root'
+
+    - name: Stat restic failure unit
+      ansible.builtin.stat:
+        path: /etc/systemd/system/restic-backup-failure@.service
+      register: restic_backup_failure_unit_stat
+
+    - name: Assert failure unit exists and permissions
+      ansible.builtin.assert:
+        that:
+          - restic_backup_failure_unit_stat.stat.exists
+          - restic_backup_failure_unit_stat.stat.mode == '0644'
+
+    - name: Slurp restic service unit file
+      ansible.builtin.slurp:
+        src: /etc/systemd/system/restic-backup.service
+      register: restic_backup_service_content
+
+    - name: Assert systemd sandboxing and OnFailure directive
+      ansible.builtin.assert:
+        that:
+          - "'CapabilityBoundingSet=' in (restic_backup_service_content.content | b64decode)"
+          - "'SystemCallFilter=@system-service' in (restic_backup_service_content.content | b64decode)"
+          - "'OnFailure=restic-backup-failure@%n.service' in (restic_backup_service_content.content | b64decode)"
+
     - name: Stat runner script
       ansible.builtin.stat:
         path: /usr/local/sbin/restic-backup-runner.sh
