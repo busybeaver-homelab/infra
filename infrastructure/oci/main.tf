@@ -4,29 +4,6 @@ data "sops_file" "secrets" {
   source_file = var.secrets_file_path
 }
 
-# --- Budget & Spend Monitoring ---
-
-resource "oci_budget_budget" "zero_spend" {
-  compartment_id = var.tenancy_ocid
-  amount         = var.budget_amount
-  reset_period   = "MONTHLY"
-  target_type    = "COMPARTMENT"
-  targets        = [var.compartment_ocid]
-  display_name   = "zero-spend-monthly-budget"
-  description    = "Enforce zero/minimal spend limit for Always Free resources"
-  freeform_tags  = local.effective_tags
-}
-
-resource "oci_budget_alert_rule" "threshold_alert" {
-  budget_id      = oci_budget_budget.zero_spend.id
-  threshold      = var.budget_alert_threshold
-  threshold_type = "PERCENTAGE"
-  type           = "ACTUAL"
-  recipients     = var.budget_alert_recipients
-  display_name   = "budget-100-percent-alert"
-  message        = "Warning: OCI Free Tier spending has reached 100% of the $1 threshold!"
-  freeform_tags  = local.effective_tags
-}
 
 # --- Compute Instances (Always Free Tier) ---
 
