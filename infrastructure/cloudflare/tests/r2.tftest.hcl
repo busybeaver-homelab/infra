@@ -1,8 +1,16 @@
-mock_provider "cloudflare" {}
+mock_provider "cloudflare" {
+  mock_data "cloudflare_api_token_permission_groups" {
+    defaults = {
+      account = {
+        "Workers R2 Storage Bucket Item Read"  = "mock-perm-r2-read"
+        "Workers R2 Storage Bucket Item Write" = "mock-perm-r2-write"
+      }
+    }
+  }
+}
 
 variables {
   cloudflare_api_token  = "mock-cf-token-12345"
-  cloudflare_zone_id    = "mock-zone-id-12345"
   cloudflare_account_id = "mock-account-id-12345"
 }
 
