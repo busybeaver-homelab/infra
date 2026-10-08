@@ -4,3 +4,11 @@
 # from secrets/credentials.ci.sops.yaml (CI) or secrets/credentials.sops.yaml (prod).
 
 base_timezone: "UTC"
+
+# Firewall settings (UFW & Docker chain isolation)
+base_firewall_enabled: true
+base_firewall_default_incoming: "deny"
+base_firewall_default_outgoing: "allow"
+base_firewall_allow_tailscale: true
+base_firewall_allow_openssh: false
+base_firewall_docker_isolation: true

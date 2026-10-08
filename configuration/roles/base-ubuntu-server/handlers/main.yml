@@ -4,3 +4,8 @@
     name: sshd
     state: restarted
   become: true
+
+- name: Reload ufw
+  community.general.ufw:
+    state: reloaded
+  become: true

@@ -25,3 +25,6 @@
   community.general.timezone:
     name: "{{ base_timezone }}"
   become: true
+
+- name: Configure host firewall and Docker chain isolation
+  ansible.builtin.include_tasks: firewall.yml
