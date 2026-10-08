@@ -16,6 +16,7 @@
 
 | Name | Type |
 | ---- | ---- |
+| [cloudflare_r2_bucket.backups_dr](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/r2_bucket) | resource |
 | [cloudflare_r2_bucket.tfstate](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/r2_bucket) | resource |
 | [cloudflare_record.root_record](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/record) | resource |
 
@@ -32,6 +33,8 @@
 
 | Name | Description |
 | ---- | ----------- |
+| <a name="output_r2_backup_bucket_name"></a> [r2\_backup\_bucket\_name](#output\_r2\_backup\_bucket\_name) | The name of the secondary R2 disaster recovery backup bucket. |
+| <a name="output_r2_backup_endpoint"></a> [r2\_backup\_endpoint](#output\_r2\_backup\_endpoint) | S3-compatible endpoint URL for the EU jurisdictional R2 backup bucket. |
 | <a name="output_r2_bucket_name"></a> [r2\_bucket\_name](#output\_r2\_bucket\_name) | The name of the OpenTofu state storage R2 bucket. |
 | <a name="output_root_record_hostname"></a> [root\_record\_hostname](#output\_root\_record\_hostname) | The fully qualified domain name of the root record. |
 <!-- END_TF_DOCS -->
