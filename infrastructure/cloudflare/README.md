@@ -16,8 +16,10 @@
 
 | Name | Type |
 | ---- | ---- |
+| [cloudflare_api_token.r2_state_token](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/api_token) | resource |
 | [cloudflare_r2_bucket.backups_dr](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/r2_bucket) | resource |
 | [cloudflare_r2_bucket.tfstate](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/r2_bucket) | resource |
+| [cloudflare_api_token_permission_groups.all](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/data-sources/api_token_permission_groups) | data source |
 
 ## Inputs
 
@@ -31,8 +33,9 @@
 
 | Name | Description |
 | ---- | ----------- |
+| <a name="output_r2_access_key_id"></a> [r2\_access\_key\_id](#output\_r2\_access\_key\_id) | The Access Key ID for Cloudflare R2 remote state backend authentication. |
 | <a name="output_r2_backup_bucket_name"></a> [r2\_backup\_bucket\_name](#output\_r2\_backup\_bucket\_name) | The name of the secondary R2 disaster recovery backup bucket. |
 | <a name="output_r2_backup_endpoint"></a> [r2\_backup\_endpoint](#output\_r2\_backup\_endpoint) | S3-compatible endpoint URL for the EU jurisdictional R2 backup bucket. |
 | <a name="output_r2_bucket_name"></a> [r2\_bucket\_name](#output\_r2\_bucket\_name) | The name of the OpenTofu state storage R2 bucket. |
-| <a name="output_root_record_hostname"></a> [root\_record\_hostname](#output\_root\_record\_hostname) | The fully qualified domain name of the root record. |
+| <a name="output_r2_secret_access_key"></a> [r2\_secret\_access\_key](#output\_r2\_secret\_access\_key) | The Secret Access Key (SHA-256 hash of API token) for Cloudflare R2 remote state backend authentication. |
 <!-- END_TF_DOCS -->
