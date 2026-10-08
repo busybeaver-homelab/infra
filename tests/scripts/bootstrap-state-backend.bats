@@ -115,7 +115,7 @@ teardown() {
   mkdir -p "${mock_module_dir}"
 
   # Create mock backend.tf
-  cat <<'EOF' > "${mock_module_dir}/backend.tf"
+  cat <<'EOF' >"${mock_module_dir}/backend.tf"
 terraform {
   backend "s3" {
     endpoint = "https://<account_id>.eu.r2.cloudflarestorage.com"
@@ -129,7 +129,7 @@ EOF
   mkdir -p "${mock_bin_dir}"
   local call_log="${BATS_TMPDIR}/tofu_calls.log"
 
-  cat <<EOF > "${mock_bin_dir}/tofu"
+  cat <<EOF >"${mock_bin_dir}/tofu"
 #!/usr/bin/env bash
 echo "\$*" >> "${call_log}"
 # If running apply, create mock state file
@@ -174,7 +174,7 @@ EOF
   local mock_module_dir="${BATS_TMPDIR}/mock-cloudflare-fail"
   mkdir -p "${mock_module_dir}"
 
-  cat <<'EOF' > "${mock_module_dir}/backend.tf"
+  cat <<'EOF' >"${mock_module_dir}/backend.tf"
 terraform {
   backend "s3" {}
 }
@@ -183,7 +183,7 @@ EOF
   local mock_bin_dir="${BATS_TMPDIR}/bin-fail"
   mkdir -p "${mock_bin_dir}"
 
-  cat <<'EOF' > "${mock_bin_dir}/tofu"
+  cat <<'EOF' >"${mock_bin_dir}/tofu"
 #!/usr/bin/env bash
 for arg in "$@"; do
   if [ "$arg" = "apply" ]; then
@@ -210,4 +210,73 @@ EOF
   # Verify backend.tf was restored by trap
   [ -f "${mock_module_dir}/backend.tf" ]
   [ ! -f "${mock_module_dir}/backend.tf.disabled" ]
+}
+
+@test "bootstrap-state-backend.sh auto-resolves AWS credentials from SOPS when unset" {
+  local mock_bin_dir="${BATS_TMPDIR}/bin-sops"
+  mkdir -p "${mock_bin_dir}"
+
+  cat <<'EOF' >"${mock_bin_dir}/sops"
+#!/usr/bin/env bash
+if [[ "$*" =~ --extract.*opentofu ]]; then
+  echo 'cloudflare_r2_access_key_id: mock-auto-sops-key-id'
+  echo 'cloudflare_r2_secret_access_key: mock-auto-sops-secret-key'
+  exit 0
+fi
+exit 1
+EOF
+  chmod +x "${mock_bin_dir}/sops"
+  prepend_path "${mock_bin_dir}"
+
+  run env \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    SOPS_SECRETS_FILE="${REPO_ROOT}/secrets/credentials.ci.sops.yaml" \
+    "${SCRIPT}" --dry-run --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Auto-resolved AWS_ACCESS_KEY_ID from SOPS" ]]
+  [[ "$output" =~ "Auto-resolved AWS_SECRET_ACCESS_KEY from SOPS" ]]
+}
+
+@test "bootstrap-state-backend.sh preserves explicit AWS credentials over SOPS auto-resolution" {
+  local mock_bin_dir="${BATS_TMPDIR}/bin-sops-preserve"
+  mkdir -p "${mock_bin_dir}"
+
+  cat <<'EOF' >"${mock_bin_dir}/sops"
+#!/usr/bin/env bash
+echo "sops should not be called" >&2
+exit 1
+EOF
+  chmod +x "${mock_bin_dir}/sops"
+  prepend_path "${mock_bin_dir}"
+
+  run env \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    AWS_ACCESS_KEY_ID="explicit-key" \
+    AWS_SECRET_ACCESS_KEY="explicit-secret" \
+    "${SCRIPT}" --dry-run --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "Auto-resolved AWS_ACCESS_KEY_ID from SOPS" ]]
+}
+
+@test "bootstrap-state-backend.sh fails stage 2 when credentials are missing and cannot be resolved" {
+  local mock_bin_dir="${BATS_TMPDIR}/bin-sops-fail"
+  mkdir -p "${mock_bin_dir}"
+
+  cat <<'EOF' >"${mock_bin_dir}/sops"
+#!/usr/bin/env bash
+exit 1
+EOF
+  chmod +x "${mock_bin_dir}/sops"
+  prepend_path "${mock_bin_dir}"
+
+  run env -i \
+    PATH="${mock_bin_dir}:${PATH}" \
+    HOME="${HOME}" \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    "${SCRIPT}" --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Missing required environment variable: AWS_ACCESS_KEY_ID" ]]
 }
