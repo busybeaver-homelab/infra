@@ -280,3 +280,83 @@ EOF
   [ "$status" -eq 1 ]
   [[ "$output" =~ "Missing required environment variable: AWS_ACCESS_KEY_ID" ]]
 }
+
+@test "bootstrap-state-backend.sh auto-resolves state encryption passphrase from SOPS when unset" {
+  local mock_bin_dir="${BATS_TMPDIR}/bin-sops-pass"
+  mkdir -p "${mock_bin_dir}"
+
+  cat <<'EOF' >"${mock_bin_dir}/sops"
+#!/usr/bin/env bash
+if [[ "$*" =~ --extract.*opentofu ]]; then
+  echo 'cloudflare_r2_access_key_id: mock-auto-sops-key-id'
+  echo 'cloudflare_r2_secret_access_key: mock-auto-sops-secret-key'
+  echo 'state_encryption_passphrase: mock-auto-sops-passphrase'
+  exit 0
+fi
+exit 1
+EOF
+  chmod +x "${mock_bin_dir}/sops"
+  prepend_path "${mock_bin_dir}"
+
+  run env \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    SOPS_SECRETS_FILE="${REPO_ROOT}/secrets/credentials.ci.sops.yaml" \
+    "${SCRIPT}" --dry-run --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Auto-resolved TF_VAR_state_encryption_passphrase from SOPS" ]]
+}
+
+@test "bootstrap-state-backend.sh preserves explicit TF_VAR_state_encryption_passphrase over SOPS auto-resolution" {
+  local mock_bin_dir="${BATS_TMPDIR}/bin-sops-pass-preserve"
+  mkdir -p "${mock_bin_dir}"
+
+  cat <<'EOF' >"${mock_bin_dir}/sops"
+#!/usr/bin/env bash
+if [[ "$*" =~ --extract.*opentofu ]]; then
+  echo 'cloudflare_r2_access_key_id: mock-auto-sops-key-id'
+  echo 'cloudflare_r2_secret_access_key: mock-auto-sops-secret-key'
+  echo 'state_encryption_passphrase: mock-auto-sops-passphrase'
+  exit 0
+fi
+exit 1
+EOF
+  chmod +x "${mock_bin_dir}/sops"
+  prepend_path "${mock_bin_dir}"
+
+  run env \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    SOPS_SECRETS_FILE="${REPO_ROOT}/secrets/credentials.ci.sops.yaml" \
+    TF_VAR_state_encryption_passphrase="explicit-user-passphrase" \
+    "${SCRIPT}" --dry-run --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "Auto-resolved TF_VAR_state_encryption_passphrase from SOPS" ]]
+}
+
+@test "bootstrap-state-backend.sh falls back to local file ~/.config/homelab-infra/tofu-passphrase when SOPS is unavailable" {
+  local mock_home="${BATS_TMPDIR}/mock-home"
+  mkdir -p "${mock_home}/.config/homelab-infra"
+  echo "mock-local-file-passphrase" > "${mock_home}/.config/homelab-infra/tofu-passphrase"
+
+  local mock_bin_dir="${BATS_TMPDIR}/bin-no-sops"
+  mkdir -p "${mock_bin_dir}"
+
+  cat <<'EOF' >"${mock_bin_dir}/sops"
+#!/usr/bin/env bash
+exit 1
+EOF
+  chmod +x "${mock_bin_dir}/sops"
+  prepend_path "${mock_bin_dir}"
+
+  run env \
+    HOME="${mock_home}" \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    AWS_ACCESS_KEY_ID="mock-key" \
+    AWS_SECRET_ACCESS_KEY="mock-secret" \
+    "${SCRIPT}" --dry-run --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Auto-resolved TF_VAR_state_encryption_passphrase from local file" ]]
+}
+

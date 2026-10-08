@@ -197,9 +197,9 @@ if ! command -v tofu &>/dev/null; then
   exit 1
 fi
 
-# Auto-resolve R2 S3 backend credentials from SOPS if unset
+# Auto-resolve R2 S3 backend credentials and state encryption passphrase from SOPS if unset
 resolve_sops_credentials() {
-  if [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+  if [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" && -n "${TF_VAR_state_encryption_passphrase:-}" ]]; then
     return 0
   fi
 
@@ -215,9 +215,10 @@ resolve_sops_credentials() {
   if [[ -n "${sops_file}" ]] && command -v sops &>/dev/null && command -v yq &>/dev/null; then
     local creds
     if creds=$(sops -d --extract '["opentofu"]' "${sops_file}" 2>/dev/null); then
-      local key_id secret_key
+      local key_id secret_key state_pass
       key_id=$(echo "${creds}" | yq '.cloudflare_r2_access_key_id // ""' 2>/dev/null || true)
       secret_key=$(echo "${creds}" | yq '.cloudflare_r2_secret_access_key // ""' 2>/dev/null || true)
+      state_pass=$(echo "${creds}" | yq '.state_encryption_passphrase // ""' 2>/dev/null || true)
       if [[ -z "${AWS_ACCESS_KEY_ID:-}" && -n "${key_id}" && "${key_id}" != "null" ]]; then
         export AWS_ACCESS_KEY_ID="${key_id}"
         log_info "Auto-resolved AWS_ACCESS_KEY_ID from SOPS (${sops_file##*/})."
@@ -226,6 +227,20 @@ resolve_sops_credentials() {
         export AWS_SECRET_ACCESS_KEY="${secret_key}"
         log_info "Auto-resolved AWS_SECRET_ACCESS_KEY from SOPS (${sops_file##*/})."
       fi
+      if [[ -z "${TF_VAR_state_encryption_passphrase:-}" && -n "${state_pass}" && "${state_pass}" != "null" ]]; then
+        export TF_VAR_state_encryption_passphrase="${state_pass}"
+        log_info "Auto-resolved TF_VAR_state_encryption_passphrase from SOPS (${sops_file##*/})."
+      fi
+    fi
+  fi
+
+  # Fallback to local passphrase file if still unset
+  if [[ -z "${TF_VAR_state_encryption_passphrase:-}" && -f "${HOME}/.config/homelab-infra/tofu-passphrase" ]]; then
+    local local_pass
+    local_pass="$(cat "${HOME}/.config/homelab-infra/tofu-passphrase" 2>/dev/null || true)"
+    if [[ -n "${local_pass}" ]]; then
+      export TF_VAR_state_encryption_passphrase="${local_pass}"
+      log_info "Auto-resolved TF_VAR_state_encryption_passphrase from local file (${HOME}/.config/homelab-infra/tofu-passphrase)."
     fi
   fi
 }
@@ -234,9 +249,7 @@ resolve_sops_credentials() {
 validate_credentials() {
   local missing=0
 
-  if [[ "${STAGE}" == "2" || "${STAGE}" == "all" ]]; then
-    resolve_sops_credentials
-  fi
+  resolve_sops_credentials
 
   if [[ "${STAGE}" == "1" || "${STAGE}" == "all" ]]; then
     if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
