@@ -128,7 +128,7 @@ if [ ! -f "${TOFU_PASSPHRASE_FILE}" ]; then
   fi
   chmod 600 "${TOFU_PASSPHRASE_FILE}"
   log_info "Passphrase written to: ${TOFU_PASSPHRASE_FILE}"
-  log_warn "IMPORTANT: Back up ${TOFU_PASSPHRASE_FILE} securely."
+  log_warn "IMPORTANT: Back up ${TOFU_PASSPHRASE_FILE} securely or store in SOPS."
   log_warn "If you lose it, the local state files become unrecoverable."
 else
   log_info "OpenTofu passphrase already exists at: ${TOFU_PASSPHRASE_FILE}"
@@ -139,5 +139,8 @@ log_info "To enable mise in your shell, add this to your rc file (~/.zshrc, ~/.b
 echo -e "  ${YELLOW}eval \"\$(mise activate zsh)\"${NC}  # or bash, fish, etc."
 log_info "To use the generated age key with SOPS, make sure this environment variable is set:"
 echo -e "  ${YELLOW}export SOPS_AGE_KEY_FILE=\"$AGE_KEY_FILE\"${NC}"
-log_info "To enable OpenTofu state encryption, add this to your shell rc file:"
+log_info "OpenTofu state encryption: scripts auto-resolve the passphrase from SOPS or local fallback file."
+echo -e "  ${YELLOW}# (Optional) Store passphrase in production SOPS:${NC}"
+echo -e "  ${YELLOW}mise exec -- sops set secrets/credentials.sops.yaml '[\"opentofu\"][\"state_encryption_passphrase\"]' \"\\\"\$(cat ${TOFU_PASSPHRASE_FILE})\\\"\"${NC}"
+echo -e "  ${YELLOW}# (Optional) Or set explicit environment variable in shell rc:${NC}"
 echo -e "  ${YELLOW}export TF_VAR_state_encryption_passphrase=\"\$(cat ${TOFU_PASSPHRASE_FILE})\"${NC}"
