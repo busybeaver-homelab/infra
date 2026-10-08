@@ -93,7 +93,7 @@ provenance = "github-attestations"
 version = "14.4.0"
 backend = "pypi:ansible"
 specifiers = ["14"]
-uv = { path = ".mise/locks/ansible/14.4.0~0672620e", digest = "sha256:0caf8789db88baeb3d2e9074aad30d05637953fce8754d9197748a2c9a906a3c" }
+uv = { path = ".mise/locks/ansible/14.4.0~0672620e", digest = "sha256:e89d2b892bde8161c23f357e11f6e9707b65f94640442d313e10f78233be029c" }
 
 [tools.ansible.options]
 expose = '["ansible-core"]'

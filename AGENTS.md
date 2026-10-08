@@ -66,6 +66,8 @@ Automated gates must be respected:
 
 ## 📋 5. Self-Review and Task Verification
 
+- **Mandatory Test Coverage for Added/Changed Scope:** Any added, updated, or expanded functionality, configuration, script, or infrastructure scope **must** include corresponding automated tests (e.g., Bats unit tests in `tests/scripts/`, Go Terratests in `infrastructure/tests/`, or Molecule scenarios in `configuration/roles/*/molecule/`). Never declare a feature or scope complete without accompanying automated tests verifying its correctness.
+
 Before claiming a task is complete, verify your work:
 
 1.  **Run local lint and tests** on changed files. Use the correct tool for the domain:
@@ -74,7 +76,7 @@ Before claiming a task is complete, verify your work:
     - **Script changes:** `mise exec -- shellcheck scripts/*.sh` · `mise exec -- bats tests/scripts/`
     - **Python changes:** `uv run ruff check` · `uv run ruff format --check`
     - **Pre-commit gate (all changes):** `mise exec lefthook -- lefthook run pre-commit`
-    > **Note:** Ubuntu Core Molecule scenarios are out-of-scope for now. Current Molecule tests target Ubuntu Server 26.04 via the Docker driver only. When Ubuntu Core support is needed, switch to a Vagrant or LXD driver.
+    > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver.
 2.  **Verify exit status** — all commands above must exit 0 before proceeding.
 3.  **Perform a self-review diff** of your modifications to ensure no stray code, unused variables, or comments remain.
 4.  **Update the task tracker** located at `docs/plans/task.md` with progress.

@@ -71,10 +71,10 @@ An automated, defensive script is provided to execute Pattern A end-to-end:
 
 ```bash
 # Preview operations in dry-run mode
-./scripts/bootstrap-state-backend.sh --dry-run
+mise exec -- ./scripts/bootstrap-state-backend.sh --dry-run
 
 # Execute full two-stage bootstrap
-./scripts/bootstrap-state-backend.sh --auto-approve
+mise exec -- ./scripts/bootstrap-state-backend.sh --auto-approve
 ```
 
 #### Required Environment Variables
@@ -99,12 +99,12 @@ cd infrastructure/cloudflare
 
 # --- Stage 1: Local Bootstrap ---
 mv backend.tf backend.tf.disabled
-tofu init -input=false
-tofu apply -target=cloudflare_r2_bucket.tfstate -input=false
+mise exec -- tofu init -input=false
+mise exec -- tofu apply -target=cloudflare_r2_bucket.tfstate -input=false
 
 # --- Stage 2: Remote State Migration ---
 mv backend.tf.disabled backend.tf
-tofu init -migrate-state -force-copy -input=false \
+mise exec -- tofu init -migrate-state -force-copy -input=false \
   -backend-config="endpoint=https://${CLOUDFLARE_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"
 
 # --- Cleanup ---
@@ -184,5 +184,5 @@ If an OpenTofu operation is interrupted, a state lock may linger in the R2 bucke
 To force-unlock the state after confirming no concurrent process is executing:
 
 ```bash
-tofu -chdir="infrastructure/<module>" force-unlock <lock-id>
+mise exec -- tofu -chdir="infrastructure/<module>" force-unlock <lock-id>
 ```

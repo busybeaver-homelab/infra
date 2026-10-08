@@ -26,19 +26,19 @@ To decrypt and manage production files locally, you must have the production GPG
    Request the private key from a current admin and import it:
 
    ```bash
-   gpg --import /path/to/production-private-key.asc
+   mise exec -- gpg --import /path/to/production-private-key.asc
    ```
 
 2. **Import the production backup public key:**
    This allows you to encrypt new secrets to the production key:
 
    ```bash
-   gpg --import secrets/gpg-production-backup.pub
+   mise exec -- gpg --import secrets/gpg-production-backup.pub
    ```
 
 3. **Verify the key is available:**
    ```bash
-   gpg --list-keys 5EE1590FF82DC2A3829D224FAA73ACF495CC009D
+   mise exec -- gpg --list-keys 5EE1590FF82DC2A3829D224FAA73ACF495CC009D
    ```
 
 ---
@@ -56,7 +56,7 @@ If rotating the recovery key:
 
 ```bash
 # On an air-gapped machine:
-age-keygen -o /tmp/recovery-age-key.txt
+mise exec -- age-keygen -o /tmp/recovery-age-key.txt
 # Public key is printed to stderr/header; copy public key to .sops.yaml
 # Print or transfer private key to hardware token / safe paper backup
 # Securely shred the temporary file:
@@ -71,7 +71,7 @@ If the primary GPG key is lost, corrupted, or inaccessible during an emergency:
 2. Export the offline recovery key into a strictly ephemeral, restricted subshell:
    ```bash
    read -rs OFFLINE_KEY # type or paste private key safely
-   SOPS_AGE_KEY="$OFFLINE_KEY" sops -d secrets/credentials.sops.yaml > /tmp/recovered-credentials.yaml
+   SOPS_AGE_KEY="$OFFLINE_KEY" mise exec -- sops -d secrets/credentials.sops.yaml > /tmp/recovered-credentials.yaml
    unset OFFLINE_KEY
    ```
 3. Generate a new primary administrative keypair, update `.sops.yaml`, re-encrypt the credentials file, and securely wipe `/tmp/recovered-credentials.yaml`.
@@ -128,11 +128,11 @@ If a tool strictly requires a physical key file on disk:
 To enable plaintext diffs for SOPS-encrypted files locally, run once:
 
 ```bash
-git config diff.sops.textconv "sops --decrypt"
+git config diff.sops.textconv "mise exec -- sops --decrypt"
 ```
 
 This is a local-only git config — it is never committed. It lets `git diff` pipe
-SOPS files through `sops --decrypt` before displaying the diff.
+SOPS files through `sops --decrypt` via mise before displaying the diff.
 
 ---
 
@@ -143,7 +143,7 @@ The passphrase is **never committed** — it lives only on your local machine an
 
 ### Local Setup (One-Time)
 
-Run `scripts/bootstrap.sh` — it auto-generates a passphrase at
+Run `mise exec -- ./scripts/bootstrap.sh` — it auto-generates a passphrase at
 `~/.config/homelab-infra/tofu-passphrase` and prints the export command.
 
 Add to your shell rc file (`~/.zshrc` or `~/.bashrc`):
