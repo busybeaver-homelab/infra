@@ -4,11 +4,11 @@ variable "cloudflare_api_token" {
   sensitive   = true
 }
 
-variable "cloudflare_zone_id" {
-  type        = string
-  description = "The target DNS zone ID in Cloudflare."
-  sensitive   = true
-}
+# variable "cloudflare_zone_id" {
+#   type        = string
+#   description = "The target DNS zone ID in Cloudflare."
+#   sensitive   = true
+# }
 
 variable "cloudflare_account_id" {
   type        = string
