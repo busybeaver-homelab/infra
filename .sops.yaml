@@ -10,6 +10,6 @@ creation_rules:
   - path_regex: ^secrets/credentials\.sops\.ya?ml$
     key_groups:
       - pgp:
-          - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Homelab Production
+          - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Default Production Public Key
         age:
-          - age15vgve3yy0m2k9mqca9ntc8zt235ruf3nxnnacce2evl2ncz68u3q5uf9jq # Offline Disaster Recovery Key
+          - age14elxn8s32z2y348n0fhczz9ukdxafh4vau4zkgdq4rdfszhrz3ns7nd477 # Offline Disaster Recovery Key
