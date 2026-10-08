@@ -1,0 +1,83 @@
+name: Backup Pruning & Integrity Check
+
+on:
+  schedule:
+    - cron: "0 2 * * 0" # Every Sunday at 02:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prune:
+    name: Restic Snapshot Retention & Integrity Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Mise
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+        with:
+          cache: true
+
+      - name: Install Restic
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends restic
+
+      - name: Decrypt CI secrets (scoped permissions)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
+        run: |
+          (umask 077 && mise exec -- sops --decrypt secrets/credentials.ci.sops.yaml > "${RUNNER_TEMP}/credentials.ci.yaml")
+
+      - name: Prune primary OCI backup repository
+        run: |
+          RESTIC_PASSWORD=$(mise exec -- yq -r '.oci_restic.password // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          AWS_ACCESS_KEY_ID=$(mise exec -- yq -r '.oci_restic.s3_access_key_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          AWS_SECRET_ACCESS_KEY=$(mise exec -- yq -r '.oci_restic.s3_secret_access_key // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          OCI_ENDPOINT=$(mise exec -- yq -r '.oci_restic.s3_endpoint // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          OCI_BUCKET=$(mise exec -- yq -r '.oci_restic.bucket // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+
+          if [ -n "${RESTIC_PASSWORD}" ] && [ -n "${OCI_BUCKET}" ]; then
+            echo "::add-mask::${RESTIC_PASSWORD}"
+            echo "::add-mask::${AWS_SECRET_ACCESS_KEY}"
+            RESTIC_REPO="s3:${OCI_ENDPOINT}/${OCI_BUCKET}"
+            export RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+            restic -r "${RESTIC_REPO}" forget --keep-daily 7 --keep-weekly 4 --prune
+            restic -r "${RESTIC_REPO}" check --read-data-subset=1%
+          else
+            echo "Primary OCI backup repository details not configured; skipping."
+          fi
+
+      - name: Prune secondary Cloudflare R2 DR backup repository
+        run: |
+          RESTIC_PASSWORD=$(mise exec -- yq -r '.oci_restic.password // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          CF_ACCOUNT_ID=$(mise exec -- yq -r '.cloudflare.account_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          CF_ACCESS_KEY=$(mise exec -- yq -r '.cloudflare.r2_access_key_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          CF_SECRET_KEY=$(mise exec -- yq -r '.cloudflare.r2_secret_access_key // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+
+          if [ -n "${RESTIC_PASSWORD}" ] && [ -n "${CF_ACCOUNT_ID}" ] && [ -n "${CF_ACCESS_KEY}" ]; then
+            echo "::add-mask::${RESTIC_PASSWORD}"
+            echo "::add-mask::${CF_SECRET_KEY}"
+            R2_REPO="s3:https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com/homelab-backups-dr"
+            export RESTIC_PASSWORD AWS_ACCESS_KEY_ID="${CF_ACCESS_KEY}" AWS_SECRET_ACCESS_KEY="${CF_SECRET_KEY}"
+            restic -r "${R2_REPO}" forget --keep-last 2 --prune
+            restic -r "${R2_REPO}" check --read-data-subset=1%
+          else
+            echo "Secondary Cloudflare R2 DR backup repository details not configured; skipping."
+          fi
+
+      - name: Remove decrypted secrets
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/credentials.ci.yaml"
