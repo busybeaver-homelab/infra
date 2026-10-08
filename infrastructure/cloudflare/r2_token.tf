@@ -5,8 +5,8 @@
 
 data "cloudflare_api_token_permission_groups" "all" {}
 
-resource "cloudflare_api_token" "r2_state_token" {
-  name = "homelab-infra-r2-state-token"
+resource "cloudflare_api_token" "tfstate_r2_token" {
+  name = "homelab-infra-tfstate-r2-token"
 
   policy {
     permission_groups = [
