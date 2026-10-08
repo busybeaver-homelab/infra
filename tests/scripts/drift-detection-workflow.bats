@@ -44,3 +44,18 @@ setup() {
   run grep -E -- "-lockfile=readonly" "$WORKFLOW"
   [ "$status" -eq 0 ]
 }
+
+@test "drift detection workflow exports and masks opentofu r2 backend credentials" {
+  run grep -E "opentofu\.cloudflare_r2_access_key_id" "$WORKFLOW"
+  [ "$status" -eq 0 ]
+
+  run grep -E "::add-mask::" "$WORKFLOW"
+  [ "$status" -eq 0 ]
+
+  run grep -E "AWS_ACCESS_KEY_ID" "$WORKFLOW"
+  [ "$status" -eq 0 ]
+
+  run grep -E "AWS_SECRET_ACCESS_KEY" "$WORKFLOW"
+  [ "$status" -eq 0 ]
+}
+
