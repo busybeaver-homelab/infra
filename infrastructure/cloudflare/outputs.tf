@@ -1,15 +1,3 @@
-output "r2_tfstate_access_key_id" {
-  value       = cloudflare_api_token.tfstate_r2_token.id
-  description = "The Access Key ID for Cloudflare R2 remote state backend authentication."
-  sensitive   = true
-}
-
-output "r2_tfstate_secret_access_key" {
-  value       = sha256(cloudflare_api_token.tfstate_r2_token.value)
-  description = "The Secret Access Key (SHA-256 hash of API token) for Cloudflare R2 remote state backend authentication."
-  sensitive   = true
-}
-
 output "r2_tfstate_bucket_name" {
   value       = cloudflare_r2_bucket.tfstate.name
   description = "The name of the OpenTofu state storage R2 bucket."
