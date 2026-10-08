@@ -10,5 +10,11 @@ variable "cloudflare_zone_id" {
   sensitive   = true
 }
 
+variable "cloudflare_account_id" {
+  type        = string
+  description = "The Cloudflare account ID for managing R2 and account-level resources."
+  sensitive   = true
+}
+
 
 
