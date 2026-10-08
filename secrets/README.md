@@ -139,23 +139,39 @@ SOPS files through `sops --decrypt` via mise before displaying the diff.
 ## 🔐 OpenTofu State Encryption Passphrase
 
 OpenTofu state files are encrypted at rest using AES-GCM-256 with a PBKDF2-derived key.
-The passphrase is **never committed** — it lives only on your local machine and in GitHub Secrets.
+The passphrase is **never committed in plaintext** — it is encrypted within SOPS (`secrets/credentials.sops.yaml` for production, `secrets/credentials.ci.sops.yaml` for CI) or resolved via the hierarchy below.
 
-### Local Setup (One-Time)
+### Resolution Hierarchy
 
-Run `mise exec -- ./scripts/bootstrap.sh` — it auto-generates a passphrase at
-`~/.config/homelab-infra/tofu-passphrase` and prints the export command.
+When running `scripts/bootstrap-state-backend.sh` or automated workflows, the passphrase is resolved using the following 4-tier precedence:
 
-Add to your shell rc file (`~/.zshrc` or `~/.bashrc`):
+1. **Tier 1 (Explicit Environment Variable):** `TF_VAR_state_encryption_passphrase` (if already set in your shell environment, it is preserved without modification).
+2. **Tier 2 (Canonical SOPS Secret - Recommended):** Auto-resolved from `secrets/credentials.sops.yaml` (key: `opentofu.state_encryption_passphrase`).
+3. **Tier 3 (Local File Fallback):** Read from `~/.config/homelab-infra/tofu-passphrase` (created during initial setup).
+4. **Tier 4 (Module Default):** Built-in fallback defined in `infrastructure/modules/cloud_dns/encryption.tf` (`homelab-state-encryption-passphrase-default`).
+
+### Generating a Secure Passphrase for Production
+
+To generate a cryptographically strong 32-character passphrase and save it to your production SOPS vault:
 
 ```bash
-export TF_VAR_state_encryption_passphrase="$(cat ~/.config/homelab-infra/tofu-passphrase)"
+# 1. Generate a secure 32-character alphanumeric passphrase
+PASSPHRASE=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 32)
+
+# 2. Store it in canonical production SOPS secrets via mise
+mise run secret:prod:set "opentofu.state_encryption_passphrase"
+# (Paste or enter the generated passphrase when prompted)
+
+# 3. (Optional) Mirror to local fallback file for offline access:
+mkdir -p ~/.config/homelab-infra
+printf "%s" "$PASSPHRASE" > ~/.config/homelab-infra/tofu-passphrase
+chmod 600 ~/.config/homelab-infra/tofu-passphrase
+unset PASSPHRASE
 ```
 
 ### GitHub Actions Setup
 
-Add the passphrase as a GitHub Actions secret named `TOFU_ENCRYPTION_PASSPHRASE`.
-The value is the contents of `~/.config/homelab-infra/tofu-passphrase`.
+In CI workflows, the passphrase can be resolved directly from `secrets/credentials.ci.sops.yaml` using `SOPS_AGE_KEY`, or injected as an explicit repository secret `TOFU_ENCRYPTION_PASSPHRASE`.
 
 > **WARNING:** Losing the passphrase makes all encrypted state files permanently
 > unrecoverable. Keep at least one secure backup (e.g., a password manager entry).
@@ -166,18 +182,20 @@ The value is the contents of `~/.config/homelab-infra/tofu-passphrase`.
 
 All sensitive configuration parameters are strictly encapsulated in the two canonical files (`secrets/credentials.sops.yaml` for production and `secrets/credentials.ci.sops.yaml` for CI). Both files enforce 100% schema parity.
 
-### OpenTofu Remote State Backend (Cloudflare R2)
+### OpenTofu State & Cloudflare Backend Credentials
 
 | Secret Key                                 | Description                                                           | Sourced By                                                                    |
 | ------------------------------------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `opentofu.cloudflare_r2_access_key_id`     | Cloudflare R2 API Token Access Key ID for S3 remote state backend     | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml` |
 | `opentofu.cloudflare_r2_secret_access_key` | Cloudflare R2 API Token Secret Access Key for S3 remote state backend | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml` |
+| `opentofu.state_encryption_passphrase`     | OpenTofu client-side AES-GCM-256 state encryption passphrase          | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml` |
 
 To set or update production credentials:
 
 ```bash
 mise run secret:prod:set "opentofu.cloudflare_r2_access_key_id"
 mise run secret:prod:set "opentofu.cloudflare_r2_secret_access_key"
+mise run secret:prod:set "opentofu.state_encryption_passphrase"
 ```
 
 To set or update CI decoy credentials:
@@ -185,4 +203,5 @@ To set or update CI decoy credentials:
 ```bash
 mise run secret:ci:set "opentofu.cloudflare_r2_access_key_id"
 mise run secret:ci:set "opentofu.cloudflare_r2_secret_access_key"
+mise run secret:ci:set "opentofu.state_encryption_passphrase"
 ```
