@@ -1,9 +1,11 @@
 ---
 # Tasks for restic_backup role
 
-- name: Install restic package
+- name: Install restic and curl packages
   ansible.builtin.apt:
-    name: restic
+    name:
+      - restic
+      - curl
     state: present
     update_cache: false
   become: true
@@ -23,6 +25,17 @@
     - { path: "{{ restic_backup_cache_dir }}", mode: "0700" }
     - { path: "{{ restic_backup_log_dir }}", mode: "0750" }
     - { path: "/opt/containers", mode: "0755" }
+  become: true
+
+- name: Deploy restic backup password file
+  ansible.builtin.template:
+    src: password.j2
+    dest: "{{ restic_backup_password_file_path }}"
+    owner: root
+    group: root
+    mode: "0400"
+  no_log: true
+  diff: false
   become: true
 
 - name: Deploy restic backup environment file
@@ -50,6 +63,16 @@
     owner: root
     group: root
     mode: "0750"
+  become: true
+
+- name: Deploy restic backup failure systemd service unit
+  ansible.builtin.template:
+    src: restic-backup-failure.service.j2
+    dest: /etc/systemd/system/restic-backup-failure@.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd daemon
   become: true
 
 - name: Deploy restic backup systemd service unit

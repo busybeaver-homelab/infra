@@ -66,12 +66,12 @@ Automated gates must be respected:
 
 ## 📋 5. Self-Review and Task Verification
 
-- **Mandatory Test Coverage for Added/Changed Scope:** Any added, updated, or expanded functionality, configuration, script, or infrastructure scope **must** include corresponding automated tests (e.g., Bats unit tests in `tests/scripts/`, Go Terratests in `infrastructure/tests/`, or Molecule scenarios in `configuration/roles/*/molecule/`). Never declare a feature or scope complete without accompanying automated tests verifying its correctness.
+- **Mandatory Test Coverage for Added/Changed Scope:** Any added, updated, or expanded functionality, configuration, script, or infrastructure scope **must** include corresponding automated tests (e.g., Bats unit tests in `tests/scripts/`, OpenTofu native tests in `infrastructure/<module>/tests/*.tftest.hcl`, or Molecule scenarios in `configuration/roles/*/molecule/`). Never declare a feature or scope complete without accompanying automated tests verifying its correctness.
 
 Before claiming a task is complete, verify your work:
 
 1.  **Run local lint and tests** on changed files. Use the correct tool for the domain:
-    - **OpenTofu changes:** `mise exec -- tofu fmt -check` · `mise exec -- tflint --recursive` · `mise exec -- tofu validate` (per module) · `cd infrastructure/tests && go test ./... -v -timeout 10m` (Terratest)
+    - **OpenTofu changes:** `mise exec -- tofu fmt -check` · `mise exec -- tflint --recursive` · `mise exec -- tofu validate` (per module) · `mise run test:infra` (native `tofu test` suites)
     - **Ansible changes:** `mise exec -- ansible-lint configuration/` · `molecule test` (inside the role directory)
     - **Script changes:** `mise exec -- shellcheck scripts/*.sh` · `mise exec -- bats tests/scripts/`
     - **Python changes:** `uv run ruff check` · `uv run ruff format --check`
