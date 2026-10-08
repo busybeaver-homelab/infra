@@ -59,3 +59,12 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "drift detection workflow exports and masks opentofu state encryption passphrase" {
+  run grep -E "opentofu\.state_encryption_passphrase" "$WORKFLOW"
+  [ "$status" -eq 0 ]
+
+  run grep -E "TF_VAR_state_encryption_passphrase" "$WORKFLOW"
+  [ "$status" -eq 0 ]
+}
+
+

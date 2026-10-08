@@ -65,6 +65,11 @@ jobs:
               echo "AWS_SECRET_ACCESS_KEY=$R2_SECRET" >> "$GITHUB_ENV"
               echo "AWS_DEFAULT_REGION=auto" >> "$GITHUB_ENV"
             fi
+            STATE_PASSPHRASE=$(mise exec -- yq '.opentofu.state_encryption_passphrase // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+            if [ -n "$STATE_PASSPHRASE" ]; then
+              echo "::add-mask::$STATE_PASSPHRASE"
+              echo "TF_VAR_state_encryption_passphrase=$STATE_PASSPHRASE" >> "$GITHUB_ENV"
+            fi
           fi
 
       - name: Initialize OpenTofu Module
