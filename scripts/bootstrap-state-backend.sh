@@ -86,8 +86,8 @@ Required Environment Variables:
     CLOUDFLARE_ZONE_ID     Cloudflare Zone ID
 
   Stage 2 (R2 S3-Compatible API):
-    AWS_ACCESS_KEY_ID      Cloudflare R2 API Token Access Key ID
-    AWS_SECRET_ACCESS_KEY  Cloudflare R2 API Token Secret Access Key
+    AWS_ACCESS_KEY_ID      Cloudflare R2 API Token Access Key ID (auto-resolved from SOPS if unset)
+    AWS_SECRET_ACCESS_KEY  Cloudflare R2 API Token Secret Access Key (auto-resolved from SOPS if unset)
 
 Exit Codes:
   0  Success
@@ -197,9 +197,46 @@ if ! command -v tofu &>/dev/null; then
   exit 1
 fi
 
+# Auto-resolve R2 S3 backend credentials from SOPS if unset
+resolve_sops_credentials() {
+  if [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+    return 0
+  fi
+
+  local sops_file="${SOPS_SECRETS_FILE:-}"
+  if [[ -z "${sops_file}" ]]; then
+    if [[ -f "${REPO_ROOT}/secrets/credentials.sops.yaml" ]] && command -v gpg &>/dev/null; then
+      sops_file="${REPO_ROOT}/secrets/credentials.sops.yaml"
+    elif [[ -f "${REPO_ROOT}/secrets/credentials.ci.sops.yaml" ]] && { [[ -n "${SOPS_AGE_KEY:-}" ]] || [[ -f "${HOME}/.config/sops/age/keys.txt" ]]; }; then
+      sops_file="${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    fi
+  fi
+
+  if [[ -n "${sops_file}" ]] && command -v sops &>/dev/null && command -v yq &>/dev/null; then
+    local creds
+    if creds=$(sops -d --extract '["opentofu"]' "${sops_file}" 2>/dev/null); then
+      local key_id secret_key
+      key_id=$(echo "${creds}" | yq '.cloudflare_r2_access_key_id // ""' 2>/dev/null || true)
+      secret_key=$(echo "${creds}" | yq '.cloudflare_r2_secret_access_key // ""' 2>/dev/null || true)
+      if [[ -z "${AWS_ACCESS_KEY_ID:-}" && -n "${key_id}" && "${key_id}" != "null" ]]; then
+        export AWS_ACCESS_KEY_ID="${key_id}"
+        log_info "Auto-resolved AWS_ACCESS_KEY_ID from SOPS (${sops_file##*/})."
+      fi
+      if [[ -z "${AWS_SECRET_ACCESS_KEY:-}" && -n "${secret_key}" && "${secret_key}" != "null" ]]; then
+        export AWS_SECRET_ACCESS_KEY="${secret_key}"
+        log_info "Auto-resolved AWS_SECRET_ACCESS_KEY from SOPS (${sops_file##*/})."
+      fi
+    fi
+  fi
+}
+
 # Validate credentials
 validate_credentials() {
   local missing=0
+
+  if [[ "${STAGE}" == "2" || "${STAGE}" == "all" ]]; then
+    resolve_sops_credentials
+  fi
 
   if [[ "${STAGE}" == "1" || "${STAGE}" == "all" ]]; then
     if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
