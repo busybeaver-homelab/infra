@@ -1,0 +1,88 @@
+name: Infrastructure Drift Detection
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # Daily at 06:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  drift-detect:
+    name: Drift Detection (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    environment: ci
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - oci
+          - cloudflare
+          - gcp
+          - azure
+          - homelab
+          - github
+          - monitoring
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Mise
+        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+        with:
+          cache: true
+
+      - name: Restore OpenTofu Plugin Cache
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772115b6fe8 # v4.2.2
+        with:
+          path: infrastructure/${{ matrix.module }}/.terraform/providers
+          key: tofu-plugins-${{ matrix.module }}-${{ hashFiles(format('infrastructure/{0}/.terraform.lock.hcl', matrix.module)) }}
+          restore-keys: |
+            tofu-plugins-${{ matrix.module }}-
+
+      - name: Decrypt CI secrets (scoped permissions)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
+        run: |
+          if [ -n "${SOPS_AGE_KEY:-}" ]; then
+            (umask 077 && mise exec -- sops --decrypt secrets/credentials.ci.sops.yaml > "${RUNNER_TEMP}/credentials.ci.yaml")
+          fi
+
+      - name: Initialize OpenTofu Module
+        run: |
+          cd "infrastructure/${{ matrix.module }}"
+          mise exec -- tofu init -lockfile=readonly
+
+      - name: Check Infrastructure Drift
+        id: drift
+        run: |
+          cd "infrastructure/${{ matrix.module }}"
+          set +e
+          mise exec -- tofu plan -detailed-exitcode -lockfile=readonly -no-color > "${RUNNER_TEMP}/drift_plan.txt" 2>&1
+          EXIT_CODE=$?
+          set -e
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "✅ No drift detected for ${{ matrix.module }}." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          elif [ $EXIT_CODE -eq 2 ]; then
+            echo "⚠️ DRIFT DETECTED in ${{ matrix.module }}! Infrastructure has diverged from declarative code." >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            cat "${RUNNER_TEMP}/drift_plan.txt" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 2
+          else
+            echo "❌ Error evaluating drift for ${{ matrix.module }} (Exit code $EXIT_CODE)." >> "$GITHUB_STEP_SUMMARY"
+            cat "${RUNNER_TEMP}/drift_plan.txt"
+            exit $EXIT_CODE
+          fi
