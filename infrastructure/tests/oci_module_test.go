@@ -77,7 +77,7 @@ func TestOCICloudInitTemplateStructure(t *testing.T) {
 	assert.Contains(t, cloudInitStr, "--authkey=\"${tailscale_auth_key}\"")
 	assert.Contains(t, cloudInitStr, "--hostname=\"${hostname}\"")
 	assert.Contains(t, cloudInitStr, "signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg")
-	assert.Contains(t, cloudInitStr, "https://pkgs.tailscale.com/stable/ubuntu jammy main")
+	assert.Contains(t, cloudInitStr, "https://pkgs.tailscale.com/stable/ubuntu resolute main")
 	assert.NotContains(t, cloudInitStr, "tailscale.com/install.sh")
 	assert.NotContains(t, cloudInitStr, "--ephemeral")
 }

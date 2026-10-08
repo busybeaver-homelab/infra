@@ -4,7 +4,7 @@ package_update: true
 apt:
   sources:
     tailscale.list:
-      source: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu jammy main"
+      source: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu resolute main"
       keyring: /usr/share/keyrings/tailscale-archive-keyring.gpg
       key: |
         -----BEGIN PGP PUBLIC KEY BLOCK-----
