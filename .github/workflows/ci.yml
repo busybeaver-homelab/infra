@@ -278,15 +278,14 @@ jobs:
 
       - name: Validate OpenTofu Modules
         run: |
-          for module in gcp cloudflare homelab oci azure github; do
+          for module in gcp cloudflare homelab oci azure github monitoring; do
             echo "=== Validating module: $module ==="
             (cd "infrastructure/$module" && mise exec -- tofu init -backend=false && mise exec -- tofu validate)
           done
 
-      - name: Run Terratest (module validation)
+      - name: Run Native OpenTofu Tests
         run: |
-          cd infrastructure/tests
-          mise exec -- go test ./... -v -timeout 10m
+          mise run test:infra
 
   ansible-check:
     name: Ansible Lint & Syntax Check
