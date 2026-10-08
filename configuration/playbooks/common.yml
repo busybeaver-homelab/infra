@@ -1,6 +1,7 @@
 ---
 - name: Apply common configurations to all hosts
-  hosts: all
+  hosts: all:!unifi
+  become: true
   gather_facts: true
   tasks:
     - name: Ensure common packages are installed

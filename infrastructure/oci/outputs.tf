@@ -4,6 +4,18 @@ output "budget_id" {
   sensitive   = true
 }
 
+output "forecast_budget_alert_id" {
+  value       = oci_budget_alert_rule.forecast_budget_alert.id
+  description = "OCID of the forecasted spend budget alert rule."
+  sensitive   = true
+}
+
+output "budget_notification_topic_id" {
+  value       = oci_ons_notification_topic.budget_alerts.id
+  description = "OCID of the budget alerts notification topic."
+  sensitive   = true
+}
+
 output "vcn_id" {
   value       = oci_core_vcn.main.id
   description = "OCID of the homelab VCN."
@@ -55,5 +67,17 @@ output "backup_bucket_name" {
 output "backup_s3_endpoint" {
   value       = "https://${data.oci_objectstorage_namespace.main.namespace}.compat.objectstorage.${var.region}.oraclecloud.com"
   description = "S3 compatibility endpoint URL for Restic backups."
+  sensitive   = true
+}
+
+output "backup_uploaders_group_name" {
+  value       = oci_identity_group.backup_uploaders.name
+  description = "Name of the append-only IAM group for backup uploads."
+  sensitive   = true
+}
+
+output "backup_uploaders_policy_id" {
+  value       = oci_identity_policy.backup_uploaders.id
+  description = "OCID of the append-only IAM policy for backup uploads."
   sensitive   = true
 }

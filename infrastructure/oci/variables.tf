@@ -90,6 +90,12 @@ variable "budget_alert_threshold" {
   default     = 100
 }
 
+variable "forecast_budget_alert_threshold" {
+  type        = number
+  description = "Percentage threshold of forecasted spending to trigger an early warning alert."
+  default     = 100
+}
+
 variable "budget_alert_recipients" {
   type        = string
   description = "Email address(es) to receive budget alert notifications (comma-separated)."

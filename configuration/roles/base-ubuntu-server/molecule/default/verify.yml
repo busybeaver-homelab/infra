@@ -15,3 +15,26 @@
       check_mode: true
       register: pkg_check
       failed_when: pkg_check.changed
+
+    - name: Verify UFW is installed and active
+      ansible.builtin.command: ufw status verbose
+      register: ufw_status
+      changed_when: false
+      failed_when: "'Status: active' not in ufw_status.stdout"
+
+    - name: Verify UFW allows traffic on tailscale0
+      ansible.builtin.assert:
+        that:
+          - "'tailscale0' in ufw_status.stdout"
+          - "'ALLOW IN' in ufw_status.stdout"
+
+    - name: Check DOCKER-USER iptables chain
+      ansible.builtin.command: iptables -L DOCKER-USER -n -v
+      register: iptables_docker_user
+      changed_when: false
+
+    - name: Verify DOCKER-USER chain isolates external traffic
+      ansible.builtin.assert:
+        that:
+          - "'tailscale0' in iptables_docker_user.stdout"
+          - "'DROP' in iptables_docker_user.stdout"

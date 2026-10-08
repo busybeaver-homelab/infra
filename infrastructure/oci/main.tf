@@ -4,29 +4,6 @@ data "sops_file" "secrets" {
   source_file = var.secrets_file_path
 }
 
-# --- Budget & Spend Monitoring ---
-
-resource "oci_budget_budget" "zero_spend" {
-  compartment_id = var.tenancy_ocid
-  amount         = var.budget_amount
-  reset_period   = "MONTHLY"
-  target_type    = "COMPARTMENT"
-  targets        = [var.compartment_ocid]
-  display_name   = "zero-spend-monthly-budget"
-  description    = "Enforce zero/minimal spend limit for Always Free resources"
-  freeform_tags  = local.effective_tags
-}
-
-resource "oci_budget_alert_rule" "threshold_alert" {
-  budget_id      = oci_budget_budget.zero_spend.id
-  threshold      = var.budget_alert_threshold
-  threshold_type = "PERCENTAGE"
-  type           = "ACTUAL"
-  recipients     = var.budget_alert_recipients
-  display_name   = "budget-100-percent-alert"
-  message        = "Warning: OCI Free Tier spending has reached 100% of the $1 threshold!"
-  freeform_tags  = local.effective_tags
-}
 
 # --- Compute Instances (Always Free Tier) ---
 
@@ -130,26 +107,6 @@ resource "oci_core_instance" "ampere" {
       defined_tags["Oracle-Tags.CreatedOn"],
     ]
   }
-}
-
-# --- Object Storage Bucket for Encrypted Backups (Always Free Tier) ---
-
-data "oci_objectstorage_namespace" "main" {
-  compartment_id = var.compartment_ocid
-}
-
-resource "oci_objectstorage_bucket" "backups" {
-  compartment_id = var.compartment_ocid
-  name           = "homelab-backups-${var.tenancy_name}"
-  namespace      = data.oci_objectstorage_namespace.main.namespace
-  storage_tier   = "Standard"
-  access_type    = "NoPublicAccess"
-  versioning     = "Disabled"
-
-  freeform_tags = merge(local.effective_tags, {
-    "Environment" = "Production"
-    "Role"        = "Backup"
-  })
 }
 
 
