@@ -12,4 +12,4 @@ creation_rules:
       - pgp:
           - 5EE1590FF82DC2A3829D224FAA73ACF495CC009D # Default Production Public Key
         age:
-          - age14elxn8s32z2y348n0fhczz9ukdxafh4vau4zkgdq4rdfszhrz3ns7nd477 # Offline Disaster Recovery Key
+          - age136vdv2svv5lm53um9yvgw2f6uq87ce2cgcr2n54s32mpwlseh4cqsjsdlv # Offline Disaster Recovery Key

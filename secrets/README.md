@@ -47,7 +47,7 @@ To decrypt and manage production files locally, you must have the production GPG
 
 Production secrets (`secrets/credentials.sops.yaml`) are multi-recipient encrypted to both the primary admin GPG key and a **secondary Age recovery key**.
 
-- **Public Key:** `age14elxn8s32z2y348n0fhczz9ukdxafh4vau4zkgdq4rdfszhrz3ns7nd477`
+- **Public Key:** `age136vdv2svv5lm53um9yvgw2f6uq87ce2cgcr2n54s32mpwlseh4cqsjsdlv`
 - **Key Storage:** The corresponding private key is stored **offline, encrypted only**. It is **never** committed to version control.
 
 ### Generating a New Recovery Keypair
