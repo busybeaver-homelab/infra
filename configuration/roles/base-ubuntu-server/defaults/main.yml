@@ -12,3 +12,6 @@ base_firewall_default_outgoing: "allow"
 base_firewall_allow_tailscale: true
 base_firewall_allow_openssh: false
 base_firewall_docker_isolation: true
+
+# SSH daemon state verification
+base_verify_ssh_running: false

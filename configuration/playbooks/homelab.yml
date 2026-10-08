@@ -1,6 +1,7 @@
 ---
 - name: Configure homelab servers and services
   hosts: homelab
+  become: true
   gather_facts: true
   tasks:
     - name: Ensure Docker is running
