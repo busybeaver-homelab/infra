@@ -104,15 +104,16 @@
       ansible.builtin.command: systemd-analyze verify /etc/systemd/system/restic-backup.service /etc/systemd/system/restic-backup.timer
       changed_when: false
 
-    - name: Execute restic backup runner script
-      ansible.builtin.command: /usr/local/sbin/restic-backup-runner.sh
-      changed_when: false
+    - name: Trigger restic backup service via systemd
+      ansible.builtin.systemd_service:
+        name: restic-backup.service
+        state: started
 
     - name: Verify restic snapshot was recorded
       ansible.builtin.command: restic snapshots
       environment:
         RESTIC_REPOSITORY: "/var/cache/restic/test-repo"
-        RESTIC_PASSWORD: "test-encryption-password-molecule!"
+        RESTIC_PASSWORD_FILE: "/etc/restic/password"
       register: restic_backup_snapshots_stat
       changed_when: false
 
