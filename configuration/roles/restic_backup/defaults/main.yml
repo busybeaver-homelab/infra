@@ -3,6 +3,7 @@
 
 # Repository & Authentication Credentials (override via inventory/group_vars/SOPS)
 restic_backup_repository: ""
+restic_backup_secondary_repository: ""
 restic_backup_s3_access_key: ""
 restic_backup_s3_secret_key: ""
 restic_backup_password: ""
