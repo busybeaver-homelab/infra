@@ -4,6 +4,18 @@ output "budget_id" {
   sensitive   = true
 }
 
+output "forecast_budget_alert_id" {
+  value       = oci_budget_alert_rule.forecast_budget_alert.id
+  description = "OCID of the forecasted spend budget alert rule."
+  sensitive   = true
+}
+
+output "budget_notification_topic_id" {
+  value       = oci_ons_notification_topic.budget_alerts.id
+  description = "OCID of the budget alerts notification topic."
+  sensitive   = true
+}
+
 output "vcn_id" {
   value       = oci_core_vcn.main.id
   description = "OCID of the homelab VCN."
