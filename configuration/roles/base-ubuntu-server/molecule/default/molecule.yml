@@ -4,8 +4,6 @@ dependency:
 
 driver:
   name: docker
-  # NOTE: Ubuntu Core requires Vagrant or LXD driver (snapd is not supported in Docker).
-  # Current scope: Ubuntu Server 26.04 only.
 
 platforms:
   - name: ubuntu-server-26

@@ -1,7 +1,5 @@
 ---
 # Base hardening tasks for Ubuntu Server 26.04.
-# NOTE: Ubuntu Core support requires a separate role with snap-based package management.
-# See meta/main.yml for the Ubuntu Core tracking note.
 
 - name: Update apt cache
   ansible.builtin.apt:
