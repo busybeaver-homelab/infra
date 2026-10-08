@@ -74,6 +74,7 @@ See `variables.tf` for full descriptions. All variables are `sensitive = true`.
 | <a name="input_github_token"></a> [github\_token](#input\_github\_token) | Personal Access Token for GitHub authentication. | `string` | n/a | yes |
 | <a name="input_repository_name"></a> [repository\_name](#input\_repository\_name) | The name of the target GitHub repository. | `string` | `"homelab-infra"` | no |
 | <a name="input_reviewers_for_production"></a> [reviewers\_for\_production](#input\_reviewers\_for\_production) | List of GitHub user or team IDs that can approve production deployments. | `list(string)` | `[]` | no |
+| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state and plan encryption. | `string` | `"homelab-state-encryption-passphrase-default"` | no |
 
 ## Outputs
 

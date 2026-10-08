@@ -34,7 +34,10 @@
 | [oci_core_security_list.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_security_list) | resource |
 | [oci_core_subnet.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_subnet) | resource |
 | [oci_core_vcn.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_vcn) | resource |
+| [oci_identity_group.backup_uploaders](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/identity_group) | resource |
+| [oci_identity_policy.backup_uploaders](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/identity_policy) | resource |
 | [oci_objectstorage_bucket.backups](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/objectstorage_bucket) | resource |
+| [oci_objectstorage_object_lifecycle_policy.backups](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/objectstorage_object_lifecycle_policy) | resource |
 | [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/data-sources/objectstorage_namespace) | data source |
 | [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/latest/docs/data-sources/file) | data source |
 
@@ -56,6 +59,7 @@
 | <a name="input_region"></a> [region](#input\_region) | OCI region (e.g., eu-frankfurt-1). | `string` | `"eu-frankfurt-1"` | no |
 | <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input\_secrets\_file\_path) | Path to the canonical SOPS credentials file (defaults to production credentials). | `string` | `"../../secrets/credentials.sops.yaml"` | no |
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | SSH public key for emergency access to compute instances. | `string` | `""` | no |
+| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state and plan encryption. | `string` | `"homelab-state-encryption-passphrase-default"` | no |
 | <a name="input_subnet_cidr"></a> [subnet\_cidr](#input\_subnet\_cidr) | IPv4 CIDR block for the private compute subnet. | `string` | n/a | yes |
 | <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input\_tailscale\_auth\_key) | Tailscale authentication key for instance bootstrapping. | `string` | `""` | no |
 | <a name="input_tailscale_common_tags"></a> [tailscale\_common\_tags](#input\_tailscale\_common\_tags) | Common Tailscale tags applied across all cloud instances. | `list(string)` | <pre>[<br/>  "tag:type-server",<br/>  "tag:os-linux",<br/>  "tag:hosting-cloud"<br/>]</pre> | no |
@@ -75,6 +79,8 @@
 | <a name="output_arm_private_ip"></a> [arm\_private\_ip](#output\_arm\_private\_ip) | Private IP address of the Ampere A1 compute instance. |
 | <a name="output_backup_bucket_name"></a> [backup\_bucket\_name](#output\_backup\_bucket\_name) | Name of the OCI Object Storage bucket for instance backups. |
 | <a name="output_backup_s3_endpoint"></a> [backup\_s3\_endpoint](#output\_backup\_s3\_endpoint) | S3 compatibility endpoint URL for Restic backups. |
+| <a name="output_backup_uploaders_group_name"></a> [backup\_uploaders\_group\_name](#output\_backup\_uploaders\_group\_name) | Name of the append-only IAM group for backup uploads. |
+| <a name="output_backup_uploaders_policy_id"></a> [backup\_uploaders\_policy\_id](#output\_backup\_uploaders\_policy\_id) | OCID of the append-only IAM policy for backup uploads. |
 | <a name="output_budget_id"></a> [budget\_id](#output\_budget\_id) | OCID of the zero-spend monthly budget. |
 | <a name="output_nat_gateway_id"></a> [nat\_gateway\_id](#output\_nat\_gateway\_id) | OCID of the NAT gateway. |
 | <a name="output_subnet_id"></a> [subnet\_id](#output\_subnet\_id) | OCID of the private compute subnet. |
