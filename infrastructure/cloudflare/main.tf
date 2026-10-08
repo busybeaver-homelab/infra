@@ -6,3 +6,10 @@ resource "cloudflare_record" "root_record" {
   ttl     = 3600
   proxied = true
 }
+
+resource "cloudflare_r2_bucket" "tfstate" {
+  account_id = var.cloudflare_account_id
+  name       = "homelab-infra-tfstate"
+  location   = "WEUR"
+}
+
