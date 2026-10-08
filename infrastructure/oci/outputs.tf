@@ -57,3 +57,15 @@ output "backup_s3_endpoint" {
   description = "S3 compatibility endpoint URL for Restic backups."
   sensitive   = true
 }
+
+output "backup_uploaders_group_name" {
+  value       = oci_identity_group.backup_uploaders.name
+  description = "Name of the append-only IAM group for backup uploads."
+  sensitive   = true
+}
+
+output "backup_uploaders_policy_id" {
+  value       = oci_identity_policy.backup_uploaders.id
+  description = "OCID of the append-only IAM policy for backup uploads."
+  sensitive   = true
+}

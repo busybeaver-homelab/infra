@@ -132,24 +132,4 @@ resource "oci_core_instance" "ampere" {
   }
 }
 
-# --- Object Storage Bucket for Encrypted Backups (Always Free Tier) ---
-
-data "oci_objectstorage_namespace" "main" {
-  compartment_id = var.compartment_ocid
-}
-
-resource "oci_objectstorage_bucket" "backups" {
-  compartment_id = var.compartment_ocid
-  name           = "homelab-backups-${var.tenancy_name}"
-  namespace      = data.oci_objectstorage_namespace.main.namespace
-  storage_tier   = "Standard"
-  access_type    = "NoPublicAccess"
-  versioning     = "Disabled"
-
-  freeform_tags = merge(local.effective_tags, {
-    "Environment" = "Production"
-    "Role"        = "Backup"
-  })
-}
-
 
