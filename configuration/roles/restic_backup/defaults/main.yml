@@ -6,6 +6,8 @@ restic_backup_repository: ""
 restic_backup_s3_access_key: ""
 restic_backup_s3_secret_key: ""
 restic_backup_password: ""
+restic_backup_password_file_path: "{{ restic_backup_config_dir }}/password"
+restic_backup_healthchecks_ping_url: ""
 
 # Directories and paths to include in the backup
 restic_backup_paths:

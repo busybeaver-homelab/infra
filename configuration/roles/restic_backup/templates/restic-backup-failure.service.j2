@@ -1,0 +1,11 @@
+[Unit]
+Description=Restic Backup Failure Alert for %I
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-{{ restic_backup_config_dir }}/backup.env
+ExecStart=/bin/sh -c 'if [ -n "${HEALTHCHECKS_PING_URL:-}" ]; then /usr/bin/curl -fsS -m 10 --retry 3 "${HEALTHCHECKS_PING_URL}/fail" --data-raw "Unit %I failed on host $(hostname)"; fi'
+User=root
+Group=root
