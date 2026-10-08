@@ -46,3 +46,13 @@ teardown() {
   run grep -F "lefthook install" "${BOOTSTRAP_SCRIPT}"
   [ "$status" -eq 0 ]
 }
+
+@test "bootstrap.sh contains state encryption passphrase instructions with SOPS option" {
+  run grep -F "TF_VAR_state_encryption_passphrase" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -eq 0 ]
+  run grep -F "state_encryption_passphrase" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -eq 0 ]
+  run grep -F "sops set secrets/credentials.sops.yaml" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -eq 0 ]
+}
+
