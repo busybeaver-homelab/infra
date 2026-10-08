@@ -1,13 +1,4 @@
-mock_provider "cloudflare" {
-  mock_data "cloudflare_api_token_permission_groups" {
-    defaults = {
-      account = {
-        "Workers R2 Storage Bucket Item Read"  = "mock-perm-r2-read"
-        "Workers R2 Storage Bucket Item Write" = "mock-perm-r2-write"
-      }
-    }
-  }
-}
+mock_provider "cloudflare" {}
 
 variables {
   cloudflare_api_token  = "mock-cf-token-12345"
@@ -23,7 +14,7 @@ run "verify_r2_backup_bucket_configuration" {
   }
 
   assert {
-    condition     = cloudflare_r2_bucket.backups_dr.location == "EEUR"
-    error_message = "R2 disaster recovery backup bucket location hint must be EEUR for EU data residency"
+    condition     = cloudflare_r2_bucket.backups_dr.location == "WEUR"
+    error_message = "R2 disaster recovery backup bucket location hint must be WEUR for EU data residency"
   }
 }
