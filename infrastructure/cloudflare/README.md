@@ -33,9 +33,9 @@
 
 | Name | Description |
 | ---- | ----------- |
-| <a name="output_r2_access_key_id"></a> [r2\_access\_key\_id](#output\_r2\_access\_key\_id) | The Access Key ID for Cloudflare R2 remote state backend authentication. |
 | <a name="output_r2_backup_bucket_name"></a> [r2\_backup\_bucket\_name](#output\_r2\_backup\_bucket\_name) | The name of the secondary R2 disaster recovery backup bucket. |
 | <a name="output_r2_backup_endpoint"></a> [r2\_backup\_endpoint](#output\_r2\_backup\_endpoint) | S3-compatible endpoint URL for the EU jurisdictional R2 backup bucket. |
-| <a name="output_r2_bucket_name"></a> [r2\_bucket\_name](#output\_r2\_bucket\_name) | The name of the OpenTofu state storage R2 bucket. |
-| <a name="output_r2_secret_access_key"></a> [r2\_secret\_access\_key](#output\_r2\_secret\_access\_key) | The Secret Access Key (SHA-256 hash of API token) for Cloudflare R2 remote state backend authentication. |
+| <a name="output_r2_tfstate_access_key_id"></a> [r2\_tfstate\_access\_key\_id](#output\_r2\_tfstate\_access\_key\_id) | The Access Key ID for Cloudflare R2 remote state backend authentication. |
+| <a name="output_r2_tfstate_bucket_name"></a> [r2\_tfstate\_bucket\_name](#output\_r2\_tfstate\_bucket\_name) | The name of the OpenTofu state storage R2 bucket. |
+| <a name="output_r2_tfstate_secret_access_key"></a> [r2\_tfstate\_secret\_access\_key](#output\_r2\_tfstate\_secret\_access\_key) | The Secret Access Key (SHA-256 hash of API token) for Cloudflare R2 remote state backend authentication. |
 <!-- END_TF_DOCS -->
