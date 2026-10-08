@@ -43,14 +43,14 @@ To decrypt and manage production files locally, you must have the production GPG
 
 ---
 
-## 🛟 Offline Disaster Recovery & Emergency Decryption
+## 🛟 Disaster Recovery & Emergency Decryption
 
-Production secrets (`secrets/credentials.sops.yaml`) are multi-recipient encrypted to both the primary admin GPG key and a **secondary offline Age recovery key**.
+Production secrets (`secrets/credentials.sops.yaml`) are multi-recipient encrypted to both the primary admin GPG key and a **secondary Age recovery key**.
 
-- **Public Key:** `age15vgve3yy0m2k9mqca9ntc8zt235ruf3nxnnacce2evl2ncz68u3q5uf9jq`
-- **Key Storage:** The corresponding private key is stored **offline only** on an encrypted hardware security token (YubiKey) and a paper backup stored in a physical fireproof safe. It is **never** stored on an internet-connected device or committed to version control.
+- **Public Key:** `age14elxn8s32z2y348n0fhczz9ukdxafh4vau4zkgdq4rdfszhrz3ns7nd477`
+- **Key Storage:** The corresponding private key is stored **offline, encrypted only**. It is **never** committed to version control.
 
-### Generating a New Offline Recovery Keypair
+### Generating a New Recovery Keypair
 
 If rotating the recovery key:
 
@@ -68,11 +68,11 @@ shred -u /tmp/recovery-age-key.txt
 If the primary GPG key is lost, corrupted, or inaccessible during an emergency:
 
 1. Retrieve the physical paper backup or hardware security token from the safe.
-2. Export the offline recovery key into a strictly ephemeral, restricted subshell:
+2. Export the recovery key into a strictly ephemeral, restricted subshell:
    ```bash
-   read -rs OFFLINE_KEY # type or paste private key safely
-   SOPS_AGE_KEY="$OFFLINE_KEY" mise exec -- sops -d secrets/credentials.sops.yaml > /tmp/recovered-credentials.yaml
-   unset OFFLINE_KEY
+   read -rs RECOVERY_KEY # type or paste private key safely
+   SOPS_AGE_KEY="$RECOVERY_KEY" mise exec -- sops -d secrets/credentials.sops.yaml > /tmp/recovered-credentials.yaml
+   unset RECOVERY_KEY
    ```
 3. Generate a new primary administrative keypair, update `.sops.yaml`, re-encrypt the credentials file, and securely wipe `/tmp/recovered-credentials.yaml`.
 
