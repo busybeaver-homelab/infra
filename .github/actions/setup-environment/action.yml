@@ -1,0 +1,60 @@
+name: "Setup Homelab Environment"
+description: "Install and cache mise toolchain, Python venv, TFLint, and Ansible Galaxy dependencies"
+
+inputs:
+  python:
+    description: "Setup Python virtualenv with uv sync --locked"
+    required: false
+    default: "false"
+  tflint:
+    description: "Cache and initialize TFLint plugins"
+    required: false
+    default: "false"
+  galaxy:
+    description: "Cache and install Ansible Galaxy requirements"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Mise
+      uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+      with:
+        cache: true
+
+    - name: Setup Python Virtual Environment
+      if: inputs.python == 'true'
+      shell: bash
+      run: mise exec -- uv sync --locked
+
+    - name: Cache TFLint Plugins
+      if: inputs.tflint == 'true'
+      uses: actions/cache@d4323d4df104b026a6aa633fdb11d772115f6ec1 # v4.2.2
+      with:
+        path: ~/.tflint.d/plugins
+        key: tflint-${{ runner.os }}-${{ hashFiles('.tflint.hcl') }}
+
+    - name: Initialize TFLint
+      if: inputs.tflint == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+      run: |
+        mise exec -- tflint --init
+
+    - name: Cache Ansible Galaxy
+      if: inputs.galaxy == 'true'
+      uses: actions/cache@d4323d4df104b026a6aa633fdb11d772115f6ec1 # v4.2.2
+      with:
+        path: |
+          ~/.ansible/roles
+          ~/.ansible/collections
+        key: galaxy-${{ runner.os }}-${{ hashFiles('configuration/roles/requirements.yml') }}
+
+    - name: Install Ansible Galaxy requirements
+      if: inputs.galaxy == 'true'
+      shell: bash
+      run: |
+        mise exec -- ansible-galaxy install -r configuration/roles/requirements.yml -p ~/.ansible/roles --force
+        mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml

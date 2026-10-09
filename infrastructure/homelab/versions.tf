@@ -5,7 +5,7 @@ terraform {
     # Typical homelab providers (e.g. Proxmox, UniFi)
     proxmox = {
       source  = "bpg/proxmox"
-      version = "~> 0.60"
+      version = "~> 0.109.0"
     }
   }
 }

@@ -1,0 +1,17 @@
+---
+# Default variables for base_ubuntu_server role.
+# Sensitive values (SSH keys, passwords) are loaded via community.sops vars plugin
+# from secrets/credentials.ci.sops.yaml (CI) or secrets/credentials.sops.yaml (prod).
+
+base_ubuntu_server_timezone: "UTC"
+
+# Firewall settings (UFW & Docker chain isolation)
+base_ubuntu_server_firewall_enabled: true
+base_ubuntu_server_firewall_default_incoming: "deny"
+base_ubuntu_server_firewall_default_outgoing: "allow"
+base_ubuntu_server_firewall_allow_tailscale: true
+base_ubuntu_server_firewall_allow_openssh: false
+base_ubuntu_server_firewall_docker_isolation: true
+
+# SSH daemon state verification
+base_ubuntu_server_verify_ssh_running: false

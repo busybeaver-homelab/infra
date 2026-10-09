@@ -34,6 +34,7 @@ provisioner:
       remote_tmp: /tmp
       roles_path: ${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles
   playbooks:
+    prepare: prepare.yml
     converge: converge.yml
     verify: verify.yml
 

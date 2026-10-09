@@ -12,13 +12,13 @@
 - name: Configure UFW default incoming policy
   community.general.ufw:
     direction: incoming
-    default: "{{ base_firewall_default_incoming }}"
+    default: "{{ base_ubuntu_server_firewall_default_incoming }}"
   become: true
 
 - name: Configure UFW default outgoing policy
   community.general.ufw:
     direction: outgoing
-    default: "{{ base_firewall_default_outgoing }}"
+    default: "{{ base_ubuntu_server_firewall_default_outgoing }}"
   become: true
 
 - name: Allow all incoming traffic on tailscale0 interface in UFW
@@ -26,14 +26,14 @@
     rule: allow
     interface: tailscale0
     direction: in
-  when: base_firewall_allow_tailscale | bool
+  when: base_ubuntu_server_firewall_allow_tailscale | bool
   become: true
 
 - name: Allow OpenSSH in UFW if explicitly enabled
   community.general.ufw:
     rule: allow
     name: OpenSSH
-  when: base_firewall_allow_openssh | bool
+  when: base_ubuntu_server_firewall_allow_openssh | bool
   become: true
 
 - name: Configure DOCKER-USER chain in /etc/ufw/after.rules
@@ -47,22 +47,22 @@
       -A DOCKER-USER -i lo -j ACCEPT
       -A DOCKER-USER -i tailscale0 -j ACCEPT
       -A DOCKER-USER -j DROP
-  when: base_firewall_docker_isolation | bool
+  when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
   notify: Reload ufw
 
 - name: Enable UFW service
   community.general.ufw:
     state: enabled
-  when: base_firewall_enabled | bool
+  when: base_ubuntu_server_firewall_enabled | bool
   become: true
 
 - name: Ensure DOCKER-USER chain exists in active iptables
   ansible.builtin.command: iptables -N DOCKER-USER
-  register: iptables_docker_user_create
+  register: base_ubuntu_server_iptables_docker_user_create
   failed_when: false
-  changed_when: iptables_docker_user_create.rc == 0
-  when: base_firewall_docker_isolation | bool
+  changed_when: base_ubuntu_server_iptables_docker_user_create.rc == 0
+  when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
 
 - name: Allow related and established connections in DOCKER-USER chain
@@ -73,7 +73,7 @@
       - ESTABLISHED
     jump: ACCEPT
     action: append
-  when: base_firewall_docker_isolation | bool
+  when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
 
 - name: Allow loopback in DOCKER-USER chain
@@ -82,7 +82,7 @@
     in_interface: lo
     jump: ACCEPT
     action: append
-  when: base_firewall_docker_isolation | bool
+  when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
 
 - name: Allow tailscale0 in DOCKER-USER chain
@@ -91,7 +91,7 @@
     in_interface: tailscale0
     jump: ACCEPT
     action: append
-  when: base_firewall_docker_isolation | bool
+  when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
 
 - name: Drop non-tailscale inbound traffic in DOCKER-USER chain
@@ -99,5 +99,5 @@
     chain: DOCKER-USER
     jump: DROP
     action: append
-  when: base_firewall_docker_isolation | bool
+  when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true

@@ -1,16 +1,23 @@
-# Application Build & Packaging Workflow (`/apps`)
+# 📦 Applications Architecture
 
-This directory contains applications, services, and configurations that are deployed onto the Cloud or Homelab infrastructure.
+This directory houses application-layer definitions, serverless edge functions, and integration bridge manifests for the homelab infrastructure.
 
-## Packaging Process
+---
 
-To maintain a clean separation of concerns, the build process is handled inside GitHub Actions (via the `.github/workflows/build-apps.yml` workflow):
+## 🏛️ Architecture Boundary
 
-1. **Build Step:** Any compilers, bundlers, or test suites are run inside the `apps/<app-name>` directories.
-2. **Packaging Step:** The applications are bundled and compressed into standard `.zip` or `.tar.gz` packages inside the `/dist` directory.
-3. **Artifact Upload:** These packaged zip archives are uploaded as GitHub Actions artifacts.
-4. **Infrastructure Deployment:** When OpenTofu runs, it can reference and download the packages from `/dist/` to upload them to Google Cloud Storage, Cloud Functions, Cloud Run, or target servers via Ansible.
+In accordance with repository separation of concerns:
 
-## Standard output `/dist/`
+1. **Docker Compose Stacks:**
+   - Multi-container application workloads (e.g., AdGuard Home, Beszel, Node-RED, LiteLLM, Open-WebUI) are maintained in external dedicated service repositories (e.g., `homelab-services`).
+   - This keeps infrastructure provisioning and day-to-day application compose updates decoupled.
+2. **Serverless Edge Code (Cloudflare Workers):**
+   - Cloudflare Workers, edge routes, and lightweight serverless functions deployed alongside Cloudflare DNS/WAF infrastructure reside in this directory (`apps/`).
+3. **Bridge Manifests:**
+   - Any declarative bridges connecting OpenTofu outputs to service inputs are documented or templated here.
 
-The `/dist/` directory is automatically ignored by Git (configured in `.gitignore`) so built assets are never committed to version control. They are solely generated on demand during local development or via the CI runner.
+---
+
+## 🛠️ Tooling & Quality Gates
+
+Edge scripts and TypeScript/JavaScript functions in `apps/` are linted via **Oxlint** (`mise run check:general`) and formatted via **Oxfmt** as enforced by Lefthook pre-commit hooks.
