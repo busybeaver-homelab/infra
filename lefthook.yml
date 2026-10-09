@@ -59,6 +59,11 @@ pre-commit:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: shellcheck {staged_files}
 
+    # Cloudflare module guards: lifecycle protections + identifying-value leak guards
+    cloudflare-guards:
+      glob: "{infrastructure/cloudflare/**,tests/scripts/cloudflare-guards.bats}"
+      run: bats tests/scripts/cloudflare-guards.bats
+
     # Secrets Scanner (Trufflehog)
     trufflehog:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'

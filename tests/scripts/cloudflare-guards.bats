@@ -6,27 +6,33 @@ setup() {
   CF="$REPO_ROOT/infrastructure/cloudflare"
 }
 
-# Prints the body of `resource "<type>" "<name>" {` up to the next top-level resource.
+# Prints the comment-stripped body of `resource "<type>" "<name>" {` up to its own closing brace.
 resource_block() {
-  awk -v hdr="resource \"$1\" \"$2\"" '
-    index($0, hdr) == 1 { on = 1 }
-    on && /^resource "/ && index($0, hdr) != 1 { exit }
-    on { print }
-  ' "$CF"/*.tf "$CF"/modules/zone/*.tf
+  find "$CF" -name '*.tf' -not -path '*/.terraform/*' -exec cat {} + |
+    sed -E 's/[[:space:]]*#.*$//' |
+    awk -v hdr="resource \"$1\" \"$2\"" '
+      !on && index($0, hdr) == 1 { on = 1; depth = 0 }
+      on {
+        print
+        o = gsub(/\{/, "{"); c = gsub(/\}/, "}"); depth += o - c
+        if (depth <= 0 && (o + c) > 0) exit
+      }'
+}
+
+# Succeeds only if the block contains an active (uncommented) line exactly "<key> = <value>".
+lifecycle_set() {
+  local key="${3%% = *}" val="${3#* = }"
+  resource_block "$1" "$2" | grep -qE "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*${val}[[:space:]]*$"
 }
 
 @test "frozen account tokens keep prevent_destroy and ignore_changes = all" {
-  run resource_block cloudflare_account_token frozen
-  [ -n "$output" ]
-  [[ "$output" == *"prevent_destroy = true"* ]]
-  [[ "$output" == *"ignore_changes  = all"* ]]
+  lifecycle_set cloudflare_account_token frozen 'prevent_destroy = true'
+  lifecycle_set cloudflare_account_token frozen 'ignore_changes = all'
 }
 
 @test "frozen account member keeps prevent_destroy and ignore_changes = all" {
-  run resource_block cloudflare_account_member frozen
-  [ -n "$output" ]
-  [[ "$output" == *"prevent_destroy = true"* ]]
-  [[ "$output" == *"ignore_changes  = all"* ]]
+  lifecycle_set cloudflare_account_member frozen 'prevent_destroy = true'
+  lifecycle_set cloudflare_account_member frozen 'ignore_changes = all'
 }
 
 @test "frozen tokens cover exactly grafana, r2_state and terraform" {
@@ -44,9 +50,8 @@ resource_block() {
   for spec in "cloudflare_account this" "cloudflare_zero_trust_organization this" \
     "cloudflare_r2_bucket tfstate" "cloudflare_r2_bucket backups_dr" \
     "cloudflare_zone this" "cloudflare_zone_dnssec this"; do
-    run resource_block $spec
-    [ -n "$output" ] || { echo "missing: $spec"; return 1; }
-    [[ "$output" == *"prevent_destroy = true"* ]] || { echo "unguarded: $spec"; return 1; }
+    # shellcheck disable=SC2086
+    lifecycle_set $spec 'prevent_destroy = true' || { echo "unguarded or missing: $spec"; return 1; }
   done
 }
 
@@ -80,4 +85,49 @@ cf_sources() {
   [ ! -f "$CF/imports.tf" ]
   run grep -n 'run_imports' "$CF/variables.tf" "$CF/tests/cloudflare.tftest.hcl"
   [ "$status" -ne 0 ]
+}
+
+@test "cloudflare guards run at commit time and on cloudflare-only PRs" {
+  run grep -A4 '^    cloudflare-guards:' "$REPO_ROOT/lefthook.yml"
+  [[ "$output" == *"tests/scripts/cloudflare-guards.bats"* ]]
+  run awk '/^            shell:/{on=1; next} on && /^            [a-z]+:/{exit} on' "$REPO_ROOT/.github/workflows/ci.yml"
+  [[ "$output" == *"'infrastructure/cloudflare/**'"* ]]
+}
+
+@test "lifecycle guard rejects commented-out or weakened settings" {
+  CF="$BATS_TEST_TMPDIR/cf"
+  mkdir -p "$CF"
+  cat >"$CF/fixture.tf" <<'HCL'
+resource "cloudflare_account_token" "frozen" {
+  lifecycle {
+    # prevent_destroy = true
+    ignore_changes = [name] # ignore_changes  = all
+  }
+}
+
+resource "cloudflare_account_member" "frozen" {
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = all
+  }
+}
+HCL
+  run lifecycle_set cloudflare_account_token frozen 'prevent_destroy = true'
+  [ "$status" -ne 0 ]
+  run lifecycle_set cloudflare_account_token frozen 'ignore_changes = all'
+  [ "$status" -ne 0 ]
+  run lifecycle_set cloudflare_account_member frozen 'prevent_destroy = true'
+  [ "$status" -eq 0 ]
+  run lifecycle_set cloudflare_account_member frozen 'ignore_changes = all'
+  [ "$status" -eq 0 ]
+}
+
+@test "resource block ends at its own closing brace" {
+  CF="$BATS_TEST_TMPDIR/cf2"
+  mkdir -p "$CF"
+  printf 'resource "a" "b" {\n  x = 1\n}\n\ncheck "c" {\n  prevent_destroy = true\n}\n\nresource "d" "e" {\n  prevent_destroy = true\n}\n' >"$CF/fixture.tf"
+  run lifecycle_set a b 'prevent_destroy = true'
+  [ "$status" -eq 1 ]
+  run lifecycle_set d e 'prevent_destroy = true'
+  [ "$status" -eq 0 ]
 }
