@@ -25,7 +25,6 @@
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_cloudflare_account_id"></a> [cloudflare\_account\_id](#input\_cloudflare\_account\_id) | The Cloudflare account ID for managing R2 and account-level resources. | `string` | n/a | yes |
 | <a name="input_cloudflare_api_token"></a> [cloudflare\_api\_token](#input\_cloudflare\_api\_token) | The API token for authenticating with Cloudflare. | `string` | n/a | yes |
-| <a name="input_previous_state_encryption_passphrase"></a> [previous\_state\_encryption\_passphrase](#input\_previous\_state\_encryption\_passphrase) | Previous passphrase for OpenTofu state decryption fallback during migration. | `string` | `"homelab-state-encryption-passphrase-default"` | no |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state and plan encryption. | `string` | `"homelab-state-encryption-passphrase-default"` | no |
 
 ## Outputs
