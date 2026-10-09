@@ -62,9 +62,11 @@ jobs:
             if [ -n "$R2_KEY_ID" ] && [ -n "$R2_SECRET" ]; then
               echo "::add-mask::$R2_KEY_ID"
               echo "::add-mask::$R2_SECRET"
-              echo "AWS_ACCESS_KEY_ID=$R2_KEY_ID" >> "$GITHUB_ENV"
-              echo "AWS_SECRET_ACCESS_KEY=$R2_SECRET" >> "$GITHUB_ENV"
-              echo "AWS_DEFAULT_REGION=auto" >> "$GITHUB_ENV"
+              {
+                echo "AWS_ACCESS_KEY_ID=$R2_KEY_ID"
+                echo "AWS_SECRET_ACCESS_KEY=$R2_SECRET"
+                echo "AWS_DEFAULT_REGION=auto"
+              } >> "$GITHUB_ENV"
             fi
             STATE_PASSPHRASE=$(mise exec -- yq '.opentofu.state_encryption_passphrase // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
             if [ -n "$STATE_PASSPHRASE" ]; then
@@ -91,10 +93,12 @@ jobs:
             echo "✅ No drift detected for ${{ matrix.module }}." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           elif [ $EXIT_CODE -eq 2 ]; then
-            echo "⚠️ DRIFT DETECTED in ${{ matrix.module }}! Infrastructure has diverged from declarative code." >> "$GITHUB_STEP_SUMMARY"
-            echo '```text' >> "$GITHUB_STEP_SUMMARY"
-            cat "${RUNNER_TEMP}/drift_plan.txt" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "⚠️ DRIFT DETECTED in ${{ matrix.module }}! Infrastructure has diverged from declarative code."
+              echo '```text'
+              cat "${RUNNER_TEMP}/drift_plan.txt"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 2
           else
             echo "❌ Error evaluating drift for ${{ matrix.module }} (Exit code $EXIT_CODE)." >> "$GITHUB_STEP_SUMMARY"

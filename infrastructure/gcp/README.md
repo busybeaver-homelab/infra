@@ -21,11 +21,12 @@
 
 ## Inputs
 
-| Name                                                                                                                 | Description                                                                                                             | Type     | Default                                         | Required |
-| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------- | :------: |
-| <a name="input_gcp_project_id"></a> [gcp\_project\_id](#input_gcp_project_id)                                        | The Google Cloud project ID.                                                                                            | `string` | n/a                                             |   yes    |
-| <a name="input_gcp_region"></a> [gcp\_region](#input_gcp_region)                                                     | The primary Google Cloud region. Must be in the GCP Always Free Tier eligible regions: us-central1, us-east1, us-west1. | `string` | `"us-central1"`                                 |    no    |
-| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | Passphrase for OpenTofu state and plan encryption.                                                                      | `string` | `"homelab-state-encryption-passphrase-default"` |    no    |
+| Name                                                                                                                 | Description                                                                                                             | Type          | Default                                         | Required |
+| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------- | :------: |
+| <a name="input_default_labels"></a> [default\_labels](#input_default_labels)                                         | Default labels applied to all GCP resources. Must include project = 'homelab'.                                          | `map(string)` | <pre>{<br/> "project": "homelab"<br/>}</pre>    |    no    |
+| <a name="input_gcp_project_id"></a> [gcp\_project\_id](#input_gcp_project_id)                                        | The Google Cloud project ID.                                                                                            | `string`      | n/a                                             |   yes    |
+| <a name="input_gcp_region"></a> [gcp\_region](#input_gcp_region)                                                     | The primary Google Cloud region. Must be in the GCP Always Free Tier eligible regions: us-central1, us-east1, us-west1. | `string`      | `"us-central1"`                                 |    no    |
+| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | Passphrase for OpenTofu state and plan encryption.                                                                      | `string`      | `"homelab-state-encryption-passphrase-default"` |    no    |
 
 ## Outputs
 

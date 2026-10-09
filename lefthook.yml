@@ -69,6 +69,12 @@ pre-commit:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: trufflehog filesystem {staged_files} --results=verified,unknown --fail
 
+    # GitHub Actions Workflow Linter (actionlint)
+    actionlint:
+      glob: ".github/workflows/*.{yml,yaml}"
+      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      run: actionlint {staged_files}
+
     # Ansible Linter
     ansible-lint:
       glob: "configuration/**/*.{yml,yaml}"

@@ -164,4 +164,43 @@ teardown() {
   [[ "$output" =~ "Network masking violation" ]]
 }
 
+@test "check-network-masking.sh rejects staged IPv6 Unique Local Address (ULA fc00::/7)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo 'ipv6_ula = "fd12:3456:789a:1::1"' > network.tf
+  git add network.tf
+
+  run bash "${MASK_SCRIPT}" "network.tf"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Network masking violation" ]]
+}
+
+@test "check-network-masking.sh rejects port-bearing private IP literals" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo 'proxmox_url = "192.168.1.100:8006"' > endpoint.tf
+  git add endpoint.tf
+
+  run bash "${MASK_SCRIPT}" "endpoint.tf"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Network masking violation" ]]
+}
+
+@test "check-network-masking.sh rejects URLs with embedded private IPs" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo 'api = "https://10.0.0.5/api2/json"' > api.tf
+  git add api.tf
+
+  run bash "${MASK_SCRIPT}" "api.tf"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Network masking violation" ]]
+}
+
 
