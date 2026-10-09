@@ -234,3 +234,19 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "configuration/group_vars/oci.yml wires dual restic backup targets" {
+  local oci_vars="$REPO_ROOT/configuration/group_vars/oci.yml"
+  [ -f "$oci_vars" ]
+  run grep "restic_backup_secondary_enabled: true" "$oci_vars"
+  [ "$status" -eq 0 ]
+  run grep "cloudflare_restic.s3_endpoint" "$oci_vars"
+  [ "$status" -eq 0 ]
+  run grep "cloudflare_restic.bucket" "$oci_vars"
+  [ "$status" -eq 0 ]
+  run grep "cloudflare_restic.s3_access_key_id" "$oci_vars"
+  [ "$status" -eq 0 ]
+  run grep "cloudflare_restic.password" "$oci_vars"
+  [ "$status" -eq 0 ]
+}
+
+
