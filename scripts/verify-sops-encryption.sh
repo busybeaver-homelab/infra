@@ -77,7 +77,7 @@ for file in "$@"; do
   fi
 
   # 2. Verify .sops.mac exists and is non-empty
-  sops_mac=$(echo "$content" | run_yq eval '(.sops.mac // "")' - 2>/dev/null || echo "")
+  sops_mac=$(echo "$content" | run_yq eval '(.sops.mac // "")' - 2>/dev/null | tr -d '[:space:]' || echo "")
   if [ -z "$sops_mac" ] || [ "$sops_mac" = "null" ]; then
     echo -e "${RED}[ERROR] Security leak detected! Missing or empty .sops.mac in $file.${NC}" >&2
     echo -e "File has a SOPS extension but lacks SOPS encryption metadata." >&2
