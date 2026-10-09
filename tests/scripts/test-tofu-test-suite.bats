@@ -30,3 +30,19 @@ setup() {
   run grep -E "tofu test" "$mise_config"
   [ "$status" -eq 0 ]
 }
+
+@test "mise.toml test:infra executes module tests concurrently" {
+  local mise_config="$REPO_ROOT/mise.toml"
+  [ -f "$mise_config" ]
+  local task_def
+  task_def=$(sed -n '/\[tasks\."test:infra"\]/,/\[settings\]/p' "$mise_config")
+  run grep -E "wait|tmp_dir|pids" <<<"$task_def"
+  [ "$status" -eq 0 ]
+}
+
+@test "all specified infrastructure modules define negative.tftest.hcl test suites" {
+  [ -f "$REPO_ROOT/infrastructure/oci/tests/negative.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/cloudflare/tests/negative.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/github/tests/negative.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/monitoring/tests/negative.tftest.hcl" ]
+}

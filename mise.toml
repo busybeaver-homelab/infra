@@ -72,16 +72,69 @@ run = "ruff check"
 
 [tasks."check:general"]
 description = "Check general files (JS/TS) with oxlint"
-run = "oxlint -c .oxlintrc.json apps/"
+run = "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern apps/"
+
 
 [tasks.test]
 description = "Run all test suites"
 depends = ["test:infra", "test:ansible", "test:scripts"]
 
-[tasks."test:ansible"]
-description = "Run Molecule tests for Ansible roles"
-dir = "configuration/roles/base-ubuntu-server"
+[tasks."test:ansible:base"]
+description = "Run Molecule tests for base_ubuntu_server role"
+dir = "configuration/roles/base_ubuntu_server"
 run = "molecule test"
+
+[tasks."test:ansible:restic"]
+description = "Run Molecule tests for restic_backup role"
+dir = "configuration/roles/restic_backup"
+run = "molecule test"
+
+[tasks."test:ansible:oci"]
+description = "Run Molecule tests for OCI scenario"
+dir = "configuration/molecule/oci"
+run = "molecule test"
+
+[tasks."test:ansible"]
+description = "Run full Molecule test matrix across all Ansible roles and scenarios"
+depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:oci"]
+
+[tasks."test:ansible:fast:base"]
+description = "Fast iterate on base_ubuntu_server role (converge and verify)"
+dir = "configuration/roles/base_ubuntu_server"
+run = "molecule converge && molecule verify"
+
+[tasks."test:ansible:fast:restic"]
+description = "Fast iterate on restic_backup role (converge and verify)"
+dir = "configuration/roles/restic_backup"
+run = "molecule converge && molecule verify"
+
+[tasks."test:ansible:fast:oci"]
+description = "Fast iterate on OCI scenario (converge and verify)"
+dir = "configuration/molecule/oci"
+run = "molecule converge && molecule verify"
+
+[tasks."test:ansible:fast"]
+description = "Fast iterate across all Ansible roles and scenarios (converge and verify without rebuild)"
+depends = ["test:ansible:fast:base", "test:ansible:fast:restic", "test:ansible:fast:oci"]
+
+[tasks."test:ansible:clean:base"]
+description = "Destroy Molecule test containers for base_ubuntu_server role"
+dir = "configuration/roles/base_ubuntu_server"
+run = "molecule destroy"
+
+[tasks."test:ansible:clean:restic"]
+description = "Destroy Molecule test containers for restic_backup role"
+dir = "configuration/roles/restic_backup"
+run = "molecule destroy"
+
+[tasks."test:ansible:clean:oci"]
+description = "Destroy Molecule test containers for OCI scenario"
+dir = "configuration/molecule/oci"
+run = "molecule destroy"
+
+[tasks."test:ansible:clean"]
+description = "Destroy all Molecule test containers across all roles and scenarios"
+depends = ["test:ansible:clean:base", "test:ansible:clean:restic", "test:ansible:clean:oci"]
 
 [tasks."test:scripts"]
 description = "Run Bats tests for scripts"
@@ -184,15 +237,43 @@ echo "Deleted secret ${usage_key} from secrets/credentials.ci.sops.yaml"
 '''
 
 [tasks."test:infra"]
-description = "Run native OpenTofu tests across all infrastructure modules"
+description = "Run native OpenTofu tests concurrently across all infrastructure modules"
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
 modules=(oci cloudflare gcp azure github homelab monitoring)
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' EXIT
+
+pids=()
 for mod in "${modules[@]}"; do
-  echo "==> Running tofu test in infrastructure/$mod..."
-  (cd "infrastructure/$mod" && tofu test -test-directory=tests)
+  (
+    set +e
+    (cd "infrastructure/$mod" && tofu test -test-directory=tests) >"$tmp_dir/$mod.log" 2>&1
+    echo $? >"$tmp_dir/$mod.exit"
+  ) &
+  pids+=($!)
 done
+
+for pid in "${pids[@]}"; do
+  wait "$pid" 2>/dev/null || true
+done
+
+failed=0
+for mod in "${modules[@]}"; do
+  exit_val=$(cat "$tmp_dir/$mod.exit" 2>/dev/null || echo 1)
+  if [ "$exit_val" -eq 0 ]; then
+    echo "==> [PASS] infrastructure/$mod"
+  else
+    echo "==> [FAIL] infrastructure/$mod (exit code: $exit_val)"
+    cat "$tmp_dir/$mod.log"
+    failed=1
+  fi
+done
+
+if [ "$failed" -ne 0 ]; then
+  exit 1
+fi
 '''
 
 [settings]

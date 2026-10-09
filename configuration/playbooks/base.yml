@@ -4,4 +4,4 @@
   become: true
   gather_facts: true
   roles:
-    - role: base-ubuntu-server
+    - role: base_ubuntu_server

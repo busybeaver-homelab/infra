@@ -97,3 +97,33 @@ teardown() {
   run bash "${DETECT_SCRIPT}" "file.env"
   [ "$status" -eq 0 ]
 }
+
+@test "detect-private-keys.sh executes batched scan on multiple clean files" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  for i in $(seq 1 20); do
+    echo "clean content $i" > "file_$i.txt"
+  done
+  git add file_*.txt
+
+  run bash "${DETECT_SCRIPT}" file_*.txt
+  [ "$status" -eq 0 ]
+}
+
+@test "detect-private-keys.sh detects multiple leaks in a batched scan" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo "clean content" > file_clean.txt
+  printf '%s%s\n' 'AGE-SECRET-' 'KEY-REDACTED-LEAKED-AGE-KEY' > file_age.env
+  printf '%s%s\n' '-----BEGIN ' 'OPENSSH PRIVATE KEY-----' > file_ssh.key
+  git add file_clean.txt file_age.env file_ssh.key
+
+  run bash "${DETECT_SCRIPT}" file_clean.txt file_age.env file_ssh.key
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Age private key detected in file_age.env" ]]
+  [[ "$output" =~ "Private key header detected in file_ssh.key" ]]
+}

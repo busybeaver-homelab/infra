@@ -2,6 +2,11 @@
 - name: Configure OCI Instances
   hosts: oci
   become: true
+  module_defaults:
+    ansible.builtin.template:
+      unsafe_writes: true
+    template:
+      unsafe_writes: true
   pre_tasks:
     - name: Load SOPS credentials
       community.sops.load_vars:
@@ -35,7 +40,7 @@
 
   roles:
     - ajsalminen.hosts
-    - base-ubuntu-server
+    - base_ubuntu_server
     - geerlingguy.swap
     - geerlingguy.ntp
     - dev-sec.os-hardening

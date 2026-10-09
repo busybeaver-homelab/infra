@@ -131,3 +131,14 @@ HCL
   run lifecycle_set d e 'prevent_destroy = true'
   [ "$status" -eq 0 ]
 }
+
+@test "root tofu tests never use the real sops provider" {
+  # A root-module test without a sops mock would decrypt production SOPS (locally) via data.sops_file.
+  for f in "$CF"/tests/*.tftest.hcl; do
+    runs=$(grep -c '^run "' "$f" || true)
+    module_runs=$(grep -c 'module { source = "./modules/zone" }' "$f" || true)
+    if [ "$runs" -ne "$module_runs" ]; then
+      grep -q '^mock_provider "sops"' "$f" || { echo "missing sops mock: ${f##*/}"; return 1; }
+    fi
+  done
+}

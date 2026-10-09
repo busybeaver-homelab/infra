@@ -27,7 +27,6 @@ jobs:
       tofu: ${{ steps.filter.outputs.tofu }}
       ansible: ${{ steps.filter.outputs.ansible }}
       molecule: ${{ steps.filter.outputs.molecule }}
-      apps: ${{ steps.filter.outputs.apps }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -55,7 +54,6 @@ jobs:
             tofu:
               - 'infrastructure/**'
               - '.github/workflows/ci.yml'
-              - 'apps/**'
             ansible:
               - 'configuration/**'
               - 'secrets/credentials.ci.sops.yaml'
@@ -63,9 +61,6 @@ jobs:
             molecule:
               - 'configuration/**'
               - 'secrets/credentials.ci.sops.yaml'
-              - '.github/workflows/ci.yml'
-            apps:
-              - 'apps/**'
               - '.github/workflows/ci.yml'
 
   security-scan:
@@ -81,10 +76,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Mise
-        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
-        with:
-          cache: true
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
 
       - name: Run Zizmor Workflow Security Audit
         run: |
@@ -132,13 +125,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Install Mise
-        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
         with:
-          cache: true
-
-      - name: Setup environment dependencies
-        run: mise exec -- uv sync --locked
+          python: "true"
 
       - name: Run Lefthook Linters
         env:
@@ -174,58 +164,16 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Mise
-        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
-        with:
-          cache: true
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
 
       - name: Run Bats tests
         run: mise exec -- bats tests/scripts/
 
-  build-apps:
-    name: Build & Zip Applications
-    needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.apps == 'true' || needs.changes.outputs.tofu == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    timeout-minutes: 10
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-
-      - name: Install Mise
-        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
-        with:
-          cache: true
-
-      - name: Build applications
-        run: |
-          echo "Building sample-app..."
-          cd apps/sample-app
-          mise exec -- npm ci
-          mise exec -- npm test
-
-      - name: Package Applications (Zip)
-        run: |
-          mkdir -p dist
-          cd apps/sample-app
-          zip -r ../../dist/sample-app.zip . -x "node_modules/*"
-          echo "Successfully packaged sample-app.zip to dist/"
-
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea2ffd6fb66b502a35368a4f0 # v4.4.3
-        with:
-          name: app-packages
-          path: dist/
-          retention-days: 5
-
   tofu-validate:
-    name: OpenTofu Validation & Terratest
-    needs: [changes, build-apps]
-    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.tofu == 'true') && (needs.build-apps.result == 'success' || needs.build-apps.result == 'skipped')
+    name: OpenTofu Validation & Tests
+    needs: changes
+    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.tofu == 'true')
     runs-on: ubuntu-latest
     environment: ci
     permissions:
@@ -240,42 +188,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Mise
-        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
         with:
-          cache: true
+          tflint: "true"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check OpenTofu Formatting
         run: mise exec -- tofu fmt -check -recursive infrastructure/
 
-      - name: Cache TFLint Plugins
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772115f6ec1 # v4.2.2
-        with:
-          path: ~/.tflint.d/plugins
-          key: tflint-${{ runner.os }}-${{ hashFiles('.tflint.hcl') }}
-
-      - name: Initialize and Run TFLint
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mise exec -- tflint --init
-          mise exec -- tflint --recursive
-
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372ec807db5 # v4.1.8
-        continue-on-error: true
-        with:
-          name: app-packages
-          path: dist/
-
-      - name: Ensure Dist Directory and Packages Exist (Mock if missing)
-        run: |
-          mkdir -p dist
-          if [ ! -f dist/sample-app.zip ]; then
-            echo "placeholder" > mock.txt
-            zip dist/sample-app.zip mock.txt
-            rm mock.txt
-          fi
+      - name: Run TFLint
+        run: mise exec -- tflint --recursive
 
       - name: Validate OpenTofu Modules
         run: |
@@ -303,18 +227,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Mise
-        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
         with:
-          cache: true
-
-      - name: Setup environment dependencies
-        run: mise exec -- uv sync --locked
-
-      - name: Install Ansible Galaxy roles and collections
-        run: |
-          mise exec -- ansible-galaxy install -r configuration/roles/requirements.yml -p ~/.ansible/roles --force
-          mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml
+          python: "true"
+          galaxy: "true"
 
       - name: Decrypt CI secrets (scoped permissions)
         env:
@@ -365,7 +282,7 @@ jobs:
       fail-fast: false
       matrix:
         scenario:
-          - base-ubuntu-server
+          - base_ubuntu_server
           - restic_backup
           - oci
     steps:
@@ -374,18 +291,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Mise
-        uses: jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049 # v2.1.11
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
         with:
-          cache: true
-
-      - name: Setup environment dependencies
-        run: mise exec -- uv sync --locked
-
-      - name: Install Ansible Galaxy roles and collections
-        run: |
-          mise exec -- ansible-galaxy install -r configuration/roles/requirements.yml -p ~/.ansible/roles --force
-          mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml
+          python: "true"
+          galaxy: "true"
 
       - name: Setup SOPS Age Key for Molecule
         env:
@@ -394,10 +304,10 @@ jobs:
           mkdir -p "${HOME}/.config/sops/age"
           (umask 077 && echo "${SOPS_AGE_KEY}" > "${HOME}/.config/sops/age/keys.txt")
 
-      - name: Run Molecule test (base-ubuntu-server)
-        if: matrix.scenario == 'base-ubuntu-server'
+      - name: Run Molecule test (base_ubuntu_server)
+        if: matrix.scenario == 'base_ubuntu_server'
         run: |
-          cd configuration/roles/base-ubuntu-server
+          cd configuration/roles/base_ubuntu_server
           mise exec -- molecule test
         env:
           PY_COLORS: "1"
@@ -433,7 +343,6 @@ jobs:
       - security-scan
       - lint-format
       - shell-bats
-      - build-apps
       - tofu-validate
       - ansible-check
       - molecule
