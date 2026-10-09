@@ -23,7 +23,7 @@
 
 - name: Set timezone
   community.general.timezone:
-    name: "{{ base_timezone }}"
+    name: "{{ base_ubuntu_server_timezone }}"
   become: true
 
 - name: Configure host firewall and Docker chain isolation
@@ -39,4 +39,4 @@
         (ansible_facts.services['ssh.service']['state'] | default('')) == 'running' or
         (ansible_facts.services['sshd.service']['state'] | default('')) == 'running'
     fail_msg: "SSH service is expected to be running on base Ubuntu servers"
-  when: base_verify_ssh_running | bool
+  when: base_ubuntu_server_verify_ssh_running | bool
