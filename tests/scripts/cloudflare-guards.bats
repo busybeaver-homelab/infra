@@ -75,3 +75,9 @@ cf_sources() {
   run bash -c "$(declare -f cf_sources); CF='$CF'; cf_sources | xargs grep -lF -- '$zone_name'"
   [ -z "$output" ]
 }
+
+@test "transient import scaffolding is removed after adoption" {
+  [ ! -f "$CF/imports.tf" ]
+  run grep -n 'run_imports' "$CF/variables.tf" "$CF/tests/cloudflare.tftest.hcl"
+  [ "$status" -ne 0 ]
+}
