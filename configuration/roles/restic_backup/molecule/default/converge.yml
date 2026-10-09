@@ -26,8 +26,11 @@
         mode: "0644"
 
   vars:
-    restic_backup_repository: "/var/cache/restic/test-repo"
-    restic_backup_password: "test-encryption-password-molecule!"
+    restic_backup_repository: "/var/cache/restic/primary-repo"
+    restic_backup_password: "test-primary-encryption-password-molecule!"
+    restic_backup_secondary_enabled: true
+    restic_backup_secondary_repository: "/var/cache/restic/secondary-repo"
+    restic_backup_secondary_password: "test-secondary-encryption-password-molecule!"
     restic_backup_paths:
       - "/etc"
       - "/opt/containers"
