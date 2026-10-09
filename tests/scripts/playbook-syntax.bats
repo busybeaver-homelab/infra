@@ -52,4 +52,8 @@ setup() {
 
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/site.yml"
   [ "$status" -eq 0 ]
+
+  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/oci.yml"
+  [ "$status" -eq 0 ]
 }
+
