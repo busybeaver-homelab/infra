@@ -28,6 +28,7 @@
 
 - name: Configure host firewall and Docker chain isolation
   ansible.builtin.include_tasks: firewall.yml
+  when: base_ubuntu_server_firewall_enabled | bool
 
 - name: Gather service facts
   ansible.builtin.service_facts:
