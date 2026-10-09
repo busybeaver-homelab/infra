@@ -208,21 +208,21 @@ mise run secret:ci:set "opentofu.state_encryption_passphrase"
 
 ---
 
-## 🔐 Docs Transparent Encryption (git-crypt)
+## 🔐 Docs & Backups Transparent Encryption (git-crypt)
 
-All internal architectural designs, operational plans, task trackers, and documentation under `docs/` are encrypted at rest in Git using [git-crypt](https://github.com/AGWA/git-crypt) to eliminate the risk of sensitive homelab topology or configuration leakage via public/remote repositories.
+All internal architectural designs, operational plans, task trackers, and documentation under `docs/`, as well as configuration backups and recovery archives under `backups/`, are encrypted at rest in Git using [git-crypt](https://github.com/AGWA/git-crypt) to eliminate the risk of sensitive homelab topology, configuration, or credentials leakage via public/remote repositories.
 
 ### Key Management & GPG Association
 
-- **Single GPG Key Standard:** `docs/` is encrypted with the **identical production GPG key** used for `secrets/credentials.sops.yaml` (`5EE1590FF82DC2A3829D224FAA73ACF495CC009D`). No separate or ad-hoc keys are maintained.
-- **CI Decoupling:** Documentation files are not required during continuous integration pipelines (GitHub Actions). CI runners execute without production GPG keys; linters automatically skip encrypted binary files (`\0GITCRYPT`).
-- **Granular Filter:** Only `docs/**` is encrypted via `.gitattributes`. OpenTofu HCL code, Ansible playbooks, and automated test suites remain plaintext.
+- **Single GPG Key Standard:** `docs/` and `backups/` are encrypted with the **identical production GPG key** used for `secrets/credentials.sops.yaml` (`5EE1590FF82DC2A3829D224FAA73ACF495CC009D`). No separate or ad-hoc keys are maintained.
+- **CI Decoupling:** Documentation and backup files are not required during continuous integration pipelines (GitHub Actions). CI runners execute without production GPG keys; linters automatically skip encrypted binary files (`\0GITCRYPT`).
+- **Granular Filter:** `docs/**` and `backups/**` are encrypted via `.gitattributes`. OpenTofu HCL code, Ansible playbooks, and automated test suites remain plaintext.
 
 ### Daily Operations
 
 #### Unlocking the Repository
 
-If `docs/plans/task.md` appears as encrypted binary data upon cloning or pulling:
+If `docs/plans/task.md` or `backups/README.md` appears as encrypted binary data upon cloning or pulling:
 
 ```bash
 # Automated via bootstrap:
@@ -234,17 +234,17 @@ git-crypt unlock
 
 #### Verifying Encryption Status
 
-To confirm that all files in `docs/` are encrypted before pushing commits:
+To confirm that all files in `docs/` and `backups/` are encrypted before pushing commits:
 
 ```bash
 git-crypt status -e
 ```
 
-All files under `docs/` must report `encrypted: docs/...`.
+All files under `docs/` and `backups/` must report `encrypted: docs/...` or `encrypted: backups/...`.
 
 #### Locking for Security Audits / CI Testing
 
-To test how linters and Git hooks behave when documentation is locked:
+To test how linters and Git hooks behave when documentation and backups are locked:
 
 ```bash
 git-crypt lock
