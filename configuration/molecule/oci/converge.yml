@@ -4,6 +4,7 @@
   vars:
     is_ci_environment: true
     custom_sops_secrets_file: credentials.ci.sops.yaml
+    swap_test_mode: true
     users:
       - username: dockerapp
         name: Docker Application Service User
