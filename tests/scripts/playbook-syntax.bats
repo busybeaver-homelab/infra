@@ -53,3 +53,31 @@ setup() {
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/site.yml"
   [ "$status" -eq 0 ]
 }
+
+@test "base_ubuntu_server defines argument_specs validation metadata" {
+  local spec="$REPO_ROOT/configuration/roles/base_ubuntu_server/meta/argument_specs.yml"
+  [ -f "$spec" ]
+
+  run yq eval '.argument_specs.main.options.base_ubuntu_server_timezone.type' "$spec"
+  [ "$status" -eq 0 ]
+  [ "$output" = "str" ]
+
+  run yq eval '.argument_specs.main.options.base_ubuntu_server_firewall_enabled.type' "$spec"
+  [ "$status" -eq 0 ]
+  [ "$output" = "bool" ]
+}
+
+@test "ansible.cfg enables ssh pipelining and json fact caching" {
+  local cfg="$REPO_ROOT/ansible.cfg"
+  [ -f "$cfg" ]
+
+  run grep -E "^pipelining = True" "$cfg"
+  [ "$status" -eq 0 ]
+
+  run grep -E "^gathering = smart" "$cfg"
+  [ "$status" -eq 0 ]
+
+  run grep -E "^fact_caching = ansible.builtin.jsonfile" "$cfg"
+  [ "$status" -eq 0 ]
+}
+
