@@ -38,13 +38,58 @@
   diff: false
   become: true
 
-- name: Deploy restic backup environment file
+- name: Deploy secondary restic backup password file
+  ansible.builtin.template:
+    src: password-secondary.j2
+    dest: "{{ restic_backup_secondary_password_file_path }}"
+    owner: root
+    group: root
+    mode: "0400"
+  no_log: true
+  diff: false
+  when: restic_backup_secondary_enabled | bool
+  become: true
+
+- name: Remove secondary restic backup password file when disabled
+  ansible.builtin.file:
+    path: "{{ restic_backup_secondary_password_file_path }}"
+    state: absent
+  when: not (restic_backup_secondary_enabled | bool)
+  become: true
+
+- name: Deploy restic common backup environment file
   ansible.builtin.template:
     src: backup.env.j2
     dest: "{{ restic_backup_config_dir }}/backup.env"
     owner: root
     group: root
     mode: "0600"
+  become: true
+
+- name: Deploy primary restic backup environment file
+  ansible.builtin.template:
+    src: primary.env.j2
+    dest: "{{ restic_backup_config_dir }}/primary.env"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+
+- name: Deploy secondary restic backup environment file
+  ansible.builtin.template:
+    src: secondary.env.j2
+    dest: "{{ restic_backup_config_dir }}/secondary.env"
+    owner: root
+    group: root
+    mode: "0600"
+  when: restic_backup_secondary_enabled | bool
+  become: true
+
+- name: Remove secondary restic backup environment file when disabled
+  ansible.builtin.file:
+    path: "{{ restic_backup_config_dir }}/secondary.env"
+    state: absent
+  when: not (restic_backup_secondary_enabled | bool)
   become: true
 
 - name: Deploy restic backup exclusion patterns
