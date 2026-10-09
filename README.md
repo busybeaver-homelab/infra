@@ -73,7 +73,7 @@ Before setting up the repository, ensure your control machine has the following 
 
 1. **Operating System:** macOS (Apple Silicon or Intel) or Linux (Ubuntu, Debian, Fedora, Arch)
 2. **Git:** `git` version `2.34+`
-3. **Git-Crypt:** Required to view and edit encrypted documentation under `docs/`.
+3. **Git-Crypt:** Required to view and edit encrypted documentation and backup artifacts under `docs/` and `backups/`.
    - Installation (macOS): `brew install git-crypt`
    - Installation (Linux/Debian): `sudo apt-get install git-crypt`
 4. **Mise-cli:** Recommended for automated version management.
@@ -88,7 +88,7 @@ Get your local workspace up and running in under two minutes:
 
 ### Step 1: Clone and Run the Bootstrap Script
 
-Run the automated bootstrap script to install Mise (if missing), run `mise install` to provision global tools, unlock encrypted documentation (`docs/`) if your production GPG key is imported, generate a local secret keypair, and set up your Python virtual environment:
+Run the automated bootstrap script to install Mise (if missing), run `mise install` to provision global tools, unlock encrypted documentation and backups (`docs/`, `backups/`) if your production GPG key is imported, generate a local secret keypair, and set up your Python virtual environment:
 
 ```bash
 git clone https://github.com/jmollner/homelab-infra.git
@@ -97,7 +97,7 @@ cd homelab-infra
 ```
 
 > [!NOTE]
-> All designs and plans in `docs/` are encrypted at rest using `git-crypt` with the production GPG key (`5EE1590FF82DC2A3829D224FAA73ACF495CC009D`). If `scripts/bootstrap.sh` does not detect your GPG key, import it and run `git-crypt unlock` manually.
+> All designs and plans in `docs/` and backup archives in `backups/` are encrypted at rest using `git-crypt` with the production GPG key (`5EE1590FF82DC2A3829D224FAA73ACF495CC009D`). If `scripts/bootstrap.sh` does not detect your GPG key, import it and run `git-crypt unlock` manually.
 
 ### Step 2: Configure Your Shell Integration
 
@@ -135,6 +135,7 @@ The structure of the repository is modular and structured as follows:
 .
 ├── .github/                 # GitHub Actions workflows and templates
 ├── apps/                    # Code, Dockerfiles, or builds for self-hosted applications
+├── backups/                 # Offline backups and recovery archives (git-crypt encrypted)
 ├── configuration/           # Ansible inventories, playbooks, and roles
 │   ├── inventories/         # Environment inventories (production, testing)
 │   ├── playbooks/           # Ansible master & domain playbooks

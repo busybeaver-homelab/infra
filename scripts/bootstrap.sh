@@ -87,20 +87,21 @@ else
 fi
 
 if [ -d ".git-crypt" ] && command -v git-crypt &>/dev/null; then
-  # Check if docs/ is currently encrypted/locked by git-crypt
+  # Check if docs/ or backups/ is currently encrypted/locked by git-crypt
   # A locked git-crypt file starts with the binary \0GITCRYPT signature
-  if [ -f "docs/plans/task.md" ] && head -c 10 "docs/plans/task.md" 2>/dev/null | grep -q "GITCRYPT"; then
-    log_warn "docs/ is currently locked by git-crypt."
+  if ([ -f "docs/plans/task.md" ] && head -c 10 "docs/plans/task.md" 2>/dev/null | grep -q "GITCRYPT") ||
+    ([ -f "backups/README.md" ] && head -c 10 "backups/README.md" 2>/dev/null | grep -q "GITCRYPT"); then
+    log_warn "docs/ or backups/ is currently locked by git-crypt."
     if gpg --list-secret-keys 5EE1590FF82DC2A3829D224FAA73ACF495CC009D &>/dev/null; then
-      log_info "Production GPG key found in keyring. Unlocking docs/..."
+      log_info "Production GPG key found in keyring. Unlocking repository..."
       git-crypt unlock
-      log_info "Successfully unlocked docs/."
+      log_info "Successfully unlocked repository."
     else
       log_warn "Production GPG key 5EE1590FF82DC2A3829D224FAA73ACF495CC009D not found in keyring."
-      log_warn "Import your production GPG key and run 'git-crypt unlock' to view and edit docs/."
+      log_warn "Import your production GPG key and run 'git-crypt unlock' to view and edit docs/ and backups/."
     fi
   else
-    log_info "docs/ is unlocked or not encrypted."
+    log_info "docs/ and backups/ are unlocked or not encrypted."
   fi
 fi
 

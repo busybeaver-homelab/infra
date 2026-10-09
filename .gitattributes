@@ -13,4 +13,8 @@ secrets/credentials.sops.yaml -diff merge=binary
 
 # git-crypt transparent encryption for documentation, designs, and runbooks
 docs/** filter=git-crypt diff=git-crypt
+
+# git-crypt transparent encryption for backups and offline configurations
+backups/** filter=git-crypt diff=git-crypt
 .gitattributes !filter !diff
+

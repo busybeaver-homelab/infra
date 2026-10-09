@@ -120,3 +120,16 @@ teardown() {
   run bash "${MASK_SCRIPT}" "docs/plans/design.md"
   [ "$status" -eq 0 ]
 }
+
+@test "check-network-masking.sh allows network patterns in backups/" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/backups"
+  cd "${mock_repo}"
+  git init -q
+  echo 'unifi_controller_ip: 192.168.1.1' > backups/unifi.json
+  git add backups/unifi.json
+
+  run bash "${MASK_SCRIPT}" "backups/unifi.json"
+  [ "$status" -eq 0 ]
+}
+
