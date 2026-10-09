@@ -56,3 +56,15 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+@test "bootstrap.sh checks for git-crypt installation" {
+  run grep -F "git-crypt" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -eq 0 ]
+}
+
+@test "bootstrap.sh contains git-crypt unlock logic with production GPG key" {
+  run grep -F "5EE1590FF82DC2A3829D224FAA73ACF495CC009D" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -eq 0 ]
+  run grep -F "git-crypt unlock" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -eq 0 ]
+}
+

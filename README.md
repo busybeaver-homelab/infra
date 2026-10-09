@@ -63,6 +63,7 @@ This repository pins tools globally in `.mise.toml` to ensure every administrato
 | **ShellCheck**     | `0.10`  | Bash/shell script static analyzer                             |
 | **Terraform-Docs** | `0.19`  | Automated markdown documentation for OpenTofu modules         |
 | **Act**            | `0.2`   | Local execution of GitHub Actions workflows                   |
+| **Git-Crypt**      | `0.7+`  | Transparent file-level encryption for sensitive docs/ tree    |
 
 ---
 
@@ -72,7 +73,10 @@ Before setting up the repository, ensure your control machine has the following 
 
 1. **Operating System:** macOS (Apple Silicon or Intel) or Linux (Ubuntu, Debian, Fedora, Arch)
 2. **Git:** `git` version `2.34+`
-3. **Mise-cli:** Recommended for automated version management.
+3. **Git-Crypt:** Required to view and edit encrypted documentation under `docs/`.
+   - Installation (macOS): `brew install git-crypt`
+   - Installation (Linux/Debian): `sudo apt-get install git-crypt`
+4. **Mise-cli:** Recommended for automated version management.
    - Installation (macOS): `brew install mise`
    - Installation (Linux): `curl https://mise.run | sh`
 
@@ -84,13 +88,16 @@ Get your local workspace up and running in under two minutes:
 
 ### Step 1: Clone and Run the Bootstrap Script
 
-Run the automated bootstrap script to install Mise (if missing), run `mise install` to provision global tools, generate a local secret keypair, and set up your Python virtual environment:
+Run the automated bootstrap script to install Mise (if missing), run `mise install` to provision global tools, unlock encrypted documentation (`docs/`) if your production GPG key is imported, generate a local secret keypair, and set up your Python virtual environment:
 
 ```bash
 git clone https://github.com/jmollner/homelab-infra.git
 cd homelab-infra
 ./scripts/bootstrap.sh
 ```
+
+> [!NOTE]
+> All designs and plans in `docs/` are encrypted at rest using `git-crypt` with the production GPG key (`5EE1590FF82DC2A3829D224FAA73ACF495CC009D`). If `scripts/bootstrap.sh` does not detect your GPG key, import it and run `git-crypt unlock` manually.
 
 ### Step 2: Configure Your Shell Integration
 
@@ -132,7 +139,7 @@ The structure of the repository is modular and structured as follows:
 │   ├── inventories/         # Environment inventories (production, testing)
 │   ├── playbooks/           # Ansible master & domain playbooks
 │   └── roles/               # Reusable Ansible configuration units
-├── docs/                    # Architecture, design proposals, plans, and guidelines
+├── docs/                    # Architecture, design proposals, plans (git-crypt encrypted)
 ├── infrastructure/          # OpenTofu root and shared modules
 │   ├── bootstrap/           # GCS storage buckets for remote states
 │   ├── cloudflare/          # DNS, tunnels, and page routing
