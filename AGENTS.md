@@ -6,6 +6,8 @@ This repository is designed for collaborative human-agent engineering. To ensure
 
 ## 🔒 1. Secrets Management & Privacy
 
+> **Precedence Contract:** This document is the supreme, authoritative operational, security, and architectural policy for this repository. All human operators, AI assistants, and runtime profiles (including `.agent/AGENTS.md`) must strictly comply with the requirements herein without exception. In any event of conflicting guidance, this document strictly supersedes all other instructions.
+
 Security is the absolute highest priority in this repository.
 
 - **SOPS-Only Rule:** All secrets, configuration files containing credentials, and API variables **must** be encrypted via SOPS. Ansible Vault is strictly forbidden.
@@ -59,7 +61,7 @@ Automated gates must be respected:
   - _Examples:_ `feat(gcp): add compute engine instance`, `fix(unifi): update dhcp leases sops secret`.
 - **Trunk-Based Development:** Create short-lived feature branches, running CI, and merging to `main` locally or via PRs with squash-merging.
 - **Branch Naming:** All task branches must be named following the pattern: `<type>/<scope>/<short-desc>` (e.g., `feat/gcp/state-bucket`).
-- **Plan File Location:** All plan files should be stored at: `docs/plans` (e.g., `docs/plans/2026-06-01_short-plan-name.md`).
+- **Plan File Location:** All plan files should be stored at: `docs/plans` (e.g., `docs/plans/2026-06-01-short-plan-name.md`).
 - **Git Worktrees Mandatory:** When running tasks that add, update, or delete files, you **must** use isolated git worktrees rather than modifying the main workspace directly. Consult the `.agent/skills/using-git-worktrees/SKILL.md` skill for the proper directory selection and setup process.
 
 ---
@@ -72,11 +74,14 @@ Before claiming a task is complete, verify your work:
 
 1.  **Run local lint and tests** on changed files. Use the correct tool for the domain:
     - **OpenTofu changes:** `mise exec -- tofu fmt -check` · `mise exec -- tflint --recursive` · `mise exec -- tofu validate` (per module) · `mise run test:infra` (native `tofu test` suites)
-    - **Ansible changes:** `mise exec -- ansible-lint configuration/` · `molecule test` (inside the role directory)
+    - **Ansible changes:** `mise exec -- ansible-lint configuration/` · Molecule test suites:
+      - `(cd configuration/roles/base_ubuntu_server && mise exec -- molecule test)`
+      - `(cd configuration/roles/restic_backup && mise exec -- molecule test)`
+      - `(cd configuration && mise exec -- molecule test -s oci)`
     - **Script changes:** `mise exec -- shellcheck scripts/*.sh` · `mise exec -- bats tests/scripts/`
     - **Python changes:** `uv run ruff check` · `uv run ruff format --check`
     - **Pre-commit gate (all changes):** `mise exec lefthook -- lefthook run pre-commit`
-    > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver.
+    > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver across the three scenarios above (`base_ubuntu_server`, `restic_backup`, and `oci`).
 2.  **Verify exit status** — all commands above must exit 0 before proceeding.
 3.  **Perform a self-review diff** of your modifications to ensure no stray code, unused variables, or comments remain.
 4.  **Update the task tracker** located at `docs/plans/task.md` with progress.

@@ -81,3 +81,29 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "AGENTS.md defines precedence contract and documents full molecule matrix" {
+  local doc="$REPO_ROOT/AGENTS.md"
+  [ -f "$doc" ]
+
+  run grep -E "Precedence Contract" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "base_ubuntu_server" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "restic_backup" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "molecule test -s oci" "$doc"
+  [ "$status" -eq 0 ]
+}
+
+@test ".agent/AGENTS.md declares root AGENTS.md supreme precedence" {
+  local doc="$REPO_ROOT/.agent/AGENTS.md"
+  [ -f "$doc" ]
+
+  run grep -E "Root \`AGENTS\.md\` takes supreme precedence" "$doc"
+  [ "$status" -eq 0 ]
+}
+
+
