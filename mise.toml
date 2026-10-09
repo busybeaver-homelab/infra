@@ -98,6 +98,44 @@ run = "molecule test"
 description = "Run full Molecule test matrix across all Ansible roles and scenarios"
 depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:oci"]
 
+[tasks."test:ansible:fast:base"]
+description = "Fast iterate on base_ubuntu_server role (converge and verify)"
+dir = "configuration/roles/base_ubuntu_server"
+run = "molecule converge && molecule verify"
+
+[tasks."test:ansible:fast:restic"]
+description = "Fast iterate on restic_backup role (converge and verify)"
+dir = "configuration/roles/restic_backup"
+run = "molecule converge && molecule verify"
+
+[tasks."test:ansible:fast:oci"]
+description = "Fast iterate on OCI scenario (converge and verify)"
+dir = "configuration/molecule/oci"
+run = "molecule converge && molecule verify"
+
+[tasks."test:ansible:fast"]
+description = "Fast iterate across all Ansible roles and scenarios (converge and verify without rebuild)"
+depends = ["test:ansible:fast:base", "test:ansible:fast:restic", "test:ansible:fast:oci"]
+
+[tasks."test:ansible:clean:base"]
+description = "Destroy Molecule test containers for base_ubuntu_server role"
+dir = "configuration/roles/base_ubuntu_server"
+run = "molecule destroy"
+
+[tasks."test:ansible:clean:restic"]
+description = "Destroy Molecule test containers for restic_backup role"
+dir = "configuration/roles/restic_backup"
+run = "molecule destroy"
+
+[tasks."test:ansible:clean:oci"]
+description = "Destroy Molecule test containers for OCI scenario"
+dir = "configuration/molecule/oci"
+run = "molecule destroy"
+
+[tasks."test:ansible:clean"]
+description = "Destroy all Molecule test containers across all roles and scenarios"
+depends = ["test:ansible:clean:base", "test:ansible:clean:restic", "test:ansible:clean:oci"]
+
 [tasks."test:scripts"]
 description = "Run Bats tests for scripts"
 run = "bats tests/scripts/"
