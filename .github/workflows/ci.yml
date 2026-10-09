@@ -50,6 +50,7 @@ jobs:
             shell:
               - 'scripts/**'
               - 'tests/scripts/**'
+              - 'infrastructure/cloudflare/**'
               - '.github/workflows/ci.yml'
             tofu:
               - 'infrastructure/**'
