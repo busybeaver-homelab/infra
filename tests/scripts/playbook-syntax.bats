@@ -106,4 +106,29 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "docs/rootless-docker-investigation.md does not contain machine-specific /Users/ paths" {
+  local doc="$REPO_ROOT/docs/rootless-docker-investigation.md"
+  [ -f "$doc" ]
+
+  run grep -E "/Users/" "$doc"
+  [ "$status" -ne 0 ]
+}
+
+@test "docs/runbooks/oci-breakglass-console.md protects breakglass password and tailscale auth key" {
+  local doc="$REPO_ROOT/docs/runbooks/oci-breakglass-console.md"
+  [ -f "$doc" ]
+
+  # Ensure password clipboard extraction is documented
+  run grep -E "mise exec -- sops -d --extract '\\[\"breakglass_password\"\\]'.*\\| pbcopy" "$doc"
+  [ "$status" -eq 0 ]
+
+  # Ensure no raw password printing via grep
+  run grep -E "grep -E \"breakglass_user\\|breakglass_password\"" "$doc"
+  [ "$status" -ne 0 ]
+
+  # Ensure file-based authkey for tailscale up
+  run grep -E "tailscale up --ssh --auth-key=\"file:/tmp/ts.key\"" "$doc"
+  [ "$status" -eq 0 ]
+}
+
 
