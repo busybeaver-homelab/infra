@@ -30,10 +30,10 @@ variable "r2_backup_bucket_name" {
 variable "r2_backup_location" {
   type        = string
   description = "Location hint for the R2 disaster recovery backup bucket."
-  default     = "WEUR"
+  default     = "weur"
 
   validation {
-    condition     = contains(["WEUR", "EEUR", "APAC", "ENAM", "WNAM"], var.r2_backup_location)
-    error_message = "r2_backup_location must be one of: WEUR, EEUR, APAC, ENAM, WNAM."
+    condition     = contains(["weur", "eeur", "apac", "enam", "wnam", "oc"], var.r2_backup_location)
+    error_message = "r2_backup_location must be one of: weur, eeur, apac, enam, wnam, oc."
   }
 }
