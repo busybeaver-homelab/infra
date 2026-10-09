@@ -84,3 +84,35 @@ teardown() {
   run bash "${BLOCK_SCRIPT}" "secret.yaml"
   [ "$status" -eq 0 ]
 }
+
+@test "block-ansible-vault.sh executes batched scan on multiple clean files" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  for i in $(seq 1 20); do
+    echo "clean content $i" > "file_$i.yaml"
+  done
+  git add file_*.yaml
+
+  run bash "${BLOCK_SCRIPT}" file_*.yaml
+  [ "$status" -eq 0 ]
+}
+
+@test "block-ansible-vault.sh detects multiple vault files in a batched scan" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo "clean content" > file_clean.yaml
+  printf '%s%s\n' '$ANSIBLE' '_VAULT;1.1;AES256' > vault1.yaml
+  printf '%s%s\n' '$ANSIBLE' '_VAULT;1.1;AES256' > vault2.yaml
+  git add file_clean.yaml vault1.yaml vault2.yaml
+
+  run bash "${BLOCK_SCRIPT}" file_clean.yaml vault1.yaml vault2.yaml
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "vault1.yaml" ]]
+  [[ "$output" =~ "vault2.yaml" ]]
+  [[ "$output" =~ "Ansible Vault file detected" ]]
+}
+

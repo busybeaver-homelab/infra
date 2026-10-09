@@ -183,3 +183,7 @@ venv/
 .worktrees/
 worktrees/
 
+### Cache ###
+.cache/
+
+

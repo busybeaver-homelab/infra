@@ -21,7 +21,7 @@ pre-commit:
     terraform-docs:
       glob: "*.tf"
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
-      run: bash scripts/generate-tf-docs.sh && git add "infrastructure/**/README.md"
+      run: bash scripts/generate-tf-docs.sh {staged_files} && git add "infrastructure/**/README.md"
 
     # Oxc Formatter (JSON, YAML, Markdown, JS)
     oxfmt:

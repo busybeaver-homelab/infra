@@ -133,3 +133,35 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+@test "check-network-masking.sh scans multiple files in batched mode efficiently" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  for i in $(seq 1 20); do
+    echo "safe_var: sample_$i" > "file_$i.tf"
+  done
+  git add file_*.tf
+
+  run bash "${MASK_SCRIPT}" file_*.tf
+  [ "$status" -eq 0 ]
+}
+
+@test "check-network-masking.sh detects multiple network violations in batched mode" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo 'safe: "homelab"' > clean.tf
+  echo 'cidr = "10.0.0.0/16"' > leak1.tf
+  echo 'subnet = "192.168.1.1"' > leak2.tf
+  git add clean.tf leak1.tf leak2.tf
+
+  run bash "${MASK_SCRIPT}" clean.tf leak1.tf leak2.tf
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "leak1.tf" ]]
+  [[ "$output" =~ "leak2.tf" ]]
+  [[ "$output" =~ "Network masking violation" ]]
+}
+
+

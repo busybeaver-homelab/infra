@@ -161,6 +161,44 @@ variable "default_freeform_tags" {
   default = {
     "project" = "homelab"
   }
+
+  validation {
+    condition     = !contains(keys(var.default_freeform_tags), "project") || lookup(var.default_freeform_tags, "project", "") == "homelab"
+    error_message = "If the 'project' tag is defined in default_freeform_tags, it must be 'homelab'."
+  }
+}
+
+variable "assign_public_ip" {
+  type        = bool
+  description = "Whether to assign a public IP to compute instance VNICs (must be false in Always Free homelab architecture)."
+  default     = false
+
+  validation {
+    condition     = var.assign_public_ip == false
+    error_message = "assign_public_ip must be false. Public IP assignment is prohibited."
+  }
+}
+
+variable "ampere_ocpus" {
+  type        = number
+  description = "Number of OCPUs for the Ampere ARM compute instance (must not exceed 4 for Always Free Tier)."
+  default     = 4
+
+  validation {
+    condition     = var.ampere_ocpus >= 1 && var.ampere_ocpus <= 4
+    error_message = "ampere_ocpus must be between 1 and 4 to remain within the OCI Always Free Tier limits."
+  }
+}
+
+variable "ampere_memory_in_gbs" {
+  type        = number
+  description = "Memory in GBs for the Ampere ARM compute instance (must not exceed 24 for Always Free Tier)."
+  default     = 24
+
+  validation {
+    condition     = var.ampere_memory_in_gbs >= 1 && var.ampere_memory_in_gbs <= 24
+    error_message = "ampere_memory_in_gbs must be between 1 and 24 to remain within the OCI Always Free Tier limits."
+  }
 }
 
 variable "secrets_file_path" {
@@ -168,3 +206,4 @@ variable "secrets_file_path" {
   description = "Path to the canonical SOPS credentials file (defaults to production credentials)."
   default     = "../../secrets/credentials.sops.yaml"
 }
+

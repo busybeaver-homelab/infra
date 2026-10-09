@@ -23,7 +23,7 @@ resource "oci_core_instance" "amd" {
 
   create_vnic_details {
     subnet_id        = oci_core_subnet.private.id
-    assign_public_ip = false
+    assign_public_ip = var.assign_public_ip
     display_name     = "oci-amd-${count.index + 1}-vnic"
     hostname_label   = "oci-amd-${count.index + 1}"
     nsg_ids          = [oci_core_network_security_group.homelab.id]
@@ -70,13 +70,13 @@ resource "oci_core_instance" "ampere" {
   }
 
   shape_config {
-    ocpus         = 4
-    memory_in_gbs = 24
+    ocpus         = var.ampere_ocpus
+    memory_in_gbs = var.ampere_memory_in_gbs
   }
 
   create_vnic_details {
     subnet_id        = oci_core_subnet.private.id
-    assign_public_ip = false
+    assign_public_ip = var.assign_public_ip
     display_name     = "oci-arm-1-vnic"
     hostname_label   = "oci-arm-1"
     nsg_ids          = [oci_core_network_security_group.homelab.id]

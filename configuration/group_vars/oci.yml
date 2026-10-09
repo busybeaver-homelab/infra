@@ -2,6 +2,8 @@
 # Group variables for OCI compute instances
 
 # Firewall settings (geerlingguy.firewall)
+# Disable base_ubuntu_server UFW firewall because geerlingguy.firewall manages iptables directly on OCI
+base_ubuntu_server_firewall_enabled: false
 firewall_enabled: true
 firewall_allowed_tcp_ports: []
 firewall_allowed_udp_ports:
@@ -38,22 +40,34 @@ firewall_ip6_additional_rules:
 ssh_server_enabled: false
 ssh_server_hardening: false
 ssh_client_hardening: false
+ssh_hardening_enabled: false
 
 # Security settings (geerlingguy.security)
 # Explicit comment: Disable geerlingguy.security SSH hardening because
 # dev-sec.ssh-hardening is used instead for advanced SSH configuration.
 security_ssh_hardening: false
+security_sshd_state: stopped
 security_fail2ban_enabled: true
 security_autoupdate_enabled: true
 
 # OS Hardening settings (dev-sec.os-hardening)
+# Set to empty list to prevent non-deterministic line order in /etc/modprobe.d/dev-sec.conf
+# caused by unordered set difference operations across runs.
+os_unused_filesystems: []
 sysctl_overwrite:
   # Enable IPv4 traffic forwarding - required for Docker bridge networking
   net.ipv4.ip_forward: 1
 
 # Swap settings (geerlingguy.swap)
 # Allocate 2GB swap file (crucial for 1GB RAM AMD micro instances)
-swap_file_size_mb: "2048"
+swap_file_size_mb: 2048
+
+# NTP settings (geerlingguy.ntp)
+ntp_timezone: "UTC"
+ntp_package: ntpsec
+ntp_daemon: ntpsec
+ntp_config_file: /etc/ntpsec/ntp.conf
+ntp_driftfile: /var/lib/ntpsec/ntp.drift
 
 # Users management (singleplatform-eng.users)
 users: []
