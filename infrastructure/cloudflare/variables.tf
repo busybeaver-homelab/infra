@@ -15,11 +15,3 @@ variable "secrets_file_path" {
   description = "Path to the canonical SOPS credentials file holding cloudflare.config (defaults to production credentials)."
   default     = "../../secrets/credentials.sops.yaml"
 }
-
-# TRANSIENT (removed after the import apply): tests disable import blocks because mock
-# providers cannot import real objects.
-variable "run_imports" {
-  type        = bool
-  description = "Enable the one-off import blocks in imports.tf."
-  default     = true
-}

@@ -88,7 +88,6 @@ paths), then import its objects. Logical keys must be non-identifying because SO
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_cloudflare_account_id"></a> [cloudflare\_account\_id](#input\_cloudflare\_account\_id) | The Cloudflare account ID for managing R2 and account-level resources. | `string` | n/a | yes |
 | <a name="input_cloudflare_api_token"></a> [cloudflare\_api\_token](#input\_cloudflare\_api\_token) | The API token for authenticating with Cloudflare. | `string` | n/a | yes |
-| <a name="input_run_imports"></a> [run\_imports](#input\_run\_imports) | Enable the one-off import blocks in imports.tf. | `bool` | `true` | no |
 | <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input\_secrets\_file\_path) | Path to the canonical SOPS credentials file holding cloudflare.config (defaults to production credentials). | `string` | `"../../secrets/credentials.sops.yaml"` | no |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state and plan encryption. | `string` | `"homelab-state-encryption-passphrase-default"` | no |
 

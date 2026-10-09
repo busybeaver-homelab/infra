@@ -61,7 +61,6 @@ mock_provider "sops" {
 variables {
   cloudflare_api_token  = "mock-cf-token-12345"
   cloudflare_account_id = "mock-account-id-12345"
-  run_imports           = false
 }
 
 run "verify_r2_state_bucket" {
