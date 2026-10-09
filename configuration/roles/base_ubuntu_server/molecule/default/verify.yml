@@ -38,3 +38,41 @@
         that:
           - "'tailscale0' in base_ubuntu_server_iptables_docker_user.stdout"
           - "'DROP' in base_ubuntu_server_iptables_docker_user.stdout"
+
+    - name: Verify SSH service is inactive and disabled # noqa: command-instead-of-module
+      ansible.builtin.command: systemctl is-active ssh
+      register: base_ubuntu_server_ssh_service_status
+      failed_when: base_ubuntu_server_ssh_service_status.rc == 0
+      changed_when: false
+
+    - name: Attempt to start ssh service and assert failure or rejection # noqa: command-instead-of-module
+      ansible.builtin.command: systemctl start ssh
+      register: base_ubuntu_server_ssh_start_attempt
+      failed_when: base_ubuntu_server_ssh_start_attempt.rc == 0
+      changed_when: false
+
+    - name: Verify port 22 is not listening
+      ansible.builtin.shell: |
+        set -o pipefail
+        ss -tulpn | grep ':22\b'
+      args:
+        executable: /bin/bash
+      register: base_ubuntu_server_ssh_port_check
+      failed_when: base_ubuntu_server_ssh_port_check.rc == 0
+      changed_when: false
+
+    - name: Trigger firewall reload
+      ansible.builtin.command: ufw reload
+      register: base_ubuntu_server_ufw_reload_result
+      changed_when: false
+
+    - name: Verify DOCKER-USER chain isolation persists after reload
+      ansible.builtin.command: iptables -L DOCKER-USER -n -v
+      register: base_ubuntu_server_iptables_after_reload
+      changed_when: false
+
+    - name: Assert DROP rule persists on DOCKER-USER chain
+      ansible.builtin.assert:
+        that:
+          - "'tailscale0' in base_ubuntu_server_iptables_after_reload.stdout"
+          - "'DROP' in base_ubuntu_server_iptables_after_reload.stdout"

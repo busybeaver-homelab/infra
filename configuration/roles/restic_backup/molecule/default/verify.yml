@@ -172,3 +172,33 @@
         that:
           - "'scheduled' in restic_backup_secondary_snapshots_stat.stdout"
           - "'secondary' in restic_backup_secondary_snapshots_stat.stdout"
+
+    - name: Trigger synthetic restic backup runner failure
+      ansible.builtin.command: /usr/local/sbin/restic-backup-runner.sh
+      environment:
+        RESTIC_REPOSITORY: "/var/cache/restic/primary-repo"
+        RESTIC_PASSWORD_FILE: "/nonexistent/fault/injection/password"
+      register: restic_backup_synthetic_failure
+      failed_when: restic_backup_synthetic_failure.rc == 0
+      changed_when: false
+
+    - name: Slurp restic failure service unit file
+      ansible.builtin.slurp:
+        src: /etc/systemd/system/restic-backup-failure@.service
+      register: restic_backup_failure_unit_content
+
+    - name: Assert failure unit notifies and logs failure
+      ansible.builtin.assert:
+        that:
+          - "'Restic Backup Failure' in (restic_backup_failure_unit_content.content | b64decode)"
+          - "'/fail' in (restic_backup_failure_unit_content.content | b64decode)"
+
+    - name: Verify journal logs do not contain raw password contents
+      ansible.builtin.shell: |
+        set -o pipefail
+        journalctl -u restic-backup.service --no-pager | grep -F "$(cat /etc/restic/password)"
+      args:
+        executable: /bin/bash
+      register: restic_backup_journal_leak_check
+      failed_when: restic_backup_journal_leak_check.rc == 0
+      changed_when: false

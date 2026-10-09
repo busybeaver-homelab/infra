@@ -36,6 +36,7 @@ This directory contains the OpenTofu configurations for managing Microsoft Azure
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------- | ----------------------------------------------- | :------: |
 | <a name="input_azure_subscription_id"></a> [azure\_subscription\_id](#input_azure_subscription_id)                   | The Azure subscription ID.                                             | `string`       | n/a                                             |   yes    |
 | <a name="input_budget_contact_emails"></a> [budget\_contact\_emails](#input_budget_contact_emails)                   | List of email addresses to notify when budget thresholds are exceeded. | `list(string)` | `[]`                                            |    no    |
+| <a name="input_monthly_budget_amount"></a> [monthly\_budget\_amount](#input_monthly_budget_amount)                   | Monthly budget limit in USD to cap annual spending below $2000.        | `number`       | `165`                                           |    no    |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | Passphrase for OpenTofu state and plan encryption.                     | `string`       | `"homelab-state-encryption-passphrase-default"` |    no    |
 
 <!-- END_TF_DOCS -->
