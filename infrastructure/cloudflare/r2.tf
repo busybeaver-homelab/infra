@@ -2,7 +2,7 @@
 resource "cloudflare_r2_bucket" "tfstate" {
   account_id   = var.cloudflare_account_id
   name         = "homelab-infra-tfstate"
-  location     = "WEUR"
+  location     = "weur"
   jurisdiction = "default"
 
   lifecycle {
@@ -11,7 +11,7 @@ resource "cloudflare_r2_bucket" "tfstate" {
 }
 
 # --- Secondary disaster recovery (DR) backup bucket ---
-# Location hint WEUR for EU data residency and geographic dispersion from the primary
+# Location hint weur for EU data residency and geographic dispersion from the primary
 # backup repository in OCI Frankfurt (eu-frankfurt-1).
 resource "cloudflare_r2_bucket" "backups_dr" {
   account_id   = var.cloudflare_account_id
