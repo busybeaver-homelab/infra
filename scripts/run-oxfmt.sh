@@ -17,9 +17,22 @@ for file in "$@"; do
 done
 
 if [ ${#eligible_files[@]} -gt 0 ]; then
-  if [ -f "$CONFIG_FILE" ]; then
-    exec oxfmt -c "$CONFIG_FILE" --no-error-on-unmatched-pattern "${eligible_files[@]}"
+  if command -v oxfmt >/dev/null 2>&1; then
+    OXFMT_CMD=(oxfmt)
+  elif command -v mise >/dev/null 2>&1; then
+    OXFMT_CMD=(mise exec -- oxfmt)
+  elif [ -x "/opt/homebrew/bin/mise" ]; then
+    OXFMT_CMD=(/opt/homebrew/bin/mise exec -- oxfmt)
+  elif [ -x "$HOME/.local/bin/mise" ]; then
+    OXFMT_CMD=("$HOME/.local/bin/mise" exec -- oxfmt)
   else
-    exec oxfmt --no-error-on-unmatched-pattern "${eligible_files[@]}"
+    echo "[ERROR] oxfmt not found and mise is unavailable" >&2
+    exit 1
+  fi
+
+  if [ -f "$CONFIG_FILE" ]; then
+    exec "${OXFMT_CMD[@]}" -c "$CONFIG_FILE" --no-error-on-unmatched-pattern "${eligible_files[@]}"
+  else
+    exec "${OXFMT_CMD[@]}" --no-error-on-unmatched-pattern "${eligible_files[@]}"
   fi
 fi
