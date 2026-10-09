@@ -8,14 +8,14 @@ This directory houses declarative OpenTofu configurations managing cloud and on-
 
 The infrastructure is decomposed into modular, isolated domains to enforce least-privilege access, prevent blast radius propagation, and maintain clean separation of concerns:
 
-| Module                      | Target Platform              | Purpose & Managed Resources                                                                                       |
-| --------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [`cloudflare`](cloudflare/) | Cloudflare (Edge & Storage)  | DNS records, access controls, edge routing, and the central **R2 State Storage Bucket** (`homelab-infra-tfstate`) |
-| [`oci`](oci/)               | Oracle Cloud (OCI Free Tier) | Free-tier Ampere A1 (ARM64) and AMD E2.1 compute instances, VCN, subnet, security groups, and Tailscale mesh      |
-| [`homelab`](homelab/)       | Proxmox VE (On-Premises)     | Local virtual machines, LXC containers, and internal network configurations                                       |
-| [`gcp`](gcp/)               | Google Cloud Platform        | GCP project baseline, service accounts, and Always Free cloud services                                            |
-| [`azure`](azure/)           | Microsoft Azure              | Azure resource groups and boundary identities                                                                     |
-| [`github`](github/)         | GitHub                       | Repository security settings, branch protection rules, environments, and secrets management                       |
+| Module                      | Target Platform              | Purpose & Managed Resources                                                                                                                                                                        |
+| --------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`cloudflare`](cloudflare/) | Cloudflare (Edge & Storage)  | Account settings, Zero Trust baseline, notifications, frozen IAM docs, R2 (incl. **State Storage Bucket** `homelab-infra-tfstate`), and per-zone DNS/settings/Email Routing/WAF via `modules/zone` |
+| [`oci`](oci/)               | Oracle Cloud (OCI Free Tier) | Free-tier Ampere A1 (ARM64) and AMD E2.1 compute instances, VCN, subnet, security groups, and Tailscale mesh                                                                                       |
+| [`homelab`](homelab/)       | Proxmox VE (On-Premises)     | Local virtual machines, LXC containers, and internal network configurations                                                                                                                        |
+| [`gcp`](gcp/)               | Google Cloud Platform        | GCP project baseline, service accounts, and Always Free cloud services                                                                                                                             |
+| [`azure`](azure/)           | Microsoft Azure              | Azure resource groups and boundary identities                                                                                                                                                      |
+| [`github`](github/)         | GitHub                       | Repository security settings, branch protection rules, environments, and secrets management                                                                                                        |
 
 Each module maintains its own state file in the central remote storage backend:
 `homelab-infra/state/<module>/tofu.tfstate`
@@ -26,7 +26,7 @@ Each module maintains its own state file in the central remote storage backend:
 
 ### The "Chicken-and-Egg" Problem
 
-OpenTofu relies on a remote S3-compatible backend (Cloudflare R2) to store state files and coordinate distributed locks. However, the Cloudflare R2 bucket itself (`homelab-infra-tfstate`) is declared as code within [`infrastructure/cloudflare/main.tf`](cloudflare/main.tf).
+OpenTofu relies on a remote S3-compatible backend (Cloudflare R2) to store state files and coordinate distributed locks. However, the Cloudflare R2 bucket itself (`homelab-infra-tfstate`) is declared as code within [`infrastructure/cloudflare/r2.tf`](cloudflare/r2.tf).
 
 If the R2 backend is enabled before the bucket exists, OpenTofu fails on `tofu init` because it cannot reach or create the remote state storage. Conversely, creating the bucket manually out-of-band violates IaC principles, causing configuration drift and loss of provenance.
 

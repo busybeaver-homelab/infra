@@ -206,6 +206,22 @@ mise run secret:ci:set "opentofu.cloudflare_r2_secret_access_key"
 mise run secret:ci:set "opentofu.state_encryption_passphrase"
 ```
 
+### Cloudflare Configuration Data (`cloudflare.config`)
+
+Identifying Cloudflare configuration consumed by `infrastructure/cloudflare` via `data.sops_file`.
+Map keys are logical and non-identifying (SOPS does not encrypt keys). CI holds decoy leaves with identical key paths.
+
+| Key                                                         | Description                                                                                           |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `cloudflare.config.account_name`                            | Account display name                                                                                  |
+| `cloudflare.config.notification_email`                      | Recipient for notification policies                                                                   |
+| `cloudflare.config.notification_policy_ids.<alert_type>`    | Notification policy IDs (import)                                                                      |
+| `cloudflare.config.email_destinations.<dest_n>.{id,email}`  | Email Routing destination addresses                                                                   |
+| `cloudflare.config.zero_trust.*`                            | Access org (name, auth domain, login design), OTP IdP ID, default DNS location, split-tunnel excludes |
+| `cloudflare.config.iam.tokens.<key>.{id,policies[]}`        | Frozen token IDs and policies (`effect`, `resources`, `permission_groups` as `name\|scopes`)          |
+| `cloudflare.config.iam.member.{id,email,resource_group_id}` | Frozen account member                                                                                 |
+| `cloudflare.config.zones.<zone_key>.*`                      | Zone name/ID, DNS records, Email Routing rules and catch-all, WAF custom rules                        |
+
 ---
 
 ## 🔐 Docs & Backups Transparent Encryption (git-crypt)

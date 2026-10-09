@@ -15,3 +15,15 @@ output "r2_backup_endpoint" {
   description = "S3-compatible endpoint URL for the R2 backup bucket."
   sensitive   = true
 }
+
+output "managed_zone_keys" {
+  value       = local.zone_keys
+  description = "Logical keys of the zones managed by this module."
+  sensitive   = true
+}
+
+output "zone_ids" {
+  value       = { for k, m in module.zone : k => m.zone_id }
+  description = "Cloudflare zone IDs keyed by logical zone key."
+  sensitive   = true
+}
