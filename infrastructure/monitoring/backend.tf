@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    endpoint                    = "https://<account_id>.eu.r2.cloudflarestorage.com"
+    endpoint                    = "https://<account_id>.r2.cloudflarestorage.com"
     bucket                      = "homelab-infra-tfstate"
     key                         = "homelab-infra/state/monitoring/tofu.tfstate"
     region                      = "auto"

@@ -8,7 +8,7 @@ binary_path: tofu
 
 backend_type: s3
 backend_config:
-  endpoint: "https://<account_id>.eu.r2.cloudflarestorage.com"
+  endpoint: "https://<account_id>.r2.cloudflarestorage.com"
   bucket: "homelab-infra-tfstate"
   key: "homelab-infra/state/oci/tofu.tfstate"
   region: "auto"
