@@ -27,7 +27,7 @@ pre-commit:
     oxfmt:
       glob: "*.{js,json,md,yml,yaml}"
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
-      run: oxfmt -c .oxfmtrc.json --no-error-on-unmatched-pattern {staged_files}
+      run: bash scripts/run-oxfmt.sh {staged_files}
       stage_fixed: true
 
     # Oxc Linter (Frontend/Apps)

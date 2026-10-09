@@ -74,14 +74,23 @@ for file in "${targets[@]}"; do
   if [[ "$normalized_file" == .agents/* ]] || [[ "$normalized_file" == */.agents/* ]] ||
     [[ "$normalized_file" == .agent/* ]] || [[ "$normalized_file" == */.agent/* ]] ||
     [[ "$normalized_file" == tests/fixtures/* ]] || [[ "$normalized_file" == */tests/fixtures/* ]] ||
-    [[ "$normalized_file" == */fixtures/* ]] ||
-    [[ "$normalized_file" == docs/plans/* ]] || [[ "$normalized_file" == */docs/plans/* ]]; then
+    [[ "$normalized_file" == docs/* ]] || [[ "$normalized_file" == */docs/* ]]; then
+    continue
+  fi
+
+  # Skip git-crypt encrypted files
+  if [ -f "$file" ] && head -c 10 "$file" 2>/dev/null | grep -q "GITCRYPT"; then
     continue
   fi
 
   # Retrieve staged blob or file content
   if ! content=$(get_content "$file" "$normalized_file"); then
     # File was deleted or does not exist
+    continue
+  fi
+
+  # Skip files if staged content has GITCRYPT header
+  if printf '%s' "$content" | head -c 10 2>/dev/null | grep -q "GITCRYPT"; then
     continue
   fi
 
