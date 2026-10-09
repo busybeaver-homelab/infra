@@ -2,6 +2,7 @@
 # Smoke tests for scripts/bootstrap.sh
 
 load 'helpers/test_helper'
+bats_require_minimum_version 1.5.0
 
 BOOTSTRAP_SCRIPT="${REPO_ROOT}/scripts/bootstrap.sh"
 
@@ -25,7 +26,7 @@ teardown() {
 
 @test "bootstrap.sh fails gracefully when mise is not on PATH" {
   # Shadow PATH so mise cannot be found
-  run env PATH="${BATS_TMPDIR}" bash "${BOOTSTRAP_SCRIPT}"
+  run -127 env PATH="${BATS_TMPDIR}" bash "${BOOTSTRAP_SCRIPT}"
   # Should exit non-zero (cannot install mise without brew/curl mock)
   # We just assert it does not produce an uncontrolled crash (no set -e abort with no message)
   [ "$status" -ne 0 ] || [[ "$output" == *"mise"* ]]
