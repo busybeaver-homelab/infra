@@ -93,3 +93,16 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Schema parity verified" ]]
 }
+
+@test "canonical secrets files define cloudflare_restic schema keys" {
+  local keys=("s3_endpoint" "bucket" "s3_access_key_id" "s3_secret_access_key" "password")
+  for key in "${keys[@]}"; do
+    run mise exec -- yq "has(\"cloudflare_restic\") and (.cloudflare_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+    run mise exec -- yq "has(\"cloudflare_restic\") and (.cloudflare_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+  done
+}
+
