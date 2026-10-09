@@ -40,4 +40,9 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-
+@test "all specified infrastructure modules define negative.tftest.hcl test suites" {
+  [ -f "$REPO_ROOT/infrastructure/oci/tests/negative.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/cloudflare/tests/negative.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/github/tests/negative.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/monitoring/tests/negative.tftest.hcl" ]
+}
