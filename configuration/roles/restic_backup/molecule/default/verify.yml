@@ -43,6 +43,30 @@
           - restic_backup_env_stat.stat.pw_name == 'root'
           - restic_backup_env_stat.stat.gr_name == 'root'
 
+    - name: Stat restic primary.env
+      ansible.builtin.stat:
+        path: /etc/restic/primary.env
+      register: restic_backup_primary_env_stat
+
+    - name: Assert primary.env permissions and ownership
+      ansible.builtin.assert:
+        that:
+          - restic_backup_primary_env_stat.stat.exists
+          - restic_backup_primary_env_stat.stat.mode == '0600'
+          - restic_backup_primary_env_stat.stat.pw_name == 'root'
+
+    - name: Stat restic secondary.env
+      ansible.builtin.stat:
+        path: /etc/restic/secondary.env
+      register: restic_backup_secondary_env_stat
+
+    - name: Assert secondary.env permissions and ownership
+      ansible.builtin.assert:
+        that:
+          - restic_backup_secondary_env_stat.stat.exists
+          - restic_backup_secondary_env_stat.stat.mode == '0600'
+          - restic_backup_secondary_env_stat.stat.pw_name == 'root'
+
     - name: Stat restic password file
       ansible.builtin.stat:
         path: /etc/restic/password
@@ -55,6 +79,18 @@
           - restic_backup_password_stat.stat.mode == '0400'
           - restic_backup_password_stat.stat.pw_name == 'root'
           - restic_backup_password_stat.stat.gr_name == 'root'
+
+    - name: Stat restic password-secondary file
+      ansible.builtin.stat:
+        path: /etc/restic/password-secondary
+      register: restic_backup_secondary_password_stat
+
+    - name: Assert password-secondary file permissions and ownership
+      ansible.builtin.assert:
+        that:
+          - restic_backup_secondary_password_stat.stat.exists
+          - restic_backup_secondary_password_stat.stat.mode == '0400'
+          - restic_backup_secondary_password_stat.stat.pw_name == 'root'
 
     - name: Stat restic failure unit
       ansible.builtin.stat:
@@ -109,15 +145,30 @@
         name: restic-backup.service
         state: started
 
-    - name: Verify restic snapshot was recorded
+    - name: Verify primary restic snapshot was recorded
       ansible.builtin.command: restic snapshots
       environment:
-        RESTIC_REPOSITORY: "/var/cache/restic/test-repo"
+        RESTIC_REPOSITORY: "/var/cache/restic/primary-repo"
         RESTIC_PASSWORD_FILE: "/etc/restic/password"
-      register: restic_backup_snapshots_stat
+      register: restic_backup_primary_snapshots_stat
       changed_when: false
 
-    - name: Assert snapshot contains scheduled tag
+    - name: Assert primary snapshot contains scheduled and primary tags
       ansible.builtin.assert:
         that:
-          - "'scheduled' in restic_backup_snapshots_stat.stdout"
+          - "'scheduled' in restic_backup_primary_snapshots_stat.stdout"
+          - "'primary' in restic_backup_primary_snapshots_stat.stdout"
+
+    - name: Verify secondary restic snapshot was recorded
+      ansible.builtin.command: restic snapshots
+      environment:
+        RESTIC_REPOSITORY: "/var/cache/restic/secondary-repo"
+        RESTIC_PASSWORD_FILE: "/etc/restic/password-secondary"
+      register: restic_backup_secondary_snapshots_stat
+      changed_when: false
+
+    - name: Assert secondary snapshot contains scheduled and secondary tags
+      ansible.builtin.assert:
+        that:
+          - "'scheduled' in restic_backup_secondary_snapshots_stat.stdout"
+          - "'secondary' in restic_backup_secondary_snapshots_stat.stdout"
