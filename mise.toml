@@ -72,15 +72,16 @@ run = "ruff check"
 
 [tasks."check:general"]
 description = "Check general files (JS/TS) with oxlint"
-run = "oxlint -c .oxlintrc.json apps/"
+run = "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern apps/"
+
 
 [tasks.test]
 description = "Run all test suites"
 depends = ["test:infra", "test:ansible", "test:scripts"]
 
 [tasks."test:ansible:base"]
-description = "Run Molecule tests for base-ubuntu-server role"
-dir = "configuration/roles/base-ubuntu-server"
+description = "Run Molecule tests for base_ubuntu_server role"
+dir = "configuration/roles/base_ubuntu_server"
 run = "molecule test"
 
 [tasks."test:ansible:restic"]

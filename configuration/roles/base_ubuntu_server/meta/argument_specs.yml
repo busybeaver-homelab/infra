@@ -1,0 +1,44 @@
+---
+argument_specs:
+  main:
+    short_description: Base hardening and security configuration for Ubuntu Server 26.04
+    description:
+      - Configures system timezone, installs standard system utilities.
+      - Manages defensive UFW firewall rules and DOCKER-USER chain isolation.
+      - Optionally verifies SSH daemon status.
+    author: homelab-infra
+    options:
+      base_ubuntu_server_timezone:
+        type: str
+        default: "UTC"
+        description: System timezone name.
+      base_ubuntu_server_firewall_enabled:
+        type: bool
+        default: true
+        description: Whether to enable UFW host firewall.
+      base_ubuntu_server_firewall_default_incoming:
+        type: str
+        default: "deny"
+        choices: ["deny", "reject", "allow"]
+        description: Default incoming policy for UFW.
+      base_ubuntu_server_firewall_default_outgoing:
+        type: str
+        default: "allow"
+        choices: ["deny", "reject", "allow"]
+        description: Default outgoing policy for UFW.
+      base_ubuntu_server_firewall_allow_tailscale:
+        type: bool
+        default: true
+        description: Whether to allow Tailscale interface and WireGuard UDP port.
+      base_ubuntu_server_firewall_allow_openssh:
+        type: bool
+        default: false
+        description: Whether to allow incoming OpenSSH port 22.
+      base_ubuntu_server_firewall_docker_isolation:
+        type: bool
+        default: true
+        description: Whether to inject DOCKER-USER iptables isolation chain rules.
+      base_ubuntu_server_verify_ssh_running:
+        type: bool
+        default: false
+        description: Whether to verify sshd is running.

@@ -6,11 +6,13 @@ This profile adapts Superpowers workflows for Antigravity with strict single-flo
 
 ## Core Rules
 
+0. Root `AGENTS.md` takes supreme precedence over all instructions in this profile. This profile serves strictly as a runtime adapter for single-flow tool mapping.
 1. Prefer local skills in `.agent/skills/<skill-name>/SKILL.md`.
 2. Execute one core task at a time with `task_boundary`.
 3. Use `browser_subagent` only for browser automation tasks.
 4. Track checklist progress in `<project-root>/docs/plans/task.md` (table-only live tracker).
 5. Keep changes scoped to the requested task and verify before completion claims.
+
 
 ## Tool Translation Contract
 
