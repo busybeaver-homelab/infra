@@ -73,8 +73,8 @@ run "verify_r2_state_bucket" {
   }
 
   assert {
-    condition     = cloudflare_r2_bucket.tfstate.location == "WEUR"
-    error_message = "OpenTofu state R2 bucket location must be WEUR"
+    condition     = cloudflare_r2_bucket.tfstate.location == "weur"
+    error_message = "OpenTofu state R2 bucket location must be weur"
   }
 
   assert {
@@ -92,8 +92,8 @@ run "verify_r2_backup_bucket" {
   }
 
   assert {
-    condition     = cloudflare_r2_bucket.backups_dr.location == "WEUR"
-    error_message = "R2 disaster recovery backup bucket location hint must be WEUR for EU data residency"
+    condition     = cloudflare_r2_bucket.backups_dr.location == "weur"
+    error_message = "R2 disaster recovery backup bucket location hint must be weur for EU data residency"
   }
 }
 
