@@ -34,3 +34,35 @@ teardown() {
   [[ "$output" =~ "oci-amd-1.homelab.ts.net" ]]
   [[ "$output" =~ "198.51.100.10" ]]
 }
+
+@test "dynamic inventory rejects corrupted state JSON with non-zero exit code" {
+  echo "corrupt-json-payload-{{{{" > "${TMP_STATE}"
+  run ansible-inventory -i "${TEST_INV}" --host oci-amd-1
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Unable to parse" || "$output" =~ "Failed to parse inventory" ]]
+}
+
+@test "dynamic inventory handles non-existent or empty state file fail-closed" {
+  rm -f "${TMP_STATE}"
+  run ansible-inventory -i "${TEST_INV}" --host oci-amd-1
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Unable to parse" || "$output" =~ "No inventory was parsed" ]]
+}
+
+@test "dynamic inventory parses empty resources state into empty host list" {
+  cat <<'EOF' > "${TMP_STATE}"
+{
+  "version": 4,
+  "terraform_version": "1.9.0",
+  "serial": 1,
+  "lineage": "test-empty",
+  "outputs": {},
+  "resources": []
+}
+EOF
+  run ansible-inventory -i "${TEST_INV}" --graph
+  [ "$status" -eq 0 ]
+  ! [[ "$output" =~ "oci-amd" ]]
+  ! [[ "$output" =~ "oci-arm" ]]
+  [[ "$output" =~ "@ungrouped:" ]]
+}
