@@ -10,6 +10,8 @@ locals {
     r2_state  = "homelab-infra-opentofu-state-r2-token"
     terraform = "terraform-homelab-manually-provisioned"
   }
+
+  live_token_names = [for t in data.cloudflare_account_tokens.all.result : t.name]
 }
 
 resource "cloudflare_account_token" "frozen" {
@@ -31,6 +33,13 @@ resource "cloudflare_account_token" "frozen" {
   lifecycle {
     prevent_destroy = true
     ignore_changes  = all
+
+    # ignore_changes/prevent_destroy do not stop *creation*: if a frozen token was deleted outside
+    # OpenTofu, fail instead of silently minting a new one. (An empty list only occurs with mocks.)
+    precondition {
+      condition     = length(local.live_token_names) == 0 || contains(local.live_token_names, each.value)
+      error_message = "A frozen account token no longer exists in Cloudflare; OpenTofu would re-create it. Remove it from local.frozen_token_names and from state (tofu state rm) instead."
+    }
   }
 }
 

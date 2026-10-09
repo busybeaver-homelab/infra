@@ -5,6 +5,11 @@ resource "cloudflare_zone" "this" {
 
   lifecycle {
     prevent_destroy = true
+
+    precondition {
+      condition     = length(setsubtract(keys(var.zone_settings_overrides), keys(local.default_zone_settings))) == 0
+      error_message = "zone_settings_overrides contains unknown setting ids; only keys of local.default_zone_settings may be overridden."
+    }
   }
 }
 

@@ -32,24 +32,24 @@ run "security_posture" {
   module { source = "./modules/zone" }
 
   assert {
-    condition     = output.effective_settings["ssl"] == "strict"
+    condition     = cloudflare_zone_setting.this["ssl"].value == "strict"
     error_message = "SSL mode must be strict"
   }
   assert {
-    condition     = output.effective_settings["min_tls_version"] == "1.3"
+    condition     = cloudflare_zone_setting.this["min_tls_version"].value == "1.3"
     error_message = "Minimum TLS version must be 1.3"
   }
   assert {
-    condition     = output.effective_settings["always_use_https"] == "on" && output.effective_settings["tls_1_3"] == "on"
+    condition     = cloudflare_zone_setting.this["always_use_https"].value == "on" && cloudflare_zone_setting.this["tls_1_3"].value == "on"
     error_message = "Always Use HTTPS and TLS 1.3 must be on"
   }
   assert {
-    condition = (output.effective_settings["security_header"].strict_transport_security.enabled &&
-    output.effective_settings["security_header"].strict_transport_security.include_subdomains)
+    condition = (cloudflare_zone_setting.this["security_header"].value.strict_transport_security.enabled &&
+    cloudflare_zone_setting.this["security_header"].value.strict_transport_security.include_subdomains)
     error_message = "HSTS must be enabled including subdomains"
   }
   assert {
-    condition     = output.effective_settings["tls_client_auth"] == "on"
+    condition     = cloudflare_zone_setting.this["tls_client_auth"].value == "on"
     error_message = "Authenticated Origin Pulls (tls_client_auth) must be on"
   }
   assert {
@@ -134,7 +134,116 @@ run "settings_override_wins" {
   }
 
   assert {
-    condition     = output.effective_settings["security_level"] == "high" && output.effective_settings["ssl"] == "strict"
+    condition     = cloudflare_zone_setting.this["security_level"].value == "high" && cloudflare_zone_setting.this["ssl"].value == "strict"
     error_message = "Override must win for its key and leave other defaults intact"
   }
+}
+
+run "records_and_rules_without_ids" {
+  command = plan
+  module { source = "./modules/zone" }
+
+  variables {
+    zone = {
+      name            = "example.test"
+      id              = "mock-zone"
+      dns_records     = { a_1 = { type = "A", name = "example.test", content = "192.0.2.10", ttl = 1, proxied = false } }
+      email_rules     = { rule_01 = { name = "decoy", enabled = true, priority = 0, matchers = [{ type = "literal", field = "to", value = "a@example.test" }], actions = [{ type = "drop" }] } }
+      email_catch_all = { enabled = false, actions = [{ type = "drop", value = null }] }
+      waf_custom      = { id = "w1", rules = [] }
+    }
+  }
+
+  assert {
+    condition     = length(cloudflare_dns_record.this) == 1 && length(cloudflare_email_routing_rule.this) == 1
+    error_message = "New records and rules must not require an import id"
+  }
+}
+
+run "reject_email_routing_mx_trailing_dot" {
+  command = plan
+  module { source = "./modules/zone" }
+
+  variables {
+    zone = {
+      name            = "example.test"
+      id              = "mock-zone"
+      dns_records     = { mx_1 = { type = "MX", name = "example.test", content = "route1.mx.cloudflare.net.", ttl = 1, proxied = false, priority = 10 } }
+      email_rules     = {}
+      email_catch_all = { enabled = false, actions = [{ type = "drop", value = null }] }
+      waf_custom      = { id = "w1", rules = [] }
+    }
+  }
+
+  expect_failures = [var.zone]
+}
+
+run "accepts_custom_spf_including_cloudflare" {
+  command = plan
+  module { source = "./modules/zone" }
+
+  # User-managed SPF records may legitimately include Cloudflare's SPF (only the read-only
+  # apex SPF is owned by Email Routing, and it is not distinguishable by content).
+  variables {
+    zone = {
+      name            = "example.test"
+      id              = "mock-zone"
+      dns_records     = { txt_1 = { type = "TXT", name = "sub.example.test", content = "\"v=spf1 include:_spf.mx.cloudflare.net include:spf.example.test ~all\"", ttl = 1, proxied = false } }
+      email_rules     = {}
+      email_catch_all = { enabled = false, actions = [{ type = "drop", value = null }] }
+      waf_custom      = { id = "w1", rules = [] }
+    }
+  }
+
+  assert {
+    condition     = length(cloudflare_dns_record.this) == 1
+    error_message = "Custom SPF records that include Cloudflare's SPF must be accepted"
+  }
+}
+
+run "reject_email_routing_dkim_txt" {
+  command = plan
+  module { source = "./modules/zone" }
+
+  variables {
+    zone = {
+      name            = "example.test"
+      id              = "mock-zone"
+      dns_records     = { txt_1 = { type = "TXT", name = "cf2024-1._domainkey.example.test", content = "\"v=DKIM1; k=rsa; p=decoy\"", ttl = 1, proxied = false } }
+      email_rules     = {}
+      email_catch_all = { enabled = false, actions = [{ type = "drop", value = null }] }
+      waf_custom      = { id = "w1", rules = [] }
+    }
+  }
+
+  expect_failures = [var.zone]
+}
+
+run "reject_unknown_waf_action" {
+  command = plan
+  module { source = "./modules/zone" }
+
+  variables {
+    zone = {
+      name            = "example.test"
+      id              = "mock-zone"
+      dns_records     = {}
+      email_rules     = {}
+      email_catch_all = { enabled = false, actions = [{ type = "drop", value = null }] }
+      waf_custom      = { id = "w1", rules = [{ ref = "r1", description = "decoy", expression = "(http.host eq \"example.test\")", action = "bogus", enabled = true }] }
+    }
+  }
+
+  expect_failures = [var.zone]
+}
+
+run "reject_unknown_setting_override" {
+  command = plan
+  module { source = "./modules/zone" }
+
+  variables {
+    zone_settings_overrides = { securty_level = "high" }
+  }
+
+  expect_failures = [cloudflare_zone.this]
 }
