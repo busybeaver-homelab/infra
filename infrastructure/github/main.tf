@@ -8,8 +8,8 @@ resource "github_repository" "repo" {
   delete_branch_on_merge = true
   allow_squash_merge     = true
   allow_auto_merge       = true
-  allow_rebase_merge     = false
-  allow_merge_commit     = false
+  allow_rebase_merge     = var.allow_rebase_merge
+  allow_merge_commit     = var.allow_merge_commit
   topics                 = ["homelab", "infrastructure-as-code", "iac"]
   archive_on_destroy     = true
 
