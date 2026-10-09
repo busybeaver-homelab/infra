@@ -55,3 +55,20 @@ setup() {
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+@test "apps/sample-app is pruned and apps/README.md documents architecture boundary" {
+  [ ! -d "$REPO_ROOT/apps/sample-app" ]
+  [ -f "$REPO_ROOT/apps/README.md" ]
+
+  run grep -E "Docker Compose Stacks" "$REPO_ROOT/apps/README.md"
+  [ "$status" -eq 0 ]
+
+  run grep -E "Cloudflare Workers" "$REPO_ROOT/apps/README.md"
+  [ "$status" -eq 0 ]
+}
+
+@test "mise check:general task runs cleanly with --no-error-on-unmatched-pattern" {
+  run mise run check:general
+  [ "$status" -eq 0 ]
+}
+
