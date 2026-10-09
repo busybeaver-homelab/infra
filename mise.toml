@@ -78,10 +78,24 @@ run = "oxlint -c .oxlintrc.json apps/"
 description = "Run all test suites"
 depends = ["test:infra", "test:ansible", "test:scripts"]
 
-[tasks."test:ansible"]
-description = "Run Molecule tests for Ansible roles"
+[tasks."test:ansible:base"]
+description = "Run Molecule tests for base-ubuntu-server role"
 dir = "configuration/roles/base-ubuntu-server"
 run = "molecule test"
+
+[tasks."test:ansible:restic"]
+description = "Run Molecule tests for restic_backup role"
+dir = "configuration/roles/restic_backup"
+run = "molecule test"
+
+[tasks."test:ansible:oci"]
+description = "Run Molecule tests for OCI scenario"
+dir = "configuration/molecule/oci"
+run = "molecule test"
+
+[tasks."test:ansible"]
+description = "Run full Molecule test matrix across all Ansible roles and scenarios"
+depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:oci"]
 
 [tasks."test:scripts"]
 description = "Run Bats tests for scripts"

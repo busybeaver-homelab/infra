@@ -57,3 +57,15 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "mise.toml configures full molecule scenario matrix for ansible testing" {
+  local mise_config="$REPO_ROOT/mise.toml"
+  [ -f "$mise_config" ]
+  run grep -E 'tasks\."test:ansible:base"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:restic"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:oci"' "$mise_config"
+  [ "$status" -eq 0 ]
+}
+
+
