@@ -19,6 +19,7 @@ shfmt          = "3.14"
 yq             = "4"
 node           = "lts"
 actionlint     = "1.7"
+trivy          = "0.75"
 
 
 [env]
@@ -74,6 +75,10 @@ run = "ruff check"
 [tasks."check:general"]
 description = "Check general files (JS/TS) with oxlint"
 run = "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern apps/"
+
+[tasks."check:security"]
+description = "Scan repository files and configurations for security vulnerabilities and misconfigurations"
+run = "trivy fs --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed ."
 
 
 [tasks.test]
