@@ -674,6 +674,11 @@ url = "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tfl
 url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/480528323"
 provenance = "github-attestations"
 
+[[tools.trivy]]
+version = "0.60"
+backend = "aqua:aquasecurity/trivy"
+specifiers = ["0.60"]
+
 [[tools.trufflehog]]
 version = "3.97.9"
 backend = "aqua:trufflesecurity/trufflehog"
