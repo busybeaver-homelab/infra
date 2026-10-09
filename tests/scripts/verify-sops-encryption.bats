@@ -112,3 +112,34 @@ EOF
   [ -n "$age_recipients" ]
   [[ "$age_recipients" =~ "age1" ]]
 }
+
+@test "verify-sops-encryption.sh fails on empty 0-byte canonical secret file" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  touch "${mock_repo}/secrets/credentials.ci.sops.yaml"
+  git add secrets/credentials.ci.sops.yaml
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -ne 0 ]
+}
+
+@test "verify-sops-encryption.sh fails when sops.mac is empty string or whitespace" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+foo: bar
+sops:
+  mac: "   "
+  age:
+    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+  git add secrets/credentials.ci.sops.yaml
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Missing or empty .sops.mac" ]]
+}
