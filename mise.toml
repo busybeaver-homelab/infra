@@ -72,7 +72,8 @@ run = "ruff check"
 
 [tasks."check:general"]
 description = "Check general files (JS/TS) with oxlint"
-run = "oxlint -c .oxlintrc.json apps/"
+run = "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern apps/"
+
 
 [tasks.test]
 description = "Run all test suites"
