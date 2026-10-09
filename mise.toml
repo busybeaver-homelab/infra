@@ -18,6 +18,7 @@ oxfmt          = "0.71"
 shfmt          = "3.14"
 yq             = "4"
 node           = "lts"
+actionlint     = "1.7"
 
 
 [env]
