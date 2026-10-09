@@ -67,6 +67,20 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "mise.toml configures fast and clean molecule tasks" {
+  local mise_config="$REPO_ROOT/mise.toml"
+  [ -f "$mise_config" ]
+  run grep -E 'tasks\."test:ansible:fast"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:clean"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:fast:base"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:clean:base"' "$mise_config"
+  [ "$status" -eq 0 ]
+}
+
+
 @test "base_ubuntu_server defines argument_specs validation metadata" {
   local spec="$REPO_ROOT/configuration/roles/base_ubuntu_server/meta/argument_specs.yml"
   [ -f "$spec" ]
