@@ -144,6 +144,10 @@ run = "bats tests/scripts/"
 description = "Run GitHub Actions workflows locally"
 run = "act -W .github/workflows/"
 
+[tasks."drift:cloudflare"]
+description = "Detect drift in infrastructure/cloudflare locally (needs production SOPS; summary-only output)"
+run = "bash scripts/drift-cloudflare.sh"
+
 [tasks."docs:generate"]
 description = "Generate OpenTofu module documentation"
 run = "terraform-docs markdown table --output-file README.md --output-mode inject infrastructure/"
