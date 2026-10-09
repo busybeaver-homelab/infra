@@ -55,30 +55,59 @@ lifecycle_set() {
   done
 }
 
+# All plaintext module sources, including generated READMEs.
 cf_sources() {
-  find "$CF" \( -name '*.tf' -o -name '*.tftest.hcl' \) -not -path '*/.terraform/*'
+  find "$CF" \( -name '*.tf' -o -name '*.tftest.hcl' -o -name '*.md' \) -not -path '*/.terraform/*'
+}
+
+# Each leak_* prints "file:match" for every offending match (filtered per match, not per line).
+leak_ids() {
+  cf_sources | xargs grep -oE '[0-9a-f]{32}' | grep -vE ':0{24}[0-9a-f]{8}$' || true
+}
+
+leak_emails() {
+  cf_sources | xargs grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | grep -vE '@example\.test$' || true
+}
+
+leak_ipv4() {
+  cf_sources | xargs grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | grep -vE ':(192\.0\.2|198\.51\.100|203\.0\.113)\.[0-9]{1,3}$' || true
+}
+
+leak_ipv6() {
+  cf_sources | xargs grep -oiE '([0-9a-f]{1,4}:){3,7}[0-9a-f]{1,4}|[0-9a-f]{1,4}(:[0-9a-f]{1,4})*::([0-9a-f]{1,4}(:[0-9a-f]{1,4})*)?' |
+    grep -viE ':2001:db8(:|$)' || true
 }
 
 @test "no 32-hex Cloudflare IDs in plaintext module sources (except zero-padded decoys)" {
-  run bash -c "$(declare -f cf_sources); CF='$CF'; cf_sources | xargs grep -nE '[0-9a-f]{32}' | grep -vE '\"0{24}[0-9a-f]{8}\"'"
+  run leak_ids
   [ -z "$output" ]
 }
 
 @test "no email addresses outside example.test in module sources" {
-  run bash -c "$(declare -f cf_sources); CF='$CF'; cf_sources | xargs grep -noE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | grep -v '@example\.test'"
+  run leak_emails
   [ -z "$output" ]
 }
 
 @test "no public IPv4 outside RFC 5737 documentation ranges in module sources" {
-  run bash -c "$(declare -f cf_sources); CF='$CF'; cf_sources | xargs grep -noE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | grep -vE ':(192\.0\.2|198\.51\.100|203\.0\.113)\.[0-9]{1,3}$'"
+  run leak_ipv4
   [ -z "$output" ]
 }
 
-@test "real zone name never appears in module sources (skipped without SOPS access)" {
-  zone_name="$(sops -d --extract '["cloudflare"]["config"]["zones"]["primary"]["name"]' "$REPO_ROOT/secrets/credentials.sops.yaml" 2>/dev/null)" || skip "production SOPS not decryptable here"
-  [ -n "$zone_name" ] || skip "zone name not set"
-  run bash -c "$(declare -f cf_sources); CF='$CF'; cf_sources | xargs grep -lF -- '$zone_name'"
+@test "no IPv6 outside 2001:db8::/32 documentation range in module sources" {
+  run leak_ipv6
   [ -z "$output" ]
+}
+
+@test "real zone names never appear in module sources (skipped without SOPS access)" {
+  local secrets="$REPO_ROOT/secrets/credentials.sops.yaml" name hits=""
+  # Zone keys are plaintext in SOPS; only the names need decryption.
+  sops -d --extract '["cloudflare"]["config"]["zones"]' "$secrets" >/dev/null 2>&1 || skip "production SOPS not decryptable here"
+  for key in $(yq '.cloudflare.config.zones | keys | .[]' "$secrets"); do
+    name="$(sops -d --extract "[\"cloudflare\"][\"config\"][\"zones\"][\"$key\"][\"name\"]" "$secrets")"
+    [ -n "$name" ] || continue
+    hits+="$(cf_sources | xargs grep -lF -- "$name" || true)"
+  done
+  [ -z "$hits" ]
 }
 
 @test "transient import scaffolding is removed after adoption" {
@@ -89,9 +118,9 @@ cf_sources() {
 
 @test "cloudflare guards run at commit time and on cloudflare-only PRs" {
   run grep -A4 '^    cloudflare-guards:' "$REPO_ROOT/lefthook.yml"
-  [[ "$output" == *"tests/scripts/cloudflare-guards.bats"* ]]
+  [[ "$output" == *"tests/scripts/cloudflare-guards.bats"* ]] || false
   run awk '/^            shell:/{on=1; next} on && /^            [a-z]+:/{exit} on' "$REPO_ROOT/.github/workflows/ci.yml"
-  [[ "$output" == *"'infrastructure/cloudflare/**'"* ]]
+  [[ "$output" == *"'infrastructure/cloudflare/**'"* ]] || false
 }
 
 @test "lifecycle guard rejects commented-out or weakened settings" {
@@ -141,4 +170,36 @@ HCL
       grep -q '^mock_provider "sops"' "$f" || { echo "missing sops mock: ${f##*/}"; return 1; }
     fi
   done
+}
+
+leak_fixture() {
+  CF="$BATS_TEST_TMPDIR/leaky"
+  mkdir -p "$CF"
+  printf 'x = ["00000000000000000000000000000001", "abcdef0123456789abcdef0123456789"]\n' >"$CF/ids.tf"
+  printf 'y = "user@example.testing.org"\n' >"$CF/mail.tf"
+  printf 'z = "2a01:4f8:1:2::3"\n' >"$CF/v6.tf"
+  printf '| contact | foo@bar.example |\n' >"$CF/README.md"
+}
+
+@test "leak guards catch a real ID on the same line as a decoy" {
+  leak_fixture
+  run leak_ids
+  [[ "$output" == *"abcdef0123456789abcdef0123456789"* ]] || false
+  [[ "$output" != *"00000000000000000000000000000001"* ]] || false
+}
+
+@test "leak guards anchor example.test and scan README files" {
+  leak_fixture
+  run leak_emails
+  [[ "$output" == *"user@example.testing.org"* ]] || false
+  [[ "$output" == *"README.md"* ]] || false
+}
+
+@test "leak guards catch IPv6 outside 2001:db8::/32" {
+  leak_fixture
+  run leak_ipv6
+  [[ "$output" == *"2a01:4f8:1:2::3"* ]] || false
+  printf 'w = "2001:db8::10"\n' >"$CF/v6.tf"
+  run leak_ipv6
+  [ -z "$output" ]
 }

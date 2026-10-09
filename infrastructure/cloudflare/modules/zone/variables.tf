@@ -9,7 +9,7 @@ variable "zone" {
     name = string
     id   = string
     dns_records = map(object({
-      id       = string
+      id       = optional(string)
       type     = string
       name     = string
       content  = string
@@ -19,7 +19,7 @@ variable "zone" {
       comment  = optional(string)
     }))
     email_rules = map(object({
-      id       = string
+      id       = optional(string)
       name     = string
       enabled  = bool
       priority = number
@@ -46,10 +46,21 @@ variable "zone" {
 
   validation {
     condition = alltrue([
-      for r in values(var.zone.dns_records) :
-      !(r.type == "MX" && endswith(lower(r.content), ".mx.cloudflare.net"))
+      for r in values(var.zone.dns_records) : !(
+        (r.type == "MX" && endswith(trimsuffix(lower(r.content), "."), ".mx.cloudflare.net")) ||
+        (r.type == "TXT" && can(regex("^cf[0-9]{4}-[0-9]+\\._domainkey\\.", lower(r.name))))
+      )
     ])
-    error_message = "Email Routing MX records are owned by Email Routing and must not be managed as cloudflare_dns_record."
+    error_message = "Email Routing MX and DKIM records are owned by Email Routing and must not be managed as cloudflare_dns_record."
+  }
+
+  # M3: only actions that are valid for the http_request_firewall_custom phase.
+  validation {
+    condition = alltrue([
+      for r in var.zone.waf_custom.rules :
+      contains(["block", "challenge", "js_challenge", "managed_challenge", "log", "skip"], r.action)
+    ])
+    error_message = "waf_custom.rules[*].action must be one of: block, challenge, js_challenge, managed_challenge, log, skip."
   }
 }
 

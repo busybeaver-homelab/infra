@@ -33,6 +33,7 @@ mock_provider "sops" {
               dns_location: { id: "00000000000000000000000000000008", name: "decoy" }
               split_tunnel_excludes:
                 - { address: "198.51.100.0/24", description: "decoy" }
+                - { host: "decoy.example.test", description: "decoy" }
             iam:
               tokens:
                 grafana:   { id: "00000000000000000000000000000009", policies: [{ effect: "allow", resources: "{\"com.cloudflare.api.account.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }, { effect: "allow", resources: "{\"com.cloudflare.api.account.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }] }
@@ -180,5 +181,73 @@ run "verify_frozen_iam" {
   assert {
     condition     = length(cloudflare_account_token.frozen["terraform"].policies) == 2
     error_message = "The terraform token must document both of its least-privilege policies (account + zone)"
+  }
+}
+
+run "verify_split_tunnel_host_entries" {
+  command = plan
+
+  assert {
+    condition = (anytrue([for e in cloudflare_zero_trust_device_default_profile.this.exclude : e.address == "198.51.100.0/24"]) &&
+    anytrue([for e in cloudflare_zero_trust_device_default_profile.this.exclude : e.host == "decoy.example.test"]))
+    error_message = "Split-tunnel excludes must support both address and host entries"
+  }
+}
+
+run "frozen_token_missing_blocks_recreation" {
+  command = plan
+
+  override_data {
+    target = data.cloudflare_account_tokens.all
+    values = {
+      result = [{ name = "Grafana: Read analytics, logs and radar", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }, { name = "homelab-infra-opentofu-state-r2-token", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }]
+    }
+  }
+
+  expect_failures = [cloudflare_account_token.frozen]
+}
+
+run "frozen_tokens_present_pass" {
+  command = plan
+
+  override_data {
+    target = data.cloudflare_account_tokens.all
+    values = {
+      result = [{ name = "Grafana: Read analytics, logs and radar", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }, { name = "homelab-infra-opentofu-state-r2-token", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }, { name = "terraform-homelab-manually-provisioned", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }]
+    }
+  }
+
+  assert {
+    condition     = length(cloudflare_account_token.frozen) == 3
+    error_message = "All frozen tokens must plan when they exist live"
+  }
+}
+
+run "frozen_iam_check_detects_unresolvable_permission" {
+  command = plan
+
+  override_data {
+    target = data.cloudflare_account_api_token_permission_groups_list.all
+    values = {
+      result = [{ id = "00000000000000000000000000000013", name = "Unrelated Read", scopes = ["com.cloudflare.api.account"], category = null, is_selectable = null }]
+    }
+  }
+
+  expect_failures = [check.frozen_iam_references_resolve]
+}
+
+run "frozen_iam_check_passes_with_resolvable_catalog" {
+  command = plan
+
+  override_data {
+    target = data.cloudflare_account_api_token_permission_groups_list.all
+    values = {
+      result = [{ id = "00000000000000000000000000000013", name = "Decoy Read", scopes = ["com.cloudflare.api.account"], category = null, is_selectable = null }]
+    }
+  }
+
+  assert {
+    condition     = cloudflare_account_token.frozen["terraform"].policies[0].permission_groups[0].id == "00000000000000000000000000000013"
+    error_message = "Permission names must resolve to catalog IDs via name|scopes"
   }
 }

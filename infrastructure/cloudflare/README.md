@@ -22,6 +22,22 @@ contains only structure and non-identifying posture.
 `cloudflare_account_token.frozen[*]` and `cloudflare_account_member.frozen` use
 `prevent_destroy = true` and `ignore_changes = all`: OpenTofu never modifies them, and drift
 on them is **not** reported. `tests/scripts/cloudflare-guards.bats` fails if the guards are removed.
+Because `ignore_changes`/`prevent_destroy` do not stop _creation_, each frozen token carries a
+precondition: if it was deleted outside OpenTofu, plan fails instead of minting a new token. Remove it
+from `local.frozen_token_names` and `tofu state rm` it instead.
+
+## Editing DNS records and Email Routing rules
+
+Edit `cloudflare.config.zones.<zone_key>` with `sops`. Map keys (`a_1`, `rule_01`, ...) are resource
+addresses: **never renumber or rename them**, or OpenTofu destroys and recreates the object. New
+entries need no `id` (it was only used for the one-time import). Email-Routing-owned MX and DKIM
+records are rejected by validation (its apex SPF cannot be told apart from custom SPF by content).
+
+## Drift detection
+
+CI cannot decrypt production SOPS, so this module is excluded from
+`.github/workflows/drift-detection.yml`. Run `mise run drift:cloudflare` locally: it prints counts and
+addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 
 ## Adding a zone
 
@@ -51,6 +67,7 @@ on them is **not** reported. `tests/scripts/cloudflare-guards.bats` fails if the
 - **Page Rules**: none exist (verified 2026-10-09).
 - **Defaults-only areas**: managed rulesets, universal SSL, managed headers, URL normalization, tiered cache, page shield, leaked-credential checks, DNS zone settings, security.txt.
 - **Authenticated Origin Pulls settings resource**: managed through zone setting `tls_client_auth` instead.
+- **Gateway `activity_log`, `block_page`, `fips`**: unset (null) live; not representable without a change, so not managed.
 - **Access organization `service_token_inactivity`**: disabled live with null action/threshold, which the v5.27 schema cannot express; excluded via `ignore_changes`.
 - **Second zone in the account**: out of scope (see "Adding a zone").
 
@@ -95,6 +112,7 @@ on them is **not** reported. `tests/scripts/cloudflare-guards.bats` fails if the
 | [cloudflare_zero_trust_organization.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/zero_trust_organization)                                     | resource    |
 | [cloudflare_account_api_token_permission_groups_list.all](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/data-sources/account_api_token_permission_groups_list) | data source |
 | [cloudflare_account_permission_groups.frozen_member](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/data-sources/account_permission_groups)                     | data source |
+| [cloudflare_account_tokens.all](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/data-sources/account_tokens)                                                     | data source |
 | [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/latest/docs/data-sources/file)                                                                                   | data source |
 
 ## Inputs

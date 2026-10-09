@@ -63,9 +63,13 @@ resource "cloudflare_zero_trust_device_default_profile" "this" {
   support_url                    = ""
   service_mode_v2                = { mode = "1dot1" }
 
-  # Split-tunnel exclude list (addresses are identifying -> SOPS). Empty descriptions are null upstream.
+  # Split-tunnel exclude list (identifying -> SOPS). Entries carry either `address` (IP/CIDR) or
+  # `host` (domain); empty descriptions are null upstream.
   exclude = [
-    for e in local.cf.zero_trust.split_tunnel_excludes :
-    { address = e.address, description = e.description == "" ? null : e.description }
+    for e in local.cf.zero_trust.split_tunnel_excludes : {
+      address     = try(e.address, null)
+      host        = try(e.host, null)
+      description = try(e.description, null) == "" ? null : try(e.description, null)
+    }
   ]
 }
