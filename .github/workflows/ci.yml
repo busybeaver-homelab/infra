@@ -281,7 +281,7 @@ jobs:
       fail-fast: false
       matrix:
         scenario:
-          - base-ubuntu-server
+          - base_ubuntu_server
           - restic_backup
           - oci
     steps:
@@ -303,10 +303,10 @@ jobs:
           mkdir -p "${HOME}/.config/sops/age"
           (umask 077 && echo "${SOPS_AGE_KEY}" > "${HOME}/.config/sops/age/keys.txt")
 
-      - name: Run Molecule test (base-ubuntu-server)
-        if: matrix.scenario == 'base-ubuntu-server'
+      - name: Run Molecule test (base_ubuntu_server)
+        if: matrix.scenario == 'base_ubuntu_server'
         run: |
-          cd configuration/roles/base-ubuntu-server
+          cd configuration/roles/base_ubuntu_server
           mise exec -- molecule test
         env:
           PY_COLORS: "1"

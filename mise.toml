@@ -80,7 +80,7 @@ depends = ["test:infra", "test:ansible", "test:scripts"]
 
 [tasks."test:ansible"]
 description = "Run Molecule tests for Ansible roles"
-dir = "configuration/roles/base-ubuntu-server"
+dir = "configuration/roles/base_ubuntu_server"
 run = "molecule test"
 
 [tasks."test:scripts"]
