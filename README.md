@@ -14,29 +14,31 @@ graph TD
         Mise["🛠️ Mise (Tool Manager)"]
         Tofu["☁️ OpenTofu"]
         Ans["🏎️ Ansible"]
-        SOPS["🔑 SOPS (Age Encryption)"]
+        SOPS["🔑 SOPS / Age"]
     end
 
     subgraph Cloud ["☁️ Cloud Services"]
-        GCP["🌐 Google Cloud Platform"]
-        GCS["🪣 State Bucket (GCS)"]
-        CF["⚡ Cloudflare DNS/WAF"]
+        CF["⚡ Cloudflare (DNS/WAF & R2 State Bucket)"]
+        OCI["⭕ Oracle Cloud Infrastructure (Always Free)"]
+        GCP["🌐 Google Cloud Platform (Always Free)"]
+        Azure["🔷 Microsoft Azure"]
     end
 
     subgraph Homelab ["🏠 Homelab"]
         UniFi["📡 UniFi Network"]
-        Ubuntu["🐧 Ubuntu Servers"]
-        Apps["📦 Self-hosted Apps"]
+        Ubuntu["🐧 Ubuntu Servers (Proxmox / Metal)"]
     end
 
     %% Provisioning flow
-    Tofu -.->|Stores State| GCS
+    Tofu -.->|Encrypted State (AES-GCM)| CF
+    Tofu ===>|Provisions| OCI
     Tofu ===>|Provisions| GCP
+    Tofu ===>|Provisions| Azure
     Tofu ===>|Manages| CF
 
     %% Configuration flow
-    Ans ===>|Configures OS/Apps| Ubuntu
-    Ans ===>|Queries Resources| Tofu
+    Ans ===>|Configures OS/Services| Ubuntu
+    Ans ===>|Configures Cloud VM| OCI
     Ans ===>|Manages API| UniFi
 
     %% Tool links
@@ -53,15 +55,24 @@ This repository pins tools globally in `.mise.toml` to ensure every administrato
 
 | Tool               | Version | Purpose                                                       |
 | :----------------- | :------ | :------------------------------------------------------------ |
-| **OpenTofu**       | `1.8`   | Declarative cloud and local resource provisioning             |
-| **Ansible**        | `10`    | Idempotent software installation and configuration management |
-| **SOPS**           | `3.9`   | File-level encryption/decryption of secrets                   |
-| **Age**            | `1.2`   | Simple, modern, and secure tool for key generation            |
-| **Lefthook**       | `1.10`  | Parallel pre-commit Git hooks for security and quality        |
-| **Python**         | `3.12`  | Root runtimes for Ansible and scripting                       |
-| **Ruff**           | `0.9`   | Lightning-fast Python linter and formatter                    |
-| **ShellCheck**     | `0.10`  | Bash/shell script static analyzer                             |
-| **Terraform-Docs** | `0.19`  | Automated markdown documentation for OpenTofu modules         |
+| **OpenTofu**       | `1.13`  | Declarative cloud and local resource provisioning             |
+| **TFLint**         | `0.64`  | OpenTofu/Terraform linter for cloud best practices and errors |
+| **Ansible**        | `14`    | Idempotent software installation and configuration management |
+| **SOPS**           | `3.13`  | File-level encryption/decryption of secrets                   |
+| **Age**            | `1.3`   | Modern and secure file-level encryption and key generation    |
+| **Lefthook**       | `2.1`   | Parallel pre-commit Git hooks for security and quality        |
+| **Python**         | `3.14`  | Root runtime for Ansible and infrastructure scripting         |
+| **Ruff**           | `0.16`  | Lightning-fast Python linter and code formatter               |
+| **ShellCheck**     | `0.11`  | Bash/shell script static analyzer and linter                  |
+| **Terraform-Docs** | `0.24`  | Automated markdown documentation for OpenTofu modules         |
+| **TruffleHog**     | `3`     | High-entropy secrets and credential scanning in Git commits   |
+| **Bats**           | `1.14`  | Bash automated testing framework for unit and CI verification |
+| **Oxlint**         | `1.84`  | High-performance linter for repository web and app assets     |
+| **Oxfmt**          | `0.71`  | Fast formatter wrapper for markdown, JSON, and web assets     |
+| **Shfmt**          | `3.14`  | Shell script code formatter enforcing consistent shell styles |
+| **Yq**             | `4`     | YAML and JSON command-line processor                          |
+| **Node**           | `lts`   | JavaScript runtime for repository linters and tooling         |
+| **Go**             | `1.27`  | Systems runtime for developer and testing utilities           |
 | **Act**            | `0.2`   | Local execution of GitHub Actions workflows                   |
 | **Git-Crypt**      | `0.7+`  | Transparent file-level encryption for sensitive docs/ tree    |
 
@@ -134,18 +145,21 @@ The structure of the repository is modular and structured as follows:
 ```text
 .
 ├── .github/                 # GitHub Actions workflows and templates
-├── apps/                    # Code, Dockerfiles, or builds for self-hosted applications
+├── apps/                    # Self-hosted applications architecture specifications & compose manifests
 ├── backups/                 # Offline backups and recovery archives (git-crypt encrypted)
 ├── configuration/           # Ansible inventories, playbooks, and roles
 │   ├── inventories/         # Environment inventories (production, testing)
 │   ├── playbooks/           # Ansible master & domain playbooks
-│   └── roles/               # Reusable Ansible configuration units
+│   └── roles/               # Reusable Ansible configuration units (base_ubuntu_server, restic_backup)
 ├── docs/                    # Architecture, design proposals, plans (git-crypt encrypted)
-├── infrastructure/          # OpenTofu root and shared modules
-│   ├── bootstrap/           # GCS storage buckets for remote states
-│   ├── cloudflare/          # DNS, tunnels, and page routing
-│   ├── gcp/                 # GCP compute, networks, and identities
-│   └── homelab/             # Proxmox/VM provisionings and local networks
+├── infrastructure/          # OpenTofu root modules with Cloudflare R2 remote state backend
+│   ├── azure/               # Microsoft Azure resource groups and credentials
+│   ├── cloudflare/          # DNS, tunnels, access rules, and R2 state/backup buckets
+│   ├── gcp/                 # GCP compute, networks, and identities (Always Free)
+│   ├── github/              # Repository secrets, environments, and CI variables
+│   ├── homelab/             # Proxmox VMs, LXC containers, and local networks
+│   ├── monitoring/          # Healthchecks.io checks and alerting integration
+│   └── oci/                 # Oracle Cloud compute, VCN, budgets, and storage (Always Free)
 ├── scripts/                 # Administration and git-hook helper scripts
 └── secrets/                 # Decoy/CI keys and secrets guides
 ```

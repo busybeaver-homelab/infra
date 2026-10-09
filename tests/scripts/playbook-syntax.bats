@@ -131,4 +131,58 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "README.md documents Cloudflare R2 state backend and current pinned toolset" {
+  local doc="$REPO_ROOT/README.md"
+  [ -f "$doc" ]
+
+  # Ensure R2 state backend is documented in architecture diagram
+  run grep -E "Cloudflare \(DNS/WAF & R2 State Bucket\)" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "Encrypted State \(AES-GCM\).*CF" "$doc"
+  [ "$status" -eq 0 ]
+
+  # Ensure GCS state bucket is no longer in architecture diagram
+  run grep -E "State Bucket \(GCS\)" "$doc"
+  [ "$status" -ne 0 ]
+
+  # Ensure pinned tool versions match mise.toml
+  run grep -E "\*\*OpenTofu\*\*.*\`1\.13\`" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "\*\*Ansible\*\*.*\`14\`" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "\*\*SOPS\*\*.*\`3\.13\`" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "\*\*Python\*\*.*\`3\.14\`" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "\*\*TFLint\*\*.*\`0\.64\`" "$doc"
+  [ "$status" -eq 0 ]
+
+  # Ensure all 7 infrastructure modules are documented in repository layout
+  run grep -E "azure/" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "cloudflare/" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "gcp/" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "github/" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "homelab/" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "monitoring/" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "oci/" "$doc"
+  [ "$status" -eq 0 ]
+}
+
 
