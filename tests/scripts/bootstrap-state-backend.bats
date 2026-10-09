@@ -118,7 +118,7 @@ teardown() {
   cat <<'EOF' >"${mock_module_dir}/backend.tf"
 terraform {
   backend "s3" {
-    endpoint = "https://<account_id>.eu.r2.cloudflarestorage.com"
+    endpoint = "https://<account_id>.r2.cloudflarestorage.com"
     bucket   = "homelab-infra-tfstate"
   }
 }
@@ -167,7 +167,7 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" =~ "init -input=false" ]]
   [[ "$output" =~ "apply -target=cloudflare_r2_bucket.tfstate -input=false -auto-approve" ]]
-  [[ "$output" =~ "init -migrate-state -force-copy -input=false -backend-config=endpoint=https://1234567890abcdef1234567890abcdef.eu.r2.cloudflarestorage.com -backend-config=bucket=homelab-infra-tfstate" ]]
+  [[ "$output" =~ "init -migrate-state -force-copy -input=false -backend-config=endpoint=https://1234567890abcdef1234567890abcdef.r2.cloudflarestorage.com -backend-config=bucket=homelab-infra-tfstate" ]]
 }
 
 @test "bootstrap-state-backend.sh restores backend.tf on error during Stage 1 apply" {

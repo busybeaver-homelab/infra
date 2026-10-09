@@ -32,6 +32,6 @@
 | Name | Description |
 | ---- | ----------- |
 | <a name="output_r2_backup_bucket_name"></a> [r2\_backup\_bucket\_name](#output\_r2\_backup\_bucket\_name) | The name of the secondary R2 disaster recovery backup bucket. |
-| <a name="output_r2_backup_endpoint"></a> [r2\_backup\_endpoint](#output\_r2\_backup\_endpoint) | S3-compatible endpoint URL for the EU jurisdictional R2 backup bucket. |
+| <a name="output_r2_backup_endpoint"></a> [r2\_backup\_endpoint](#output\_r2\_backup\_endpoint) | S3-compatible endpoint URL for the R2 backup bucket. |
 | <a name="output_r2_tfstate_bucket_name"></a> [r2\_tfstate\_bucket\_name](#output\_r2\_tfstate\_bucket\_name) | The name of the OpenTofu state storage R2 bucket. |
 <!-- END_TF_DOCS -->

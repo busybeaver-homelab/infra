@@ -56,7 +56,7 @@ flowchart TD
    - A targeted apply is executed (`tofu apply -target=cloudflare_r2_bucket.tfstate`), provisioning the bucket in Cloudflare R2 with European data residency (`location = "WEUR"`).
 2. **Stage 2 (Remote State Migration):**
    - The remote S3 backend configuration is restored.
-   - `tofu init -migrate-state -force-copy` runs against the S3 endpoint (`https://<account_id>.eu.r2.cloudflarestorage.com`), securely migrating the local state into R2.
+   - `tofu init -migrate-state -force-copy` runs against the S3 endpoint (`https://<account_id>.r2.cloudflarestorage.com`), securely migrating the local state into R2.
    - Local state files are safely wiped from disk.
 3. **Subsequent Operations:**
    - All modules (`cloudflare`, `oci`, `homelab`, `gcp`, `azure`, `github`) consume the R2 bucket directly using standard OpenTofu workflows.
@@ -133,7 +133,7 @@ mise exec -- tofu apply -target=cloudflare_r2_bucket.tfstate -input=false
 # --- Stage 2: Remote State Migration ---
 mv backend.tf.disabled backend.tf
 mise exec -- tofu init -migrate-state -force-copy -input=false \
-  -backend-config="endpoint=https://${CLOUDFLARE_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"
+  -backend-config="endpoint=https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
 # --- Cleanup ---
 rm -f terraform.tfstate terraform.tfstate.backup
@@ -145,12 +145,12 @@ rm -f terraform.tfstate terraform.tfstate.backup
 
 Our remote state backend follows industry-standard cloud engineering and data sovereignty best practices:
 
-### 1. EU Jurisdiction & Data Sovereignty
+### 1. European Data Residency & Sovereignty
 
 - **Location Constraint:** The R2 bucket is provisioned with `location = "WEUR"` (Western Europe) in [`infrastructure/cloudflare/main.tf`](cloudflare/main.tf).
-- **EU Storage Endpoint:** All OpenTofu backends communicate through the EU-specific jurisdiction endpoint:
-  `https://<account_id>.eu.r2.cloudflarestorage.com`
-  This guarantees that all state objects, metadata, and backups remain strictly within the European Union, complying with GDPR requirements.
+- **R2 Storage Endpoint:** All OpenTofu backends communicate through the R2 endpoint:
+  `https://<account_id>.r2.cloudflarestorage.com`
+  This guarantees that all state objects, metadata, and backups reside in the Western European region, complying with data privacy requirements.
 
 ### 2. Security & Encryption
 

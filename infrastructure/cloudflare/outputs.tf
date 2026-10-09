@@ -11,7 +11,7 @@ output "r2_backup_bucket_name" {
 }
 
 output "r2_backup_endpoint" {
-  value       = "https://${var.cloudflare_account_id}.eu.r2.cloudflarestorage.com"
-  description = "S3-compatible endpoint URL for the EU jurisdictional R2 backup bucket."
+  value       = "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com"
+  description = "S3-compatible endpoint URL for the R2 backup bucket."
   sensitive   = true
 }

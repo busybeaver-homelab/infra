@@ -293,9 +293,9 @@ validate_credentials() {
 
 validate_credentials
 
-# Determine R2 endpoint (jurisdiction=EU)
+# Determine R2 endpoint
 EFFECTIVE_ACCOUNT_ID="${ACCOUNT_ID:-<account_id>}"
-R2_ENDPOINT="https://${EFFECTIVE_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"
+R2_ENDPOINT="https://${EFFECTIVE_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
 # Execute Stage 1
 execute_stage_1() {
