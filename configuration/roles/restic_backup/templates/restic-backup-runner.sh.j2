@@ -21,13 +21,6 @@ if [ -d "{{ restic_backup_config_dir }}/hooks.d/pre.d" ] && [ -n "$(ls -A "{{ re
   run-parts --regex='.*' "{{ restic_backup_config_dir }}/hooks.d/pre.d"
 fi
 
-# Initialize repository if not already initialized
-echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Checking repository status..."
-if ! restic --retry-lock 2h cat config >/dev/null 2>&1; then
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Initializing new restic repository..."
-  restic --retry-lock 2h init
-fi
-
 # Collect existing paths to backup
 BACKUP_PATHS=()
 for path in {% for path in restic_backup_paths %}"{{ path }}" {% endfor %}; do
@@ -39,31 +32,66 @@ for path in {% for path in restic_backup_paths %}"{{ path }}" {% endfor %}; do
 done
 
 if [ {{ '${#' }}BACKUP_PATHS[@]} -eq 0 ]; then
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: No backup paths exist to back up."
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: No backup paths exist to back up." >&2
   exit 1
 fi
 
-# Run backup
-echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running restic backup..."
-restic --retry-lock 2h backup \
-  --exclude-file="{{ restic_backup_config_dir }}/excludes.txt" \
-  --tag "scheduled" \
-  "${BACKUP_PATHS[@]}"
+execute_target() {
+  local label="$1"
+  local env_file="$2"
 
-# Sync snapshots to secondary DR repository if configured
-if [ -n "${RESTIC_SECONDARY_REPOSITORY:-}" ]; then
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Syncing snapshots to secondary DR repository..."
-  restic --retry-lock 2h copy --from-repo "$RESTIC_REPOSITORY" --to-repo "$RESTIC_SECONDARY_REPOSITORY"
+  if [ ! -f "$env_file" ]; then
+    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: Configuration file $env_file not found for target ${label}" >&2
+    return 1
+  fi
+
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Executing backup target: ${label}"
+  (
+    set -a
+    # shellcheck disable=SC1090
+    . "${env_file}"
+    set +a
+
+    if ! restic --retry-lock 2h cat config >/dev/null 2>&1; then
+      echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Initializing repository for ${label}..."
+      restic --retry-lock 2h init
+    fi
+
+    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running backup snapshot to ${label}..."
+    restic --retry-lock 2h backup \
+      --exclude-file="{{ restic_backup_config_dir }}/excludes.txt" \
+      --tag "scheduled" \
+      --tag "${label}" \
+      "${BACKUP_PATHS[@]}"
+
+    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running integrity check for ${label}..."
+    restic --retry-lock 2h check --read-data-subset=1%
+  )
+}
+
+FAILED_TARGETS=()
+
+if ! execute_target "primary" "{{ restic_backup_config_dir }}/primary.env"; then
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: Target 'primary' failed" >&2
+  FAILED_TARGETS+=("primary")
 fi
 
-# Perform integrity check on data subset
-echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running subset integrity check..."
-restic --retry-lock 2h check --read-data-subset=1%
+{% if restic_backup_secondary_enabled %}
+if ! execute_target "secondary" "{{ restic_backup_config_dir }}/secondary.env"; then
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: Target 'secondary' failed" >&2
+  FAILED_TARGETS+=("secondary")
+fi
+{% endif %}
 
-# Send heartbeat ping on successful completion
+if [ {{ '${#' }}FAILED_TARGETS[@]} -ne 0 ]; then
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Backup finished with failure(s) in: ${FAILED_TARGETS[*]}" >&2
+  exit 1
+fi
+
 if [ -n "${HEALTHCHECKS_PING_URL:-}" ]; then
   echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Sending heartbeat ping to Healthchecks.io..."
   curl -fsS -m 10 --retry 3 "${HEALTHCHECKS_PING_URL}"
 fi
 
-echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Backup completed successfully."
+echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Backup procedure completed successfully."
+
