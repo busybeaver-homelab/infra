@@ -4,6 +4,6 @@
 
 resource "cloudflare_r2_bucket" "backups_dr" {
   account_id = var.cloudflare_account_id
-  name       = "homelab-backups-dr"
-  location   = "WEUR"
+  name       = var.r2_backup_bucket_name
+  location   = var.r2_backup_location
 }
