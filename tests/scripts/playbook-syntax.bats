@@ -211,3 +211,26 @@ setup() {
   run grep -E "oci/" "$doc"
   [ "$status" -eq 0 ]
 }
+
+@test "restic_backup defaults define dual-target variables" {
+  local defaults="$REPO_ROOT/configuration/roles/restic_backup/defaults/main.yml"
+  [ -f "$defaults" ]
+  run grep "restic_backup_secondary_enabled:" "$defaults"
+  [ "$status" -eq 0 ]
+  run grep "restic_backup_secondary_repository:" "$defaults"
+  [ "$status" -eq 0 ]
+  run grep "restic_backup_secondary_password_file_path:" "$defaults"
+  [ "$status" -eq 0 ]
+}
+
+@test "restic_backup tasks deploy primary.env, secondary.env, and password-secondary" {
+  local tasks="$REPO_ROOT/configuration/roles/restic_backup/tasks/main.yml"
+  [ -f "$tasks" ]
+  run grep "primary.env" "$tasks"
+  [ "$status" -eq 0 ]
+  run grep "secondary.env" "$tasks"
+  [ "$status" -eq 0 ]
+  run grep "password-secondary" "$tasks"
+  [ "$status" -eq 0 ]
+}
+
