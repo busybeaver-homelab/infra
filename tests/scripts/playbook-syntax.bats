@@ -56,6 +56,16 @@ setup() {
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/oci.yml"
   [ "$status" -eq 0 ]
 }
+
+@test "oci.yml fails closed when executed without valid production SOPS key" {
+  local playbook="$REPO_ROOT/configuration/playbooks/oci.yml"
+  [ -f "$playbook" ]
+
+  run env SOPS_AGE_KEY="" GNUPGHOME="/dev/null" ansible-playbook -i "oci," -c local -e ansible_become=false -e ansible_gather_facts=false --check "$playbook"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "SOPS" || "$output" =~ "Failed" || "$output" =~ "error" || "$output" =~ "Could not" || "$output" =~ "unreachable" || "$output" =~ "credentials" ]]
+}
+
 @test "mise.toml configures full molecule scenario matrix for ansible testing" {
   local mise_config="$REPO_ROOT/mise.toml"
   [ -f "$mise_config" ]
