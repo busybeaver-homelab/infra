@@ -10,3 +10,7 @@ secrets/credentials.sops.yaml -diff merge=binary
 *.sops.yaml merge=binary
 *.sops.yml  merge=binary
 *.sops.json merge=binary
+
+# git-crypt transparent encryption for documentation, designs, and runbooks
+docs/** filter=git-crypt diff=git-crypt
+.gitattributes !filter !diff
