@@ -22,7 +22,7 @@ done
 case "$extract" in
   *'["cloudflare"]["api_token"]'*) echo "cftoken_stub_secret_12345" ;;
   *'["cloudflare"]["account_id"]'*) echo "cfaccount_stub_67890" ;;
-  *'["cloudflare"]["notification_email"]'*) echo "alerts@example.test" ;;
+  *'["cloudflare"]["notification_email"]'*|*'["cloudflare"]["config"]["notification_email"]'*) echo "alerts@example.test" ;;
   *) echo "stub-value" ;;
 esac
 STUB
