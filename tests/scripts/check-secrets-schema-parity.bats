@@ -106,3 +106,15 @@ EOF
   done
 }
 
+@test "canonical secrets files define github repositories config schema keys" {
+  local keys=("name" "description" "topics")
+  for key in "${keys[@]}"; do
+    run mise exec -- yq "has(\"github\") and (.github | has(\"config\")) and (.github.config | has(\"repositories\")) and (.github.config.repositories.infra | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+    run mise exec -- yq "has(\"github\") and (.github | has(\"config\")) and (.github.config | has(\"repositories\")) and (.github.config.repositories.infra | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+  done
+}
+
