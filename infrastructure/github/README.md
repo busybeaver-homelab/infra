@@ -48,42 +48,47 @@ See `variables.tf` for full descriptions. All variables are `sensitive = true`.
 | ------------------------------------------------------------------------ | -------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.8.0 |
 | <a name="requirement_github"></a> [github](#requirement_github)          | ~> 6.0   |
+| <a name="requirement_sops"></a> [sops](#requirement_sops)                | ~> 1.1.1 |
 
 ## Providers
 
-| Name                                                      | Version |
-| --------------------------------------------------------- | ------- |
-| <a name="provider_github"></a> [github](#provider_github) | 6.12.1  |
+| Name                                                | Version |
+| --------------------------------------------------- | ------- |
+| <a name="provider_sops"></a> [sops](#provider_sops) | 1.1.1   |
+
+## Modules
+
+| Name                                                              | Source               | Version |
+| ----------------------------------------------------------------- | -------------------- | ------- |
+| <a name="module_repository"></a> [repository](#module_repository) | ./modules/repository | n/a     |
 
 ## Resources
 
-| Name                                                                                                                                                             | Type     |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| [github_actions_environment_secret.ci_secrets](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/actions_environment_secret)     | resource |
-| [github_repository.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository)                                           | resource |
-| [github_repository_environment.ci](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_environment)                     | resource |
-| [github_repository_environment.production](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_environment)             | resource |
-| [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_ruleset)                | resource |
-| [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_vulnerability_alerts) | resource |
+| Name                                                                                                     | Type        |
+| -------------------------------------------------------------------------------------------------------- | ----------- |
+| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/latest/docs/data-sources/file) | data source |
 
 ## Inputs
 
-| Name                                                                                                                 | Description                                                                                             | Type           | Default                                         | Required |
-| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------- | ----------------------------------------------- | :------: |
-| <a name="input_allow_merge_commit"></a> [allow\_merge\_commit](#input_allow_merge_commit)                            | Whether to allow merge commits on the repository (must be false to enforce linear trunk-based history). | `bool`         | `false`                                         |    no    |
-| <a name="input_allow_rebase_merge"></a> [allow\_rebase\_merge](#input_allow_rebase_merge)                            | Whether to allow rebase merge on the repository (must be false to enforce squash-merge policy).         | `bool`         | `false`                                         |    no    |
-| <a name="input_ci_secrets"></a> [ci\_secrets](#input_ci_secrets)                                                     | A map of sensitive secrets to inject into the 'ci' environment.                                         | `map(string)`  | `{}`                                            |    no    |
-| <a name="input_github_owner"></a> [github\_owner](#input_github_owner)                                               | The target GitHub organization or user account.                                                         | `string`       | n/a                                             |   yes    |
-| <a name="input_github_token"></a> [github\_token](#input_github_token)                                               | Personal Access Token for GitHub authentication.                                                        | `string`       | n/a                                             |   yes    |
-| <a name="input_repository_name"></a> [repository\_name](#input_repository_name)                                      | The name of the target GitHub repository.                                                               | `string`       | `"homelab-infra"`                               |    no    |
-| <a name="input_reviewers_for_production"></a> [reviewers\_for\_production](#input_reviewers_for_production)          | List of GitHub user or team IDs that can approve production deployments.                                | `list(string)` | `[]`                                            |    no    |
-| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | Passphrase for OpenTofu state and plan encryption.                                                      | `string`       | `"homelab-state-encryption-passphrase-default"` |    no    |
+| Name                                                                                                                 | Description                                                                                                    | Type          | Default                                         | Required |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------- | :------: |
+| <a name="input_allow_merge_commit"></a> [allow\_merge\_commit](#input_allow_merge_commit)                            | Whether to allow merge commits on the repository (must be false to enforce linear trunk-based history).        | `bool`        | `false`                                         |    no    |
+| <a name="input_allow_rebase_merge"></a> [allow\_rebase\_merge](#input_allow_rebase_merge)                            | Whether to allow rebase merge on the repository (must be false to enforce squash-merge policy).                | `bool`        | `false`                                         |    no    |
+| <a name="input_backup_secrets"></a> [backup\_secrets](#input_backup_secrets)                                         | A map of sensitive secrets to inject into the 'backup' environment.                                            | `map(string)` | `{}`                                            |    no    |
+| <a name="input_ci_secrets"></a> [ci\_secrets](#input_ci_secrets)                                                     | A map of sensitive secrets to inject into the 'ci' environment.                                                | `map(string)` | `{}`                                            |    no    |
+| <a name="input_github_owner"></a> [github\_owner](#input_github_owner)                                               | The target GitHub organization or user account (overrides SOPS if provided).                                   | `string`      | `""`                                            |    no    |
+| <a name="input_github_token"></a> [github\_token](#input_github_token)                                               | Personal Access Token for GitHub authentication (overrides SOPS if provided).                                  | `string`      | `""`                                            |    no    |
+| <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input_secrets_file_path)                               | Path to the canonical SOPS credentials file holding github configuration (defaults to production credentials). | `string`      | `"../../secrets/credentials.sops.yaml"`         |    no    |
+| <a name="input_sops_age_key_ci"></a> [sops\_age\_key\_ci](#input_sops_age_key_ci)                                    | CI Age private key override for GitHub Actions environment secrets.                                            | `string`      | `""`                                            |    no    |
+| <a name="input_sops_age_key_file"></a> [sops\_age\_key\_file](#input_sops_age_key_file)                              | Path to the local Age keys file containing the CI private key.                                                 | `string`      | `"~/.config/sops/age/keys.txt"`                 |    no    |
+| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | Passphrase for OpenTofu state and plan encryption.                                                             | `string`      | `"homelab-state-encryption-passphrase-default"` |    no    |
 
 ## Outputs
 
-| Name                                                                                           | Description                                           |
-| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| <a name="output_repository_html_url"></a> [repository\_html\_url](#output_repository_html_url) | The HTML URL of the managed GitHub repository.        |
-| <a name="output_repository_node_id"></a> [repository\_node\_id](#output_repository_node_id)    | The GraphQL Node ID of the managed GitHub repository. |
+| Name                                                                                           | Description                                                 |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| <a name="output_repositories"></a> [repositories](#output_repositories)                        | Map of managed GitHub repositories and their metadata.      |
+| <a name="output_repository_html_url"></a> [repository\_html\_url](#output_repository_html_url) | The HTML URL of the primary infra GitHub repository.        |
+| <a name="output_repository_node_id"></a> [repository\_node\_id](#output_repository_node_id)    | The GraphQL Node ID of the primary infra GitHub repository. |
 
 <!-- END_TF_DOCS -->
