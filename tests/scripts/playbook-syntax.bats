@@ -58,6 +58,31 @@ setup() {
 
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/oci.yml"
   [ "$status" -eq 0 ]
+
+  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/unifi.yml"
+  [ "$status" -eq 0 ]
+}
+
+@test "configuration/molecule/site configures mock harness for site and unifi playbooks" {
+  local mol="$REPO_ROOT/configuration/molecule/site/molecule.yml"
+  local conv="$REPO_ROOT/configuration/molecule/site/converge.yml"
+  local ver="$REPO_ROOT/configuration/molecule/site/verify.yml"
+
+  [ -f "$mol" ]
+  [ -f "$conv" ]
+  [ -f "$ver" ]
+
+  run yq eval '.platforms[0].groups[]' "$mol"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "homelab" ]]
+  [[ "$output" =~ "oci" ]]
+  [[ "$output" =~ "unifi" ]]
+
+  run grep "site.yml --syntax-check" "$conv"
+  [ "$status" -eq 0 ]
+
+  run grep "unifi.yml --syntax-check" "$conv"
+  [ "$status" -eq 0 ]
 }
 
 @test "configuration/molecule/homelab configures Ubuntu 26.04 docker platform for homelab" {

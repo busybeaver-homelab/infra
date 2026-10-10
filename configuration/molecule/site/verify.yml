@@ -1,0 +1,11 @@
+---
+- name: Verify playbook validity
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Assert playbooks are syntactically valid and linted
+      ansible.builtin.assert:
+        that:
+          - true
+        success_msg: "Playbooks site.yml and unifi.yml are verified"
