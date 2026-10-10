@@ -1,0 +1,6 @@
+---
+- name: Import common playbook
+  ansible.builtin.import_playbook: ../../playbooks/common.yml
+
+- name: Import homelab playbook
+  ansible.builtin.import_playbook: ../../playbooks/homelab.yml
