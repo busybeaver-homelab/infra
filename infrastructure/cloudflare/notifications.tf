@@ -22,6 +22,10 @@ locals {
       name        = "Universal SSL Alert"
       description = "Universal Certificate validation status, issuance, renewal, and expiration notices"
     }
+    billing_usage_alert = {
+      name        = "Billing Usage Alert"
+      description = "Usage alert notifying when billable service limits are approached or exceeded"
+    }
   }
 }
 
