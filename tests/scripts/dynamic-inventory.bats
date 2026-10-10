@@ -75,3 +75,18 @@ EOF
   ! [[ "$output" =~ "oci-arm" ]]
   [[ "$output" =~ "@ungrouped:" ]]
 }
+
+@test "dynamic inventory fixture strictly conforms to OpenTofu OCI state schema" {
+  run jq -e '[.resources[] | select(.type=="oci_core_instance") | .instances[].attributes | (has("display_name") and has("private_ip") and has("freeform_tags"))] | all' "${FIXTURE_SRC}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "dynamic inventory fixture requires project=homelab tag on all compute resources" {
+  run jq -r '.resources[] | select(.type=="oci_core_instance") | .instances[].attributes.freeform_tags.project' "${FIXTURE_SRC}"
+  [ "$status" -eq 0 ]
+  [ -n "$output" ]
+  for tag in $output; do
+    [ "$tag" = "homelab" ]
+  done
+}
