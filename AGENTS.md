@@ -63,6 +63,7 @@ Automated gates must be respected:
 - **Branch Naming:** All task branches must be named following the pattern: `<type>/<scope>/<short-desc>` (e.g., `feat/gcp/state-bucket`).
 - **Plan File Location:** All plan files should be stored at: `docs/plans` (e.g., `docs/plans/2026-06-01-short-plan-name.md`).
 - **Git Worktrees Mandatory:** When running tasks that add, update, or delete files, you **must** use isolated git worktrees rather than modifying the main workspace directly. Consult the `.agent/skills/using-git-worktrees/SKILL.md` skill for the proper directory selection and setup process.
+- **Automated Pull Request Creation:** If a task or feature branch is not merged locally into `main` and a separate branch is pushed to `origin`, a Pull Request **must** be created automatically for that branch. The Pull Request must have a descriptive title adhering to the Conventional Commits specification (e.g., `feat(cloudflare): configure spend alerts and pr automation`) and a detailed description documenting all changes, architectural rationale, and verification test results included in the branch.
 
 ---
 

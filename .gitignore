@@ -173,7 +173,8 @@ venv/
 
 ### Mise ###
 .mise.local.toml
-.mise/
+.mise/*
+!.mise/locks/
 
 ### App Builds & Artifacts ###
 /dist/

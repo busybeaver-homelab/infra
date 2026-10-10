@@ -1,3 +1,4 @@
+---
 name: CI
 
 on:
@@ -93,14 +94,9 @@ jobs:
         continue-on-error: true
 
       - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
-        with:
-          scan-type: "fs"
-          format: "sarif"
-          output: "trivy-results.sarif"
-          exit-code: "0"
-          ignore-unfixed: true
-          severity: "CRITICAL,HIGH"
+        run: |
+          mise exec -- trivy fs --format sarif --output trivy-results.sarif --exit-code 0 --ignore-unfixed --severity CRITICAL,HIGH .
+        continue-on-error: true
 
       - name: Upload Trivy SARIF
         uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d # v3.28.10
