@@ -71,4 +71,20 @@ run "verify_github_root_hardening" {
     condition     = module.repository["infra"].environments.backup == "backup"
     error_message = "Backup environment must be defined"
   }
+
+  assert {
+    condition     = module.repository["infra"].actions_permissions.allowed_actions == "selected"
+    error_message = "Actions permissions must be selected"
+  }
+
+  assert {
+    condition     = module.repository["infra"].actions_permissions.sha_pinning_required == true
+    error_message = "Actions must require SHA pinning"
+  }
+
+  assert {
+    condition     = contains(keys(module.repository["infra"].deploy_keys), "work-laptop")
+    error_message = "Deploy key work-laptop must be registered"
+  }
 }
+

@@ -9,4 +9,6 @@ module "repository" {
   allow_rebase_merge = var.allow_rebase_merge
   ci_secrets         = local.ci_environment_secrets
   backup_secrets     = local.backup_environment_secrets
+  deploy_keys        = each.key == "infra" ? var.deploy_keys : {}
 }
+
