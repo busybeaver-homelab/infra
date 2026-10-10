@@ -207,3 +207,10 @@ variable "secrets_file_path" {
   default     = "../../secrets/credentials.sops.yaml"
 }
 
+variable "enable_prevent_destroy" {
+  type        = bool
+  description = "Whether to prevent destruction of critical compute instances."
+  default     = true
+}
+
+

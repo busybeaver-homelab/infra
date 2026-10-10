@@ -16,6 +16,7 @@ variables {
   instance_image_ocid_arm = "ocid1.image.oc1..arm"
   tailscale_auth_key      = "tskey-auth-test"
   ssh_public_key          = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey user@test"
+  enable_prevent_destroy  = false
 }
 
 run "verify_compute_instances_and_free_tier" {
@@ -71,3 +72,23 @@ run "verify_compute_instances_and_free_tier" {
     error_message = "Private subnet must prohibit public IP assignment"
   }
 }
+
+run "verify_computed_outputs_on_apply" {
+  command = apply
+
+  assert {
+    condition     = output.vcn_id != ""
+    error_message = "VCN output ID must be computed upon apply"
+  }
+
+  assert {
+    condition     = length(output.amd_instance_ids) == 2
+    error_message = "Must output exactly 2 AMD instance IDs"
+  }
+
+  assert {
+    condition     = output.arm_instance_id != ""
+    error_message = "ARM instance ID must be computed upon apply"
+  }
+}
+
