@@ -1,0 +1,24 @@
+---
+- name: Verify homelab and common configuration
+  hosts: homelab
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Verify common packages are installed
+      ansible.builtin.package:
+        name:
+          - curl
+          - tmux
+        state: present
+      check_mode: true
+      register: pkg_check
+      failed_when: pkg_check.changed
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Docker service is active
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['docker.service']['state'] | default('') == 'running'
+        fail_msg: "Docker service (docker.service) should be running"

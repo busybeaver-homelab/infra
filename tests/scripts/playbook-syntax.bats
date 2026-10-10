@@ -50,11 +50,27 @@ setup() {
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/common.yml"
   [ "$status" -eq 0 ]
 
+  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/homelab.yml"
+  [ "$status" -eq 0 ]
+
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/site.yml"
   [ "$status" -eq 0 ]
 
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/oci.yml"
   [ "$status" -eq 0 ]
+}
+
+@test "configuration/molecule/homelab configures Ubuntu 26.04 docker platform for homelab" {
+  local mol="$REPO_ROOT/configuration/molecule/homelab/molecule.yml"
+  [ -f "$mol" ]
+
+  run yq eval '.platforms[0].groups[0]' "$mol"
+  [ "$status" -eq 0 ]
+  [ "$output" = "homelab" ]
+
+  run yq eval '.platforms[0].name' "$mol"
+  [ "$status" -eq 0 ]
+  [ "$output" = "homelab-ubuntu-server-26" ]
 }
 
 @test "oci.yml fails closed when executed without valid production SOPS key" {
