@@ -6,6 +6,9 @@ terraform {
       source  = "integrations/github"
       version = "~> 6.0"
     }
+    sops = {
+      source  = "carlpett/sops"
+      version = "~> 1.1.1"
+    }
   }
 }
-
