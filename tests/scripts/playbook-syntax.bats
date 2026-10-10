@@ -104,6 +104,27 @@ setup() {
   [ "$output" = "bool" ]
 }
 
+@test "restic_backup defines argument_specs validation metadata" {
+  local spec="$REPO_ROOT/configuration/roles/restic_backup/meta/argument_specs.yml"
+  [ -f "$spec" ]
+
+  run yq eval '.argument_specs.main.options.restic_backup_repository.type' "$spec"
+  [ "$status" -eq 0 ]
+  [ "$output" = "str" ]
+
+  run yq eval '.argument_specs.main.options.restic_backup_password.type' "$spec"
+  [ "$status" -eq 0 ]
+  [ "$output" = "str" ]
+
+  run yq eval '.argument_specs.main.options.restic_backup_password.no_log' "$spec"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run yq eval '.argument_specs.main.options.restic_backup_paths.type' "$spec"
+  [ "$status" -eq 0 ]
+  [ "$output" = "list" ]
+}
+
 @test "ansible.cfg enables ssh pipelining and json fact caching" {
   local cfg="$REPO_ROOT/ansible.cfg"
   [ -f "$cfg" ]

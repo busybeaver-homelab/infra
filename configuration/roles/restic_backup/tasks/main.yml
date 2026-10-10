@@ -1,6 +1,10 @@
 ---
 # Tasks for restic_backup role
 
+- name: Validate restic_backup role arguments
+  ansible.builtin.validate_argument_spec:
+    argument_spec: "{{ (lookup('ansible.builtin.file', role_path ~ '/meta/argument_specs.yml') | from_yaml).argument_specs.main.options }}"
+
 - name: Install restic and curl packages
   ansible.builtin.apt:
     name:
