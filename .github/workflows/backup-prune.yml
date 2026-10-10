@@ -16,6 +16,7 @@ jobs:
   prune:
     name: Restic Snapshot Retention & Integrity Check
     runs-on: ubuntu-latest
+    environment: backup
     permissions:
       contents: read
     timeout-minutes: 30
