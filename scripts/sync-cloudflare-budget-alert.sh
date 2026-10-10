@@ -19,6 +19,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Ensure mise tools are available on PATH if not already present
+if ! command -v sops >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+  if [[ -d "${HOME}/.local/share/mise/bin" ]]; then
+    export PATH="${HOME}/.local/share/mise/bin:${PATH}"
+  fi
+  if command -v mise >/dev/null 2>&1; then
+    eval "$(mise env --shell bash 2>/dev/null || true)"
+  fi
+fi
+
 # Default parameter values
 THRESHOLD="1"
 DRY_RUN=false
@@ -100,9 +110,11 @@ if [[ -z "$TOKEN" || -z "$ACCOUNT_ID" || -z "$EMAIL" ]]; then
   fi
 
   if [[ -z "$EMAIL" ]]; then
-    if ! EMAIL="$(sops --extract '["cloudflare"]["notification_email"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
-      echo "ERROR: Failed to extract Cloudflare credentials from SOPS: $CREDENTIALS_FILE" >&2
-      exit 1
+    if ! EMAIL="$(sops --extract '["cloudflare"]["config"]["notification_email"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
+      if ! EMAIL="$(sops --extract '["cloudflare"]["notification_email"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
+        echo "ERROR: Failed to extract Cloudflare credentials from SOPS: $CREDENTIALS_FILE" >&2
+        exit 1
+      fi
     fi
   fi
 fi

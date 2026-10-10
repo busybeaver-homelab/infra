@@ -47,13 +47,8 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
-@test "aquasecurity/trivy-action is pinned to verified valid commit SHA 915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2" {
-  local count
-  count=$(grep -rcE 'uses:[[:space:]]*aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2' "$REPO_ROOT/.github/" | awk -F: '{s+=$2} END {print s}')
-  [ "$count" -ge 1 ]
-
-  # Ensure no corrupted SHAs exist
-  run grep -rnE 'aquasecurity/trivy-action@18f259c5e261ebd1660144983293406f5c128cb5' "$REPO_ROOT/.github/"
+@test "aquasecurity/trivy-action composite action is not used to comply with action security policies" {
+  run grep -rnE 'uses:[[:space:]]*aquasecurity/trivy-action' "$REPO_ROOT/.github/"
   [ "$status" -ne 0 ]
 }
 
