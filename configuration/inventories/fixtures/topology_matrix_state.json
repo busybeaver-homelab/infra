@@ -1,0 +1,122 @@
+{
+  "version": 4,
+  "terraform_version": "1.9.0",
+  "serial": 2,
+  "lineage": "c8e7b6d5-2345-6789-abcd-ef0123456789",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "oci_core_instance",
+      "name": "bastion",
+      "provider": "provider[\"registry.terraform.io/oracle/oci\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "id": "ocid1.instance.oc1.eu-frankfurt-1.dummybastion1",
+            "display_name": "bastion-1",
+            "shape": "VM.Standard.E2.1.Micro",
+            "availability_domain": "dummy-ad-1",
+            "compartment_id": "ocid1.compartment.oc1..dummy",
+            "private_ip": "198.51.100.20",
+            "public_ip": "203.0.113.1",
+            "freeform_tags": {
+              "project": "homelab",
+              "role": "bastion",
+              "env": "production"
+            },
+            "state": "RUNNING"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "oci_core_instance",
+      "name": "worker",
+      "provider": "provider[\"registry.terraform.io/oracle/oci\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "id": "ocid1.instance.oc1.eu-frankfurt-1.dummyworker1",
+            "display_name": "worker-1",
+            "shape": "VM.Standard.A1.Flex",
+            "availability_domain": "dummy-ad-1",
+            "compartment_id": "ocid1.compartment.oc1..dummy",
+            "private_ip": "198.51.100.30",
+            "public_ip": "",
+            "freeform_tags": {
+              "project": "homelab",
+              "role": "compute",
+              "env": "production"
+            },
+            "state": "RUNNING"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "oci_core_instance",
+      "name": "storage",
+      "provider": "provider[\"registry.terraform.io/oracle/oci\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "id": "ocid1.instance.oc1.eu-frankfurt-1.dummystorage1",
+            "display_name": "storage-1",
+            "shape": "VM.Standard.A1.Flex",
+            "availability_domain": "dummy-ad-1",
+            "compartment_id": "ocid1.compartment.oc1..dummy",
+            "private_ip": "198.51.100.50",
+            "public_ip": "",
+            "freeform_tags": {
+              "project": "homelab",
+              "role": "storage",
+              "env": "production"
+            },
+            "state": "RUNNING"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "oci_core_instance",
+      "name": "edge",
+      "provider": "provider[\"registry.terraform.io/oracle/oci\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "id": "ocid1.instance.oc1.eu-frankfurt-1.dummyedge1",
+            "display_name": "edge-1",
+            "shape": "VM.Standard.E2.1.Micro",
+            "availability_domain": "dummy-ad-1",
+            "compartment_id": "ocid1.compartment.oc1..dummy",
+            "private_ip": "198.51.100.60",
+            "public_ip": "",
+            "freeform_tags": {
+              "project": "homelab",
+              "role": "edge",
+              "env": "production"
+            },
+            "state": "RUNNING"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}
