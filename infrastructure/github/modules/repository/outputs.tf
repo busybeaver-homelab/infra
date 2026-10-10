@@ -60,3 +60,23 @@ output "environments" {
   }
   description = "Managed GitHub Actions environments."
 }
+
+output "deploy_keys" {
+  value = {
+    for k, v in github_repository_deploy_key.deploy_keys : k => {
+      id        = v.id
+      title     = v.title
+      read_only = v.read_only
+    }
+  }
+  description = "Managed deploy keys."
+}
+
+output "actions_permissions" {
+  value = {
+    allowed_actions      = github_actions_repository_permissions.repo.allowed_actions
+    sha_pinning_required = github_actions_repository_permissions.repo.sha_pinning_required
+  }
+  description = "Actions repository permissions."
+}
+
