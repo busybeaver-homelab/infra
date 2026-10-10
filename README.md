@@ -30,7 +30,7 @@ graph TD
     end
 
     %% Provisioning flow
-    Tofu -.->|Encrypted State (AES-GCM)| CF
+    Tofu -.->|"Encrypted State (AES-GCM)"| CF
     Tofu ===>|Provisions| OCI
     Tofu ===>|Provisions| GCP
     Tofu ===>|Provisions| Azure
@@ -163,28 +163,3 @@ The structure of the repository is modular and structured as follows:
 ├── scripts/                 # Administration and git-hook helper scripts
 └── secrets/                 # Decoy/CI keys and secrets guides
 ```
-
----
-
-## 🤝 Contributing Guidelines
-
-We enforce strict quality and security gates to maintain an exceptional and secure codebase:
-
-### 1. Pre-Commit Hooks (Lefthook)
-
-Lefthook is run automatically before every commit to protect the main branch from unencrypted secrets, lint failures, and formatting issues.
-
-- To run hooks manually: `mise exec lefthook -- lefthook run pre-commit`
-
-### 2. Conventional Commits
-
-All commits must follow the **Conventional Commits** specification:
-
-- `feat(scope): ...` for new features/resources
-- `fix(scope): ...` for bug fixes
-- `docs(scope): ...` for documentation updates
-- `chore(scope): ...` for tooling and dependencies
-
-### 3. AI Agent Instructions
-
-If you are pair-programming with AI agents (such as Antigravity), they are bound by the strict operational rules located in `AGENTS.md`. Please do not bypass Git hooks using `--no-verify`.
