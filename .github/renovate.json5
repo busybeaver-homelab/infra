@@ -7,7 +7,7 @@
     "config:best-practices",
     ":semanticCommits",
     ":pinDevDependencies",
-    "pinAllExceptPeerDependencies",
+    ":pinAllExceptPeerDependencies",
     ":enableVulnerabilityAlerts",
     "security:openssf-scorecard",
     ":labels(dependencies)",
