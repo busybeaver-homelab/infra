@@ -15,7 +15,7 @@
 
   // Global repository controls
   timezone: "UTC",
-  dependencyDashboard: true,
+  dependencyDashboard: false,
   prConcurrentLimit: 10,
   prHourlyLimit: 2,
 
@@ -144,15 +144,6 @@
     {
       description: "Require human review for major version upgrades",
       matchUpdateTypes: ["major"],
-      automerge: false,
-    },
-
-    // 10. Security Vulnerability Alerts (Immediate dedicated PRs, no grouping)
-    {
-      description: "Immediate isolated PRs for security vulnerability alerts",
-      matchCurrentVersion: null,
-      schedule: ["at any time"],
-      groupName: null,
       automerge: false,
     },
   ],
