@@ -72,3 +72,7 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "ci.yml security-scan job runs trivy via mise toolchain and outputs sarif" {
+  run grep -E "mise exec -- trivy fs --format sarif" "$WORKFLOW"
+  [ "$status" -eq 0 ]
+}

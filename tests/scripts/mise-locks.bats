@@ -57,3 +57,10 @@ load 'helpers/test_helper'
   run grep -E '\.mise/locks/ansible/14\.4\.0~0672620e' "$mise_lock"
   [ "$status" -eq 0 ]
 }
+
+@test "mise.lock oxfmt aube digest matches CI Linux digest" {
+  local mise_lock="${REPO_ROOT}/mise.lock"
+  [ -f "$mise_lock" ]
+  run grep -E 'digest = "sha256:98e4ad5fda0b7ae3ae05abd1809e4764bc290c131db8df6fe4f66d9f0252f913"' "$mise_lock"
+  [ "$status" -eq 0 ]
+}
