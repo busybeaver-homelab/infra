@@ -60,6 +60,21 @@ run "verify_repository_child_module" {
   }
 
   assert {
+    condition     = github_repository_ruleset.main_protection.rules[0].update == null || github_repository_ruleset.main_protection.rules[0].update == false
+    error_message = "Main branch ruleset must not restrict updates so that PRs can be merged"
+  }
+
+  assert {
+    condition     = github_repository_ruleset.main_protection.rules[0].deletion == true
+    error_message = "Main branch ruleset must prevent deletion"
+  }
+
+  assert {
+    condition     = github_repository_ruleset.main_protection.rules[0].required_linear_history == true
+    error_message = "Main branch ruleset must require linear history"
+  }
+
+  assert {
     condition     = github_actions_repository_permissions.repo.allowed_actions == "selected"
     error_message = "Allowed actions must be set to selected"
   }
