@@ -22,6 +22,14 @@ locals {
       name        = "Universal SSL Alert"
       description = "Universal Certificate validation status, issuance, renewal, and expiration notices"
     }
+    # billing_usage_alert is intentionally commented out:
+    # Cloudflare Alerting API requires product/limit filters (Error 17103: Filters selection must be provided
+    # to create a policy) which fail HTTP 400 without paid add-ons. Account spend is already protected globally
+    # at the $1 USD platform minimum by billing_budget_alert synchronized via scripts/sync-cloudflare-budget-alert.sh.
+    # billing_usage_alert = {
+    #   name        = "Billing Usage Alert"
+    #   description = "Usage alert notifying when billable service limits are approached or exceeded"
+    # }
   }
 }
 
