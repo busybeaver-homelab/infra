@@ -3,22 +3,22 @@ name = "homelab-infra"
 version = "0.1.0"
 description = "Homelab & Cloud Infrastructure managed by OpenTofu and Ansible"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = "==3.14.8"
 dependencies = [
-    "ansible-core>=2.17.0",
-    "google-auth>=2.29.0",
-    "requests>=2.31.0",
-    "jmespath>=1.0.1",
-    "cryptography>=42.0.0",
+    "ansible-core==2.21.5",
+    "google-auth==2.53.0",
+    "requests==2.34.2",
+    "jmespath==1.1.0",
+    "cryptography==50.0.0",
 ]
 
 [tool.uv]
 dev-dependencies = [
-    "ruff>=0.4.0",
-    "ansible-lint>=24.2.0",
-    "molecule>=24.0.0",
-    "molecule-plugins[docker]>=23.5.0",
-    "pytest-testinfra>=10.1.0",
+    "ruff==0.15.16",
+    "ansible-lint==26.4.0",
+    "molecule==26.4.0",
+    "molecule-plugins[docker]==25.8.12",
+    "pytest-testinfra==10.2.2",
 ]
 
 [tool.ruff]
