@@ -278,6 +278,10 @@ run = "scripts/sync-github-repo-settings.sh"
 description = "Sync Cloudflare live billing budget alert to minimum threshold ($1 USD)"
 run = "scripts/sync-cloudflare-budget-alert.sh"
 
+[tasks."skills:update"]
+description = "Update AI agent skills and synchronize skills-lock.json"
+run = "npx skills update -p -y"
+
 [tasks."test:infra"]
 description = "Run native OpenTofu tests concurrently across all infrastructure modules"
 run = '''

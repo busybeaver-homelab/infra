@@ -183,3 +183,19 @@ if (!presets) {
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Correctly rejected bare preset" ]] || [[ "$output" =~ "skipping" ]]
 }
+
+@test ".github/renovate.json5 does not configure postUpgradeTasks" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run grep -E "postUpgradeTasks" "$config"
+  [ "$status" -ne 0 ]
+}
+
+@test "mise.toml defines skills:update task using npx skills update" {
+  local config="${REPO_ROOT}/mise.toml"
+  [ -f "$config" ]
+  run grep -E '\[tasks\."skills:update"\]' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -E 'npx skills update' "$config"
+  [ "$status" -eq 0 ]
+}

@@ -55,6 +55,11 @@ run "verify_repository_child_module" {
   }
 
   assert {
+    condition     = tolist(github_repository_ruleset.main_protection.rules[0].required_status_checks[0].required_check)[0].context == "CI Gate"
+    error_message = "Required status check context must match CI Gate"
+  }
+
+  assert {
     condition     = github_actions_repository_permissions.repo.allowed_actions == "selected"
     error_message = "Allowed actions must be set to selected"
   }

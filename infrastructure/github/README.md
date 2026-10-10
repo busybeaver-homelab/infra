@@ -24,7 +24,7 @@ The repository configuration implements defense-in-depth across multiple layers:
 - **Head Branch Auto-Deletion:** Automatically deletes branches upon PR merge.
 - **Ruleset Bypass Actors:** Configured with `bypass_mode = "always"` for:
   - **Repository Administrator** (`actor_id = 5`, `actor_type = "RepositoryRole"`) — allows direct pushes and check bypasses for administrative operations.
-  - Automated bots (Dependabot and Renovate) are **not** bypass actors; they auto-merge natively via repository `allow_auto_merge = true` only after all required CI checks (`ci-gate`) pass green, preventing any bypass of CI gates or direct pushes to `main`.
+  - Automated bots (Dependabot and Renovate) are **not** bypass actors; they auto-merge natively via repository `allow_auto_merge = true` only after all required CI checks (`CI Gate`) pass green, preventing any bypass of CI gates or direct pushes to `main`.
 
 ### 2. GitHub Actions Permissions & SHA Pinning
 
