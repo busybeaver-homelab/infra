@@ -12,7 +12,7 @@ contains only structure and non-identifying posture.
 | `account.tf`                 | Account settings (2FA enforcement)                                                           |
 | `r2.tf`                      | R2 buckets (state, DR backups)                                                               |
 | `zero_trust.tf`              | Access organization, OTP IdP, Gateway settings, default DNS location, default device profile |
-| `notifications.tf`           | Email notification policies                                                                  |
+| `notifications.tf`           | Email notification policies (including `billing_usage_alert`)                                |
 | `email_routing_addresses.tf` | Email Routing destination addresses                                                          |
 | `iam_frozen.tf`              | **Frozen** account tokens and member (documentation only; token policies live in SOPS)       |
 | `zones.tf` → `modules/zone`  | Per-zone: zone, DNSSEC, settings, DNS, Email Routing, WAF custom rules, bot management       |
@@ -61,7 +61,7 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 ## Not managed (and why)
 
 - **Workers account subdomain**: no resource in provider v5.27.
-- **`billing_budget_alert` notification**: its `total_spend_dollars` filter is not in the v5.27 schema.
+- **`billing_budget_alert` notification**: its `total_spend_dollars` filter is not in the v5.27 schema; synchronized out-of-band to the platform minimum ($1 USD) via `mise run sync:cloudflare:budget`.
 - **Email-Routing-owned DNS records** (MX/SPF/DKIM): owned by Email Routing; rejected by module validation.
 - **Email Routing catch-all as a rule**: managed only via `cloudflare_email_routing_catch_all`.
 - **Page Rules**: none exist (verified 2026-10-09).

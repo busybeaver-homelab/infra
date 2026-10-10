@@ -251,6 +251,10 @@ echo "Deleted secret ${usage_key} from secrets/credentials.ci.sops.yaml"
 description = "Sync non-Terraform repository settings (immutable releases, retention, contributor approval) via GitHub API"
 run = "scripts/sync-github-repo-settings.sh"
 
+[tasks."sync:cloudflare:budget"]
+description = "Sync Cloudflare live billing budget alert to minimum threshold ($1 USD)"
+run = "scripts/sync-cloudflare-budget-alert.sh"
+
 [tasks."test:infra"]
 description = "Run native OpenTofu tests concurrently across all infrastructure modules"
 run = '''
