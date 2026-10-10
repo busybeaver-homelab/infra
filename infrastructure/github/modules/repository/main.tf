@@ -80,7 +80,6 @@ resource "github_repository_ruleset" "main_protection" {
 
   rules {
     creation                = true
-    update                  = true
     deletion                = true
     required_linear_history = true
     required_signatures     = false
