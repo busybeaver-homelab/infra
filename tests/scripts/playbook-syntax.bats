@@ -332,3 +332,65 @@ setup() {
   run grep -E "Conventional Commits" "$doc"
   [ "$status" -eq 0 ]
 }
+
+@test "configuration/roles/requirements.yml declares required collections and pins" {
+  local req="$REPO_ROOT/configuration/roles/requirements.yml"
+  [ -f "$req" ]
+
+  run yq eval '.collections[] | select(.name == "community.sops") | .version' "$req"
+  [ "$status" -eq 0 ]
+  [ "$output" = "2.5.0" ]
+
+  run yq eval '.collections[] | select(.name == "ansible.posix") | .version' "$req"
+  [ "$status" -eq 0 ]
+  [ "$output" = "2.0.0" ]
+
+  run yq eval '.collections[] | select(.name == "community.general") | .version' "$req"
+  [ "$status" -eq 0 ]
+  [ "$output" = "10.4.0" ]
+}
+
+@test "all collection references in configuration are declared in requirements.yml or ansible.builtin" {
+  local req="$REPO_ROOT/configuration/roles/requirements.yml"
+  [ -f "$req" ]
+
+  run mise exec -- python3 -c '
+import os, re, yaml, sys
+
+with open("configuration/roles/requirements.yml") as f:
+    req = yaml.safe_load(f)
+declared = {c["name"] for c in req.get("collections", [])}
+declared.add("ansible.builtin")
+declared.add("ansible.legacy")
+
+pattern = re.compile(r"^\s*(?:-\s+)?([a-z0-9_]+\.[a-z0-9_]+)\.[a-z0-9_]+:")
+unknown = set()
+
+dirs_to_check = [
+    "configuration/playbooks",
+    "configuration/roles",
+    "configuration/molecule",
+]
+
+for d in dirs_to_check:
+    for root, dirs, files in os.walk(d):
+        if os.path.basename(root) in ("defaults", "meta", "vars"):
+            continue
+        for file in files:
+            if file.endswith((".yml", ".yaml")):
+                filepath = os.path.join(root, file)
+                with open(filepath, "r", encoding="utf-8") as f:
+                    for line in f:
+                        match = pattern.match(line)
+                        if match:
+                            coll = match.group(1)
+                            if coll not in declared:
+                                unknown.add(f"{filepath}: {coll}")
+
+if unknown:
+    print("Found undeclared collections:", unknown, file=sys.stderr)
+    sys.exit(1)
+'
+  [ "$status" -eq 0 ]
+}
+
