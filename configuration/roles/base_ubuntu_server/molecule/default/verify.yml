@@ -91,7 +91,7 @@
 
     - name: Verify timezone configuration file
       ansible.builtin.stat:
-        path: /etc/timezone
+        path: /etc/localtime
       register: base_ubuntu_server_timezone_stat
 
     - name: Assert timezone configuration exists
