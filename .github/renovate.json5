@@ -1,0 +1,159 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  description: "Automated dependency management configuration for homelab-infra",
+
+  // Baseline presets
+  extends: [
+    "config:best-practices",
+    ":semanticCommits",
+    ":pinDevDependencies",
+    "pinAllExceptPeerDependencies",
+    ":enableVulnerabilityAlerts",
+    "security:openssf-scorecard",
+    ":labels(dependencies)",
+  ],
+
+  // Global repository controls
+  timezone: "UTC",
+  dependencyDashboard: true,
+  prConcurrentLimit: 10,
+  prHourlyLimit: 2,
+
+  // Lockfile maintenance schedule
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ["before 4am on monday"],
+    automerge: false,
+  },
+
+  // Native manager toggles
+  terraform: {
+    enabled: true,
+  },
+  ansible: {
+    enabled: true,
+  },
+  "github-actions": {
+    enabled: true,
+  },
+  mise: {
+    enabled: true,
+  },
+  pep621: {
+    enabled: true,
+  },
+
+  // Custom regex manager for shell script version pins
+  customManagers: [
+    {
+      customType: "regex",
+      description: "Custom dependency version tracking for Bash and Shell scripts via comment annotations",
+      managerFilePatterns: ["^scripts/.*\\.sh$"],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+[A-Za-z0-9_]+_VERSION="?(?<currentValue>[^"\\s]+)"?',
+      ],
+    },
+  ],
+
+  // Post-upgrade tasks for agent skills
+  postUpgradeTasks: {
+    commands: ["npx skills update -p -y"],
+    fileFilters: ["skills-lock.json", ".agents/skills/**"],
+    executionMode: "branch",
+  },
+
+  // Package rules for ecosystem-specific grouping, conventional commit scopes, and automerge policies
+  packageRules: [
+    // 1. Terraform / OpenTofu
+    {
+      description: "Group and scope Terraform and OpenTofu provider/module updates",
+      matchManagers: ["terraform"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/terraform",
+      groupName: "terraform providers and modules",
+      groupSlug: "terraform-deps",
+    },
+
+    // 2. Ansible & Ansible Galaxy
+    {
+      description: "Group and scope Ansible Galaxy collection and role updates",
+      matchManagers: ["ansible", "ansible-galaxy"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/ansible",
+      groupName: "ansible galaxy roles and collections",
+      groupSlug: "ansible-deps",
+    },
+
+    // 3. GitHub Actions
+    {
+      description: "Group and scope GitHub Actions updates",
+      matchManagers: ["github-actions"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/actions",
+      groupName: "github actions",
+      groupSlug: "github-actions-deps",
+    },
+
+    // 4. Mise Toolchain
+    {
+      description: "Group and scope Mise toolchain updates",
+      matchManagers: ["mise"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/mise",
+      groupName: "mise toolchain",
+      groupSlug: "mise-deps",
+    },
+
+    // 5. Python / UV
+    {
+      description: "Group and scope Python / UV dependencies",
+      matchManagers: ["pep621"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/python",
+      groupName: "python dependencies",
+      groupSlug: "python-deps",
+    },
+
+    // 6. AI Agent Skills
+    {
+      description: "Scope AI agent skills updates",
+      matchFileNames: ["skills-lock.json"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/skills",
+      automerge: false,
+    },
+
+    // 7. Automated Merging (Minor & Patch updates for stable releases)
+    {
+      description: "Enable platform automerge for safe minor and patch updates on non-0.x versions",
+      matchUpdateTypes: ["minor", "patch"],
+      matchCurrentVersion: "!/^0\\./",
+      automerge: true,
+      automergeType: "pr",
+      platformAutomerge: true,
+    },
+
+    // 8. Gate 0.x releases (Breaking changes can occur in minor/patch for 0.x)
+    {
+      description: "Require human review for 0.x versions",
+      matchCurrentVersion: "/^0\\./",
+      automerge: false,
+    },
+
+    // 9. Major Updates (Breaking changes require manual review)
+    {
+      description: "Require human review for major version upgrades",
+      matchUpdateTypes: ["major"],
+      automerge: false,
+    },
+
+    // 10. Security Vulnerability Alerts (Immediate dedicated PRs, no grouping)
+    {
+      description: "Immediate isolated PRs for security vulnerability alerts",
+      matchCurrentVersion: null,
+      schedule: ["at any time"],
+      groupName: null,
+      automerge: false,
+    },
+  ],
+}
