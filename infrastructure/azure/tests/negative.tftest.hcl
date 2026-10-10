@@ -33,3 +33,16 @@ run "reject_invalid_budget_email" {
     var.budget_contact_emails,
   ]
 }
+
+run "reject_zero_monthly_budget" {
+  command = plan
+
+  variables {
+    monthly_budget_amount = 0
+  }
+
+  expect_failures = [
+    var.monthly_budget_amount,
+  ]
+}
+

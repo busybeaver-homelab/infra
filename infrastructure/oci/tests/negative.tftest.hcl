@@ -67,3 +67,100 @@ run "reject_invalid_project_tag" {
     var.default_freeform_tags,
   ]
 }
+
+run "reject_invalid_tenancy_ocid" {
+  command = plan
+
+  variables {
+    tenancy_ocid = "not-an-ocid"
+  }
+
+  expect_failures = [
+    var.tenancy_ocid,
+  ]
+}
+
+run "reject_invalid_user_ocid" {
+  command = plan
+
+  variables {
+    user_ocid = "ocid1.wrong.oc1..test"
+  }
+
+  expect_failures = [
+    var.user_ocid,
+  ]
+}
+
+run "reject_invalid_fingerprint" {
+  command = plan
+
+  variables {
+    fingerprint = "invalid:fingerprint:xx"
+  }
+
+  expect_failures = [
+    var.fingerprint,
+  ]
+}
+
+run "reject_invalid_compartment_ocid" {
+  command = plan
+
+  variables {
+    compartment_ocid = "invalid-compartment-ocid"
+  }
+
+  expect_failures = [
+    var.compartment_ocid,
+  ]
+}
+
+run "reject_malformed_vcn_cidr" {
+  command = plan
+
+  variables {
+    vcn_cidr = "999.999.999.999/99"
+  }
+
+  expect_failures = [
+    var.vcn_cidr,
+  ]
+}
+
+run "reject_malformed_subnet_cidr" {
+  command = plan
+
+  variables {
+    subnet_cidr = "999.999.999.999/99"
+  }
+
+  expect_failures = [
+    var.subnet_cidr,
+  ]
+}
+
+run "reject_ampere_zero_ocpus" {
+  command = plan
+
+  variables {
+    ampere_ocpus = 0
+  }
+
+  expect_failures = [
+    var.ampere_ocpus,
+  ]
+}
+
+run "reject_ampere_zero_memory" {
+  command = plan
+
+  variables {
+    ampere_memory_in_gbs = 0
+  }
+
+  expect_failures = [
+    var.ampere_memory_in_gbs,
+  ]
+}
+
