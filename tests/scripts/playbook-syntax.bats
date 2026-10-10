@@ -322,4 +322,13 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "AGENTS.md mandates automated pull request creation when separate branch is pushed" {
+  local doc="$REPO_ROOT/AGENTS.md"
+  [ -f "$doc" ]
 
+  run grep -E "Automated Pull Request Creation" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "Conventional Commits" "$doc"
+  [ "$status" -eq 0 ]
+}
