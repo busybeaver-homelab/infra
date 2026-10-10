@@ -31,7 +31,7 @@ resource "cloudflare_account_token" "frozen" {
   ]
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
     ignore_changes  = all
 
     # ignore_changes/prevent_destroy do not stop *creation*: if a frozen token was deleted outside
@@ -63,7 +63,7 @@ resource "cloudflare_account_member" "frozen" {
   }]
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
     ignore_changes  = all
   }
 }

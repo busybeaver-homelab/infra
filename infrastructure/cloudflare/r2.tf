@@ -6,7 +6,7 @@ resource "cloudflare_r2_bucket" "tfstate" {
   jurisdiction = "default"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
   }
 }
 
@@ -20,6 +20,6 @@ resource "cloudflare_r2_bucket" "backups_dr" {
   jurisdiction = "default"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
   }
 }

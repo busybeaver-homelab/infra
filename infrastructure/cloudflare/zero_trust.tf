@@ -9,7 +9,7 @@ resource "cloudflare_zero_trust_organization" "this" {
   deny_unmatched_requests_exempted_zone_names = []
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
     # Live value is {enabled = false, action = null, inactivity_threshold_days = null}; the v5.27
     # schema requires action/threshold, so the disabled state is not representable in config.
     ignore_changes = [service_token_inactivity]

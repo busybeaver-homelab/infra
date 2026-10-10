@@ -4,7 +4,7 @@ resource "cloudflare_zone" "this" {
   type    = "full"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
 
     precondition {
       condition     = length(setsubtract(keys(var.zone_settings_overrides), keys(local.default_zone_settings))) == 0
@@ -18,6 +18,6 @@ resource "cloudflare_zone_dnssec" "this" {
   status  = "active"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
   }
 }
