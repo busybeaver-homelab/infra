@@ -74,6 +74,8 @@ This repository pins tools globally in `.mise.toml` to ensure every administrato
 | **Node**           | `lts`   | JavaScript runtime for repository linters and tooling         |
 | **Go**             | `1.27`  | Systems runtime for developer and testing utilities           |
 | **Act**            | `0.2`   | Local execution of GitHub Actions workflows                   |
+| **Actionlint**     | `1.7`   | Static checker and linter for GitHub Actions workflow files   |
+| **Trivy**          | `0.75`  | Security scanner for misconfigurations, IaC, and containers   |
 | **Git-Crypt**      | `0.7+`  | Transparent file-level encryption for sensitive docs/ tree    |
 
 ---
@@ -144,7 +146,7 @@ The structure of the repository is modular and structured as follows:
 
 ```text
 .
-├── .github/                 # GitHub Actions workflows and templates
+├── .github/                 # GitHub Actions workflows (CI, drift detection, backup prune, CodeQL)
 ├── apps/                    # Self-hosted applications architecture specifications & compose manifests
 ├── backups/                 # Offline backups and recovery archives (git-crypt encrypted)
 ├── configuration/           # Ansible inventories, playbooks, and roles
@@ -156,10 +158,21 @@ The structure of the repository is modular and structured as follows:
 │   ├── azure/               # Microsoft Azure resource groups and credentials
 │   ├── cloudflare/          # DNS, tunnels, access rules, and R2 state/backup buckets
 │   ├── gcp/                 # GCP compute, networks, and identities (Always Free)
-│   ├── github/              # Repository secrets, environments, and CI variables
+│   ├── github/              # Repository settings, rulesets, deploy keys, and Actions permissions
 │   ├── homelab/             # Proxmox VMs, LXC containers, and local networks
 │   ├── monitoring/          # Healthchecks.io checks and alerting integration
 │   └── oci/                 # Oracle Cloud compute, VCN, budgets, and storage (Always Free)
 ├── scripts/                 # Administration and git-hook helper scripts
 └── secrets/                 # Decoy/CI keys and secrets guides
 ```
+
+---
+
+## 🛡️ Repository Security & Hardening
+
+This repository enforces declarative infrastructure and code security gates:
+
+- **Branch Protection & Rulesets:** Enforces linear history via squash merges. Repository admins have direct push privileges, while Dependabot and Renovate are granted ruleset bypass to automatically merge PRs upon successful CI status checks.
+- **Actions Security Policy:** Workflows are restricted to GitHub-owned, verified Marketplace, and internal organization actions. Strict 40-character commit SHA pinning is required repository-wide (`sha_pinning_required = true`).
+- **REST API Settings Sync:** Non-declarative repository settings (release immutability, 14-day log retention, external fork PR approval) are synchronized via `mise run github:sync`.
+- **Multi-Ecosystem CodeQL:** Automated security scanning across GitHub Actions workflows, Python code, OpenTofu and Ansible configurations (via Trivy SARIF), and Shell scripts (via ShellCheck SARIF).
