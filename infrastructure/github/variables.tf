@@ -67,3 +67,20 @@ variable "sops_age_key_file" {
   description = "Path to the local Age keys file containing the CI private key."
   default     = "~/.config/sops/age/keys.txt"
 }
+
+variable "deploy_keys" {
+  type = map(object({
+    title     = string
+    key       = string
+    read_only = bool
+  }))
+  description = "Deploy keys to register on the primary infra repository."
+  default = {
+    "work-laptop" = {
+      title     = "work-laptop"
+      key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhE5DoHICY85bnMIzXRGkggJ97ekZaJtzpQ6I7JgfF0 jmollner@liveperson.com"
+      read_only = false
+    }
+  }
+}
+

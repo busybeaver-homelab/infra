@@ -23,3 +23,9 @@ output "repository_node_id" {
   description = "The GraphQL Node ID of the primary infra GitHub repository."
   sensitive   = true
 }
+
+output "deploy_keys" {
+  value       = try(module.repository["infra"].deploy_keys, {})
+  description = "Deploy keys registered on the infra repository."
+}
+
