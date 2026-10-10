@@ -257,13 +257,13 @@ jobs:
             -i configuration/inventories/ \
             configuration/playbooks/oci.yml
 
-      - name: Dry-run (check mode) with CI secrets
+      - name: Dry-run (check mode) against ephemeral target
         run: |
           mise exec -- ansible-playbook --check \
-            -i configuration/inventories/ \
+            -i "localhost," \
+            -c local \
             -e @"${RUNNER_TEMP}/credentials.ci.yaml" \
             configuration/playbooks/site.yml
-        continue-on-error: true # check mode may fail if hosts unreachable in CI
 
       - name: Remove decrypted secrets
         if: always()
@@ -285,6 +285,7 @@ jobs:
           - base_ubuntu_server
           - restic_backup
           - oci
+          - homelab
     steps:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -325,8 +326,17 @@ jobs:
       - name: Run Molecule test (oci)
         if: matrix.scenario == 'oci'
         run: |
-          cd configuration/molecule/oci
-          mise exec -- molecule test
+          cd configuration
+          mise exec -- molecule test -s oci
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
+
+      - name: Run Molecule test (homelab)
+        if: matrix.scenario == 'homelab'
+        run: |
+          cd configuration
+          mise exec -- molecule test -s homelab
         env:
           PY_COLORS: "1"
           ANSIBLE_FORCE_COLOR: "1"

@@ -170,6 +170,32 @@ setup() {
 
   run grep -E "molecule test -s oci" "$doc"
   [ "$status" -eq 0 ]
+
+  run grep -E "molecule test -s homelab" "$doc"
+  [ "$status" -eq 0 ]
+}
+
+@test "ci.yml runs fail-closed ansible dry-run and includes homelab scenario in molecule matrix" {
+  local ci="$REPO_ROOT/.github/workflows/ci.yml"
+  [ -f "$ci" ]
+
+  # Ensure continue-on-error is not set on ansible-check steps
+  run yq eval '.jobs.ansible-check.steps[].continue-on-error' "$ci"
+  [ "$status" -eq 0 ]
+  run grep -E "true" <<< "$output"
+  [ "$status" -ne 0 ]
+
+  # Ensure ephemeral target is used for check mode
+  run grep -E -- "-i \"localhost,\"" "$ci"
+  [ "$status" -eq 0 ]
+  run grep -E -- "-c local" "$ci"
+  [ "$status" -eq 0 ]
+
+  # Ensure homelab scenario is in molecule matrix
+  run yq eval '.jobs.molecule.strategy.matrix.scenario[]' "$ci"
+  [ "$status" -eq 0 ]
+  run grep -E "^homelab$" <<< "$output"
+  [ "$status" -eq 0 ]
 }
 
 @test ".agent/AGENTS.md declares root AGENTS.md supreme precedence" {
