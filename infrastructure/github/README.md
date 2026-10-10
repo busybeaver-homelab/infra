@@ -23,9 +23,8 @@ The repository configuration implements defense-in-depth across multiple layers:
 - **Linear History:** Enforces squash merges only; merge commits and rebase commits are prohibited.
 - **Head Branch Auto-Deletion:** Automatically deletes branches upon PR merge.
 - **Ruleset Bypass Actors:** Configured with `bypass_mode = "always"` for:
-  - **Repository Administrator** (`actor_id = 5`, `actor_type = "RepositoryRole"`) — allows direct pushes for administrative operations.
-  - **Dependabot** (`actor_id = 29110`, `actor_type = "Integration"`) — authorized for automated PR merge upon CI status check passage.
-  - **Renovate** (`actor_id = 2740`, `actor_type = "Integration"`) — authorized for automated PR merge upon CI status check passage.
+  - **Repository Administrator** (`actor_id = 5`, `actor_type = "RepositoryRole"`) — allows direct pushes and check bypasses for administrative operations.
+  - Automated bots (Dependabot and Renovate) are **not** bypass actors; they auto-merge natively via repository `allow_auto_merge = true` only after all required CI checks (`ci-gate`) pass green, preventing any bypass of CI gates or direct pushes to `main`.
 
 ### 2. GitHub Actions Permissions & SHA Pinning
 
