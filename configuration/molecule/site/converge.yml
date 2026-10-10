@@ -1,0 +1,13 @@
+---
+- name: Converge playbooks mock check
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Syntax check site.yml
+      ansible.builtin.command: ansible-playbook {{ playbook_dir }}/../../playbooks/site.yml --syntax-check
+      changed_when: false
+
+    - name: Syntax check unifi.yml
+      ansible.builtin.command: ansible-playbook {{ playbook_dir }}/../../playbooks/unifi.yml --syntax-check
+      changed_when: false
