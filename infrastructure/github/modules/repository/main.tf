@@ -61,7 +61,7 @@ resource "github_repository_ruleset" "main_protection" {
   # Automated dependency bots do NOT need bypass permissions to auto-merge PRs.
   # Because `allow_auto_merge = true` is enabled on the repository and `required_approving_review_count = 0`,
   # bots can enable auto-merge, and GitHub will automatically merge their PRs once and ONLY once
-  # all required CI checks (ci-gate) are completely green.
+  # all required CI checks (CI Gate) are completely green.
   #
   # Keeping these blocks commented out ensures bots can NEVER push directly to main or bypass
   # CI checks, while still permitting fully automated PR merging upon successful CI.
@@ -97,7 +97,7 @@ resource "github_repository_ruleset" "main_protection" {
       strict_required_status_checks_policy = true
 
       required_check {
-        context = "ci-gate"
+        context = "CI Gate"
       }
     }
   }

@@ -55,13 +55,6 @@
     },
   ],
 
-  // Post-upgrade tasks for agent skills
-  postUpgradeTasks: {
-    commands: ["npx skills update -p -y"],
-    fileFilters: ["skills-lock.json", ".agents/skills/**"],
-    executionMode: "branch",
-  },
-
   // Package rules for ecosystem-specific grouping, conventional commit scopes, and automerge policies
   packageRules: [
     // 1. Terraform / OpenTofu
