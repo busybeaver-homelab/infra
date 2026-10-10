@@ -85,6 +85,10 @@ run = "trivy fs --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed ."
 description = "Run all test suites"
 depends = ["test:infra", "test:ansible", "test:scripts"]
 
+[tasks."test:all"]
+description = "Run all test suites (infrastructure, ansible molecule matrix, bats scripts)"
+depends = ["test"]
+
 [tasks."test:ansible:base"]
 description = "Run Molecule tests for base_ubuntu_server role"
 dir = "configuration/roles/base_ubuntu_server"
@@ -108,6 +112,10 @@ run = "molecule test -s homelab"
 [tasks."test:ansible"]
 description = "Run full Molecule test matrix across all Ansible roles and scenarios"
 depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:oci", "test:ansible:homelab"]
+
+[tasks."test:molecule"]
+description = "Run full Molecule test matrix across all Ansible roles and scenarios (alias for test:ansible)"
+depends = ["test:ansible"]
 
 [tasks."test:ansible:fast:base"]
 description = "Fast iterate on base_ubuntu_server role (converge and verify)"

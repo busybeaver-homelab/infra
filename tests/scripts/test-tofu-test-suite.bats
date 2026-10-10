@@ -49,3 +49,22 @@ setup() {
   [ -f "$REPO_ROOT/infrastructure/azure/tests/negative.tftest.hcl" ]
   [ -f "$REPO_ROOT/infrastructure/homelab/tests/negative.tftest.hcl" ]
 }
+
+@test "mise.toml defines test:all and test:molecule tasks" {
+  local mise_config="$REPO_ROOT/mise.toml"
+  [ -f "$mise_config" ]
+  run grep -E 'tasks\."test:all"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:molecule"' "$mise_config"
+  [ "$status" -eq 0 ]
+}
+
+@test "infrastructure/oci defines native invariant check blocks for always-free shape and project tagging" {
+  local checks_file="$REPO_ROOT/infrastructure/oci/checks.tf"
+  [ -f "$checks_file" ]
+  run grep -E 'check "enforce_always_free_shape_compliance"' "$checks_file"
+  [ "$status" -eq 0 ]
+  run grep -E 'check "enforce_mandatory_project_tag"' "$checks_file"
+  [ "$status" -eq 0 ]
+}
+
