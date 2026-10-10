@@ -45,7 +45,7 @@ resource "oci_core_instance" "amd" {
   }
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
     ignore_changes = [
       metadata["user_data"],
       metadata["ssh_authorized_keys"],
@@ -98,7 +98,7 @@ resource "oci_core_instance" "ampere" {
   }
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
     ignore_changes = [
       metadata["user_data"],
       metadata["ssh_authorized_keys"],
