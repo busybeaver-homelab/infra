@@ -39,6 +39,21 @@ provisioner:
     side_effect: fault_injection.yml
     verify: verify.yml
 
+scenario:
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - side_effect
+    - verify
+    - cleanup
+    - destroy
+
 verifier:
   name: ansible
   env:
