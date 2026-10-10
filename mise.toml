@@ -97,12 +97,17 @@ run = "molecule test"
 
 [tasks."test:ansible:oci"]
 description = "Run Molecule tests for OCI scenario"
-dir = "configuration/molecule/oci"
-run = "molecule test"
+dir = "configuration"
+run = "molecule test -s oci"
+
+[tasks."test:ansible:homelab"]
+description = "Run Molecule tests for homelab scenario"
+dir = "configuration"
+run = "molecule test -s homelab"
 
 [tasks."test:ansible"]
 description = "Run full Molecule test matrix across all Ansible roles and scenarios"
-depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:oci"]
+depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:oci", "test:ansible:homelab"]
 
 [tasks."test:ansible:fast:base"]
 description = "Fast iterate on base_ubuntu_server role (converge and verify)"
@@ -116,12 +121,17 @@ run = "molecule converge && molecule verify"
 
 [tasks."test:ansible:fast:oci"]
 description = "Fast iterate on OCI scenario (converge and verify)"
-dir = "configuration/molecule/oci"
-run = "molecule converge && molecule verify"
+dir = "configuration"
+run = "molecule converge -s oci && molecule verify -s oci"
+
+[tasks."test:ansible:fast:homelab"]
+description = "Fast iterate on homelab scenario (converge and verify)"
+dir = "configuration"
+run = "molecule converge -s homelab && molecule verify -s homelab"
 
 [tasks."test:ansible:fast"]
 description = "Fast iterate across all Ansible roles and scenarios (converge and verify without rebuild)"
-depends = ["test:ansible:fast:base", "test:ansible:fast:restic", "test:ansible:fast:oci"]
+depends = ["test:ansible:fast:base", "test:ansible:fast:restic", "test:ansible:fast:oci", "test:ansible:fast:homelab"]
 
 [tasks."test:ansible:clean:base"]
 description = "Destroy Molecule test containers for base_ubuntu_server role"
@@ -135,12 +145,17 @@ run = "molecule destroy"
 
 [tasks."test:ansible:clean:oci"]
 description = "Destroy Molecule test containers for OCI scenario"
-dir = "configuration/molecule/oci"
-run = "molecule destroy"
+dir = "configuration"
+run = "molecule destroy -s oci"
+
+[tasks."test:ansible:clean:homelab"]
+description = "Destroy Molecule test containers for homelab scenario"
+dir = "configuration"
+run = "molecule destroy -s homelab"
 
 [tasks."test:ansible:clean"]
 description = "Destroy all Molecule test containers across all roles and scenarios"
-depends = ["test:ansible:clean:base", "test:ansible:clean:restic", "test:ansible:clean:oci"]
+depends = ["test:ansible:clean:base", "test:ansible:clean:restic", "test:ansible:clean:oci", "test:ansible:clean:homelab"]
 
 [tasks."test:scripts"]
 description = "Run Bats tests for scripts"

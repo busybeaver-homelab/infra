@@ -78,10 +78,11 @@ Before claiming a task is complete, verify your work:
       - `(cd configuration/roles/base_ubuntu_server && mise exec -- molecule test)`
       - `(cd configuration/roles/restic_backup && mise exec -- molecule test)`
       - `(cd configuration && mise exec -- molecule test -s oci)`
+      - `(cd configuration && mise exec -- molecule test -s homelab)`
     - **Script changes:** `mise exec -- shellcheck scripts/*.sh` · `mise exec -- bats tests/scripts/`
     - **Python changes:** `uv run ruff check` · `uv run ruff format --check`
     - **Pre-commit gate (all changes):** `mise exec lefthook -- lefthook run pre-commit`
-    > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver across the three scenarios above (`base_ubuntu_server`, `restic_backup`, and `oci`).
+    > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver across the four scenarios above (`base_ubuntu_server`, `restic_backup`, `oci`, and `homelab`).
 2.  **Verify exit status** — all commands above must exit 0 before proceeding.
 3.  **Perform a self-review diff** of your modifications to ensure no stray code, unused variables, or comments remain.
 4.  **Update the task tracker** located at `docs/plans/task.md` with progress.
