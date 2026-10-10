@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 }
@@ -269,6 +271,9 @@ setup() {
 @test "docs/rootless-docker-investigation.md does not contain machine-specific /Users/ paths" {
   local doc="$REPO_ROOT/docs/rootless-docker-investigation.md"
   [ -f "$doc" ]
+  if is_git_crypt_encrypted "$doc"; then
+    skip "docs/rootless-docker-investigation.md is git-crypt encrypted in CI environment"
+  fi
 
   run grep -E "/Users/" "$doc"
   [ "$status" -ne 0 ]
@@ -277,6 +282,9 @@ setup() {
 @test "docs/runbooks/oci-breakglass-console.md protects breakglass password and tailscale auth key" {
   local doc="$REPO_ROOT/docs/runbooks/oci-breakglass-console.md"
   [ -f "$doc" ]
+  if is_git_crypt_encrypted "$doc"; then
+    skip "docs/runbooks/oci-breakglass-console.md is git-crypt encrypted in CI environment"
+  fi
 
   # Ensure password clipboard extraction is documented
   run grep -E "mise exec -- sops -d --extract '\\[\"breakglass_password\"\\]'.*\\| pbcopy" "$doc"
