@@ -251,3 +251,31 @@ run "frozen_iam_check_passes_with_resolvable_catalog" {
     error_message = "Permission names must resolve to catalog IDs via name|scopes"
   }
 }
+
+run "verify_computed_outputs_on_apply" {
+  command = apply
+
+  variables {
+    enable_prevent_destroy = false
+  }
+
+  assert {
+    condition     = output.r2_tfstate_bucket_name == "homelab-infra-tfstate"
+    error_message = "R2 state bucket name must match homelab-infra-tfstate on apply"
+  }
+
+  assert {
+    condition     = output.r2_backup_bucket_name == "homelab-backups-dr"
+    error_message = "R2 backup bucket name must match homelab-backups-dr on apply"
+  }
+
+  assert {
+    condition     = output.managed_zone_keys == toset(["primary"])
+    error_message = "Managed zone keys must match primary on apply"
+  }
+
+  assert {
+    condition     = contains(keys(output.zone_ids), "primary")
+    error_message = "Zone IDs map must contain primary on apply"
+  }
+}

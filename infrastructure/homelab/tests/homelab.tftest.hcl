@@ -14,3 +14,12 @@ run "verify_homelab_configuration" {
     error_message = "Proxmox TLS verification must be enforced by default"
   }
 }
+
+run "verify_computed_outputs_on_apply" {
+  command = apply
+
+  assert {
+    condition     = output.proxmox_endpoint == "https://proxmox.ci.internal:8006"
+    error_message = "Proxmox API endpoint output must match configuration on apply"
+  }
+}

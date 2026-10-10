@@ -6,6 +6,6 @@ resource "cloudflare_account" "this" {
   }
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
   }
 }

@@ -88,3 +88,26 @@ run "verify_github_root_hardening" {
   }
 }
 
+run "verify_computed_outputs_on_apply" {
+  command = apply
+
+  variables {
+    enable_prevent_destroy = false
+  }
+
+  assert {
+    condition     = module.repository["infra"].repository_name == "infra"
+    error_message = "Repository name must match infra on apply"
+  }
+
+  assert {
+    condition     = length(keys(output.repositories)) > 0
+    error_message = "Repositories output map must not be empty on apply"
+  }
+
+  assert {
+    condition     = output.repository_html_url != ""
+    error_message = "Primary repository HTML URL must not be empty on apply"
+  }
+}
+

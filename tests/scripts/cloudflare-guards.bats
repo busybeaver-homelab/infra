@@ -26,12 +26,12 @@ lifecycle_set() {
 }
 
 @test "frozen account tokens keep prevent_destroy and ignore_changes = all" {
-  lifecycle_set cloudflare_account_token frozen 'prevent_destroy = true'
+  lifecycle_set cloudflare_account_token frozen 'prevent_destroy = (true|var\.enable_prevent_destroy)'
   lifecycle_set cloudflare_account_token frozen 'ignore_changes = all'
 }
 
 @test "frozen account member keeps prevent_destroy and ignore_changes = all" {
-  lifecycle_set cloudflare_account_member frozen 'prevent_destroy = true'
+  lifecycle_set cloudflare_account_member frozen 'prevent_destroy = (true|var\.enable_prevent_destroy)'
   lifecycle_set cloudflare_account_member frozen 'ignore_changes = all'
 }
 
@@ -51,8 +51,14 @@ lifecycle_set() {
     "cloudflare_r2_bucket tfstate" "cloudflare_r2_bucket backups_dr" \
     "cloudflare_zone this" "cloudflare_zone_dnssec this"; do
     # shellcheck disable=SC2086
-    lifecycle_set $spec 'prevent_destroy = true' || { echo "unguarded or missing: $spec"; return 1; }
+    lifecycle_set $spec 'prevent_destroy = (true|var\.enable_prevent_destroy)' || { echo "unguarded or missing: $spec"; return 1; }
   done
+}
+
+@test "enable_prevent_destroy defaults to true in cloudflare variables.tf" {
+  run grep -A5 'variable "enable_prevent_destroy"' "$CF/variables.tf"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "default     = true" ]]
 }
 
 # All plaintext module sources, including generated READMEs.

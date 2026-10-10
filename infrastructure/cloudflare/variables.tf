@@ -37,3 +37,9 @@ variable "r2_backup_location" {
     error_message = "r2_backup_location must be one of: weur, eeur, apac, enam, wnam, oc."
   }
 }
+
+variable "enable_prevent_destroy" {
+  type        = bool
+  description = "Whether to prevent destruction of critical Cloudflare resources (defaults to true for production safety)."
+  default     = true
+}

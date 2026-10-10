@@ -23,3 +23,17 @@ run "verify_gcp_vpc_network" {
     error_message = "GCP VPC network must use the configured project ID"
   }
 }
+
+run "verify_computed_outputs_on_apply" {
+  command = apply
+
+  assert {
+    condition     = output.vpc_network_name == "homelab-vpc"
+    error_message = "GCP VPC network name output must match homelab-vpc"
+  }
+
+  assert {
+    condition     = output.vpc_network_id != ""
+    error_message = "GCP VPC network ID output must be computed on apply"
+  }
+}
