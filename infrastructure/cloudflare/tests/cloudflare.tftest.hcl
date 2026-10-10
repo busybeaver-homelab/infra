@@ -152,9 +152,9 @@ run "verify_notifications" {
   assert {
     condition = toset(keys(cloudflare_notification_policy.this)) == toset([
       "expiring_service_token_alert", "fbm_volumetric_attack", "real_origin_monitoring",
-      "bgp_hijack_notification", "universal_ssl_event_type", "billing_usage_alert",
+      "bgp_hijack_notification", "universal_ssl_event_type",
     ])
-    error_message = "All six managed alert types must be present (billing_budget_alert is intentionally unmanaged by HCL)"
+    error_message = "All five managed alert types must be present (billing_budget_alert is intentionally unmanaged by HCL)"
   }
   assert {
     condition     = alltrue([for p in cloudflare_notification_policy.this : p.enabled])
