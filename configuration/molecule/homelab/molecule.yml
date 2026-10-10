@@ -36,6 +36,7 @@ provisioner:
   playbooks:
     prepare: prepare.yml
     converge: converge.yml
+    side_effect: fault_injection.yml
     verify: verify.yml
 
 verifier:

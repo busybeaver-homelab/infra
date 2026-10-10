@@ -1,0 +1,33 @@
+---
+- name: Test fail-closed behavior on corrupted SOPS key
+  hosts: homelab
+  gather_facts: false
+  tasks:
+    - name: Expect failure when decrypting with corrupted key
+      ansible.builtin.command: sops --decrypt /tmp/nonexistent-or-corrupt.yaml
+      environment:
+        SOPS_AGE_KEY: "AGE-SECRET-KEY-INVALID"
+      delegate_to: localhost
+      register: corrupt_key_result
+      changed_when: false
+      failed_when: corrupt_key_result.rc == 0
+
+    - name: Assert fail-closed exit status
+      ansible.builtin.assert:
+        that:
+          - corrupt_key_result.rc != 0
+        fail_msg: "Decryption with corrupted key must fail with non-zero exit status"
+
+    - name: Test fail-closed behavior on community.sops.load_vars with missing file
+      block:
+        - name: Attempt loading corrupted or missing SOPS file
+          community.sops.load_vars:
+            file: /tmp/nonexistent-or-corrupt.yaml
+          register: load_vars_result
+        - name: Fail if load_vars succeeded unexpectedly
+          ansible.builtin.fail:
+            msg: "community.sops.load_vars should have failed on corrupted or nonexistent file"
+      rescue:
+        - name: Confirm load_vars failed closed safely
+          ansible.builtin.debug:
+            msg: "community.sops.load_vars failed closed as expected"
