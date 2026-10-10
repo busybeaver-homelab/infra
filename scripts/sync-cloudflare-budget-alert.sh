@@ -96,22 +96,22 @@ if [[ -z "$TOKEN" || -z "$ACCOUNT_ID" || -z "$EMAIL" ]]; then
   fi
 
   if [[ -z "$TOKEN" ]]; then
-    if ! TOKEN="$(sops --extract '["cloudflare"]["api_token"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
+    if ! TOKEN="$(sops -d --extract '["cloudflare"]["api_token"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
       echo "ERROR: Failed to extract Cloudflare credentials from SOPS: $CREDENTIALS_FILE" >&2
       exit 1
     fi
   fi
 
   if [[ -z "$ACCOUNT_ID" ]]; then
-    if ! ACCOUNT_ID="$(sops --extract '["cloudflare"]["account_id"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
+    if ! ACCOUNT_ID="$(sops -d --extract '["cloudflare"]["account_id"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
       echo "ERROR: Failed to extract Cloudflare credentials from SOPS: $CREDENTIALS_FILE" >&2
       exit 1
     fi
   fi
 
   if [[ -z "$EMAIL" ]]; then
-    if ! EMAIL="$(sops --extract '["cloudflare"]["config"]["notification_email"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
-      if ! EMAIL="$(sops --extract '["cloudflare"]["notification_email"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
+    if ! EMAIL="$(sops -d --extract '["cloudflare"]["config"]["notification_email"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
+      if ! EMAIL="$(sops -d --extract '["cloudflare"]["notification_email"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
         echo "ERROR: Failed to extract Cloudflare credentials from SOPS: $CREDENTIALS_FILE" >&2
         exit 1
       fi
