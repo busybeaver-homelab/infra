@@ -68,3 +68,38 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "isolated child modules define native unit .tftest.hcl test suites" {
+  [ -f "$REPO_ROOT/infrastructure/cloudflare/modules/zone/tests/zone.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/github/modules/repository/tests/repository.tftest.hcl" ]
+}
+
+@test "all 7 infrastructure modules define native checks.tf invariant policy checks" {
+  local modules=(oci cloudflare gcp azure github homelab monitoring)
+  for mod in "${modules[@]}"; do
+    [ -f "$REPO_ROOT/infrastructure/$mod/checks.tf" ]
+    run grep -E '^check ' "$REPO_ROOT/infrastructure/$mod/checks.tf"
+    [ "$status" -eq 0 ]
+  done
+}
+
+@test "mutation.tftest.hcl lifecycle mutation test suites exist in cloudflare, gcp, github, and oci" {
+  [ -f "$REPO_ROOT/infrastructure/cloudflare/tests/mutation.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/gcp/tests/mutation.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/github/tests/mutation.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/oci/tests/mutation.tftest.hcl" ]
+}
+
+@test "mise.toml configures test:tofu:children, test:tofu:mutations, test:tofu:checks, and test:inventory:matrix" {
+  local mise_config="$REPO_ROOT/mise.toml"
+  [ -f "$mise_config" ]
+  run grep -E 'tasks\."test:tofu:children"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:tofu:mutations"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:tofu:checks"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:inventory:matrix"' "$mise_config"
+  [ "$status" -eq 0 ]
+}
+
+

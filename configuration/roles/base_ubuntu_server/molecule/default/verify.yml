@@ -76,3 +76,25 @@
         that:
           - "'tailscale0' in base_ubuntu_server_iptables_after_reload.stdout"
           - "'DROP' in base_ubuntu_server_iptables_after_reload.stdout"
+
+    - name: Stat /etc/ufw/after.rules configuration file
+      ansible.builtin.stat:
+        path: /etc/ufw/after.rules
+      register: base_ubuntu_server_ufw_rules_stat
+
+    - name: Assert /etc/ufw/after.rules file exists with root ownership
+      ansible.builtin.assert:
+        that:
+          - base_ubuntu_server_ufw_rules_stat.stat.exists
+          - base_ubuntu_server_ufw_rules_stat.stat.pw_name == 'root'
+          - base_ubuntu_server_ufw_rules_stat.stat.gr_name == 'root'
+
+    - name: Verify timezone configuration file
+      ansible.builtin.stat:
+        path: /etc/timezone
+      register: base_ubuntu_server_timezone_stat
+
+    - name: Assert timezone configuration exists
+      ansible.builtin.assert:
+        that:
+          - base_ubuntu_server_timezone_stat.stat.exists

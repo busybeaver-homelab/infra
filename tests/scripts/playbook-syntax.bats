@@ -58,6 +58,31 @@ setup() {
 
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/oci.yml"
   [ "$status" -eq 0 ]
+
+  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/unifi.yml"
+  [ "$status" -eq 0 ]
+}
+
+@test "configuration/molecule/site configures mock harness for site and unifi playbooks" {
+  local mol="$REPO_ROOT/configuration/molecule/site/molecule.yml"
+  local conv="$REPO_ROOT/configuration/molecule/site/converge.yml"
+  local ver="$REPO_ROOT/configuration/molecule/site/verify.yml"
+
+  [ -f "$mol" ]
+  [ -f "$conv" ]
+  [ -f "$ver" ]
+
+  run yq eval '.platforms[0].groups[]' "$mol"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "homelab" ]]
+  [[ "$output" =~ "oci" ]]
+  [[ "$output" =~ "unifi" ]]
+
+  run grep "site.yml --syntax-check" "$conv"
+  [ "$status" -eq 0 ]
+
+  run grep "unifi.yml --syntax-check" "$conv"
+  [ "$status" -eq 0 ]
 }
 
 @test "configuration/molecule/homelab configures Ubuntu 26.04 docker platform for homelab" {
@@ -72,6 +97,41 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "homelab-ubuntu-server-26" ]
 }
+
+@test "all molecule scenarios explicitly enforce idempotence in test_sequence" {
+  local scenarios=(
+    "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
+    "configuration/roles/restic_backup/molecule/default/molecule.yml"
+    "configuration/molecule/oci/molecule.yml"
+    "configuration/molecule/homelab/molecule.yml"
+  )
+
+  for mol_file in "${scenarios[@]}"; do
+    local full_path="$REPO_ROOT/$mol_file"
+    [ -f "$full_path" ]
+    run yq eval '.scenario.test_sequence[]' "$full_path"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "idempotence" ]]
+    [[ "$output" =~ "converge" ]]
+  done
+}
+
+@test "molecule scenarios verify handler execution and service daemon states" {
+  local base_verify="$REPO_ROOT/configuration/roles/base_ubuntu_server/molecule/default/verify.yml"
+  local homelab_verify="$REPO_ROOT/configuration/molecule/homelab/verify.yml"
+
+  [ -f "$base_verify" ]
+  [ -f "$homelab_verify" ]
+
+  # base_ubuntu_server must assert firewall reload and after.rules
+  run grep -E "ufw reload|after\.rules" "$base_verify"
+  [ "$status" -eq 0 ]
+
+  # homelab must assert docker service state
+  run grep -E "docker\.service|systemctl is-active docker" "$homelab_verify"
+  [ "$status" -eq 0 ]
+}
+
 
 @test "oci.yml fails closed when executed without valid production SOPS key" {
   local playbook="$REPO_ROOT/configuration/playbooks/oci.yml"
