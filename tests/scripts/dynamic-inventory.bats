@@ -90,3 +90,48 @@ EOF
     [ "$tag" = "homelab" ]
   done
 }
+
+@test "dynamic inventory matrix correctly classifies multi-node roles and groups" {
+  local matrix_state="${REPO_ROOT}/configuration/inventories/fixtures/topology_matrix_state.json"
+  local test_inv="${BATS_TEST_TMPDIR}/matrix.terraform_state.yml"
+  sed "s|/tmp/homelab_test_oci_state.json|${matrix_state}|g" "${INV_SRC}" > "${test_inv}"
+
+  run ansible-inventory -i "${test_inv}" --graph
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "bastion-1" ]]
+  [[ "$output" =~ "worker-1" ]]
+  [[ "$output" =~ "storage-1" ]]
+  [[ "$output" =~ "edge-1" ]]
+  [[ "$output" =~ "@tag_role_bastion" ]]
+  [[ "$output" =~ "@tag_role_storage" ]]
+  [[ "$output" =~ "@tag_role_edge" ]]
+}
+
+@test "dynamic inventory matrix extracts distinct private IPs and MagicDNS FQDNs" {
+  local matrix_state="${REPO_ROOT}/configuration/inventories/fixtures/topology_matrix_state.json"
+  local test_inv="${BATS_TEST_TMPDIR}/matrix.terraform_state.yml"
+  sed "s|/tmp/homelab_test_oci_state.json|${matrix_state}|g" "${INV_SRC}" > "${test_inv}"
+
+  run ansible-inventory -i "${test_inv}" --host storage-1
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "storage-1.homelab.ts.net" ]]
+  [[ "$output" =~ "198.51.100.50" ]]
+}
+
+@test "dynamic inventory topology matrix fixture strictly conforms to OpenTofu OCI state schema" {
+  local matrix_state="${REPO_ROOT}/configuration/inventories/fixtures/topology_matrix_state.json"
+  run jq -e '[.resources[] | select(.type=="oci_core_instance") | .instances[].attributes | (has("display_name") and has("private_ip") and has("freeform_tags"))] | all' "${matrix_state}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "dynamic inventory topology matrix fixture requires project=homelab tag on all compute resources" {
+  local matrix_state="${REPO_ROOT}/configuration/inventories/fixtures/topology_matrix_state.json"
+  run jq -r '.resources[] | select(.type=="oci_core_instance") | .instances[].attributes.freeform_tags.project' "${matrix_state}"
+  [ "$status" -eq 0 ]
+  [ -n "$output" ]
+  for tag in $output; do
+    [ "$tag" = "homelab" ]
+  done
+}
+
