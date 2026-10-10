@@ -73,6 +73,24 @@ setup() {
   [ "$output" = "homelab-ubuntu-server-26" ]
 }
 
+@test "all molecule scenarios explicitly enforce idempotence in test_sequence" {
+  local scenarios=(
+    "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
+    "configuration/roles/restic_backup/molecule/default/molecule.yml"
+    "configuration/molecule/oci/molecule.yml"
+    "configuration/molecule/homelab/molecule.yml"
+  )
+
+  for mol_file in "${scenarios[@]}"; do
+    local full_path="$REPO_ROOT/$mol_file"
+    [ -f "$full_path" ]
+    run yq eval '.scenario.test_sequence[]' "$full_path"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "idempotence" ]]
+    [[ "$output" =~ "converge" ]]
+  done
+}
+
 @test "oci.yml fails closed when executed without valid production SOPS key" {
   local playbook="$REPO_ROOT/configuration/playbooks/oci.yml"
   [ -f "$playbook" ]
