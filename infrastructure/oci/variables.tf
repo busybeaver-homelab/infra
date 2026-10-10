@@ -107,12 +107,22 @@ variable "vcn_cidr" {
   type        = string
   description = "IPv4 CIDR block for the Virtual Cloud Network (VCN)."
   sensitive   = true
+
+  validation {
+    condition     = can(cidrhost(var.vcn_cidr, 0))
+    error_message = "The vcn_cidr must be a valid IPv4 CIDR block in standard CIDR notation."
+  }
 }
 
 variable "subnet_cidr" {
   type        = string
   description = "IPv4 CIDR block for the private compute subnet."
   sensitive   = true
+
+  validation {
+    condition     = can(cidrhost(var.subnet_cidr, 0))
+    error_message = "The subnet_cidr must be a valid IPv4 CIDR block in standard CIDR notation."
+  }
 }
 
 variable "tailscale_auth_key" {

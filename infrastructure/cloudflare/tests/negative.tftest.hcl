@@ -88,3 +88,16 @@ run "reject_invalid_location_hint" {
     var.r2_backup_location,
   ]
 }
+
+run "reject_bucket_name_missing_prefix" {
+  command = plan
+
+  variables {
+    r2_backup_bucket_name = "dr-backup-bucket"
+  }
+
+  expect_failures = [
+    var.r2_backup_bucket_name,
+  ]
+}
+
