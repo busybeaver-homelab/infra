@@ -51,7 +51,19 @@ resource "github_repository_ruleset" "main_protection" {
   bypass_actors {
     actor_id    = 5 # Repository Admin
     actor_type  = "RepositoryRole"
-    bypass_mode = "pull_request"
+    bypass_mode = "always"
+  }
+
+  bypass_actors {
+    actor_id    = 29110 # Dependabot
+    actor_type  = "Integration"
+    bypass_mode = "always"
+  }
+
+  bypass_actors {
+    actor_id    = 2740 # Renovate
+    actor_type  = "Integration"
+    bypass_mode = "always"
   }
 
   rules {
@@ -114,3 +126,38 @@ resource "github_actions_environment_secret" "backup_secrets" {
   secret_name = each.key
   value       = var.backup_secrets[each.key]
 }
+
+resource "github_actions_repository_permissions" "repo" {
+  repository = github_repository.repo.name
+  enabled    = true
+
+  allowed_actions = "selected"
+
+  allowed_actions_config {
+    github_owned_allowed = true
+    verified_allowed     = true
+    patterns_allowed     = ["busybeaver-homelab/*"]
+  }
+
+  sha_pinning_required = true
+}
+
+resource "github_workflow_repository_permissions" "repo" {
+  repository                       = github_repository.repo.name
+  default_workflow_permissions     = "read"
+  can_approve_pull_request_reviews = false
+}
+
+resource "github_repository_dependabot_security_updates" "repo" {
+  repository = github_repository.repo.name
+  enabled    = true
+}
+
+resource "github_repository_deploy_key" "deploy_keys" {
+  for_each   = var.deploy_keys
+  repository = github_repository.repo.name
+  title      = each.value.title
+  key        = each.value.key
+  read_only  = each.value.read_only
+}
+

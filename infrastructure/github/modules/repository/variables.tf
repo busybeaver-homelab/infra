@@ -51,3 +51,14 @@ variable "backup_secrets" {
   sensitive   = true
   default     = {}
 }
+
+variable "deploy_keys" {
+  type = map(object({
+    title     = string
+    key       = string
+    read_only = bool
+  }))
+  description = "A map of deploy keys to register on the repository."
+  default     = {}
+}
+
