@@ -6,6 +6,7 @@ sops = "3.13"
 age = "1.3"
 lefthook = "2.1"
 python = "3.14"
+uv = "0.13"
 ruff = "0.16"
 shellcheck = "0.11"
 "terraform-docs" = "0.24"
@@ -272,6 +273,10 @@ echo "Deleted secret ${usage_key} from secrets/credentials.ci.sops.yaml"
 [tasks."github:sync"]
 description = "Sync non-Terraform repository settings (immutable releases, retention, contributor approval) via GitHub API"
 run = "scripts/sync-github-repo-settings.sh"
+
+[tasks."sync:cloudflare:budget"]
+description = "Sync Cloudflare live billing budget alert to minimum threshold ($1 USD)"
+run = "scripts/sync-cloudflare-budget-alert.sh"
 
 [tasks."test:infra"]
 description = "Run native OpenTofu tests concurrently across all infrastructure modules"
