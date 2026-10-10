@@ -47,10 +47,18 @@ execute_target() {
 
   echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Executing backup target: ${label}"
   (
+    CALLER_RESTIC_PASSWORD_FILE="${RESTIC_PASSWORD_FILE:-}"
+    CALLER_RESTIC_REPOSITORY="${RESTIC_REPOSITORY:-}"
     set -a
     # shellcheck disable=SC1090
     . "${env_file}"
     set +a
+    if [ -n "${CALLER_RESTIC_PASSWORD_FILE}" ]; then
+      RESTIC_PASSWORD_FILE="${CALLER_RESTIC_PASSWORD_FILE}"
+    fi
+    if [ -n "${CALLER_RESTIC_REPOSITORY}" ]; then
+      RESTIC_REPOSITORY="${CALLER_RESTIC_REPOSITORY}"
+    fi
 
     if ! restic --retry-lock 2h cat config >/dev/null 2>&1; then
       echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Initializing repository for ${label}..."

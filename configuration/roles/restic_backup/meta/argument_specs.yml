@@ -1,0 +1,107 @@
+---
+argument_specs:
+  main:
+    short_description: Deploy and schedule restic automated backups on Ubuntu Server
+    description:
+      - Installs restic package and configures backup directories.
+      - Manages credentials, environment files, exclusion lists, and runner scripts.
+      - Deploys and enables systemd service and timer units with failure notifications.
+    author: homelab-infra
+    options:
+      restic_backup_repository:
+        type: str
+        required: true
+        description: Primary restic target repository URL or path.
+      restic_backup_s3_access_key:
+        type: str
+        default: ""
+        description: S3 access key ID for primary repository.
+      restic_backup_s3_secret_key:
+        type: str
+        default: ""
+        no_log: true
+        description: S3 secret access key for primary repository.
+      restic_backup_password:
+        type: str
+        required: true
+        no_log: true
+        description: Encryption password for the primary restic repository.
+      restic_backup_password_file_path:
+        type: str
+        default: "/etc/restic/password"
+        description: Local path where the primary encryption password file is written.
+      restic_backup_healthchecks_ping_url:
+        type: str
+        default: ""
+        description: Healthchecks.io ping URL for failure and completion monitoring.
+      restic_backup_secondary_enabled:
+        type: bool
+        default: false
+        description: Whether secondary (DR) backup replication is enabled.
+      restic_backup_secondary_repository:
+        type: str
+        default: ""
+        description: Secondary target repository URL or path.
+      restic_backup_secondary_s3_access_key:
+        type: str
+        default: ""
+        description: S3 access key ID for secondary repository.
+      restic_backup_secondary_s3_secret_key:
+        type: str
+        default: ""
+        no_log: true
+        description: S3 secret access key for secondary repository.
+      restic_backup_secondary_password:
+        type: str
+        default: ""
+        no_log: true
+        description: Encryption password for the secondary restic repository.
+      restic_backup_secondary_password_file_path:
+        type: str
+        default: "/etc/restic/password-secondary"
+        description: Local path where the secondary password file is written.
+      restic_backup_paths:
+        type: list
+        elements: str
+        required: true
+        description: List of filesystem paths to include in the backup.
+      restic_backup_excludes:
+        type: list
+        elements: str
+        description: List of glob patterns excluded from the backup.
+      restic_backup_keep_daily:
+        type: int
+        default: 3
+        description: Number of daily snapshots to retain.
+      restic_backup_keep_weekly:
+        type: int
+        default: 1
+        description: Number of weekly snapshots to retain.
+      restic_backup_keep_monthly:
+        type: int
+        default: 0
+        description: Number of monthly snapshots to retain.
+      restic_backup_schedule_calendar:
+        type: str
+        default: "*-*-* 03:00:00 UTC"
+        description: Systemd OnCalendar schedule expression for the backup timer.
+      restic_backup_random_delay_sec:
+        type: int
+        default: 1800
+        description: Randomized delay in seconds for the systemd timer.
+      restic_backup_cache_dir:
+        type: str
+        default: "/var/cache/restic"
+        description: Local cache directory for restic index files.
+      restic_backup_log_dir:
+        type: str
+        default: "/var/log/restic"
+        description: Directory for restic backup log files.
+      restic_backup_config_dir:
+        type: str
+        default: "/etc/restic"
+        description: Directory for restic configuration files.
+      restic_backup_runner_script_path:
+        type: str
+        default: "/usr/local/sbin/restic-backup-runner.sh"
+        description: Path to install the backup runner script.
