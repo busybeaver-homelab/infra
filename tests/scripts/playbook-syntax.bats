@@ -408,6 +408,10 @@ setup() {
   run yq eval '.collections[] | select(.name == "community.general") | .version' "$req"
   [ "$status" -eq 0 ]
   [ "$output" = "10.4.0" ]
+
+  run yq eval '.collections[] | select(.name == "cloud.terraform") | .version' "$req"
+  [ "$status" -eq 0 ]
+  [ "$output" = "4.0.0" ]
 }
 
 @test "all collection references in configuration are declared in requirements.yml or ansible.builtin" {
@@ -424,24 +428,26 @@ declared.add("ansible.builtin")
 declared.add("ansible.legacy")
 
 pattern = re.compile(r"^\s*(?:-\s+)?([a-z0-9_]+\.[a-z0-9_]+)\.[a-z0-9_]+:")
+plugin_pattern = re.compile(r"^\s*plugin:\s+([a-z0-9_]+\.[a-z0-9_]+)\.[a-z0-9_]+")
 unknown = set()
 
 dirs_to_check = [
     "configuration/playbooks",
     "configuration/roles",
     "configuration/molecule",
+    "configuration/inventories",
 ]
 
 for d in dirs_to_check:
     for root, dirs, files in os.walk(d):
-        if os.path.basename(root) in ("defaults", "meta", "vars"):
+        if os.path.basename(root) in ("defaults", "meta", "vars", "fixtures"):
             continue
         for file in files:
             if file.endswith((".yml", ".yaml")):
                 filepath = os.path.join(root, file)
                 with open(filepath, "r", encoding="utf-8") as f:
                     for line in f:
-                        match = pattern.match(line)
+                        match = pattern.match(line) or plugin_pattern.match(line)
                         if match:
                             coll = match.group(1)
                             if coll not in declared:
