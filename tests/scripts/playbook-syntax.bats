@@ -91,6 +91,23 @@ setup() {
   done
 }
 
+@test "molecule scenarios verify handler execution and service daemon states" {
+  local base_verify="$REPO_ROOT/configuration/roles/base_ubuntu_server/molecule/default/verify.yml"
+  local homelab_verify="$REPO_ROOT/configuration/molecule/homelab/verify.yml"
+
+  [ -f "$base_verify" ]
+  [ -f "$homelab_verify" ]
+
+  # base_ubuntu_server must assert firewall reload and after.rules
+  run grep -E "ufw reload|after\.rules" "$base_verify"
+  [ "$status" -eq 0 ]
+
+  # homelab must assert docker service state
+  run grep -E "docker\.service|systemctl is-active docker" "$homelab_verify"
+  [ "$status" -eq 0 ]
+}
+
+
 @test "oci.yml fails closed when executed without valid production SOPS key" {
   local playbook="$REPO_ROOT/configuration/playbooks/oci.yml"
   [ -f "$playbook" ]
