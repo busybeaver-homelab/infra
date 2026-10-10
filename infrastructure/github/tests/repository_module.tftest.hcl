@@ -50,8 +50,8 @@ run "verify_repository_child_module" {
   }
 
   assert {
-    condition     = length(github_repository_ruleset.main_protection.bypass_actors) == 3
-    error_message = "Ruleset must specify exactly 3 bypass actors (Admin, Dependabot, Renovate)"
+    condition     = length(github_repository_ruleset.main_protection.bypass_actors) == 1
+    error_message = "Ruleset must specify exactly 1 bypass actor (Repository Admin only, bots must obey all CI gates)"
   }
 
   assert {

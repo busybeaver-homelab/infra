@@ -54,17 +54,29 @@ resource "github_repository_ruleset" "main_protection" {
     bypass_mode = "always"
   }
 
-  bypass_actors {
-    actor_id    = 29110 # Dependabot
-    actor_type  = "Integration"
-    bypass_mode = "always"
-  }
-
-  bypass_actors {
-    actor_id    = 2740 # Renovate
-    actor_type  = "Integration"
-    bypass_mode = "always"
-  }
+  # NOTE: Dependabot and Renovate are intentionally commented out as bypass actors.
+  # In GitHub Rulesets, placing an actor in bypass_actors grants permission to bypass ALL
+  # rules (including required status checks and direct branch pushes to main).
+  #
+  # Automated dependency bots do NOT need bypass permissions to auto-merge PRs.
+  # Because `allow_auto_merge = true` is enabled on the repository and `required_approving_review_count = 0`,
+  # bots can enable auto-merge, and GitHub will automatically merge their PRs once and ONLY once
+  # all required CI checks (ci-gate) are completely green.
+  #
+  # Keeping these blocks commented out ensures bots can NEVER push directly to main or bypass
+  # CI checks, while still permitting fully automated PR merging upon successful CI.
+  #
+  # bypass_actors {
+  #   actor_id    = 29110 # Dependabot
+  #   actor_type  = "Integration"
+  #   bypass_mode = "always"
+  # }
+  #
+  # bypass_actors {
+  #   actor_id    = 2740 # Renovate
+  #   actor_type  = "Integration"
+  #   bypass_mode = "always"
+  # }
 
   rules {
     creation                = true
