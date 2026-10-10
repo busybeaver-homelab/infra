@@ -87,8 +87,8 @@ description = "Run all test suites"
 depends = ["test:infra", "test:ansible", "test:scripts"]
 
 [tasks."test:all"]
-description = "Run all test suites (infrastructure, ansible molecule matrix, bats scripts)"
-depends = ["test"]
+description = "Run all test suites (infrastructure, child modules, mutations, ansible molecule matrix, bats scripts)"
+depends = ["test:infra", "test:tofu:children", "test:tofu:mutations", "test:ansible", "test:scripts"]
 
 [tasks."test:ansible:base"]
 description = "Run Molecule tests for base_ubuntu_server role"
@@ -321,6 +321,35 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 '''
+
+[tasks."test:tofu:children"]
+description = "Run unit tests on isolated child modules"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+tofu -chdir=infrastructure/cloudflare/modules/zone test
+tofu -chdir=infrastructure/github/modules/repository test
+'''
+
+[tasks."test:tofu:mutations"]
+description = "Run OpenTofu lifecycle mutation tests across all modules"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+modules=(cloudflare gcp github oci)
+for mod in "${modules[@]}"; do
+  echo "==> Running mutation tests for infrastructure/$mod"
+  tofu -chdir="infrastructure/$mod" test -filter=tests/mutation.tftest.hcl
+done
+'''
+
+[tasks."test:tofu:checks"]
+description = "Verify that native OpenTofu policy check blocks evaluate cleanly across all modules"
+run = "mise run test:infra"
+
+[tasks."test:inventory:matrix"]
+description = "Run dynamic inventory topology matrix tests"
+run = "bats tests/scripts/dynamic-inventory.bats"
 
 [settings]
 lockfile = true

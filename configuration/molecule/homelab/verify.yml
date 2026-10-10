@@ -14,6 +14,15 @@
       register: pkg_check
       failed_when: pkg_check.changed
 
+    - name: Verify common binaries are executable
+      ansible.builtin.command: which {{ item }}
+      loop:
+        - curl
+        - tmux
+      register: binary_which
+      changed_when: false
+      failed_when: binary_which.rc != 0
+
     - name: Gather service facts
       ansible.builtin.service_facts:
 
@@ -22,3 +31,9 @@
         that:
           - ansible_facts.services['docker.service']['state'] | default('') == 'running'
         fail_msg: "Docker service (docker.service) should be running"
+
+    - name: Check systemd status of Docker service # noqa: command-instead-of-module
+      ansible.builtin.command: systemctl is-active docker
+      register: docker_is_active
+      changed_when: false
+      failed_when: docker_is_active.rc != 0
