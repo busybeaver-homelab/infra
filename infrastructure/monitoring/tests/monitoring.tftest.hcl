@@ -27,3 +27,17 @@ run "verify_healthchecks_check" {
     error_message = "Check must include homelab tag"
   }
 }
+
+run "verify_computed_outputs_on_apply" {
+  command = apply
+
+  assert {
+    condition     = output.restic_backup_ping_url != ""
+    error_message = "Healthchecks.io ping URL output must be computed on apply"
+  }
+
+  assert {
+    condition     = output.restic_backup_check_id != ""
+    error_message = "Healthchecks.io check ID output must be computed on apply"
+  }
+}

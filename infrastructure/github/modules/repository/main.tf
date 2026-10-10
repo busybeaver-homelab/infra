@@ -27,7 +27,7 @@ resource "github_repository" "repo" {
   }
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = var.enable_prevent_destroy
   }
 }
 

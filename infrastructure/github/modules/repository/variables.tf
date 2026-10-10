@@ -62,3 +62,9 @@ variable "deploy_keys" {
   default     = {}
 }
 
+variable "enable_prevent_destroy" {
+  type        = bool
+  description = "Whether to prevent destruction of the repository resource (defaults to true for production safety)."
+  default     = true
+}
+

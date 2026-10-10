@@ -69,3 +69,9 @@ variable "zone_settings_overrides" {
   description = "Per-zone overrides merged over the default zone-setting posture (setting_id => value)."
   default     = {}
 }
+
+variable "enable_prevent_destroy" {
+  type        = bool
+  description = "Whether to prevent destruction of zone resources (defaults to true for production safety)."
+  default     = true
+}

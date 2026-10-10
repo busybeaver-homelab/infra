@@ -84,3 +84,9 @@ variable "deploy_keys" {
   }
 }
 
+variable "enable_prevent_destroy" {
+  type        = bool
+  description = "Whether to prevent destruction of critical GitHub resources (defaults to true for production safety)."
+  default     = true
+}
+

@@ -29,3 +29,17 @@ run "verify_azure_budget_subscription" {
     error_message = "Azure budget time grain must be Monthly"
   }
 }
+
+run "verify_budget_applied_on_apply" {
+  command = apply
+
+  assert {
+    condition     = azurerm_consumption_budget_subscription.monthly.id != ""
+    error_message = "Azure consumption budget ID must be computed on apply"
+  }
+
+  assert {
+    condition     = azurerm_consumption_budget_subscription.monthly.name == "monthly-subscription-budget"
+    error_message = "Azure consumption budget name must match on apply"
+  }
+}
