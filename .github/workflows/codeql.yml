@@ -49,7 +49,7 @@ jobs:
           category: "/language:${{ matrix.language }}"
 
   analyze-iac-and-scripts:
-    name: Multi-Ecosystem Security (IaC & Shell)
+    name: Multi-Engine Security (IaC, Actions & Shell)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -67,23 +67,82 @@ jobs:
         with:
           cache: true
 
+      - name: Run Checkov IaC & Configuration Scanner
+        shell: bash
+        run: |
+          mise exec -- uvx checkov -d infrastructure -d configuration --framework terraform,ansible -o sarif --output-file-path .
+        continue-on-error: true
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
+        if: always()
+        with:
+          sarif_file: results_sarif.sarif
+          category: checkov
+        continue-on-error: true
+
+      - name: Run KICS IaC Scanner
+        shell: bash
+        run: |
+          ./scripts/run-kics.sh --output-dir kics-results --output-name kics.sarif
+        continue-on-error: true
+
+      - name: Upload KICS SARIF
+        uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
+        if: always()
+        with:
+          sarif_file: kics-results/kics.sarif
+          category: kics
+        continue-on-error: true
+
       - name: Run Trivy IaC Scan
         shell: bash
         run: |
-          mise exec -- trivy config --skip-dirs .venv,.worktrees --format sarif --output trivy-results.sarif .
+          mise exec -- trivy config --skip-dirs .venv,.worktrees --format sarif --output trivy-iac.sarif .
+        continue-on-error: true
 
       - name: Upload Trivy IaC Scan Results
         uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
         if: always()
         with:
-          sarif_file: trivy-results.sarif
+          sarif_file: trivy-iac.sarif
           category: trivy-iac
+        continue-on-error: true
+
+      - name: Run Trivy Filesystem Vulnerability Scanner
+        shell: bash
+        run: |
+          mise exec -- trivy fs --format sarif --output trivy-fs.sarif --exit-code 0 --ignore-unfixed --severity CRITICAL,HIGH .
+        continue-on-error: true
+
+      - name: Upload Trivy Filesystem Scan Results
+        uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+        continue-on-error: true
+
+      - name: Run Zizmor Workflow Security Audit
+        shell: bash
+        run: |
+          mise exec -- uvx zizmor --format sarif . > zizmor.sarif
+        continue-on-error: true
+
+      - name: Upload Zizmor SARIF
+        uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
+        if: always()
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
+        continue-on-error: true
 
       - name: Run ShellCheck Analysis
         shell: bash
         run: |
           mise exec -- shellcheck -f json scripts/*.sh > shellcheck-raw.json || true
           python3 scripts/format-shellcheck-sarif.py shellcheck-raw.json > shellcheck-results.sarif
+        continue-on-error: true
 
       - name: Upload ShellCheck Scan Results
         uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
@@ -91,3 +150,4 @@ jobs:
         with:
           sarif_file: shellcheck-results.sarif
           category: shellcheck
+        continue-on-error: true

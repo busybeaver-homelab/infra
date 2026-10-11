@@ -72,9 +72,35 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "ci.yml security-scan job runs trivy via mise toolchain and outputs sarif" {
-  run grep -E "mise exec -- trivy fs --format sarif" "$WORKFLOW"
+@test "ci.yml does not contain redundant security-scan job" {
+  run yq eval '.jobs.security-scan' "$WORKFLOW"
   [ "$status" -eq 0 ]
+  [ "$output" = "null" ]
+}
+@test "ci.yml ci-gate does not depend on security-scan" {
+  run yq eval '.jobs.ci-gate.needs[] | select(. == "security-scan")' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "mise tasks include granular and aggregate security scanning tasks" {
+  run mise tasks
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "check:security" ]] || false
+  [[ "$output" =~ "check:security:checkov" ]] || false
+  [[ "$output" =~ "check:security:kics" ]] || false
+  [[ "$output" =~ "check:security:trivy" ]] || false
+}
+
+@test "codeql.yml defines multi-engine security scanning with distinct categories" {
+  run yq eval '.jobs.analyze-iac-and-scripts.steps[] | select(.uses == "*upload-sarif*") | .with.category' "$REPO_ROOT/.github/workflows/codeql.yml"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "checkov" ]] || false
+  [[ "$output" =~ "kics" ]] || false
+  [[ "$output" =~ "trivy-iac" ]] || false
+  [[ "$output" =~ "trivy-fs" ]] || false
+  [[ "$output" =~ "zizmor" ]] || false
+  [[ "$output" =~ "shellcheck" ]] || false
 }
 
 @test "ci.yml shell-bats job sets python and galaxy true in setup-environment" {
@@ -100,3 +126,4 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
+

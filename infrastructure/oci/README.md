@@ -5,14 +5,14 @@
 | Name                                                                     | Version  |
 | ------------------------------------------------------------------------ | -------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.8.0 |
-| <a name="requirement_oci"></a> [oci](#requirement_oci)                   | ~> 6.0   |
+| <a name="requirement_oci"></a> [oci](#requirement_oci)                   | ~> 9.0   |
 | <a name="requirement_sops"></a> [sops](#requirement_sops)                | ~> 1.1.1 |
 
 ## Providers
 
 | Name                                                | Version |
 | --------------------------------------------------- | ------- |
-| <a name="provider_oci"></a> [oci](#provider_oci)    | 6.37.0  |
+| <a name="provider_oci"></a> [oci](#provider_oci)    | 9.9.0   |
 | <a name="provider_sops"></a> [sops](#provider_sops) | 1.1.1   |
 
 ## Resources

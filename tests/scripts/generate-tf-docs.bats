@@ -88,3 +88,8 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" =~ "infrastructure/azure" ]]
 }
+
+@test "generate-tf-docs.sh harmonizes generated readme files with oxfmt" {
+  run grep -E "run-oxfmt\.sh" "${GEN_DOCS_SCRIPT}"
+  [ "$status" -eq 0 ]
+}
