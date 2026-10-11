@@ -82,7 +82,7 @@ assert "shellcheck" in categories
   while IFS= read -r line; do
     local target
     target="$(echo "$line" | sed -E 's/^[0-9]+:[[:space:]]*uses:[[:space:]]*//' | sed -E 's/[[:space:]]*#.*$//')"
-    if [[ "$target" =~ ^\./ ]]; then
+    if [[ "$target" =~ ^(\./|\$/) ]]; then
       continue
     fi
     if [[ ! "$target" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+(/[^@]+)?@[a-f0-9]{40}$ ]]; then

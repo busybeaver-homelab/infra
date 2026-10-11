@@ -32,6 +32,11 @@ run "verify_backup_bucket_and_lifecycle" {
   }
 
   assert {
+    condition     = oci_objectstorage_bucket.backups.object_events_enabled == true
+    error_message = "Backup bucket must have object events enabled"
+  }
+
+  assert {
     condition     = length(oci_objectstorage_object_lifecycle_policy.backups.rules) > 0
     error_message = "Backup bucket must have at least one lifecycle rule"
   }
