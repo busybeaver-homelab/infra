@@ -12,8 +12,8 @@ setup() {
     local target
     target="$(echo "$line" | sed -E 's/^.*:[0-9]+:[[:space:]]*uses:[[:space:]]*//' | sed -E 's/[[:space:]]*#.*$//')"
 
-    # Skip local composite actions starting with ./
-    if [[ "$target" =~ ^\./ ]]; then
+    # Skip local composite actions starting with ./ or $/
+    if [[ "$target" =~ ^(\./|\$/) ]]; then
       continue
     fi
 

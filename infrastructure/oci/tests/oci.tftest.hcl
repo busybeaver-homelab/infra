@@ -71,6 +71,16 @@ run "verify_compute_instances_and_free_tier" {
     condition     = oci_core_subnet.private.prohibit_public_ip_on_vnic == true
     error_message = "Private subnet must prohibit public IP assignment"
   }
+
+  assert {
+    condition     = oci_core_instance.amd[0].launch_options[0].is_pv_encryption_in_transit_enabled == true
+    error_message = "AMD instance must have in-transit encryption enabled on launch options"
+  }
+
+  assert {
+    condition     = oci_core_instance.ampere.launch_options[0].is_pv_encryption_in_transit_enabled == true
+    error_message = "ARM instance must have in-transit encryption enabled on launch options"
+  }
 }
 
 run "verify_computed_outputs_on_apply" {

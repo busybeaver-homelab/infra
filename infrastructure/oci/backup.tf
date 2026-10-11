@@ -5,12 +5,15 @@ data "oci_objectstorage_namespace" "main" {
 }
 
 resource "oci_objectstorage_bucket" "backups" {
-  compartment_id = var.compartment_ocid
-  name           = "homelab-backups-${var.tenancy_name}"
-  namespace      = data.oci_objectstorage_namespace.main.namespace
-  storage_tier   = "Standard"
-  access_type    = "NoPublicAccess"
-  versioning     = "Disabled"
+  #checkov:skip=CKV_OCI_8:The client already versions the backups
+  #checkov:skip=CKV_OCI_9:The client uses client-side, end2end encryption, so Oracle-managed 256-bit AES encryption is sufficient
+  compartment_id        = var.compartment_ocid
+  name                  = "homelab-backups-${var.tenancy_name}"
+  namespace             = data.oci_objectstorage_namespace.main.namespace
+  storage_tier          = "Standard"
+  access_type           = "NoPublicAccess"
+  versioning            = "Disabled"
+  object_events_enabled = true
 
   freeform_tags = merge(local.effective_tags, {
     "Environment" = "Production"

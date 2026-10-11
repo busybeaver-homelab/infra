@@ -11,6 +11,7 @@ resource "oci_core_network_security_group" "homelab" {
 
 # Direct WireGuard for Tailscale peer-to-peer connectivity
 resource "oci_core_network_security_group_security_rule" "ingress_tailscale_wireguard" {
+  #checkov:skip=CKV_OCI_21:Stateful connection tracking is intentionally required for bidirectional ingress and automatic response traffic
   network_security_group_id = oci_core_network_security_group.homelab.id
   direction                 = "INGRESS"
   protocol                  = "17" # UDP
@@ -28,6 +29,7 @@ resource "oci_core_network_security_group_security_rule" "ingress_tailscale_wire
 
 # Restricted SSH access strictly from authorized admin CIDR (never 0.0.0.0/0)
 resource "oci_core_network_security_group_security_rule" "ingress_admin_ssh" {
+  #checkov:skip=CKV_OCI_21:Stateful connection tracking is intentionally required for bidirectional ingress and automatic response traffic
   network_security_group_id = oci_core_network_security_group.homelab.id
   direction                 = "INGRESS"
   protocol                  = "6" # TCP
