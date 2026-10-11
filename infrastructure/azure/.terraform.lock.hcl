@@ -3,7 +3,7 @@
 
 provider "registry.opentofu.org/hashicorp/azurerm" {
   version     = "5.9.0"
-  constraints = "~> 5.0"
+  constraints = "5.9.0"
   hashes = [
     "h1:4DETjv9Q2VhAcOd1iIWV0DRA9vu+kyEHgvrqtnRodgM=",
     "h1:5EubierAgzD7bqBYEmjor9e1FZptjhAcgyG5ko0ZHJk=",

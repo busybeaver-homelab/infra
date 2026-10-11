@@ -3,7 +3,7 @@
 
 provider "registry.opentofu.org/carlpett/sops" {
   version     = "1.1.1"
-  constraints = "~> 1.1.1"
+  constraints = "1.1.1"
   hashes = [
     "h1:0lv+4VCaIRTkBAMXmCxSJC1dsYPuoyBAvnrLsofcseA=",
     "h1:AM1mG6OjcEL8hIr0PPel85i0HUlLZH8BZer5Dq7uiOM=",
@@ -24,7 +24,7 @@ provider "registry.opentofu.org/carlpett/sops" {
 
 provider "registry.opentofu.org/integrations/github" {
   version     = "6.13.0"
-  constraints = "~> 6.0"
+  constraints = "6.13.0"
   hashes = [
     "h1:2kD+4leuV8tBBXv+EPeehmfW6cDhIzVki61OXsGCtRI=",
     "h1:99s0C+KmzXIsUJY0tKlgfcFUIuuXjCK0TAeeZ8HaOZQ=",
@@ -52,6 +52,5 @@ provider "registry.opentofu.org/integrations/github" {
     "zh:e739a0b7e81ca816944a18a38e679f4015edf8be7ac319815cdea865ba7727d7",
     "zh:ec099487ea3de8999c84b3b791e242d728461e51fe344832b37bd8d521201c77",
     "zh:f016ff9e2daab5b88185cec0795213049d105439ffd585d3309a714514ccae13",
-    "zh:fbd1fee2c9df3aa19cf8851ce134dea6e45ea01cb85695c1726670c285797e25",
   ]
 }
