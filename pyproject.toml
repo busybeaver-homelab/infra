@@ -6,17 +6,17 @@ readme = "README.md"
 requires-python = "==3.14.8"
 dependencies = [
     "ansible-core==2.21.5",
-    "google-auth==2.53.0",
+    "google-auth==2.61.0",
     "requests==2.34.2",
     "jmespath==1.1.0",
-    "cryptography==50.0.0",
+    "cryptography==50.0.2",
 ]
 
 [tool.uv]
 dev-dependencies = [
-    "ruff==0.15.16",
-    "ansible-lint==26.4.0",
-    "molecule==26.4.0",
+    "ruff==0.17.0",
+    "ansible-lint==26.9.0",
+    "molecule==26.9.0",
     "molecule-plugins[docker]==25.8.12",
     "pytest-testinfra==10.2.2",
 ]
