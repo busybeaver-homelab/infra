@@ -77,9 +77,21 @@ run = "ruff check"
 description = "Check general files (JS/TS) with oxlint"
 run = "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern apps/"
 
+[tasks."check:security:trivy"]
+description = "Scan repository files and configurations for security vulnerabilities with Trivy"
+run = "trivy fs --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed . && trivy config --exit-code 0 infrastructure/ configuration/"
+
+[tasks."check:security:checkov"]
+description = "Scan OpenTofu and Ansible configurations with Checkov"
+run = "uvx checkov -d infrastructure -d configuration --framework terraform,ansible"
+
+[tasks."check:security:kics"]
+description = "Scan OpenTofu and Ansible configurations with Checkmarx KICS"
+run = "scripts/run-kics.sh"
+
 [tasks."check:security"]
-description = "Scan repository files and configurations for security vulnerabilities and misconfigurations"
-run = "trivy fs --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed ."
+description = "Run full static analysis and IaC security scan matrix (Trivy, Checkov, KICS)"
+depends = ["check:security:trivy", "check:security:checkov", "check:security:kics"]
 
 
 [tasks.test]

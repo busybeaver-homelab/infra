@@ -76,3 +76,13 @@ setup() {
   run grep -E "mise exec -- trivy fs --format sarif" "$WORKFLOW"
   [ "$status" -eq 0 ]
 }
+
+@test "mise tasks include granular and aggregate security scanning tasks" {
+  run mise tasks
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "check:security" ]]
+  [[ "$output" =~ "check:security:checkov" ]]
+  [[ "$output" =~ "check:security:kics" ]]
+  [[ "$output" =~ "check:security:trivy" ]]
+}
+
