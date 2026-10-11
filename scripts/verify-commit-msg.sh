@@ -55,13 +55,13 @@ fi
 
 # 2. Validate Branch Naming Convention
 # Format: <type>/<scope>/<short-desc>
-# Exempt: main, master, HEAD (detached)
+# Exempt: main, master, HEAD (detached), and renovate/*
 current_branch="$(git branch --show-current 2>/dev/null || true)"
 if [[ -z "$current_branch" ]]; then
   current_branch="HEAD"
 fi
 
-if [[ "$current_branch" != "main" && "$current_branch" != "master" && "$current_branch" != "HEAD" ]]; then
+if [[ "$current_branch" != "main" && "$current_branch" != "master" && "$current_branch" != "HEAD" && ! "$current_branch" =~ ^renovate/ ]]; then
   readonly BRANCH_REGEX='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)/[-a-zA-Z0-9_.]+/[-a-zA-Z0-9_.]+$'
 
   if [[ ! "$current_branch" =~ $BRANCH_REGEX ]]; then
