@@ -72,10 +72,18 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "ci.yml security-scan job runs trivy via mise toolchain and outputs sarif" {
-  run grep -E "mise exec -- trivy fs --format sarif" "$WORKFLOW"
+@test "ci.yml does not contain redundant security-scan job" {
+  run yq eval '.jobs.security-scan' "$WORKFLOW"
   [ "$status" -eq 0 ]
+  [ "$output" = "null" ]
 }
+
+@test "ci.yml ci-gate does not depend on security-scan" {
+  run yq eval '.jobs.ci-gate.needs[] | select(. == "security-scan")' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 
 @test "mise tasks include granular and aggregate security scanning tasks" {
   run mise tasks
