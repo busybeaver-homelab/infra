@@ -3,7 +3,7 @@
 
 provider "registry.opentofu.org/carlpett/sops" {
   version     = "1.1.1"
-  constraints = "~> 1.1.1"
+  constraints = "1.1.1"
   hashes = [
     "h1:0lv+4VCaIRTkBAMXmCxSJC1dsYPuoyBAvnrLsofcseA=",
     "h1:AM1mG6OjcEL8hIr0PPel85i0HUlLZH8BZer5Dq7uiOM=",
@@ -24,7 +24,7 @@ provider "registry.opentofu.org/carlpett/sops" {
 
 provider "registry.opentofu.org/oracle/oci" {
   version     = "9.9.0"
-  constraints = "~> 9.0"
+  constraints = "9.9.0"
   hashes = [
     "h1:/JwdO81SNoI5uay1l3ydvF+wKmltreiXjohx5DiBjzg=",
     "h1:/Tn3czVtM7ucqj4oGJDIAWG8v0juFdRu4zKF58+LbtY=",
