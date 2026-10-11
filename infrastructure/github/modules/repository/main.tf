@@ -1,7 +1,9 @@
 resource "github_repository" "repo" {
-  name                   = var.repository_name
-  description            = var.description
-  visibility             = "public"
+  #checkov:skip=CKV_GIT_1:Repository visibility is configurable and defaults to public for open-source homelab infrastructure
+  name        = var.repository_name
+  description = var.description
+  # kics-scan ignore-line
+  visibility             = var.visibility
   has_issues             = false
   has_wiki               = false
   has_discussions        = false

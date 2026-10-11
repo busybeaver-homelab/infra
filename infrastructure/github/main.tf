@@ -4,6 +4,7 @@ module "repository" {
 
   repository_name        = each.value.name
   description            = each.value.description
+  visibility             = try(each.value.visibility, "public")
   topics                 = each.value.topics
   allow_merge_commit     = var.allow_merge_commit
   allow_rebase_merge     = var.allow_rebase_merge
