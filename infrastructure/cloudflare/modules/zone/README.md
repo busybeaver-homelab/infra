@@ -11,7 +11,7 @@
 
 | Name                                                                  | Version |
 | --------------------------------------------------------------------- | ------- |
-| <a name="provider_cloudflare"></a> [cloudflare](#provider_cloudflare) | ~> 5.27 |
+| <a name="provider_cloudflare"></a> [cloudflare](#provider_cloudflare) | 5.27.0  |
 
 ## Resources
 

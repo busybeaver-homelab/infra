@@ -61,6 +61,9 @@ if [ "${#dirs[@]}" -gt 0 ]; then
     if [ -d "$dir" ] && compgen -G "$dir/*.tf" >/dev/null 2>&1; then
       echo "[INFO] Generating documentation for: $dir"
       "${TF_DOCS_CMD[@]}" --config .terraform-docs.yml "$dir"
+      if [ -f "$dir/README.md" ]; then
+        bash "${SCRIPT_DIR}/run-oxfmt.sh" "$dir/README.md" >/dev/null 2>&1 || true
+      fi
     fi
   done
 fi

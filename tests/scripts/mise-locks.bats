@@ -38,15 +38,15 @@ load 'helpers/test_helper'
   run git check-ignore -q .mise/locks/oxfmt/0.71.0/package.json
   [ "$status" -eq 1 ]
 
-  run git check-ignore -q .mise/locks/ansible/14.4.0~0672620e/uv.lock
+  run git check-ignore -q .mise/locks/ansible/14.5.0~0672620e/uv.lock
   [ "$status" -eq 1 ]
 }
 
 @test "lock sidecar files exist for oxfmt and ansible" {
   [ -f "${REPO_ROOT}/.mise/locks/oxfmt/0.71.0/package.json" ]
   [ -f "${REPO_ROOT}/.mise/locks/oxfmt/0.71.0/aube-lock.yaml" ]
-  [ -f "${REPO_ROOT}/.mise/locks/ansible/14.4.0~0672620e/uv.lock" ]
-  [ -f "${REPO_ROOT}/.mise/locks/ansible/14.4.0~0672620e/pyproject.toml" ]
+  [ -f "${REPO_ROOT}/.mise/locks/ansible/14.5.0~0672620e/uv.lock" ]
+  [ -f "${REPO_ROOT}/.mise/locks/ansible/14.5.0~0672620e/pyproject.toml" ]
 }
 
 @test "mise.lock references the sidecar lock files" {
@@ -54,7 +54,7 @@ load 'helpers/test_helper'
   [ -f "$mise_lock" ]
   run grep -E '\.mise/locks/oxfmt/0\.71\.0' "$mise_lock"
   [ "$status" -eq 0 ]
-  run grep -E '\.mise/locks/ansible/14\.4\.0~0672620e' "$mise_lock"
+  run grep -E '\.mise/locks/ansible/14\.5\.0~0672620e' "$mise_lock"
   [ "$status" -eq 0 ]
 }
 
