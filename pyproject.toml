@@ -17,7 +17,7 @@ dev-dependencies = [
     "ruff==0.17.0",
     "ansible-lint==26.9.0",
     "molecule==26.9.0",
-    "molecule-plugins[docker]==25.8.12",
+    "molecule-plugins[docker]==26.9.28",
     "pytest-testinfra==10.2.2",
 ]
 
