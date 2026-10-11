@@ -2,7 +2,7 @@
 # Shared setup helpers for Bats test suites.
 
 REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME}")/../.." && pwd)"
-SCRIPTS_DIR="${REPO_ROOT}/scripts"
+export SCRIPTS_DIR="${REPO_ROOT}/scripts"
 
 # Adds a directory to the front of PATH for the duration of a test.
 prepend_path() {
@@ -18,4 +18,10 @@ setup_tmpdir() {
 # Removes the temporary directory created by setup_tmpdir.
 teardown_tmpdir() {
   rm -rf "${BATS_TMPDIR}"
+}
+
+# Checks if a file is encrypted by git-crypt (starts with 10-byte \0GITCRYPT\0 header)
+is_git_crypt_encrypted() {
+  local target_file="${1}"
+  head -c 10 "${target_file}" 2>/dev/null | grep -q "GITCRYPT"
 }
