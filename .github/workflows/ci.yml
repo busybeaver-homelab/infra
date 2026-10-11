@@ -125,6 +125,10 @@ jobs:
         uses: ./.github/actions/setup-environment
         with:
           python: "true"
+          galaxy: "true"
+          tflint: "true"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Lefthook Linters
         env:
