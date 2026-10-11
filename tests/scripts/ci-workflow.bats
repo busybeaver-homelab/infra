@@ -76,3 +76,27 @@ setup() {
   run grep -E "mise exec -- trivy fs --format sarif" "$WORKFLOW"
   [ "$status" -eq 0 ]
 }
+
+@test "ci.yml shell-bats job sets python and galaxy true in setup-environment" {
+  run yq eval '.jobs.shell-bats.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.python' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run yq eval '.jobs.shell-bats.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.galaxy' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "ci.yml lint-format job sets python, galaxy, and tflint true in setup-environment" {
+  run yq eval '.jobs.lint-format.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.python' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run yq eval '.jobs.lint-format.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.galaxy' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run yq eval '.jobs.lint-format.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.tflint' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
