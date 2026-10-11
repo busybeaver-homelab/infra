@@ -80,9 +80,21 @@ setup() {
 @test "mise tasks include granular and aggregate security scanning tasks" {
   run mise tasks
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "check:security" ]]
-  [[ "$output" =~ "check:security:checkov" ]]
-  [[ "$output" =~ "check:security:kics" ]]
-  [[ "$output" =~ "check:security:trivy" ]]
+  [[ "$output" =~ "check:security" ]] || false
+  [[ "$output" =~ "check:security:checkov" ]] || false
+  [[ "$output" =~ "check:security:kics" ]] || false
+  [[ "$output" =~ "check:security:trivy" ]] || false
 }
+
+@test "codeql.yml defines multi-engine security scanning with distinct categories" {
+  run yq eval '.jobs.analyze-iac-and-scripts.steps[] | select(.uses == "*upload-sarif*") | .with.category' "$REPO_ROOT/.github/workflows/codeql.yml"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "checkov" ]] || false
+  [[ "$output" =~ "kics" ]] || false
+  [[ "$output" =~ "trivy-iac" ]] || false
+  [[ "$output" =~ "trivy-fs" ]] || false
+  [[ "$output" =~ "zizmor" ]] || false
+  [[ "$output" =~ "shellcheck" ]] || false
+}
+
 
