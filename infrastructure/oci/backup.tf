@@ -5,12 +5,13 @@ data "oci_objectstorage_namespace" "main" {
 }
 
 resource "oci_objectstorage_bucket" "backups" {
-  compartment_id = var.compartment_ocid
-  name           = "homelab-backups-${var.tenancy_name}"
-  namespace      = data.oci_objectstorage_namespace.main.namespace
-  storage_tier   = "Standard"
-  access_type    = "NoPublicAccess"
-  versioning     = "Disabled"
+  compartment_id        = var.compartment_ocid
+  name                  = "homelab-backups-${var.tenancy_name}"
+  namespace             = data.oci_objectstorage_namespace.main.namespace
+  storage_tier          = "Standard"
+  access_type           = "NoPublicAccess"
+  versioning            = "Disabled"
+  object_events_enabled = true
 
   freeform_tags = merge(local.effective_tags, {
     "Environment" = "Production"

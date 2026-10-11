@@ -21,6 +21,12 @@ resource "oci_core_instance" "amd" {
     are_legacy_imds_endpoints_disabled = true
   }
 
+  launch_options {
+    boot_volume_type                    = "PARAVIRTUALIZED"
+    network_type                        = "PARAVIRTUALIZED"
+    is_pv_encryption_in_transit_enabled = true
+  }
+
   create_vnic_details {
     subnet_id        = oci_core_subnet.private.id
     assign_public_ip = var.assign_public_ip
@@ -67,6 +73,12 @@ resource "oci_core_instance" "ampere" {
 
   instance_options {
     are_legacy_imds_endpoints_disabled = true
+  }
+
+  launch_options {
+    boot_volume_type                    = "PARAVIRTUALIZED"
+    network_type                        = "PARAVIRTUALIZED"
+    is_pv_encryption_in_transit_enabled = true
   }
 
   shape_config {
