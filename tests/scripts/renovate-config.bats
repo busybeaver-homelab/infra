@@ -62,7 +62,7 @@ EOF
   presets=$(sed -n '/extends: *\[/,/\]/p' "$test_fixture" | grep -o '"[^"]*"' | tr -d '"')
   while IFS= read -r preset; do
     if [[ ! "$preset" =~ : ]]; then
-      ((bare_count++))
+      bare_count=$((bare_count + 1))
     fi
   done <<< "$presets"
 

@@ -77,13 +77,11 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "null" ]
 }
-
 @test "ci.yml ci-gate does not depend on security-scan" {
   run yq eval '.jobs.ci-gate.needs[] | select(. == "security-scan")' "$WORKFLOW"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
-
 
 @test "mise tasks include granular and aggregate security scanning tasks" {
   run mise tasks
@@ -105,4 +103,27 @@ setup() {
   [[ "$output" =~ "shellcheck" ]] || false
 }
 
+@test "ci.yml shell-bats job sets python and galaxy true in setup-environment" {
+  run yq eval '.jobs.shell-bats.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.python' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run yq eval '.jobs.shell-bats.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.galaxy' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "ci.yml lint-format job sets python, galaxy, and tflint true in setup-environment" {
+  run yq eval '.jobs.lint-format.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.python' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run yq eval '.jobs.lint-format.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.galaxy' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run yq eval '.jobs.lint-format.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.tflint' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
 
