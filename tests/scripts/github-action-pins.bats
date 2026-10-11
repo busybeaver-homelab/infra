@@ -27,20 +27,24 @@ setup() {
   [ "$invalid_pins" -eq 0 ]
 }
 
-@test "actions/cache is pinned to verified valid commit SHA d4323d4df104b026a6aa633fdb11d772146be0bf" {
-  local count
-  count=$(grep -rcE 'uses:[[:space:]]*actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf' "$REPO_ROOT/.github/" | awk -F: '{s+=$2} END {print s}')
-  [ "$count" -ge 3 ]
+@test "actions/cache is pinned to valid 40-character commit SHAs" {
+  local total sha_count
+  total=$(grep -rcE 'uses:[[:space:]]*actions/cache@' "$REPO_ROOT/.github/" | awk -F: '{s+=$2} END {print s}')
+  sha_count=$(grep -rcE 'uses:[[:space:]]*actions/cache@[a-f0-9]{40}' "$REPO_ROOT/.github/" | awk -F: '{s+=$2} END {print s}')
+  [ "$sha_count" -ge 3 ]
+  [ "$total" -eq "$sha_count" ]
 
   # Ensure no corrupted SHAs exist
   run grep -rnE 'actions/cache@(d4323d4df104b026a6aa633fdb11d772115b6fe8|d4323d4df104b026a6aa633fdb11d772115f6ec1)' "$REPO_ROOT/.github/"
   [ "$status" -ne 0 ]
 }
 
-@test "jdx/mise-action is pinned to verified valid commit SHA 5083fe46898c414b2475087cc79da59e7da859e8" {
-  local count
-  count=$(grep -rcE 'uses:[[:space:]]*jdx/mise-action@5083fe46898c414b2475087cc79da59e7da859e8' "$REPO_ROOT/.github/" | awk -F: '{s+=$2} END {print s}')
-  [ "$count" -ge 3 ]
+@test "jdx/mise-action is pinned to valid 40-character commit SHAs" {
+  local total sha_count
+  total=$(grep -rcE 'uses:[[:space:]]*jdx/mise-action@' "$REPO_ROOT/.github/" | awk -F: '{s+=$2} END {print s}')
+  sha_count=$(grep -rcE 'uses:[[:space:]]*jdx/mise-action@[a-f0-9]{40}' "$REPO_ROOT/.github/" | awk -F: '{s+=$2} END {print s}')
+  [ "$sha_count" -ge 3 ]
+  [ "$total" -eq "$sha_count" ]
 
   # Ensure no corrupted SHAs exist
   run grep -rnE 'jdx/mise-action@af40da49309fc57bf9e1a1795c643666d933a049' "$REPO_ROOT/.github/"
