@@ -162,6 +162,9 @@ jobs:
 
       - name: Setup Environment
         uses: ./.github/actions/setup-environment
+        with:
+          python: "true"
+          galaxy: "true"
 
       - name: Run Bats tests
         run: mise exec -- bats tests/scripts/

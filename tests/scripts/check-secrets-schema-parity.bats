@@ -97,10 +97,10 @@ EOF
 @test "canonical secrets files define cloudflare_restic schema keys" {
   local keys=("s3_endpoint" "bucket" "s3_access_key_id" "s3_secret_access_key" "password")
   for key in "${keys[@]}"; do
-    run mise exec -- yq "has(\"cloudflare_restic\") and (.cloudflare_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    run yq eval "has(\"cloudflare_restic\") and (.cloudflare_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
-    run mise exec -- yq "has(\"cloudflare_restic\") and (.cloudflare_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    run yq eval "has(\"cloudflare_restic\") and (.cloudflare_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
   done
@@ -109,12 +109,13 @@ EOF
 @test "canonical secrets files define github repositories config schema keys" {
   local keys=("name" "description" "topics")
   for key in "${keys[@]}"; do
-    run mise exec -- yq "has(\"github\") and (.github | has(\"config\")) and (.github.config | has(\"repositories\")) and (.github.config.repositories.infra | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    run yq eval "has(\"github\") and (.github | has(\"config\")) and (.github.config | has(\"repositories\")) and (.github.config.repositories.infra | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
-    run mise exec -- yq "has(\"github\") and (.github | has(\"config\")) and (.github.config | has(\"repositories\")) and (.github.config.repositories.infra | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    run yq eval "has(\"github\") and (.github | has(\"config\")) and (.github.config | has(\"repositories\")) and (.github.config.repositories.infra | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
   done
 }
+
 
