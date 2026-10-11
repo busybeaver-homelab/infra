@@ -1,0 +1,8 @@
+# Configuration for actionlint (GitHub Actions workflow linter)
+# Ignore false positives for GitHub's dedicated self-repository action syntax '$/...'
+# which is recommended by zizmor and supported by GitHub Actions runner, but not yet natively parsed by actionlint.
+
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+      - 'specifying action "\$/\..+" in invalid format because ref is missing'

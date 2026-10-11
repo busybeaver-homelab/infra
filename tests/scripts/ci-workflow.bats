@@ -46,7 +46,7 @@ setup() {
 }
 
 @test "ci.yml uses setup-environment composite action" {
-  run grep -E "uses: \./\.github/actions/setup-environment" "$WORKFLOW"
+  run grep -F "uses: $/.github/actions/setup-environment" "$WORKFLOW"
   [ "$status" -eq 0 ]
 }
 
@@ -104,26 +104,43 @@ setup() {
 }
 
 @test "ci.yml shell-bats job sets python and galaxy true in setup-environment" {
-  run yq eval '.jobs.shell-bats.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.python' "$WORKFLOW"
+  run yq eval '.jobs.shell-bats.steps[] | select(.uses == "$/.github/actions/setup-environment" or .uses == "./.github/actions/setup-environment") | .with.python' "$WORKFLOW"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 
-  run yq eval '.jobs.shell-bats.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.galaxy' "$WORKFLOW"
+  run yq eval '.jobs.shell-bats.steps[] | select(.uses == "$/.github/actions/setup-environment" or .uses == "./.github/actions/setup-environment") | .with.galaxy' "$WORKFLOW"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
 
 @test "ci.yml lint-format job sets python, galaxy, and tflint true in setup-environment" {
-  run yq eval '.jobs.lint-format.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.python' "$WORKFLOW"
+  run yq eval '.jobs.lint-format.steps[] | select(.uses == "$/.github/actions/setup-environment" or .uses == "./.github/actions/setup-environment") | .with.python' "$WORKFLOW"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 
-  run yq eval '.jobs.lint-format.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.galaxy' "$WORKFLOW"
+  run yq eval '.jobs.lint-format.steps[] | select(.uses == "$/.github/actions/setup-environment" or .uses == "./.github/actions/setup-environment") | .with.galaxy' "$WORKFLOW"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 
-  run yq eval '.jobs.lint-format.steps[] | select(.uses == "./.github/actions/setup-environment") | .with.tflint' "$WORKFLOW"
+  run yq eval '.jobs.lint-format.steps[] | select(.uses == "$/.github/actions/setup-environment" or .uses == "./.github/actions/setup-environment") | .with.tflint' "$WORKFLOW"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
 }
+
+@test "ci.yml exclusively uses self-repository syntax ($/...) for local actions" {
+  run grep -F "uses: ./.github/actions/" "$WORKFLOW"
+  [ "$status" -ne 0 ]
+
+  run grep -F "uses: $/.github/actions/setup-environment" "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 5 ]
+}
+
+@test "actionlint configuration exists and ignores $/ self-repository false positives" {
+  [ -f "$REPO_ROOT/.github/actionlint.yaml" ]
+  run yq eval '.paths.".github/workflows/**/*.{yml,yaml}".ignore[0]' "$REPO_ROOT/.github/actionlint.yaml"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "ref is missing" ]] || false
+}
+
 

@@ -2,11 +2,11 @@
 
 ## Requirements
 
-| Name                                                                     | Version  |
-| ------------------------------------------------------------------------ | -------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.8.0 |
-| <a name="requirement_oci"></a> [oci](#requirement_oci)                   | ~> 9.0   |
-| <a name="requirement_sops"></a> [sops](#requirement_sops)                | ~> 1.1.1 |
+| Name                                                                     | Version |
+| ------------------------------------------------------------------------ | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
+| <a name="requirement_oci"></a> [oci](#requirement_oci)                   | 9.9.0   |
+| <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.1.1   |
 
 ## Providers
 
@@ -17,33 +17,33 @@
 
 ## Resources
 
-| Name                                                                                                                                                                                            | Type        |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| [oci_budget_alert_rule.forecast_budget_alert](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/budget_alert_rule)                                                       | resource    |
-| [oci_budget_alert_rule.threshold_alert](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/budget_alert_rule)                                                             | resource    |
-| [oci_budget_budget.zero_spend](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/budget_budget)                                                                          | resource    |
-| [oci_core_instance.amd](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_instance)                                                                                 | resource    |
-| [oci_core_instance.ampere](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_instance)                                                                              | resource    |
-| [oci_core_nat_gateway.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_nat_gateway)                                                                          | resource    |
-| [oci_core_network_security_group.homelab](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group)                                                 | resource    |
-| [oci_core_network_security_group_security_rule.egress_dns_tcp](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule)              | resource    |
-| [oci_core_network_security_group_security_rule.egress_dns_udp](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule)              | resource    |
-| [oci_core_network_security_group_security_rule.egress_https](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule)                | resource    |
-| [oci_core_network_security_group_security_rule.egress_tailscale_wireguard](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule)  | resource    |
-| [oci_core_network_security_group_security_rule.ingress_admin_ssh](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule)           | resource    |
-| [oci_core_network_security_group_security_rule.ingress_tailscale_wireguard](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_network_security_group_security_rule) | resource    |
-| [oci_core_route_table.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_route_table)                                                                       | resource    |
-| [oci_core_security_list.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_security_list)                                                                   | resource    |
-| [oci_core_subnet.private](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_subnet)                                                                                 | resource    |
-| [oci_core_vcn.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/core_vcn)                                                                                          | resource    |
-| [oci_identity_group.backup_uploaders](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/identity_group)                                                                  | resource    |
-| [oci_identity_policy.backup_uploaders](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/identity_policy)                                                                | resource    |
-| [oci_objectstorage_bucket.backups](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/objectstorage_bucket)                                                               | resource    |
-| [oci_objectstorage_object_lifecycle_policy.backups](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/objectstorage_object_lifecycle_policy)                             | resource    |
-| [oci_ons_notification_topic.budget_alerts](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/ons_notification_topic)                                                     | resource    |
-| [oci_ons_subscription.budget_alerts_email](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/ons_subscription)                                                           | resource    |
-| [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/latest/docs/data-sources/objectstorage_namespace)                                                         | data source |
-| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/latest/docs/data-sources/file)                                                                                        | data source |
+| Name                                                                                                                                                                                           | Type        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| [oci_budget_alert_rule.forecast_budget_alert](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/budget_alert_rule)                                                       | resource    |
+| [oci_budget_alert_rule.threshold_alert](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/budget_alert_rule)                                                             | resource    |
+| [oci_budget_budget.zero_spend](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/budget_budget)                                                                          | resource    |
+| [oci_core_instance.amd](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_instance)                                                                                 | resource    |
+| [oci_core_instance.ampere](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_instance)                                                                              | resource    |
+| [oci_core_nat_gateway.main](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_nat_gateway)                                                                          | resource    |
+| [oci_core_network_security_group.homelab](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group)                                                 | resource    |
+| [oci_core_network_security_group_security_rule.egress_dns_tcp](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)              | resource    |
+| [oci_core_network_security_group_security_rule.egress_dns_udp](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)              | resource    |
+| [oci_core_network_security_group_security_rule.egress_https](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)                | resource    |
+| [oci_core_network_security_group_security_rule.egress_tailscale_wireguard](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)  | resource    |
+| [oci_core_network_security_group_security_rule.ingress_admin_ssh](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)           | resource    |
+| [oci_core_network_security_group_security_rule.ingress_tailscale_wireguard](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule) | resource    |
+| [oci_core_route_table.private](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_route_table)                                                                       | resource    |
+| [oci_core_security_list.private](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_security_list)                                                                   | resource    |
+| [oci_core_subnet.private](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_subnet)                                                                                 | resource    |
+| [oci_core_vcn.main](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_vcn)                                                                                          | resource    |
+| [oci_identity_group.backup_uploaders](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/identity_group)                                                                  | resource    |
+| [oci_identity_policy.backup_uploaders](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/identity_policy)                                                                | resource    |
+| [oci_objectstorage_bucket.backups](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/objectstorage_bucket)                                                               | resource    |
+| [oci_objectstorage_object_lifecycle_policy.backups](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/objectstorage_object_lifecycle_policy)                             | resource    |
+| [oci_ons_notification_topic.budget_alerts](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_notification_topic)                                                     | resource    |
+| [oci_ons_subscription.budget_alerts_email](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_subscription)                                                           | resource    |
+| [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/data-sources/objectstorage_namespace)                                                         | data source |
+| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/1.1.1/docs/data-sources/file)                                                                                        | data source |
 
 ## Inputs
 
