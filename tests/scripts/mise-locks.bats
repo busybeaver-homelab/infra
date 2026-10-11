@@ -64,3 +64,11 @@ load 'helpers/test_helper'
   run grep -E 'digest = "sha256:98e4ad5fda0b7ae3ae05abd1809e4764bc290c131db8df6fe4f66d9f0252f913"' "$mise_lock"
   [ "$status" -eq 0 ]
 }
+
+@test "mise.lock ansible sidecar digest matches clean state" {
+  local mise_lock="${REPO_ROOT}/mise.lock"
+  [ -f "$mise_lock" ]
+  run grep -E 'digest = "sha256:7ec9fcacb6e9b94c71544f022e48ddec3e99556eed061c9836588b97c7e133d3"' "$mise_lock"
+  [ "$status" -eq 0 ]
+}
+

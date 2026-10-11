@@ -294,3 +294,27 @@ console.log("Automerge policy correctly isolates 0.x from stable groups");
   [[ "$output" =~ "Automerge policy correctly isolates" ]]
 }
 
+@test ".github/renovate.json5 configures ignorePaths containing **/.mise/locks/**" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+if (!Array.isArray(config.ignorePaths)) {
+  console.error("ignorePaths is not an array");
+  process.exit(1);
+}
+
+if (!config.ignorePaths.includes("**/.mise/locks/**")) {
+  console.error("ignorePaths does not include **/.mise/locks/**");
+  process.exit(1);
+}
+
+console.log("ignorePaths correctly includes **/.mise/locks/**");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "ignorePaths correctly includes **/.mise/locks/**" ]]
+}
+

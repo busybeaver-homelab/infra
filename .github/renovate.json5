@@ -26,6 +26,17 @@
     automerge: false,
   },
 
+  // Ignored paths across all package managers
+  // Prevents Renovate from scanning and corrupting mise internal lock sidecars
+  ignorePaths: [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/init.t",
+    "**/.mise/locks/**",
+  ],
+
   // Native manager toggles
   terraform: {
     enabled: true,
