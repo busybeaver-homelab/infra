@@ -125,6 +125,11 @@ run_verify() {
   [ "$status" -eq 0 ]
 }
 
+@test "verify-commit-msg.sh passes on exempt branch matching renovate/*" {
+  run_verify "renovate/github-actions-deps" "chore(deps): update github actions"
+  [ "$status" -eq 0 ]
+}
+
 @test "verify-commit-msg.sh fails on branch missing scope (only 2 segments)" {
   run_verify "feat/only-desc" "feat(test): missing scope in branch"
   [ "$status" -ne 0 ]
