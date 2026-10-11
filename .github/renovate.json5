@@ -57,54 +57,119 @@
 
   // Package rules for ecosystem-specific grouping, conventional commit scopes, and automerge policies
   packageRules: [
-    // 1. Terraform / OpenTofu
+    // 1a. Terraform / OpenTofu (stable >= 1.0)
     {
-      description: "Group and scope Terraform and OpenTofu provider/module updates",
+      description: "Group and scope stable Terraform and OpenTofu provider/module updates",
       matchManagers: ["terraform"],
+      matchCurrentVersion: "!/^0\\./",
       semanticCommitType: "chore",
       semanticCommitScope: "deps/terraform",
       groupName: "terraform providers and modules",
       groupSlug: "terraform-deps",
     },
 
-    // 2. Ansible & Ansible Galaxy
+    // 1b. Terraform / OpenTofu (0.x initial development)
     {
-      description: "Group and scope Ansible Galaxy collection and role updates",
+      description: "Group and scope 0.x Terraform and OpenTofu provider/module updates separately",
+      matchManagers: ["terraform"],
+      matchCurrentVersion: "/^0\\./",
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/terraform",
+      groupName: "terraform providers and modules (initial development)",
+      groupSlug: "terraform-deps-0x",
+      automerge: false,
+    },
+
+    // 2a. Ansible & Ansible Galaxy (stable >= 1.0)
+    {
+      description: "Group and scope stable Ansible Galaxy collection and role updates",
       matchManagers: ["ansible", "ansible-galaxy"],
+      matchCurrentVersion: "!/^0\\./",
       semanticCommitType: "chore",
       semanticCommitScope: "deps/ansible",
       groupName: "ansible galaxy roles and collections",
       groupSlug: "ansible-deps",
     },
 
-    // 3. GitHub Actions
+    // 2b. Ansible & Ansible Galaxy (0.x initial development)
     {
-      description: "Group and scope GitHub Actions updates",
+      description: "Group and scope 0.x Ansible Galaxy collection and role updates separately",
+      matchManagers: ["ansible", "ansible-galaxy"],
+      matchCurrentVersion: "/^0\\./",
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/ansible",
+      groupName: "ansible galaxy roles and collections (initial development)",
+      groupSlug: "ansible-deps-0x",
+      automerge: false,
+    },
+
+    // 3a. GitHub Actions (stable >= 1.0)
+    {
+      description: "Group and scope stable GitHub Actions updates",
       matchManagers: ["github-actions"],
+      matchCurrentVersion: "!/^0\\./",
       semanticCommitType: "chore",
       semanticCommitScope: "deps/actions",
       groupName: "github actions",
       groupSlug: "github-actions-deps",
     },
 
-    // 4. Mise Toolchain
+    // 3b. GitHub Actions (0.x initial development)
     {
-      description: "Group and scope Mise toolchain updates",
+      description: "Group and scope 0.x GitHub Actions updates separately",
+      matchManagers: ["github-actions"],
+      matchCurrentVersion: "/^0\\./",
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/actions",
+      groupName: "github actions (initial development)",
+      groupSlug: "github-actions-deps-0x",
+      automerge: false,
+    },
+
+    // 4a. Mise Toolchain (stable >= 1.0)
+    {
+      description: "Group and scope stable Mise toolchain updates",
       matchManagers: ["mise"],
+      matchCurrentVersion: "!/^0\\./",
       semanticCommitType: "chore",
       semanticCommitScope: "deps/mise",
       groupName: "mise toolchain",
       groupSlug: "mise-deps",
     },
 
-    // 5. Python / UV
+    // 4b. Mise Toolchain (0.x initial development)
     {
-      description: "Group and scope Python / UV dependencies",
+      description: "Group and scope 0.x Mise toolchain updates separately",
+      matchManagers: ["mise"],
+      matchCurrentVersion: "/^0\\./",
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/mise",
+      groupName: "mise toolchain (initial development)",
+      groupSlug: "mise-deps-0x",
+      automerge: false,
+    },
+
+    // 5a. Python / UV (stable >= 1.0)
+    {
+      description: "Group and scope stable Python / UV dependencies",
       matchManagers: ["pep621"],
+      matchCurrentVersion: "!/^0\\./",
       semanticCommitType: "chore",
       semanticCommitScope: "deps/python",
       groupName: "python dependencies",
       groupSlug: "python-deps",
+    },
+
+    // 5b. Python / UV (0.x initial development)
+    {
+      description: "Group and scope 0.x Python / UV dependencies separately",
+      matchManagers: ["pep621"],
+      matchCurrentVersion: "/^0\\./",
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/python",
+      groupName: "python dependencies (initial development)",
+      groupSlug: "python-deps-0x",
+      automerge: false,
     },
 
     // 6. AI Agent Skills
