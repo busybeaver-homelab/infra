@@ -5,6 +5,8 @@
     is_ci_environment: true
     custom_sops_secrets_file: credentials.ci.sops.yaml
     swap_test_mode: true
+    swap_file_path: /swapfile_molecule
+    swap_file_size_mb: 1
     users:
       - username: dockerapp
         name: Docker Application Service User

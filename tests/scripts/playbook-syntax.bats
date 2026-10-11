@@ -134,6 +134,23 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "configuration/molecule/oci/converge.yml isolates swapfile path and enables test mode for container CI" {
+  local conv="$REPO_ROOT/configuration/molecule/oci/converge.yml"
+  [ -f "$conv" ]
+
+  run yq eval '.[0].vars.swap_test_mode' "$conv"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run yq eval '.[0].vars.swap_file_path' "$conv"
+  [ "$status" -eq 0 ]
+  [ -n "$output" ]
+  [ "$output" != "/swapfile" ]
+
+  run yq eval '.[0].vars.swap_file_size_mb' "$conv"
+  [ "$status" -eq 0 ]
+  [ "$output" -gt 0 ]
+}
 
 @test "oci.yml fails closed when executed without valid production SOPS key" {
   local playbook="$REPO_ROOT/configuration/playbooks/oci.yml"
