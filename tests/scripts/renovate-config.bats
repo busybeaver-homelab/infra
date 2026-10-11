@@ -199,3 +199,122 @@ if (!presets) {
   run grep -E 'npx skills update' "$config"
   [ "$status" -eq 0 ]
 }
+
+@test ".github/renovate.json5 separates 0.x and stable versions into distinct groups across all managers" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+const expectedManagers = [
+  { manager: "terraform", slug: "terraform-deps" },
+  { manager: "ansible", slug: "ansible-deps" },
+  { manager: "github-actions", slug: "github-actions-deps" },
+  { manager: "mise", slug: "mise-deps" },
+  { manager: "pep621", slug: "python-deps" },
+];
+
+for (const { manager, slug } of expectedManagers) {
+  const stableRule = config.packageRules.find(r =>
+    Array.isArray(r.matchManagers) &&
+    r.matchManagers.includes(manager) &&
+    r.matchCurrentVersion === "!/^0\\./" &&
+    r.groupSlug === slug
+  );
+  if (!stableRule) {
+    console.error("Missing stable rule for manager: " + manager + " with slug: " + slug);
+    process.exit(1);
+  }
+
+  const initialDevRule = config.packageRules.find(r =>
+    Array.isArray(r.matchManagers) &&
+    r.matchManagers.includes(manager) &&
+    r.matchCurrentVersion === "/^0\\./" &&
+    r.groupSlug === slug + "-0x"
+  );
+  if (!initialDevRule) {
+    console.error("Missing 0.x initial development rule for manager: " + manager + " with slug: " + slug + "-0x");
+    process.exit(1);
+  }
+
+  if (initialDevRule.automerge !== false) {
+    console.error("0.x rule for manager: " + manager + " must explicitly set automerge: false");
+    process.exit(1);
+  }
+}
+
+console.log("All managers correctly separate 0.x and stable versions into distinct groups");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "All managers correctly separate" ]]
+}
+
+@test ".github/renovate.json5 ensures stable package groups allow automerge and 0.x groups disable automerge" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+// Verify all 0x group rules explicitly disable automerge
+const zeroXRules = config.packageRules.filter(r => r.groupSlug && r.groupSlug.endsWith("-0x"));
+if (zeroXRules.length === 0) {
+  console.error("No 0.x group rules found");
+  process.exit(1);
+}
+
+for (const rule of zeroXRules) {
+  if (rule.automerge !== false) {
+    console.error("Rule " + rule.groupSlug + " does not have automerge: false");
+    process.exit(1);
+  }
+  if (rule.matchCurrentVersion !== "/^0\\./") {
+    console.error("Rule " + rule.groupSlug + " must match /^0\\./");
+    process.exit(1);
+  }
+}
+
+// Verify global automerge rule specifically excludes 0.x
+const automergeRule = config.packageRules.find(r => r.automerge === true && r.platformAutomerge === true);
+if (!automergeRule) {
+  console.error("Global platform automerge rule not found");
+  process.exit(1);
+}
+if (automergeRule.matchCurrentVersion !== "!/^0\\./") {
+  console.error("Global automerge rule must restrict matchCurrentVersion to !/^0\\./");
+  process.exit(1);
+}
+
+console.log("Automerge policy correctly isolates 0.x from stable groups");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Automerge policy correctly isolates" ]]
+}
+
+@test ".github/renovate.json5 configures ignorePaths containing **/.mise/locks/**" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+if (!Array.isArray(config.ignorePaths)) {
+  console.error("ignorePaths is not an array");
+  process.exit(1);
+}
+
+if (!config.ignorePaths.includes("**/.mise/locks/**")) {
+  console.error("ignorePaths does not include **/.mise/locks/**");
+  process.exit(1);
+}
+
+console.log("ignorePaths correctly includes **/.mise/locks/**");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "ignorePaths correctly includes **/.mise/locks/**" ]]
+}
+

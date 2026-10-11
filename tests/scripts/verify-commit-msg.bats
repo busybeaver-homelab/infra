@@ -130,6 +130,12 @@ run_verify() {
   [ "$status" -eq 0 ]
 }
 
+@test "verify-commit-msg.sh passes on exempt branch matching renovate/*-0x" {
+  run_verify "renovate/terraform-deps-0x" "chore(deps/terraform): update terraform providers and modules (initial development)"
+  [ "$status" -eq 0 ]
+}
+
+
 @test "verify-commit-msg.sh fails on branch missing scope (only 2 segments)" {
   run_verify "feat/only-desc" "feat(test): missing scope in branch"
   [ "$status" -ne 0 ]
