@@ -428,7 +428,7 @@ setup() {
 
   run yq eval '.collections[] | select(.name == "ansible.posix") | .version' "$req"
   [ "$status" -eq 0 ]
-  [ "$output" = "2.0.0" ]
+  [ "$output" = "2.2.2" ]
 
   run yq eval '.collections[] | select(.name == "community.general") | .version' "$req"
   [ "$status" -eq 0 ]

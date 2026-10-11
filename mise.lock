@@ -137,10 +137,10 @@ url_api = "https://api.github.com/repos/FiloSottile/age/releases/assets/53554193
 provenance = "github-attestations"
 
 [[tools.ansible]]
-version = "14.4.0"
+version = "14.5.0"
 backend = "pypi:ansible"
 specifiers = ["14"]
-uv = { path = ".mise/locks/ansible/14.4.0~0672620e", digest = "sha256:e89d2b892bde8161c23f357e11f6e9707b65f94640442d313e10f78233be029c" }
+uv = { path = ".mise/locks/ansible/14.5.0~0672620e", digest = "sha256:7ec9fcacb6e9b94c71544f022e48ddec3e99556eed061c9836588b97c7e133d3" }
 
 [tools.ansible.options]
 expose = '["ansible-core"]'
@@ -151,6 +151,7 @@ backend = "aqua:bats-core/bats-core"
 specifiers = ["1.14"]
 
 [tools.bats."platforms.linux-arm64"]
+checksum = "blake3:9b3dc5d296f3da85ce1062c7f9648c979cf2b982f0151f785eaa84d448dec779"
 url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.14.0.tar.gz"
 url_api = "https://api.github.com/repos/bats-core/bats-core/tarball/v1.14.0"
 

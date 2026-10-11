@@ -88,55 +88,57 @@ See `variables.tf` for full descriptions. All variables are `sensitive = true`.
 | `repository_name` | Repository name (default: `homelab-infra`) |
 
 <!-- BEGIN_TF_DOCS -->
+
 ## Requirements
 
-| Name | Version |
-| ---- | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.8.0 |
-| <a name="requirement_github"></a> [github](#requirement\_github) | ~> 6.0 |
-| <a name="requirement_sops"></a> [sops](#requirement\_sops) | ~> 1.1.1 |
+| Name                                                                     | Version  |
+| ------------------------------------------------------------------------ | -------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.8.0 |
+| <a name="requirement_github"></a> [github](#requirement_github)          | ~> 6.0   |
+| <a name="requirement_sops"></a> [sops](#requirement_sops)                | ~> 1.1.1 |
 
 ## Providers
 
-| Name | Version |
-| ---- | ------- |
-| <a name="provider_sops"></a> [sops](#provider\_sops) | 1.1.1 |
+| Name                                                | Version |
+| --------------------------------------------------- | ------- |
+| <a name="provider_sops"></a> [sops](#provider_sops) | 1.1.1   |
 
 ## Modules
 
-| Name | Source | Version |
-| ---- | ------ | ------- |
-| <a name="module_repository"></a> [repository](#module\_repository) | ./modules/repository | n/a |
+| Name                                                              | Source               | Version |
+| ----------------------------------------------------------------- | -------------------- | ------- |
+| <a name="module_repository"></a> [repository](#module_repository) | ./modules/repository | n/a     |
 
 ## Resources
 
-| Name | Type |
-| ---- | ---- |
+| Name                                                                                                     | Type        |
+| -------------------------------------------------------------------------------------------------------- | ----------- |
 | [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/latest/docs/data-sources/file) | data source |
 
 ## Inputs
 
-| Name | Description | Type | Default | Required |
-| ---- | ----------- | ---- | ------- | :------: |
-| <a name="input_allow_merge_commit"></a> [allow\_merge\_commit](#input\_allow\_merge\_commit) | Whether to allow merge commits on the repository (must be false to enforce linear trunk-based history). | `bool` | `false` | no |
-| <a name="input_allow_rebase_merge"></a> [allow\_rebase\_merge](#input\_allow\_rebase\_merge) | Whether to allow rebase merge on the repository (must be false to enforce squash-merge policy). | `bool` | `false` | no |
-| <a name="input_backup_secrets"></a> [backup\_secrets](#input\_backup\_secrets) | A map of sensitive secrets to inject into the 'backup' environment. | `map(string)` | `{}` | no |
-| <a name="input_ci_secrets"></a> [ci\_secrets](#input\_ci\_secrets) | A map of sensitive secrets to inject into the 'ci' environment. | `map(string)` | `{}` | no |
-| <a name="input_deploy_keys"></a> [deploy\_keys](#input\_deploy\_keys) | Deploy keys to register on the primary infra repository. | <pre>map(object({<br/>    title     = string<br/>    key       = string<br/>    read_only = bool<br/>  }))</pre> | <pre>{<br/>  "work-laptop": {<br/>    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhE5DoHICY85bnMIzXRGkggJ97ekZaJtzpQ6I7JgfF0 jmollner@liveperson.com",<br/>    "read_only": false,<br/>    "title": "work-laptop"<br/>  }<br/>}</pre> | no |
-| <a name="input_enable_prevent_destroy"></a> [enable\_prevent\_destroy](#input\_enable\_prevent\_destroy) | Whether to prevent destruction of critical GitHub resources (defaults to true for production safety). | `bool` | `true` | no |
-| <a name="input_github_owner"></a> [github\_owner](#input\_github\_owner) | The target GitHub organization or user account (overrides SOPS if provided). | `string` | `""` | no |
-| <a name="input_github_token"></a> [github\_token](#input\_github\_token) | Personal Access Token for GitHub authentication (overrides SOPS if provided). | `string` | `""` | no |
-| <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input\_secrets\_file\_path) | Path to the canonical SOPS credentials file holding github configuration (defaults to production credentials). | `string` | `"../../secrets/credentials.sops.yaml"` | no |
-| <a name="input_sops_age_key_ci"></a> [sops\_age\_key\_ci](#input\_sops\_age\_key\_ci) | CI Age private key override for GitHub Actions environment secrets. | `string` | `""` | no |
-| <a name="input_sops_age_key_file"></a> [sops\_age\_key\_file](#input\_sops\_age\_key\_file) | Path to the local Age keys file containing the CI private key. | `string` | `"~/.config/sops/age/keys.txt"` | no |
-| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input\_state\_encryption\_passphrase) | Passphrase for OpenTofu state and plan encryption. | `string` | `"homelab-state-encryption-passphrase-default"` | no |
+| Name                                                                                                                 | Description                                                                                                    | Type                                                                                         | Default                                                                                                                                                                                                                      | Required |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------: |
+| <a name="input_allow_merge_commit"></a> [allow\_merge\_commit](#input_allow_merge_commit)                            | Whether to allow merge commits on the repository (must be false to enforce linear trunk-based history).        | `bool`                                                                                       | `false`                                                                                                                                                                                                                      |    no    |
+| <a name="input_allow_rebase_merge"></a> [allow\_rebase\_merge](#input_allow_rebase_merge)                            | Whether to allow rebase merge on the repository (must be false to enforce squash-merge policy).                | `bool`                                                                                       | `false`                                                                                                                                                                                                                      |    no    |
+| <a name="input_backup_secrets"></a> [backup\_secrets](#input_backup_secrets)                                         | A map of sensitive secrets to inject into the 'backup' environment.                                            | `map(string)`                                                                                | `{}`                                                                                                                                                                                                                         |    no    |
+| <a name="input_ci_secrets"></a> [ci\_secrets](#input_ci_secrets)                                                     | A map of sensitive secrets to inject into the 'ci' environment.                                                | `map(string)`                                                                                | `{}`                                                                                                                                                                                                                         |    no    |
+| <a name="input_deploy_keys"></a> [deploy\_keys](#input_deploy_keys)                                                  | Deploy keys to register on the primary infra repository.                                                       | <pre>map(object({<br/> title = string<br/> key = string<br/> read_only = bool<br/> }))</pre> | <pre>{<br/> "work-laptop": {<br/> "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhE5DoHICY85bnMIzXRGkggJ97ekZaJtzpQ6I7JgfF0 jmollner@liveperson.com",<br/> "read_only": false,<br/> "title": "work-laptop"<br/> }<br/>}</pre> |    no    |
+| <a name="input_enable_prevent_destroy"></a> [enable\_prevent\_destroy](#input_enable_prevent_destroy)                | Whether to prevent destruction of critical GitHub resources (defaults to true for production safety).          | `bool`                                                                                       | `true`                                                                                                                                                                                                                       |    no    |
+| <a name="input_github_owner"></a> [github\_owner](#input_github_owner)                                               | The target GitHub organization or user account (overrides SOPS if provided).                                   | `string`                                                                                     | `""`                                                                                                                                                                                                                         |    no    |
+| <a name="input_github_token"></a> [github\_token](#input_github_token)                                               | Personal Access Token for GitHub authentication (overrides SOPS if provided).                                  | `string`                                                                                     | `""`                                                                                                                                                                                                                         |    no    |
+| <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input_secrets_file_path)                               | Path to the canonical SOPS credentials file holding github configuration (defaults to production credentials). | `string`                                                                                     | `"../../secrets/credentials.sops.yaml"`                                                                                                                                                                                      |    no    |
+| <a name="input_sops_age_key_ci"></a> [sops\_age\_key\_ci](#input_sops_age_key_ci)                                    | CI Age private key override for GitHub Actions environment secrets.                                            | `string`                                                                                     | `""`                                                                                                                                                                                                                         |    no    |
+| <a name="input_sops_age_key_file"></a> [sops\_age\_key\_file](#input_sops_age_key_file)                              | Path to the local Age keys file containing the CI private key.                                                 | `string`                                                                                     | `"~/.config/sops/age/keys.txt"`                                                                                                                                                                                              |    no    |
+| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | Passphrase for OpenTofu state and plan encryption.                                                             | `string`                                                                                     | `"homelab-state-encryption-passphrase-default"`                                                                                                                                                                              |    no    |
 
 ## Outputs
 
-| Name | Description |
-| ---- | ----------- |
-| <a name="output_deploy_keys"></a> [deploy\_keys](#output\_deploy\_keys) | Deploy keys registered on the infra repository. |
-| <a name="output_repositories"></a> [repositories](#output\_repositories) | Map of managed GitHub repositories and their metadata. |
-| <a name="output_repository_html_url"></a> [repository\_html\_url](#output\_repository\_html\_url) | The HTML URL of the primary infra GitHub repository. |
-| <a name="output_repository_node_id"></a> [repository\_node\_id](#output\_repository\_node\_id) | The GraphQL Node ID of the primary infra GitHub repository. |
+| Name                                                                                           | Description                                                 |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| <a name="output_deploy_keys"></a> [deploy\_keys](#output_deploy_keys)                          | Deploy keys registered on the infra repository.             |
+| <a name="output_repositories"></a> [repositories](#output_repositories)                        | Map of managed GitHub repositories and their metadata.      |
+| <a name="output_repository_html_url"></a> [repository\_html\_url](#output_repository_html_url) | The HTML URL of the primary infra GitHub repository.        |
+| <a name="output_repository_node_id"></a> [repository\_node\_id](#output_repository_node_id)    | The GraphQL Node ID of the primary infra GitHub repository. |
+
 <!-- END_TF_DOCS -->
