@@ -318,3 +318,93 @@ console.log("ignorePaths correctly includes **/.mise/locks/**");
   [[ "$output" =~ "ignorePaths correctly includes **/.mise/locks/**" ]]
 }
 
+@test ".github/renovate.json5 configures customManager regex manager for jdx/mise" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  local mise_toml="${REPO_ROOT}/mise.toml"
+  local action_yml="${REPO_ROOT}/.github/actions/setup-environment/action.yml"
+
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+const miseManager = config.customManagers.find(m =>
+  m.customType === "regex" &&
+  Array.isArray(m.managerFilePatterns) &&
+  m.managerFilePatterns.some(p => new RegExp(p).test("mise.toml")) &&
+  m.managerFilePatterns.some(p => new RegExp(p).test(".github/actions/setup-environment/action.yml"))
+);
+
+if (!miseManager) {
+  console.error("Custom manager for mise toolchain pins not found in customManagers");
+  process.exit(1);
+}
+
+const matchPattern = new RegExp(miseManager.matchStrings[0]);
+const miseContent = fs.readFileSync(process.argv[2], "utf8");
+const actionContent = fs.readFileSync(process.argv[3], "utf8");
+
+const matchMise = miseContent.match(matchPattern);
+if (!matchMise || matchMise.groups.depName !== "jdx/mise" || !matchMise.groups.currentValue) {
+  console.error("Custom manager regex failed to match mise.toml: " + JSON.stringify(matchMise ? matchMise.groups : null));
+  process.exit(1);
+}
+
+const matchAction = actionContent.match(matchPattern);
+if (!matchAction || matchAction.groups.depName !== "jdx/mise" || !matchAction.groups.currentValue) {
+  console.error("Custom manager regex failed to match action.yml: " + JSON.stringify(matchAction ? matchAction.groups : null));
+  process.exit(1);
+}
+
+if (matchMise.groups.currentValue !== matchAction.groups.currentValue) {
+  console.error("Version mismatch between mise.toml (" + matchMise.groups.currentValue + ") and action.yml (" + matchAction.groups.currentValue + ")");
+  process.exit(1);
+}
+
+console.log("Custom manager regex successfully matches and extracts synchronized jdx/mise version: " + matchMise.groups.currentValue);
+' "$config" "$mise_toml" "$action_yml"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Custom manager regex successfully matches" ]]
+}
+
+@test ".github/renovate.json5 configures packageRule grouping jdx/mise under mise-cli" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+const miseRule = config.packageRules.find(r =>
+  Array.isArray(r.matchPackageNames) &&
+  r.matchPackageNames.includes("jdx/mise")
+);
+
+if (!miseRule) {
+  console.error("Package rule for jdx/mise not found in packageRules");
+  process.exit(1);
+}
+
+if (miseRule.groupSlug !== "mise-cli") {
+  console.error("Expected groupSlug to be mise-cli, got: " + miseRule.groupSlug);
+  process.exit(1);
+}
+
+if (miseRule.semanticCommitScope !== "toolchain") {
+  console.error("Expected semanticCommitScope to be toolchain, got: " + miseRule.semanticCommitScope);
+  process.exit(1);
+}
+
+if (miseRule.automerge !== false) {
+  console.error("Expected automerge to be false for jdx/mise, got: " + miseRule.automerge);
+  process.exit(1);
+}
+
+console.log("Package rule for jdx/mise correctly configured with groupSlug mise-cli and automerge false");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Package rule for jdx/mise correctly configured" ]]
+}
+
+

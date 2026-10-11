@@ -54,7 +54,7 @@
     enabled: true,
   },
 
-  // Custom regex manager for shell script version pins
+  // Custom regex managers for shell scripts and toolchain pins
   customManagers: [
     {
       customType: "regex",
@@ -63,6 +63,18 @@
       matchStrings: [
         '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+[A-Za-z0-9_]+_VERSION="?(?<currentValue>[^"\\s]+)"?',
       ],
+    },
+    {
+      customType: "regex",
+      description: "Track Mise CLI version pins in mise.toml and setup-environment composite action",
+      managerFilePatterns: [
+        "^mise\\.toml$",
+        "^\\.github/actions/setup-environment/action\\.ya?ml$",
+      ],
+      matchStrings: [
+        '(?:min_version = "|version: ")(?<currentValue>[^"]+)"[^\n]*# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?(?:\\s|$)',
+      ],
+      datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
     },
   ],
 
@@ -157,6 +169,17 @@
       semanticCommitScope: "deps/mise",
       groupName: "mise toolchain (initial development)",
       groupSlug: "mise-deps-0x",
+      automerge: false,
+    },
+
+    // 4c. Mise CLI (custom regex manager)
+    {
+      description: "Group and scope Mise CLI version updates across mise.toml and setup-environment action",
+      matchPackageNames: ["jdx/mise"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "toolchain",
+      groupName: "mise cli",
+      groupSlug: "mise-cli",
       automerge: false,
     },
 
