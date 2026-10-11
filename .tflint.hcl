@@ -56,7 +56,7 @@ plugin "azurerm" {
 # 3. Amazon Web Services (AWS) Ruleset
 plugin "aws" {
   enabled = true
-  version = "0.35.0"
+  version = "0.49.0"
   source  = "github.com/terraform-linters/tflint-ruleset-aws"
 }
 
