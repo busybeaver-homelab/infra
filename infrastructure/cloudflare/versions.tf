@@ -1,14 +1,14 @@
 terraform {
-  required_version = ">= 1.8.0"
+  required_version = "1.16.5"
 
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 5.27"
+      version = "5.27.0"
     }
     sops = {
       source  = "carlpett/sops"
-      version = "~> 1.1.1"
+      version = "1.1.1"
     }
   }
 }
