@@ -221,3 +221,20 @@ variable "webhook_subscriptions" {
     error_message = "All webhook subscriptions must be valid Tailscale event subscription types."
   }
 }
+
+variable "acls_externally_managed_on" {
+  description = "Whether to prevent editing Tailscale ACL policies in the web admin console."
+  type        = bool
+  default     = true
+}
+
+variable "acls_external_link" {
+  description = "Optional URL linking to the external repository where ACL policies are managed."
+  type        = string
+  default     = "https://github.com/busybeaver-homelab/infra/blob/main/infrastructure/tailscale/policy.hujson.tftpl"
+
+  validation {
+    condition     = var.acls_external_link == "" || can(regex("^https?://", var.acls_external_link))
+    error_message = "ACL external link must be a valid HTTP or HTTPS URL or empty string."
+  }
+}
