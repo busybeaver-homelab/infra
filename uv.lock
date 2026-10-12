@@ -319,15 +319,15 @@ wheels = [
 
 [[package]]
 name = "google-auth"
-version = "2.61.0"
+version = "2.62.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "pyasn1-modules" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/0b/9788e913f2202da49068c27ce821eebcf96319240a89d7bb11f206d6471f/google_auth-2.61.0.tar.gz", hash = "sha256:37f0815967322e8c32b12bf422531e8b637cafdaae0acbb9141117cfe6a96f23", size = 398379, upload-time = "2026-10-07T20:13:14.827Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/b9/4b2528f30114b106e3c3a7298ba38d85e682fd1f83fe7c4a5b77c7677082/google_auth-2.62.0.tar.gz", hash = "sha256:0bef0ce54bdf9ce226c5d66e4264413bd918141c31bbe49fb52eac882f513d69", size = 398180, upload-time = "2026-10-12T19:20:48.328Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1e/68/c2ff6043d93fda69e5c12a834d0be3b3fa6c762e89732160532566be621b/google_auth-2.61.0-py3-none-any.whl", hash = "sha256:ca60266a37475ae68b63bac007272f46094b3d571abe92aded329b6cfb568025", size = 268021, upload-time = "2026-10-07T20:13:13.2Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/a3/87fe9b7203ec2e56ea6a57c75e6d632eaf9487c7f7978cdad1d801bee0af/google_auth-2.62.0-py3-none-any.whl", hash = "sha256:4ff4319aeb4ad128409759d397a9fcafad126d0031d241cc0dd6b9a00b43e3f3", size = 267911, upload-time = "2026-10-12T19:20:46.355Z" },
 ]
 
 [[package]]
@@ -355,7 +355,7 @@ dev = [
 requires-dist = [
     { name = "ansible-core", specifier = "==2.21.5" },
     { name = "cryptography", specifier = "==50.0.2" },
-    { name = "google-auth", specifier = "==2.61.0" },
+    { name = "google-auth", specifier = "==2.62.0" },
     { name = "jmespath", specifier = "==1.1.0" },
     { name = "requests", specifier = "==2.34.2" },
 ]
@@ -364,7 +364,7 @@ requires-dist = [
 dev = [
     { name = "ansible-lint", specifier = "==26.10.0" },
     { name = "molecule", specifier = "==26.10.0" },
-    { name = "molecule-plugins", extras = ["docker"], specifier = "==26.9.28" },
+    { name = "molecule-plugins", extras = ["docker"], specifier = "==26.10.12" },
     { name = "pytest-testinfra", specifier = "==10.2.2" },
     { name = "ruff", specifier = "==0.17.0" },
 ]
@@ -510,14 +510,14 @@ wheels = [
 
 [[package]]
 name = "molecule-plugins"
-version = "26.9.28"
+version = "26.10.12"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "molecule" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/56/ad3cdeccce8329532f1bdee1ddfce5c01eda24a454e2ca3b4b74f2ef6bba/molecule_plugins-26.9.28.tar.gz", hash = "sha256:bef4549c2a9d342c206cea4b6733c67282346b628cfce8d9a1500a9de0f8fc15", size = 283299, upload-time = "2026-09-28T07:12:26.425Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/a9/0e69e39a9e65a673b0d5f4fc1ea810a2f6fab671162b21b157a0cf124f71/molecule_plugins-26.10.12.tar.gz", hash = "sha256:03f79df9f7d6d6107ad9507f6c58724bbd18c21afb6f020fc532361b343ea333", size = 276741, upload-time = "2026-10-12T21:47:46.334Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/81/50b82b82209f1bf1c5519c77aa6da53c77bfab16ea78e36b798ea34a3c95/molecule_plugins-26.9.28-py3-none-any.whl", hash = "sha256:15a3317d2a054af1fabefd6acc5a1de91de25586bbb7ed5684395caab508ac77", size = 96295, upload-time = "2026-09-28T07:12:24.733Z" },
+    { url = "https://files.pythonhosted.org/packages/07/79/192c2de4e0d25472182d45ca84bbe4eb9c646396f212c616554c71aec51d/molecule_plugins-26.10.12-py3-none-any.whl", hash = "sha256:a618b60016eac397d8e279eeb5c494a9cee6d33103dbe5222891df81657759f1", size = 88940, upload-time = "2026-10-12T21:47:44.832Z" },
 ]
 
 [package.optional-dependencies]
