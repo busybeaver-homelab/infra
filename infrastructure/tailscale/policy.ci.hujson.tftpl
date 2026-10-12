@@ -5,34 +5,7 @@
       "admin@example.test"
     ]
   },
-  "tagOwners": {
-    "tag:ci-test": [
-      "group:admin"
-    ],
-    "tag:oci-production": [
-      "group:admin"
-    ],
-    "tag:type-server": [
-      "group:admin",
-      "tag:type-server"
-    ],
-    "tag:os-linux": [
-      "group:admin",
-      "tag:type-server"
-    ],
-    "tag:hosting-cloud": [
-      "group:admin",
-      "tag:type-server"
-    ],
-    "tag:location-ger": [
-      "group:admin",
-      "tag:type-server"
-    ],
-    "tag:env-oci": [
-      "group:admin",
-      "tag:type-server"
-    ]
-  },
+  "tagOwners": ${tag_owners},
   "acls": [
     {
       "action": "accept",
