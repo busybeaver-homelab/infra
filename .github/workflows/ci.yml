@@ -164,7 +164,7 @@ jobs:
 
       - name: Validate OpenTofu Modules
         run: |
-          for module in gcp cloudflare homelab oci azure github monitoring; do
+          for module in gcp cloudflare homelab oci azure github monitoring tailscale; do
             echo "=== Validating module: $module ==="
             (cd "infrastructure/$module" && mise exec -- tofu init -backend=false && mise exec -- tofu validate)
           done
