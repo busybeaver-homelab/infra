@@ -91,17 +91,17 @@ See `variables.tf` for full descriptions. All variables are `sensitive = true`.
 
 ## Requirements
 
-| Name                                                                     | Version  |
-| ------------------------------------------------------------------------ | -------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.8.0 |
-| <a name="requirement_github"></a> [github](#requirement_github)          | ~> 6.0   |
-| <a name="requirement_sops"></a> [sops](#requirement_sops)                | ~> 1.1.1 |
+| Name                                                                     | Version |
+| ------------------------------------------------------------------------ | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
+| <a name="requirement_github"></a> [github](#requirement_github)          | 6.13.0  |
+| <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1   |
 
 ## Providers
 
 | Name                                                | Version |
 | --------------------------------------------------- | ------- |
-| <a name="provider_sops"></a> [sops](#provider_sops) | 1.1.1   |
+| <a name="provider_sops"></a> [sops](#provider_sops) | 1.4.1   |
 
 ## Modules
 
@@ -111,9 +111,9 @@ See `variables.tf` for full descriptions. All variables are `sensitive = true`.
 
 ## Resources
 
-| Name                                                                                                     | Type        |
-| -------------------------------------------------------------------------------------------------------- | ----------- |
-| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/latest/docs/data-sources/file) | data source |
+| Name                                                                                                    | Type        |
+| ------------------------------------------------------------------------------------------------------- | ----------- |
+| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/1.4.1/docs/data-sources/file) | data source |
 
 ## Inputs
 

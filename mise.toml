@@ -299,7 +299,7 @@ description = "Run native OpenTofu tests concurrently across all infrastructure 
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-modules=(oci cloudflare gcp azure github homelab monitoring)
+modules=(oci cloudflare gcp azure github homelab monitoring tailscale)
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -348,7 +348,7 @@ description = "Run OpenTofu lifecycle mutation tests across all modules"
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-modules=(cloudflare gcp github oci)
+modules=(cloudflare gcp github oci tailscale)
 for mod in "${modules[@]}"; do
   echo "==> Running mutation tests for infrastructure/$mod"
   tofu -chdir="infrastructure/$mod" test -filter=tests/mutation.tftest.hcl
