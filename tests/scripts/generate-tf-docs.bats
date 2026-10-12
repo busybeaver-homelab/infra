@@ -44,6 +44,7 @@ teardown() {
   [[ "$output" =~ "infrastructure/homelab" ]]
   [[ "$output" =~ "infrastructure/monitoring" ]]
   [[ "$output" =~ "infrastructure/oci" ]]
+  [[ "$output" =~ "infrastructure/tailscale" ]]
 }
 
 @test "generate-tf-docs.sh invokes terraform-docs with config in dry-run/mock mode" {
