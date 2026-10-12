@@ -56,3 +56,10 @@ variable "bootstrap_key_tags" {
     error_message = "All bootstrap key tags must start with 'tag:' and contain only lowercase alphanumeric characters and hyphens."
   }
 }
+
+variable "monitored_device_hostnames" {
+  description = "List of device hostnames (without domain suffix) to retrieve via data.tailscale_device."
+  type        = list(string)
+  default     = ["unifi-gateway", "adguard-home"]
+}
+
