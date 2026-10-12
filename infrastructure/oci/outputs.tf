@@ -81,3 +81,27 @@ output "backup_uploaders_policy_id" {
   description = "OCID of the append-only IAM policy for backup uploads."
   sensitive   = true
 }
+
+output "vault_id" {
+  value       = oci_kms_vault.homelab.id
+  description = "OCID of the OCI Vault."
+  sensitive   = true
+}
+
+output "vault_management_endpoint" {
+  value       = oci_kms_vault.homelab.management_endpoint
+  description = "Management endpoint URL for the OCI Vault."
+  sensitive   = true
+}
+
+output "master_key_id" {
+  value       = oci_kms_key.master_key.id
+  description = "OCID of the software-protected master encryption key."
+  sensitive   = true
+}
+
+output "dynamic_group_name" {
+  value       = oci_identity_dynamic_group.homelab_vms.name
+  description = "Name of the compute instance dynamic group."
+  sensitive   = true
+}
