@@ -19,7 +19,7 @@ mock_provider "sops" {
 }
 
 variables {
-  policy_file_path = "policy.ci.hujson"
+  policy_file_path = "policy.ci.hujson.tftpl"
 }
 
 run "extended_default_plan" {
@@ -31,13 +31,33 @@ run "extended_default_plan" {
   }
 
   assert {
+    condition     = tailscale_tailnet_settings.homelab.devices_approval_on == true
+    error_message = "Device approval must be enabled by default."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_settings.homelab.posture_identity_collection_on == false
+    error_message = "Posture identity collection must remain false on free tier."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_settings.homelab.regional_routing_on == false
+    error_message = "Regional routing must remain false on free tier."
+  }
+
+  assert {
     condition     = length(tailscale_dns_search_paths.homelab.search_paths) == 0
     error_message = "Search paths should default to empty list."
   }
 
   assert {
     condition     = length(tailscale_dns_nameservers.homelab) == 0
-    error_message = "DNS nameservers resource should be 0 when list is empty."
+    error_message = "DNS nameservers resource should be 0 by default to prevent overriding NextDNS."
+  }
+
+  assert {
+    condition     = length(tailscale_webhook.events) == 0
+    error_message = "Webhook resource should default to 0."
   }
 
   assert {
@@ -181,7 +201,16 @@ run "extended_device_id_overrides" {
 
   variables {
     device_id_overrides = {
-      "unifi-gateway" = "override-unifi-id"
+      "adguard-home"   = "id-adguard"
+      "beszel"         = "id-beszel"
+      "gcp-default-vm" = "id-gcp"
+      "heide-apple-tv" = "id-atv"
+      "node-red"       = "id-nodered"
+      "nuc-kvm"        = "id-nuckvm"
+      "nuc-linux"      = "id-nuclinux"
+      "nuc-windows"    = "id-nucwin"
+      "synology-nas1"  = "id-synology"
+      "unifi-gateway"  = "override-unifi-id"
     }
   }
 
@@ -242,6 +271,16 @@ run "extended_apply_and_sensitive_outputs" {
   assert {
     condition     = issensitive(output.auth_key_bootstrap)
     error_message = "output.auth_key_bootstrap must be sensitive."
+  }
+
+  assert {
+    condition     = issensitive(output.webhook_endpoint_url)
+    error_message = "output.webhook_endpoint_url must be sensitive."
+  }
+
+  assert {
+    condition     = issensitive(output.webhook_secret)
+    error_message = "output.webhook_secret must be sensitive."
   }
 }
 
@@ -319,5 +358,48 @@ run "reject_invalid_device_tags" {
 
   expect_failures = [
     var.infrastructure_devices,
+  ]
+}
+
+run "extended_optional_webhook" {
+  command = plan
+
+  variables {
+    webhook_endpoint_url  = "https://example.test/tailnet-events"
+    webhook_provider_type = "slack"
+  }
+
+  assert {
+    condition     = length(tailscale_webhook.events) == 1
+    error_message = "Webhook resource should be instantiated when URL is provided."
+  }
+
+  assert {
+    condition     = tailscale_webhook.events[0].provider_type == "slack"
+    error_message = "Webhook provider type should match input."
+  }
+}
+
+run "reject_invalid_webhook_url" {
+  command = plan
+
+  variables {
+    webhook_endpoint_url = "http://insecure.test"
+  }
+
+  expect_failures = [
+    var.webhook_endpoint_url,
+  ]
+}
+
+run "reject_invalid_policy_file_extension" {
+  command = plan
+
+  variables {
+    policy_file_path = "policy.invalid"
+  }
+
+  expect_failures = [
+    var.policy_file_path,
   ]
 }
