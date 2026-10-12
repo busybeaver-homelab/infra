@@ -40,6 +40,16 @@ get_content() {
   fi
 }
 
+# Default to both canonical files when invoked with zero arguments
+if [ "$#" -eq 0 ]; then
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    repo_root=$(git rev-parse --show-toplevel)
+    set -- "$repo_root/secrets/credentials.ci.sops.yaml" "$repo_root/secrets/credentials.sops.yaml"
+  else
+    set -- "secrets/credentials.ci.sops.yaml" "secrets/credentials.sops.yaml"
+  fi
+fi
+
 for file in "$@"; do
   base_name=$(basename "$file")
   # Skip .sops.yaml / .sops.yml configuration files
@@ -103,9 +113,12 @@ for file in "$@"; do
   fi
 
   # 4. Check all scalar leaves outside of .sops for encryption pattern
-  unencrypted_count=$(echo "$content" | run_yq eval 'del(.sops) | [.. | select(tag == "!!str" or tag == "!!int" or tag == "!!bool" or tag == "!!float") | select(test("^ENC\[AES256_GCM,data:") | not)] | length' - 2>/dev/null || echo 1)
-  if [ "$unencrypted_count" -ne 0 ]; then
-    echo -e "${RED}[ERROR] Security leak detected! Unencrypted scalar data found in $file ($unencrypted_count unencrypted fields).${NC}" >&2
+  unencrypted_paths=$(echo "$content" | run_yq eval 'del(.sops) | [.. | select((tag == "!!str" and (test("^ENC\[AES256_GCM,data:") | not)) or tag == "!!int" or tag == "!!bool" or tag == "!!float") | (path | join("."))] | .[]' - 2>/dev/null || true)
+  if [ -n "$unencrypted_paths" ]; then
+    echo -e "${RED}[ERROR] Security leak detected! Unencrypted scalar data found in $file:${NC}" >&2
+    while IFS= read -r line; do
+      [ -n "$line" ] && echo -e "  - ${line}" >&2
+    done <<<"$unencrypted_paths"
     exit_code=1
     continue
   fi

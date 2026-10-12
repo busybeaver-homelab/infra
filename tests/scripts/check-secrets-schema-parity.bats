@@ -118,4 +118,26 @@ EOF
   done
 }
 
+@test "canonical secrets files define tailscale schema keys" {
+  local keys=("client_id" "client_secret")
+  for key in "${keys[@]}"; do
+    run yq eval "has(\"tailscale\") and (.tailscale | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+    run yq eval "has(\"tailscale\") and (.tailscale | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+  done
+}
 
+@test "canonical secrets files define tailscale config schema keys" {
+  local keys=("tailnet_name" "contact_account_email" "contact_support_email" "contact_security_email")
+  for key in "${keys[@]}"; do
+    run yq eval "has(\"tailscale\") and (.tailscale | has(\"config\")) and (.tailscale.config | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+    run yq eval "has(\"tailscale\") and (.tailscale | has(\"config\")) and (.tailscale.config | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+  done
+}

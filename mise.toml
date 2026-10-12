@@ -283,6 +283,10 @@ sops unset secrets/credentials.ci.sops.yaml "[\"${usage_key}\"]"
 echo "Deleted secret ${usage_key} from secrets/credentials.ci.sops.yaml"
 '''
 
+[tasks."secret:verify"]
+description = "Verify that canonical SOPS files contain only encrypted values"
+run = "bash scripts/verify-sops-encryption.sh"
+
 [tasks."github:sync"]
 description = "Sync non-Terraform repository settings (immutable releases, retention, contributor approval) via GitHub API"
 run = "scripts/sync-github-repo-settings.sh"
@@ -300,7 +304,7 @@ description = "Run native OpenTofu tests concurrently across all infrastructure 
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-modules=(oci cloudflare gcp azure github homelab monitoring)
+modules=(oci cloudflare gcp azure github homelab monitoring tailscale)
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -349,7 +353,7 @@ description = "Run OpenTofu lifecycle mutation tests across all modules"
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-modules=(cloudflare gcp github oci)
+modules=(cloudflare gcp github oci tailscale)
 for mod in "${modules[@]}"; do
   echo "==> Running mutation tests for infrastructure/$mod"
   tofu -chdir="infrastructure/$mod" test -filter=tests/mutation.tftest.hcl

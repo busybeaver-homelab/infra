@@ -347,7 +347,7 @@ setup() {
   run grep -E "\*\*TFLint\*\*.*\`0\.64\`" "$doc"
   [ "$status" -eq 0 ]
 
-  # Ensure all 7 infrastructure modules are documented in repository layout
+  # Ensure all 8 infrastructure modules are documented in repository layout
   run grep -E "azure/" "$doc"
   [ "$status" -eq 0 ]
 
@@ -367,6 +367,9 @@ setup() {
   [ "$status" -eq 0 ]
 
   run grep -E "oci/" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "tailscale/" "$doc"
   [ "$status" -eq 0 ]
 }
 
