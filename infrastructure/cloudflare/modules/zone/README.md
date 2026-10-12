@@ -2,10 +2,10 @@
 
 ## Requirements
 
-| Name                                                                        | Version  |
-| --------------------------------------------------------------------------- | -------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | >= 1.8.0 |
-| <a name="requirement_cloudflare"></a> [cloudflare](#requirement_cloudflare) | ~> 5.27  |
+| Name                                                                        | Version |
+| --------------------------------------------------------------------------- | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | 1.16.5  |
+| <a name="requirement_cloudflare"></a> [cloudflare](#requirement_cloudflare) | 5.27.0  |
 
 ## Providers
 
@@ -17,15 +17,15 @@
 
 | Name                                                                                                                                                   | Type     |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| [cloudflare_bot_management.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/bot_management)                   | resource |
-| [cloudflare_dns_record.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/dns_record)                           | resource |
-| [cloudflare_email_routing_catch_all.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/email_routing_catch_all) | resource |
-| [cloudflare_email_routing_rule.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/email_routing_rule)           | resource |
-| [cloudflare_email_routing_settings.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/email_routing_settings)   | resource |
-| [cloudflare_ruleset.waf_custom](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/ruleset)                           | resource |
-| [cloudflare_zone.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/zone)                                       | resource |
-| [cloudflare_zone_dnssec.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/zone_dnssec)                         | resource |
-| [cloudflare_zone_setting.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/zone_setting)                       | resource |
+| [cloudflare_bot_management.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/bot_management)                   | resource |
+| [cloudflare_dns_record.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/dns_record)                           | resource |
+| [cloudflare_email_routing_catch_all.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/email_routing_catch_all) | resource |
+| [cloudflare_email_routing_rule.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/email_routing_rule)           | resource |
+| [cloudflare_email_routing_settings.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/email_routing_settings)   | resource |
+| [cloudflare_ruleset.waf_custom](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/ruleset)                           | resource |
+| [cloudflare_zone.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/zone)                                       | resource |
+| [cloudflare_zone_dnssec.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/zone_dnssec)                         | resource |
+| [cloudflare_zone_setting.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/zone_setting)                       | resource |
 
 ## Inputs
 
