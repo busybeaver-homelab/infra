@@ -37,10 +37,10 @@ From the Proxmox VE host, retrieve the cluster CA certificate located at `/etc/p
 
 ## Requirements
 
-| Name                                                                     | Version    |
-| ------------------------------------------------------------------------ | ---------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.8.0   |
-| <a name="requirement_proxmox"></a> [proxmox](#requirement_proxmox)       | ~> 0.109.0 |
+| Name                                                                     | Version |
+| ------------------------------------------------------------------------ | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
+| <a name="requirement_proxmox"></a> [proxmox](#requirement_proxmox)       | 0.116.0 |
 
 ## Inputs
 

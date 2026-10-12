@@ -76,18 +76,18 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 
 ## Requirements
 
-| Name                                                                        | Version  |
-| --------------------------------------------------------------------------- | -------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | >= 1.8.0 |
-| <a name="requirement_cloudflare"></a> [cloudflare](#requirement_cloudflare) | ~> 5.27  |
-| <a name="requirement_sops"></a> [sops](#requirement_sops)                   | ~> 1.1.1 |
+| Name                                                                        | Version |
+| --------------------------------------------------------------------------- | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | 1.16.5  |
+| <a name="requirement_cloudflare"></a> [cloudflare](#requirement_cloudflare) | 5.27.0  |
+| <a name="requirement_sops"></a> [sops](#requirement_sops)                   | 1.4.1   |
 
 ## Providers
 
 | Name                                                                  | Version |
 | --------------------------------------------------------------------- | ------- |
 | <a name="provider_cloudflare"></a> [cloudflare](#provider_cloudflare) | 5.27.0  |
-| <a name="provider_sops"></a> [sops](#provider_sops)                   | 1.1.1   |
+| <a name="provider_sops"></a> [sops](#provider_sops)                   | 1.4.1   |
 
 ## Modules
 
@@ -99,22 +99,22 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 
 | Name                                                                                                                                                                                       | Type        |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| [cloudflare_account.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/account)                                                                     | resource    |
-| [cloudflare_account_member.frozen](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/account_member)                                                     | resource    |
-| [cloudflare_account_token.frozen](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/account_token)                                                       | resource    |
-| [cloudflare_email_routing_address.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/email_routing_address)                                         | resource    |
-| [cloudflare_notification_policy.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/notification_policy)                                             | resource    |
-| [cloudflare_r2_bucket.backups_dr](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/r2_bucket)                                                           | resource    |
-| [cloudflare_r2_bucket.tfstate](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/r2_bucket)                                                              | resource    |
-| [cloudflare_zero_trust_access_identity_provider.otp](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/zero_trust_access_identity_provider)              | resource    |
-| [cloudflare_zero_trust_device_default_profile.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/zero_trust_device_default_profile)                 | resource    |
-| [cloudflare_zero_trust_dns_location.default](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/zero_trust_dns_location)                                  | resource    |
-| [cloudflare_zero_trust_gateway_settings.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/zero_trust_gateway_settings)                             | resource    |
-| [cloudflare_zero_trust_organization.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/zero_trust_organization)                                     | resource    |
-| [cloudflare_account_api_token_permission_groups_list.all](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/data-sources/account_api_token_permission_groups_list) | data source |
-| [cloudflare_account_permission_groups.frozen_member](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/data-sources/account_permission_groups)                     | data source |
-| [cloudflare_account_tokens.all](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/data-sources/account_tokens)                                                     | data source |
-| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/latest/docs/data-sources/file)                                                                                   | data source |
+| [cloudflare_account.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/account)                                                                     | resource    |
+| [cloudflare_account_member.frozen](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/account_member)                                                     | resource    |
+| [cloudflare_account_token.frozen](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/account_token)                                                       | resource    |
+| [cloudflare_email_routing_address.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/email_routing_address)                                         | resource    |
+| [cloudflare_notification_policy.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/notification_policy)                                             | resource    |
+| [cloudflare_r2_bucket.backups_dr](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/r2_bucket)                                                           | resource    |
+| [cloudflare_r2_bucket.tfstate](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/r2_bucket)                                                              | resource    |
+| [cloudflare_zero_trust_access_identity_provider.otp](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/zero_trust_access_identity_provider)              | resource    |
+| [cloudflare_zero_trust_device_default_profile.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/zero_trust_device_default_profile)                 | resource    |
+| [cloudflare_zero_trust_dns_location.default](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/zero_trust_dns_location)                                  | resource    |
+| [cloudflare_zero_trust_gateway_settings.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/zero_trust_gateway_settings)                             | resource    |
+| [cloudflare_zero_trust_organization.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/resources/zero_trust_organization)                                     | resource    |
+| [cloudflare_account_api_token_permission_groups_list.all](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/data-sources/account_api_token_permission_groups_list) | data source |
+| [cloudflare_account_permission_groups.frozen_member](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/data-sources/account_permission_groups)                     | data source |
+| [cloudflare_account_tokens.all](https://registry.terraform.io/providers/cloudflare/cloudflare/5.27.0/docs/data-sources/account_tokens)                                                     | data source |
+| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/1.4.1/docs/data-sources/file)                                                                                    | data source |
 
 ## Inputs
 
