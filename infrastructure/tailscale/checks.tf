@@ -43,6 +43,11 @@ check "free_tier_invariants" {
     condition     = tailscale_tailnet_settings.homelab.devices_approval_on == true
     error_message = "Device approval gate must remain enabled for zero-trust security."
   }
+
+  assert {
+    condition     = tailscale_tailnet_settings.homelab.acls_externally_managed_on == true
+    error_message = "Tailscale ACLs must be externally managed to prevent UI modifications."
+  }
 }
 
 check "device_discovery_diagnostics" {
