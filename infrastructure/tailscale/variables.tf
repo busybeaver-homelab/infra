@@ -63,3 +63,35 @@ variable "monitored_device_hostnames" {
   default     = ["unifi-gateway", "adguard-home"]
 }
 
+variable "dns_nameservers" {
+  description = "List of global DNS nameservers for the tailnet."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for ns in var.dns_nameservers : can(regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]+$", ns))])
+    error_message = "All DNS nameservers must be valid IPv4 or IPv6 addresses."
+  }
+}
+
+variable "dns_search_paths" {
+  description = "List of search domains for MagicDNS."
+  type        = list(string)
+  default     = []
+}
+
+variable "dns_split_nameservers" {
+  description = "Map of domain routes to dedicated split DNS nameservers."
+  type        = map(list(string))
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for domain, servers in var.dns_split_nameservers :
+      alltrue([for ns in servers : can(regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]+$", ns))])
+    ])
+    error_message = "All split DNS nameservers must be valid IPv4 or IPv6 addresses."
+  }
+}
+
+
