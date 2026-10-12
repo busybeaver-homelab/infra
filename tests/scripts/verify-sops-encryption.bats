@@ -143,3 +143,99 @@ EOF
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Missing or empty .sops.mac" ]]
 }
+
+@test "verify-sops-encryption.sh succeeds with zero arguments on clean repo" {
+  run bash "${VERIFY_SCRIPT}"
+  [ "$status" -eq 0 ]
+}
+
+@test "verify-sops-encryption.sh fails with zero arguments when canonical file has unencrypted secret" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+leak: unencrypted_secret
+sops:
+  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  age:
+    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.sops.yaml"
+safe: ENC[AES256_GCM,data:abc,iv:abc,tag:def,type:str]
+sops:
+  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  pgp:
+    - fp: 123456
+EOF
+
+  run bash "${VERIFY_SCRIPT}"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "leak" ]]
+}
+
+@test "verify-sops-encryption.sh reports exact key paths when unencrypted scalar is present" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+nested:
+  leak: dangerous_plain_value
+  safe: ENC[AES256_GCM,data:12345,iv:abc,tag:def,type:str]
+sops:
+  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  age:
+    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "nested.leak" ]]
+}
+
+@test "verify-sops-encryption.sh fails and reports unencrypted int, bool, and float scalars without crashing yq" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+app:
+  port: 8080
+  enabled: true
+  ratio: 3.14
+  empty_val: null
+sops:
+  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  age:
+    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "app.port" ]]
+  [[ "$output" =~ "app.enabled" ]]
+  [[ "$output" =~ "app.ratio" ]]
+  [[ ! "$output" =~ "app.empty_val" ]]
+}
+
+@test "verify-sops-encryption.sh passes on encrypted non-string scalars" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+app:
+  port: ENC[AES256_GCM,data:k1s=,iv:abc,tag:def,type:int]
+  enabled: ENC[AES256_GCM,data:2g==,iv:abc,tag:def,type:bool]
+  ratio: ENC[AES256_GCM,data:3.14,iv:abc,tag:def,type:float]
+sops:
+  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  age:
+    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 0 ]
+}
+
