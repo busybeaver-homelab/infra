@@ -13,19 +13,24 @@
       "group:admin"
     ],
     "tag:type-server": [
-      "group:admin"
+      "group:admin",
+      "tag:type-server"
     ],
     "tag:os-linux": [
-      "group:admin"
+      "group:admin",
+      "tag:type-server"
     ],
     "tag:hosting-cloud": [
-      "group:admin"
+      "group:admin",
+      "tag:type-server"
     ],
     "tag:location-ger": [
-      "group:admin"
+      "group:admin",
+      "tag:type-server"
     ],
     "tag:env-oci": [
-      "group:admin"
+      "group:admin",
+      "tag:type-server"
     ]
   },
   "acls": [
