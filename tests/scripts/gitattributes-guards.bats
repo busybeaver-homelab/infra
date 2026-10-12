@@ -6,12 +6,12 @@ setup() {
   GITATTR="${REPO_ROOT}/.gitattributes"
 }
 
-@test ".gitattributes contains mandatory git-crypt filter for tailscale policy" {
-  grep -q "infrastructure/tailscale/policy.hujson filter=git-crypt diff=git-crypt" "$GITATTR"
+@test ".gitattributes contains mandatory git-crypt filter for tailscale policy template" {
+  grep -q "infrastructure/tailscale/policy.hujson.tftpl filter=git-crypt diff=git-crypt" "$GITATTR"
 }
 
-@test ".gitattributes contains mandatory exemption for tailscale policy CI decoy" {
-  grep -q "infrastructure/tailscale/policy.ci.hujson !filter !diff" "$GITATTR"
+@test ".gitattributes contains mandatory exemption for tailscale policy CI template decoy" {
+  grep -q "infrastructure/tailscale/policy.ci.hujson.tftpl !filter !diff" "$GITATTR"
 }
 
 @test ".gitattributes contains all root encryption rules intact" {
