@@ -11,12 +11,12 @@ variable "secrets_file_path" {
 
 variable "policy_file_path" {
   type        = string
-  description = "Path to Tailscale ACL HuJSON policy file."
-  default     = "policy.hujson"
+  description = "Path to Tailscale ACL HuJSON policy template file."
+  default     = "policy.hujson.tftpl"
 
   validation {
-    condition     = endswith(var.policy_file_path, ".hujson") || endswith(var.policy_file_path, ".json")
-    error_message = "The policy file path must have a .hujson or .json extension."
+    condition     = endswith(var.policy_file_path, ".hujson.tftpl") || endswith(var.policy_file_path, ".hujson") || endswith(var.policy_file_path, ".json")
+    error_message = "The policy file path must have a .hujson.tftpl, .hujson, or .json extension."
   }
 }
 
