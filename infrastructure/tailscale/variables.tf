@@ -167,6 +167,31 @@ variable "device_subnet_routes" {
   }
 }
 
+variable "webhook_endpoint_url" {
+  description = "Optional HTTPS endpoint URL to receive tailnet event webhooks."
+  type        = string
+  sensitive   = true
+  default     = ""
 
+  validation {
+    condition     = var.webhook_endpoint_url == "" || can(regex("^https://", var.webhook_endpoint_url))
+    error_message = "Webhook endpoint URL must start with https:// or remain empty."
+  }
+}
 
+variable "webhook_provider_type" {
+  description = "Optional webhook provider type (e.g. slack, discord, mattermost, generic)."
+  type        = string
+  default     = ""
+}
 
+variable "webhook_subscriptions" {
+  description = "List of tailnet events subscribed to by the webhook."
+  type        = list(string)
+  default = [
+    "nodeCreated",
+    "nodeNeedsApproval",
+    "nodeKeyExpiringInSevenDays",
+    "policyUpdate"
+  ]
+}
