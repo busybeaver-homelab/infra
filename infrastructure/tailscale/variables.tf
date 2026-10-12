@@ -116,5 +116,57 @@ variable "auth_keys" {
   }
 }
 
+variable "infrastructure_devices" {
+  description = "Declarative specification of managed infrastructure nodes and their tags."
+  type = map(object({
+    tags                = list(string)
+    key_expiry_disabled = optional(bool, true)
+    authorized          = optional(bool, true)
+  }))
+  default = {
+    "adguard-home"   = { tags = ["tag:hosting-onpremise", "tag:svc-adguard", "tag:type-docker"] }
+    "beszel"         = { tags = ["tag:hosting-onpremise", "tag:svc-beszel", "tag:type-docker"] }
+    "gcp-default-vm" = { tags = ["tag:env-gcp", "tag:hosting-cloud", "tag:location-us", "tag:os-linux", "tag:type-server"] }
+    "heide-apple-tv" = { tags = ["tag:hosting-onpremise", "tag:location-ger", "tag:os-appletv"] }
+    "node-red"       = { tags = ["tag:hosting-onpremise", "tag:svc-node-red", "tag:type-docker"] }
+    "nuc-kvm"        = { tags = ["tag:hosting-onpremise", "tag:location-ger", "tag:os-linux"] }
+    "nuc-linux"      = { tags = ["tag:hosting-onpremise", "tag:location-ger", "tag:os-linux", "tag:type-server"] }
+    "nuc-windows"    = { tags = ["tag:hosting-onpremise", "tag:location-ger", "tag:os-windows", "tag:type-server"] }
+    "synology-nas1"  = { tags = ["tag:hosting-onpremise", "tag:os-linux", "tag:type-nas"] }
+    "unifi-gateway"  = { tags = ["tag:hosting-onpremise", "tag:os-linux", "tag:type-network"] }
+  }
+
+  validation {
+    condition = alltrue([
+      for host, dev in var.infrastructure_devices : alltrue([
+        for tag in dev.tags : startswith(tag, "tag:")
+      ])
+    ])
+    error_message = "All infrastructure device tags must start with the 'tag:' prefix."
+  }
+}
+
+variable "device_id_overrides" {
+  description = "Optional mapping of hostname to device ID for offline testing without live tailnet API."
+  type        = map(string)
+  default     = {}
+}
+
+variable "device_subnet_routes" {
+  description = "Map of hostname to approved subnet routes."
+  type        = map(list(string))
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for host, routes in var.device_subnet_routes : alltrue([
+        for r in routes : can(cidrnetmask(r))
+      ])
+    ])
+    error_message = "All subnet routes must be valid IPv4 or IPv6 CIDR blocks."
+  }
+}
+
+
 
 

@@ -11,4 +11,16 @@ locals {
   contact_account_email  = try(local.sops_data.tailscale.config.contact_account_email, "")
   contact_support_email  = try(local.sops_data.tailscale.config.contact_support_email, "")
   contact_security_email = try(local.sops_data.tailscale.config.contact_security_email, "")
+
+  # Maps hostname (short name before first dot) to node ID
+  discovered_device_ids = {
+    for d in try(data.tailscale_devices.all.devices, []) :
+    split(".", d.name)[0] => d.id
+  }
+
+  device_id_map = merge(
+    local.discovered_device_ids,
+    var.device_id_overrides
+  )
 }
+
