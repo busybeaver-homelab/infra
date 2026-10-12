@@ -1,0 +1,63 @@
+{
+  "_comment": "Decoy Tailscale ACL Policy for CI testing and Molecule validation",
+  "groups": {
+    "group:admin": [
+      "admin@example.test"
+    ]
+  },
+  "tagOwners": {
+    "tag:ci-test": [
+      "group:admin"
+    ],
+    "tag:oci-production": [
+      "group:admin"
+    ],
+    "tag:type-server": [
+      "group:admin",
+      "tag:type-server"
+    ],
+    "tag:os-linux": [
+      "group:admin",
+      "tag:type-server"
+    ],
+    "tag:hosting-cloud": [
+      "group:admin",
+      "tag:type-server"
+    ],
+    "tag:location-ger": [
+      "group:admin",
+      "tag:type-server"
+    ],
+    "tag:env-oci": [
+      "group:admin",
+      "tag:type-server"
+    ]
+  },
+  "acls": [
+    {
+      "action": "accept",
+      "src": [
+        "*"
+      ],
+      "dst": [
+        "*:*"
+      ]
+    }
+  ],
+  "ssh": [
+    {
+      "action": "check",
+      "src": [
+        "autogroup:member"
+      ],
+      "dst": [
+        "autogroup:self"
+      ],
+      "users": [
+        "autogroup:nonroot",
+        "root"
+      ]
+    }
+  ],
+  "nodeAttrs": []
+}

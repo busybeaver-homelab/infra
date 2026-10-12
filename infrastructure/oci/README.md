@@ -6,14 +6,14 @@
 | ------------------------------------------------------------------------ | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
 | <a name="requirement_oci"></a> [oci](#requirement_oci)                   | 9.9.0   |
-| <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.1.1   |
+| <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1   |
 
 ## Providers
 
 | Name                                                | Version |
 | --------------------------------------------------- | ------- |
 | <a name="provider_oci"></a> [oci](#provider_oci)    | 9.9.0   |
-| <a name="provider_sops"></a> [sops](#provider_sops) | 1.1.1   |
+| <a name="provider_sops"></a> [sops](#provider_sops) | 1.4.1   |
 
 ## Resources
 
@@ -43,7 +43,7 @@
 | [oci_ons_notification_topic.budget_alerts](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_notification_topic)                                                     | resource    |
 | [oci_ons_subscription.budget_alerts_email](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_subscription)                                                           | resource    |
 | [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/data-sources/objectstorage_namespace)                                                         | data source |
-| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/1.1.1/docs/data-sources/file)                                                                                        | data source |
+| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/1.4.1/docs/data-sources/file)                                                                                        | data source |
 
 ## Inputs
 

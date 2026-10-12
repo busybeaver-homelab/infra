@@ -161,7 +161,8 @@ The structure of the repository is modular and structured as follows:
 │   ├── github/              # Repository settings, rulesets, deploy keys, and Actions permissions
 │   ├── homelab/             # Proxmox VMs, LXC containers, and local networks
 │   ├── monitoring/          # Healthchecks.io checks and alerting integration
-│   └── oci/                 # Oracle Cloud compute, VCN, budgets, and storage (Always Free)
+│   ├── oci/                 # Oracle Cloud compute, VCN, budgets, and storage (Always Free)
+│   └── tailscale/           # Tailscale tailnet ACLs, DNS, settings, and auth keys
 ├── scripts/                 # Administration and git-hook helper scripts
 └── secrets/                 # Decoy/CI keys and secrets guides
 ```
