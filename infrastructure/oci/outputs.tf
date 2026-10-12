@@ -105,3 +105,16 @@ output "dynamic_group_name" {
   description = "Name of the compute instance dynamic group."
   sensitive   = true
 }
+
+output "secret_ids" {
+  value = {
+    restic_password           = oci_vault_secret.restic_password.id
+    restic_secondary_password = oci_vault_secret.restic_secondary_password.id
+    oci_s3_secret_key         = oci_vault_secret.oci_s3_secret_key.id
+    cloudflare_s3_secret_key  = oci_vault_secret.cloudflare_s3_secret_key.id
+    healthchecks_ping_url     = oci_vault_secret.healthchecks_ping_url.id
+  }
+  description = "Map of secret names to their respective OCI Vault secret OCIDs."
+  sensitive   = true
+}
+

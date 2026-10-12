@@ -46,6 +46,11 @@
 | [oci_objectstorage_object_lifecycle_policy.backups](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/objectstorage_object_lifecycle_policy)                             | resource    |
 | [oci_ons_notification_topic.budget_alerts](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_notification_topic)                                                     | resource    |
 | [oci_ons_subscription.budget_alerts_email](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_subscription)                                                           | resource    |
+| [oci_vault_secret.cloudflare_s3_secret_key](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/vault_secret)                                                              | resource    |
+| [oci_vault_secret.healthchecks_ping_url](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/vault_secret)                                                                 | resource    |
+| [oci_vault_secret.oci_s3_secret_key](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/vault_secret)                                                                     | resource    |
+| [oci_vault_secret.restic_password](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/vault_secret)                                                                       | resource    |
+| [oci_vault_secret.restic_secondary_password](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/vault_secret)                                                             | resource    |
 | [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/data-sources/objectstorage_namespace)                                                         | data source |
 | [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/1.4.1/docs/data-sources/file)                                                                                        | data source |
 
@@ -84,25 +89,26 @@
 
 ## Outputs
 
-| Name                                                                                                                       | Description                                                 |
-| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| <a name="output_amd_instance_ids"></a> [amd\_instance\_ids](#output_amd_instance_ids)                                      | OCIDs of the AMD compute instances.                         |
-| <a name="output_amd_private_ips"></a> [amd\_private\_ips](#output_amd_private_ips)                                         | Private IP addresses of the AMD compute instances.          |
-| <a name="output_arm_instance_id"></a> [arm\_instance\_id](#output_arm_instance_id)                                         | OCID of the Ampere A1 compute instance.                     |
-| <a name="output_arm_private_ip"></a> [arm\_private\_ip](#output_arm_private_ip)                                            | Private IP address of the Ampere A1 compute instance.       |
-| <a name="output_backup_bucket_name"></a> [backup\_bucket\_name](#output_backup_bucket_name)                                | Name of the OCI Object Storage bucket for instance backups. |
-| <a name="output_backup_s3_endpoint"></a> [backup\_s3\_endpoint](#output_backup_s3_endpoint)                                | S3 compatibility endpoint URL for Restic backups.           |
-| <a name="output_backup_uploaders_group_name"></a> [backup\_uploaders\_group\_name](#output_backup_uploaders_group_name)    | Name of the append-only IAM group for backup uploads.       |
-| <a name="output_backup_uploaders_policy_id"></a> [backup\_uploaders\_policy\_id](#output_backup_uploaders_policy_id)       | OCID of the append-only IAM policy for backup uploads.      |
-| <a name="output_budget_id"></a> [budget\_id](#output_budget_id)                                                            | OCID of the zero-spend monthly budget.                      |
-| <a name="output_budget_notification_topic_id"></a> [budget\_notification\_topic\_id](#output_budget_notification_topic_id) | OCID of the budget alerts notification topic.               |
-| <a name="output_dynamic_group_name"></a> [dynamic\_group\_name](#output_dynamic_group_name)                                | Name of the compute instance dynamic group.                 |
-| <a name="output_forecast_budget_alert_id"></a> [forecast\_budget\_alert\_id](#output_forecast_budget_alert_id)             | OCID of the forecasted spend budget alert rule.             |
-| <a name="output_master_key_id"></a> [master\_key\_id](#output_master_key_id)                                               | OCID of the software-protected master encryption key.       |
-| <a name="output_nat_gateway_id"></a> [nat\_gateway\_id](#output_nat_gateway_id)                                            | OCID of the NAT gateway.                                    |
-| <a name="output_subnet_id"></a> [subnet\_id](#output_subnet_id)                                                            | OCID of the private compute subnet.                         |
-| <a name="output_vault_id"></a> [vault\_id](#output_vault_id)                                                               | OCID of the OCI Vault.                                      |
-| <a name="output_vault_management_endpoint"></a> [vault\_management\_endpoint](#output_vault_management_endpoint)           | Management endpoint URL for the OCI Vault.                  |
-| <a name="output_vcn_id"></a> [vcn\_id](#output_vcn_id)                                                                     | OCID of the homelab VCN.                                    |
+| Name                                                                                                                       | Description                                                     |
+| -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| <a name="output_amd_instance_ids"></a> [amd\_instance\_ids](#output_amd_instance_ids)                                      | OCIDs of the AMD compute instances.                             |
+| <a name="output_amd_private_ips"></a> [amd\_private\_ips](#output_amd_private_ips)                                         | Private IP addresses of the AMD compute instances.              |
+| <a name="output_arm_instance_id"></a> [arm\_instance\_id](#output_arm_instance_id)                                         | OCID of the Ampere A1 compute instance.                         |
+| <a name="output_arm_private_ip"></a> [arm\_private\_ip](#output_arm_private_ip)                                            | Private IP address of the Ampere A1 compute instance.           |
+| <a name="output_backup_bucket_name"></a> [backup\_bucket\_name](#output_backup_bucket_name)                                | Name of the OCI Object Storage bucket for instance backups.     |
+| <a name="output_backup_s3_endpoint"></a> [backup\_s3\_endpoint](#output_backup_s3_endpoint)                                | S3 compatibility endpoint URL for Restic backups.               |
+| <a name="output_backup_uploaders_group_name"></a> [backup\_uploaders\_group\_name](#output_backup_uploaders_group_name)    | Name of the append-only IAM group for backup uploads.           |
+| <a name="output_backup_uploaders_policy_id"></a> [backup\_uploaders\_policy\_id](#output_backup_uploaders_policy_id)       | OCID of the append-only IAM policy for backup uploads.          |
+| <a name="output_budget_id"></a> [budget\_id](#output_budget_id)                                                            | OCID of the zero-spend monthly budget.                          |
+| <a name="output_budget_notification_topic_id"></a> [budget\_notification\_topic\_id](#output_budget_notification_topic_id) | OCID of the budget alerts notification topic.                   |
+| <a name="output_dynamic_group_name"></a> [dynamic\_group\_name](#output_dynamic_group_name)                                | Name of the compute instance dynamic group.                     |
+| <a name="output_forecast_budget_alert_id"></a> [forecast\_budget\_alert\_id](#output_forecast_budget_alert_id)             | OCID of the forecasted spend budget alert rule.                 |
+| <a name="output_master_key_id"></a> [master\_key\_id](#output_master_key_id)                                               | OCID of the software-protected master encryption key.           |
+| <a name="output_nat_gateway_id"></a> [nat\_gateway\_id](#output_nat_gateway_id)                                            | OCID of the NAT gateway.                                        |
+| <a name="output_secret_ids"></a> [secret\_ids](#output_secret_ids)                                                         | Map of secret names to their respective OCI Vault secret OCIDs. |
+| <a name="output_subnet_id"></a> [subnet\_id](#output_subnet_id)                                                            | OCID of the private compute subnet.                             |
+| <a name="output_vault_id"></a> [vault\_id](#output_vault_id)                                                               | OCID of the OCI Vault.                                          |
+| <a name="output_vault_management_endpoint"></a> [vault\_management\_endpoint](#output_vault_management_endpoint)           | Management endpoint URL for the OCI Vault.                      |
+| <a name="output_vcn_id"></a> [vcn\_id](#output_vcn_id)                                                                     | OCID of the homelab VCN.                                        |
 
 <!-- END_TF_DOCS -->
