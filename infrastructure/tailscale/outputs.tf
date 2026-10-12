@@ -22,3 +22,10 @@ output "monitored_devices" {
   sensitive   = true
 }
 
+output "role_auth_keys" {
+  description = "Generated role-specific Tailscale authentication keys."
+  value       = { for k, v in tailscale_tailnet_key.roles : k => v.key }
+  sensitive   = true
+}
+
+
