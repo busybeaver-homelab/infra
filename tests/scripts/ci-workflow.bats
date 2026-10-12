@@ -143,4 +143,50 @@ setup() {
   [[ "$output" =~ "ref is missing" ]] || false
 }
 
+@test "setup-environment caches tflint plugins with cache-tflint id and skips init on cache hit" {
+  run yq eval '.runs.steps[] | select(.name == "Cache TFLint Plugins") | .id' "$ACTION"
+  [ "$status" -eq 0 ]
+  [ "$output" = "cache-tflint" ]
+
+  run yq eval '.runs.steps[] | select(.name == "Initialize TFLint") | .if' "$ACTION"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "steps.cache-tflint.outputs.cache-hit != 'true'" ]] || false
+}
+
+@test "setup-environment caches ansible galaxy with cache-galaxy id and skips install on cache hit" {
+  run yq eval '.runs.steps[] | select(.name == "Cache Ansible Galaxy") | .id' "$ACTION"
+  [ "$status" -eq 0 ]
+  [ "$output" = "cache-galaxy" ]
+
+  run yq eval '.runs.steps[] | select(.name == "Install Ansible Galaxy requirements") | .if' "$ACTION"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "steps.cache-galaxy.outputs.cache-hit != 'true'" ]] || false
+}
+
+@test "setup-environment ansible-galaxy install does not specify --force" {
+  run yq eval '.runs.steps[] | select(.name == "Install Ansible Galaxy requirements") | .run' "$ACTION"
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "--force" ]] || false
+}
+
+@test "codeql, drift-detection, and backup-prune invoke setup-environment with lean defaults" {
+  for wf in codeql.yml drift-detection.yml backup-prune.yml; do
+    run grep -F "uses: $/.github/actions/setup-environment" "$REPO_ROOT/.github/workflows/$wf"
+    [ "$status" -eq 0 ]
+
+    # None of these lean workflows should enable python, galaxy, or tflint
+    run yq eval '.. | select(.uses? == "$/.github/actions/setup-environment") | .with.python // "false"' "$REPO_ROOT/.github/workflows/$wf"
+    [ "$status" -eq 0 ]
+    [ "$output" = "false" ]
+
+    run yq eval '.. | select(.uses? == "$/.github/actions/setup-environment") | .with.galaxy // "false"' "$REPO_ROOT/.github/workflows/$wf"
+    [ "$status" -eq 0 ]
+    [ "$output" = "false" ]
+
+    run yq eval '.. | select(.uses? == "$/.github/actions/setup-environment") | .with.tflint // "false"' "$REPO_ROOT/.github/workflows/$wf"
+    [ "$status" -eq 0 ]
+    [ "$output" = "false" ]
+  done
+}
+
 
