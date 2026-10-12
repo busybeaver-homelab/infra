@@ -36,6 +36,7 @@ locals {
     "tag:os-ios"            = ["autogroup:owner"]
     "tag:os-appletv"        = ["autogroup:owner"]
     "tag:device-desktop"    = ["autogroup:owner"]
+    "tag:device-laptop"     = ["autogroup:owner"]
     "tag:device-mobile"     = ["autogroup:owner"]
     "tag:hosting-onpremise" = ["autogroup:owner", "tag:type-server"]
     "tag:hosting-cloud"     = ["autogroup:owner", "tag:type-server"]

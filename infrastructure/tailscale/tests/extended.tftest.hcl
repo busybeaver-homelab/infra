@@ -56,6 +56,16 @@ run "extended_default_plan" {
   }
 
   assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "nextdns:947d9e")
+    error_message = "Tailscale ACL policy must include NextDNS attribute in nodeAttrs."
+  }
+
+  assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "tag:device-laptop")
+    error_message = "Tailscale ACL policy must include tag:device-laptop in nodeAttrs."
+  }
+
+  assert {
     condition     = length(tailscale_dns_search_paths.homelab.search_paths) == 0
     error_message = "Search paths should default to empty list."
   }

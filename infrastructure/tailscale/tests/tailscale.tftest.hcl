@@ -94,6 +94,16 @@ run "unit_plan_matches_baseline" {
     condition     = length(tailscale_acl.homelab.acl) > 0
     error_message = "Tailscale ACL policy file must not be empty."
   }
+
+  assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "nextdns:947d9e")
+    error_message = "Tailscale ACL policy must include NextDNS attribute in nodeAttrs."
+  }
+
+  assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "tag:device-laptop")
+    error_message = "Tailscale ACL policy must include tag:device-laptop in nodeAttrs and tagOwners."
+  }
 }
 
 run "verify_computed_outputs_on_apply" {
