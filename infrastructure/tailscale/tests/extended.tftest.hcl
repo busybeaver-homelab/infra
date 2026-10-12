@@ -56,6 +56,16 @@ run "extended_default_plan" {
   }
 
   assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "nextdns:000000")
+    error_message = "Tailscale ACL policy must include NextDNS decoy attribute in nodeAttrs."
+  }
+
+  assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "tag:decoy-client")
+    error_message = "Tailscale ACL policy must include decoy client tag in nodeAttrs."
+  }
+
+  assert {
     condition     = length(tailscale_dns_search_paths.homelab.search_paths) == 0
     error_message = "Search paths should default to empty list."
   }

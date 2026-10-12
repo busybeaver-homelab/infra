@@ -94,6 +94,16 @@ run "unit_plan_matches_baseline" {
     condition     = length(tailscale_acl.homelab.acl) > 0
     error_message = "Tailscale ACL policy file must not be empty."
   }
+
+  assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "nextdns:000000")
+    error_message = "Tailscale ACL policy must include NextDNS decoy attribute in nodeAttrs."
+  }
+
+  assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "tag:decoy-client")
+    error_message = "Tailscale ACL policy must include decoy client tag in nodeAttrs."
+  }
 }
 
 run "verify_computed_outputs_on_apply" {
