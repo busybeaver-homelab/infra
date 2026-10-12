@@ -7,4 +7,6 @@ resource "tailscale_tailnet_settings" "homelab" {
   posture_identity_collection_on              = false
   regional_routing_on                         = false
   users_role_allowed_to_join_external_tailnet = "admin"
+  acls_externally_managed_on                  = var.acls_externally_managed_on
+  acls_external_link                          = var.acls_external_link != "" ? var.acls_external_link : null
 }

@@ -46,6 +46,16 @@ run "extended_default_plan" {
   }
 
   assert {
+    condition     = tailscale_tailnet_settings.homelab.acls_externally_managed_on == true
+    error_message = "ACL external management must be enabled by default."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_settings.homelab.acls_external_link != null && length(tailscale_tailnet_settings.homelab.acls_external_link) > 0
+    error_message = "ACL external link must be populated when externally managed."
+  }
+
+  assert {
     condition     = length(tailscale_dns_search_paths.homelab.search_paths) == 0
     error_message = "Search paths should default to empty list."
   }
@@ -401,5 +411,30 @@ run "reject_invalid_policy_file_extension" {
 
   expect_failures = [
     var.policy_file_path,
+  ]
+}
+
+run "reject_acl_external_management_disabled" {
+  command = plan
+
+  variables {
+    acls_externally_managed_on = false
+    acls_external_link         = ""
+  }
+
+  expect_failures = [
+    check.free_tier_invariants,
+  ]
+}
+
+run "reject_invalid_acls_external_link" {
+  command = plan
+
+  variables {
+    acls_external_link = "ftp://invalid-url.com"
+  }
+
+  expect_failures = [
+    var.acls_external_link,
   ]
 }
