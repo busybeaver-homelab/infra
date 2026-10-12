@@ -56,4 +56,56 @@ run "mutate_labels" {
     condition     = lookup(var.default_labels, "project", "") == "homelab"
     error_message = "Mandatory project label must remain homelab"
   }
+
+  assert {
+    condition     = lookup(local.default_labels, "project", "") == "homelab"
+    error_message = "Mandatory project label must be homelab in local.default_labels"
+  }
 }
+
+run "mutate_region_to_us_west1" {
+  command = plan
+
+  variables {
+    gcp_region = "us-west1"
+  }
+
+  assert {
+    condition     = var.gcp_region == "us-west1"
+    error_message = "Region mutation to us-west1 must be accepted within Always Free tier"
+  }
+}
+
+run "mutate_with_budget_and_labels" {
+  command = apply
+
+  variables {
+    gcp_billing_account_id = "012345-6789AB-CDEF01"
+    default_labels = {
+      project     = "homelab"
+      environment = "mutation-stage"
+      managed_by  = "opentofu"
+    }
+  }
+
+  assert {
+    condition     = length(google_billing_budget.monthly_spend_limit) == 1
+    error_message = "Billing budget must be created on apply when billing account ID is provided"
+  }
+
+  assert {
+    condition     = google_billing_budget.monthly_spend_limit[0].billing_account == "012345-6789AB-CDEF01"
+    error_message = "Billing account on budget resource must match variable input"
+  }
+
+  assert {
+    condition     = lookup(local.default_labels, "project", "") == "homelab"
+    error_message = "Mandatory project label must be homelab in local.default_labels"
+  }
+
+  assert {
+    condition     = lookup(local.default_labels, "managed_by", "") == "opentofu"
+    error_message = "Additional label must be preserved in local.default_labels"
+  }
+}
+
