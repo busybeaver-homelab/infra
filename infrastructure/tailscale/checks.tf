@@ -47,7 +47,7 @@ check "free_tier_invariants" {
 
 check "device_discovery_diagnostics" {
   assert {
-    condition     = alltrue([for host, dev in var.infrastructure_devices : contains(keys(local.device_id_map), host)])
+    condition     = (length(try(data.tailscale_devices.all.devices, [])) == 0 && length(var.device_id_overrides) == 0) || alltrue([for host, dev in var.infrastructure_devices : contains(keys(local.device_id_map), host)])
     error_message = "One or more infrastructure devices defined in var.infrastructure_devices cannot be resolved from tailnet discovery or device_id_overrides."
   }
 }

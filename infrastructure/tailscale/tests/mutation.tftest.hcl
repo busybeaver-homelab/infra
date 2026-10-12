@@ -19,7 +19,7 @@ mock_provider "sops" {
 }
 
 variables {
-  policy_file_path = "policy.ci.hujson"
+  policy_file_path = "policy.ci.hujson.tftpl"
 }
 
 run "initial_apply" {
