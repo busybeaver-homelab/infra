@@ -2,10 +2,10 @@
 
 ## Requirements
 
-| Name                                                                     | Version  |
-| ------------------------------------------------------------------------ | -------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.8.0 |
-| <a name="requirement_github"></a> [github](#requirement_github)          | ~> 6.0   |
+| Name                                                                     | Version |
+| ------------------------------------------------------------------------ | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
+| <a name="requirement_github"></a> [github](#requirement_github)          | 6.13.0  |
 
 ## Providers
 
@@ -17,17 +17,17 @@
 
 | Name                                                                                                                                                                           | Type     |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| [github_actions_environment_secret.backup_secrets](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/actions_environment_secret)               | resource |
-| [github_actions_environment_secret.ci_secrets](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/actions_environment_secret)                   | resource |
-| [github_actions_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/actions_repository_permissions)                 | resource |
-| [github_repository.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository)                                                         | resource |
-| [github_repository_dependabot_security_updates.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_dependabot_security_updates) | resource |
-| [github_repository_deploy_key.deploy_keys](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_deploy_key)                            | resource |
-| [github_repository_environment.backup](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_environment)                               | resource |
-| [github_repository_environment.ci](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_environment)                                   | resource |
-| [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_ruleset)                              | resource |
-| [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_vulnerability_alerts)               | resource |
-| [github_workflow_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/latest/docs/resources/workflow_repository_permissions)               | resource |
+| [github_actions_environment_secret.backup_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)               | resource |
+| [github_actions_environment_secret.ci_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                   | resource |
+| [github_actions_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_repository_permissions)                 | resource |
+| [github_repository.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository)                                                         | resource |
+| [github_repository_dependabot_security_updates.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_dependabot_security_updates) | resource |
+| [github_repository_deploy_key.deploy_keys](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_deploy_key)                            | resource |
+| [github_repository_environment.backup](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                               | resource |
+| [github_repository_environment.ci](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                   | resource |
+| [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_ruleset)                              | resource |
+| [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_vulnerability_alerts)               | resource |
+| [github_workflow_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/workflow_repository_permissions)               | resource |
 
 ## Inputs
 

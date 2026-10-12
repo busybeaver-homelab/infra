@@ -2,10 +2,10 @@
 
 ## Requirements
 
-| Name                                                                     | Version  |
-| ------------------------------------------------------------------------ | -------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.8.0 |
-| <a name="requirement_google"></a> [google](#requirement_google)          | ~> 8.0   |
+| Name                                                                     | Version |
+| ------------------------------------------------------------------------ | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
+| <a name="requirement_google"></a> [google](#requirement_google)          | 8.6.0   |
 
 ## Providers
 
@@ -15,9 +15,9 @@
 
 ## Resources
 
-| Name                                                                                                                                 | Type     |
-| ------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| [google_compute_network.default_vpc](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_network) | resource |
+| Name                                                                                                                                | Type     |
+| ----------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| [google_compute_network.default_vpc](https://registry.terraform.io/providers/hashicorp/google/8.6.0/docs/resources/compute_network) | resource |
 
 ## Inputs
 

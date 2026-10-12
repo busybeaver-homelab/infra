@@ -12,10 +12,10 @@ This directory contains the OpenTofu configurations for managing Microsoft Azure
 
 ## Requirements
 
-| Name                                                                     | Version  |
-| ------------------------------------------------------------------------ | -------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.8.0 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement_azurerm)       | ~> 5.0   |
+| Name                                                                     | Version |
+| ------------------------------------------------------------------------ | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement_azurerm)       | 5.9.0   |
 
 ## Providers
 
@@ -25,10 +25,10 @@ This directory contains the OpenTofu configurations for managing Microsoft Azure
 
 ## Resources
 
-| Name                                                                                                                                                               | Type        |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| [azurerm_consumption_budget_subscription.monthly](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/consumption_budget_subscription) | resource    |
-| [azurerm_subscription.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/subscription)                                    | data source |
+| Name                                                                                                                                                              | Type        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| [azurerm_consumption_budget_subscription.monthly](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/consumption_budget_subscription) | resource    |
+| [azurerm_subscription.current](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/data-sources/subscription)                                    | data source |
 
 ## Inputs
 
