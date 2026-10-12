@@ -94,4 +94,27 @@ variable "dns_split_nameservers" {
   }
 }
 
+variable "auth_keys" {
+  description = "Map of role-specific authentication keys to manage declaratively."
+  type = map(object({
+    reusable      = bool
+    ephemeral     = bool
+    preauthorized = bool
+    expiry        = number
+    description   = string
+    tags          = list(string)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.auth_keys : alltrue([
+        for tag in v.tags : startswith(tag, "tag:")
+      ])
+    ])
+    error_message = "All auth key tags must start with the 'tag:' prefix."
+  }
+}
+
+
 
