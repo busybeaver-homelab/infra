@@ -28,4 +28,14 @@ output "role_auth_keys" {
   sensitive   = true
 }
 
+output "webhook_endpoint_url" {
+  description = "Tailnet event webhook endpoint URL."
+  value       = length(tailscale_webhook.events) > 0 ? tailscale_webhook.events[0].endpoint_url : ""
+  sensitive   = true
+}
 
+output "webhook_secret" {
+  description = "Tailnet event webhook signing secret."
+  value       = length(tailscale_webhook.events) > 0 ? tailscale_webhook.events[0].secret : ""
+  sensitive   = true
+}
