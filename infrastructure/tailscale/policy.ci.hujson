@@ -11,6 +11,21 @@
     ],
     "tag:oci-production": [
       "group:admin"
+    ],
+    "tag:type-server": [
+      "group:admin"
+    ],
+    "tag:os-linux": [
+      "group:admin"
+    ],
+    "tag:hosting-cloud": [
+      "group:admin"
+    ],
+    "tag:location-ger": [
+      "group:admin"
+    ],
+    "tag:env-oci": [
+      "group:admin"
     ]
   },
   "acls": [
