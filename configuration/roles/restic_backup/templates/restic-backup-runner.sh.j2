@@ -55,7 +55,40 @@ execute_target() {
     set +a
     if [ -n "${CALLER_RESTIC_PASSWORD_FILE}" ]; then
       RESTIC_PASSWORD_FILE="${CALLER_RESTIC_PASSWORD_FILE}"
+    elif [ "${label}" = "primary" ]; then
+      if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -f "${CREDENTIALS_DIRECTORY}/restic_password" ]; then
+        RESTIC_PASSWORD_FILE="${CREDENTIALS_DIRECTORY}/restic_password"
+      elif [ -f "{{ restic_backup_secrets_dir }}/restic_password" ]; then
+        RESTIC_PASSWORD_FILE="{{ restic_backup_secrets_dir }}/restic_password"
+      fi
+    elif [ "${label}" = "secondary" ]; then
+      if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -f "${CREDENTIALS_DIRECTORY}/restic_secondary_password" ]; then
+        RESTIC_PASSWORD_FILE="${CREDENTIALS_DIRECTORY}/restic_secondary_password"
+      elif [ -f "{{ restic_backup_secrets_dir }}/restic_secondary_password" ]; then
+        RESTIC_PASSWORD_FILE="{{ restic_backup_secrets_dir }}/restic_secondary_password"
+      fi
     fi
+
+    if [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+      if [ "${label}" = "primary" ]; then
+        if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -f "${CREDENTIALS_DIRECTORY}/oci_s3_secret_key" ]; then
+          AWS_SECRET_ACCESS_KEY="$(cat "${CREDENTIALS_DIRECTORY}/oci_s3_secret_key")"
+          export AWS_SECRET_ACCESS_KEY
+        elif [ -f "{{ restic_backup_secrets_dir }}/oci_s3_secret_key" ]; then
+          AWS_SECRET_ACCESS_KEY="$(cat "{{ restic_backup_secrets_dir }}/oci_s3_secret_key")"
+          export AWS_SECRET_ACCESS_KEY
+        fi
+      elif [ "${label}" = "secondary" ]; then
+        if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -f "${CREDENTIALS_DIRECTORY}/cloudflare_s3_secret_key" ]; then
+          AWS_SECRET_ACCESS_KEY="$(cat "${CREDENTIALS_DIRECTORY}/cloudflare_s3_secret_key")"
+          export AWS_SECRET_ACCESS_KEY
+        elif [ -f "{{ restic_backup_secrets_dir }}/cloudflare_s3_secret_key" ]; then
+          AWS_SECRET_ACCESS_KEY="$(cat "{{ restic_backup_secrets_dir }}/cloudflare_s3_secret_key")"
+          export AWS_SECRET_ACCESS_KEY
+        fi
+      fi
+    fi
+
     if [ -n "${CALLER_RESTIC_REPOSITORY}" ]; then
       RESTIC_REPOSITORY="${CALLER_RESTIC_REPOSITORY}"
     fi
@@ -94,6 +127,14 @@ fi
 if [ {{ '${#' }}FAILED_TARGETS[@]} -ne 0 ]; then
   echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Backup finished with failure(s) in: ${FAILED_TARGETS[*]}" >&2
   exit 1
+fi
+
+if [ -z "${HEALTHCHECKS_PING_URL:-}" ]; then
+  if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -s "${CREDENTIALS_DIRECTORY}/healthchecks_ping_url" ]; then
+    HEALTHCHECKS_PING_URL="$(cat "${CREDENTIALS_DIRECTORY}/healthchecks_ping_url")"
+  elif [ -s "{{ restic_backup_secrets_dir }}/healthchecks_ping_url" ]; then
+    HEALTHCHECKS_PING_URL="$(cat "{{ restic_backup_secrets_dir }}/healthchecks_ping_url")"
+  fi
 fi
 
 if [ -n "${HEALTHCHECKS_PING_URL:-}" ]; then
