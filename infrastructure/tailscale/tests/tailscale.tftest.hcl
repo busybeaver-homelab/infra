@@ -19,7 +19,7 @@ mock_provider "sops" {
 }
 
 variables {
-  policy_file_path = "policy.ci.hujson"
+  policy_file_path = "policy.ci.hujson.tftpl"
 }
 
 run "unit_plan_matches_baseline" {
@@ -31,8 +31,8 @@ run "unit_plan_matches_baseline" {
   }
 
   assert {
-    condition     = tailscale_tailnet_settings.homelab.devices_approval_on == false
-    error_message = "Device approval should be false."
+    condition     = tailscale_tailnet_settings.homelab.devices_approval_on == true
+    error_message = "Device approval should be true."
   }
 
   assert {

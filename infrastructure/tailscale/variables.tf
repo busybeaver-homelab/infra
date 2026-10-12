@@ -191,7 +191,33 @@ variable "webhook_subscriptions" {
   default = [
     "nodeCreated",
     "nodeNeedsApproval",
-    "nodeKeyExpiringInSevenDays",
+    "nodeKeyExpiringInOneDay",
     "policyUpdate"
   ]
+
+  validation {
+    condition = alltrue([
+      for sub in var.webhook_subscriptions : contains([
+        "categoryTailnetManagement",
+        "nodeCreated",
+        "nodeNeedsApproval",
+        "nodeApproved",
+        "nodeKeyExpiringInOneDay",
+        "nodeKeyExpired",
+        "nodeDeleted",
+        "policyUpdate",
+        "userCreated",
+        "userNeedsApproval",
+        "userSuspended",
+        "userRestored",
+        "userDeleted",
+        "userApproved",
+        "userRoleUpdated",
+        "categoryDeviceMisconfigurations",
+        "subnetIPForwardingNotEnabled",
+        "exitNodeIPForwardingNotEnabled"
+      ], sub)
+    ])
+    error_message = "All webhook subscriptions must be valid Tailscale event subscription types."
+  }
 }
