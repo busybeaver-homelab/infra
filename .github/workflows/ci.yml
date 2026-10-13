@@ -337,6 +337,14 @@ jobs:
         if: always()
         run: rm -f "${HOME}/.config/sops/age/keys.txt"
 
+      - name: Prepare Molecule APT Cache for Saving
+        if: always()
+        run: |
+          sudo find configuration -type f -name lock -path "*/.cache/apt/*" -delete 2>/dev/null || true
+          sudo find configuration -type d -name partial -path "*/.cache/apt/*" -prune -exec rm -rf {} + 2>/dev/null || true
+          sudo chown -R "$(id -u):$(id -g)" configuration 2>/dev/null || true
+          sudo chmod -R u+rwX,go+rX configuration 2>/dev/null || true
+
   ci-gate:
     name: CI Gate
     if: always()
