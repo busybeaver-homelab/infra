@@ -16,3 +16,16 @@ check "enforce_mandatory_project_tag" {
     error_message = "Project tag 'homelab' is mandatory on all infrastructure resources"
   }
 }
+
+check "vault_always_free_tier" {
+  assert {
+    condition     = oci_kms_vault.homelab.vault_type == "DEFAULT"
+    error_message = "CRITICAL: oci_kms_vault.homelab must be vault_type 'DEFAULT' to avoid billable Virtual Private Vaults."
+  }
+
+  assert {
+    condition     = oci_kms_key.master_key.protection_mode == "SOFTWARE"
+    error_message = "CRITICAL: oci_kms_key.master_key must use 'SOFTWARE' protection to remain within unlimited Always Free quota."
+  }
+}
+

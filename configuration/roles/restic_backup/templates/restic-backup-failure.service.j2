@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 EnvironmentFile=-{{ restic_backup_config_dir }}/backup.env
-ExecStart=/bin/sh -c 'if [ -n "${HEALTHCHECKS_PING_URL:-}" ]; then /usr/bin/curl -fsS -m 10 --retry 3 "${HEALTHCHECKS_PING_URL}/fail" --data-raw "Unit %I failed on host $(hostname)"; fi'
+LoadCredential=healthchecks_ping_url:{{ restic_backup_secrets_dir }}/healthchecks_ping_url
+ExecStart=/bin/sh -c 'PING_URL=""; if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -s "${CREDENTIALS_DIRECTORY}/healthchecks_ping_url" ]; then PING_URL="$(cat "${CREDENTIALS_DIRECTORY}/healthchecks_ping_url")"; elif [ -n "${HEALTHCHECKS_PING_URL:-}" ]; then PING_URL="${HEALTHCHECKS_PING_URL}"; fi; if [ -n "$PING_URL" ]; then /usr/bin/curl -fsS -m 10 --retry 3 "${PING_URL}/fail" --data-raw "Unit %I failed on host $(hostname)"; fi'
 User=root
 Group=root

@@ -222,6 +222,16 @@ Map keys are logical and non-identifying (SOPS does not encrypt keys). CI holds 
 | `cloudflare.config.iam.member.{id,email,resource_group_id}` | Frozen account member                                                                                 |
 | `cloudflare.config.zones.<zone_key>.*`                      | Zone name/ID, DNS records, Email Routing rules and catch-all, WAF custom rules                        |
 
+### OCI Vault Secrets & Zero-Trust Host Delivery
+
+To achieve zero-trust cloud secrets delivery without persistent disk storage or long-lived API tokens:
+
+1. **Always Free Cloud Vault:** OCI Standard Virtual Vault (`vault_type = "DEFAULT"`) with software AES-256 key (`protection_mode = "SOFTWARE"`). Both standard vaults and software keys are 100% free under OCI Always Free tier (up to 20 secrets per tenancy at $0 cost).
+2. **Instance Principal IAM:** Compute instances authenticate automatically to OCI Vault via IMDSv2 and Instance Principals using dynamic group `homelab-oci-vms` matching `instance.compartment.id = '<compartment_ocid>'`. IAM policy grants `read secret-bundles in compartment` strictly to this dynamic group.
+3. **In-Memory Early Boot Delivery (`/run/secrets`):** Systemd oneshot unit `oci-secrets-fetch.service` executes `/usr/local/sbin/oci-fetch-secrets.sh` on boot, querying secret bundles directly into volatile `tmpfs` `/run/secrets/` (permissions `0700 root:root` directory, `0400 root:root` files). Secrets exist only in RAM and vanish on shutdown.
+4. **Modern systemd `LoadCredential=`:** Host systemd units (such as `restic_backup`) bind secrets into isolated process sandboxes using `LoadCredential=<name>:/run/secrets/<file>`. The unit accesses them securely via `$CREDENTIALS_DIRECTORY` without reading `/run/secrets/` directly or leaking credentials into `/proc`, disk, or environment tables.
+5. **Container Isolation:** Docker and non-systemd workloads consume `/run/secrets/` via read-only volume mounts (`-v /run/secrets:/run/secrets:ro`).
+
 ---
 
 ## 🔐 Docs & Backups Transparent Encryption (git-crypt)

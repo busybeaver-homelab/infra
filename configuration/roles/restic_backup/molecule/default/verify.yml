@@ -67,12 +67,12 @@
           - restic_backup_secondary_env_stat.stat.mode == '0600'
           - restic_backup_secondary_env_stat.stat.pw_name == 'root'
 
-    - name: Stat restic password file
+    - name: Stat restic in-memory password file
       ansible.builtin.stat:
-        path: /etc/restic/password
+        path: /run/secrets/restic_password
       register: restic_backup_password_stat
 
-    - name: Assert password file permissions and ownership
+    - name: Assert in-memory password file permissions and ownership
       ansible.builtin.assert:
         that:
           - restic_backup_password_stat.stat.exists
@@ -80,17 +80,28 @@
           - restic_backup_password_stat.stat.pw_name == 'root'
           - restic_backup_password_stat.stat.gr_name == 'root'
 
-    - name: Stat restic password-secondary file
+    - name: Stat restic in-memory secondary password file
       ansible.builtin.stat:
-        path: /etc/restic/password-secondary
+        path: /run/secrets/restic_secondary_password
       register: restic_backup_secondary_password_stat
 
-    - name: Assert password-secondary file permissions and ownership
+    - name: Assert in-memory secondary password file permissions and ownership
       ansible.builtin.assert:
         that:
           - restic_backup_secondary_password_stat.stat.exists
           - restic_backup_secondary_password_stat.stat.mode == '0400'
           - restic_backup_secondary_password_stat.stat.pw_name == 'root'
+
+    - name: Stat legacy restic password file
+      ansible.builtin.stat:
+        path: /etc/restic/password
+      register: restic_backup_legacy_password_stat
+
+    - name: Assert legacy password file does not exist on disk
+      ansible.builtin.assert:
+        that:
+          - not restic_backup_legacy_password_stat.stat.exists
+        fail_msg: "Legacy password file /etc/restic/password must not exist on persistent disk"
 
     - name: Stat restic failure unit
       ansible.builtin.stat:
@@ -108,12 +119,15 @@
         src: /etc/systemd/system/restic-backup.service
       register: restic_backup_service_content
 
-    - name: Assert systemd sandboxing and OnFailure directive
+    - name: Assert systemd sandboxing, OnFailure, and LoadCredential directives
       ansible.builtin.assert:
         that:
           - "'CapabilityBoundingSet=' in (restic_backup_service_content.content | b64decode)"
           - "'SystemCallFilter=@system-service' in (restic_backup_service_content.content | b64decode)"
           - "'OnFailure=restic-backup-failure@%n.service' in (restic_backup_service_content.content | b64decode)"
+          - "'LoadCredential=restic_password:' in (restic_backup_service_content.content | b64decode)"
+          - "'LoadCredential=restic_secondary_password:' in (restic_backup_service_content.content | b64decode)"
+          - "'LoadCredential=healthchecks_ping_url:' in (restic_backup_service_content.content | b64decode)"
 
     - name: Stat runner script
       ansible.builtin.stat:
@@ -149,7 +163,7 @@
       ansible.builtin.command: restic snapshots
       environment:
         RESTIC_REPOSITORY: "/var/cache/restic/primary-repo"
-        RESTIC_PASSWORD_FILE: "/etc/restic/password"
+        RESTIC_PASSWORD_FILE: "/run/secrets/restic_password"
       register: restic_backup_primary_snapshots_stat
       changed_when: false
 
@@ -163,7 +177,7 @@
       ansible.builtin.command: restic snapshots
       environment:
         RESTIC_REPOSITORY: "/var/cache/restic/secondary-repo"
-        RESTIC_PASSWORD_FILE: "/etc/restic/password-secondary"
+        RESTIC_PASSWORD_FILE: "/run/secrets/restic_secondary_password"
       register: restic_backup_secondary_snapshots_stat
       changed_when: false
 
@@ -196,7 +210,7 @@
     - name: Verify journal logs do not contain raw password contents
       ansible.builtin.shell: |
         set -o pipefail
-        journalctl -u restic-backup.service --no-pager | grep -F "$(cat /etc/restic/password)"
+        journalctl -u restic-backup.service --no-pager | grep -F "$(cat /run/secrets/restic_password)"
       args:
         executable: /bin/bash
       register: restic_backup_journal_leak_check

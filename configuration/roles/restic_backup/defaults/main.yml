@@ -6,7 +6,7 @@ restic_backup_repository: ""
 restic_backup_s3_access_key: ""
 restic_backup_s3_secret_key: ""
 restic_backup_password: ""
-restic_backup_password_file_path: "{{ restic_backup_config_dir }}/password"
+restic_backup_password_file_path: "{{ restic_backup_secrets_dir }}/restic_password"
 restic_backup_healthchecks_ping_url: ""
 
 # Secondary Repository & Authentication Credentials (DR)
@@ -15,7 +15,7 @@ restic_backup_secondary_repository: ""
 restic_backup_secondary_s3_access_key: ""
 restic_backup_secondary_s3_secret_key: ""
 restic_backup_secondary_password: ""
-restic_backup_secondary_password_file_path: "{{ restic_backup_config_dir }}/password-secondary"
+restic_backup_secondary_password_file_path: "{{ restic_backup_secrets_dir }}/restic_secondary_password"
 
 # Directories and paths to include in the backup
 restic_backup_paths:
@@ -53,4 +53,5 @@ restic_backup_random_delay_sec: 1800
 restic_backup_cache_dir: "/var/cache/restic"
 restic_backup_log_dir: "/var/log/restic"
 restic_backup_config_dir: "/etc/restic"
+restic_backup_secrets_dir: "/run/secrets"
 restic_backup_runner_script_path: "/usr/local/sbin/restic-backup-runner.sh"

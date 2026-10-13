@@ -9,3 +9,8 @@
   community.general.ufw:
     state: reloaded
   become: true
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true

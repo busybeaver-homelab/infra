@@ -7,6 +7,20 @@ OnFailure=restic-backup-failure@%n.service
 [Service]
 Type=oneshot
 EnvironmentFile={{ restic_backup_config_dir }}/backup.env
+
+# Load in-memory credentials into ephemeral CREDENTIALS_DIRECTORY
+LoadCredential=restic_password:{{ restic_backup_password_file_path }}
+{% if restic_backup_s3_secret_key | default('') | length > 0 %}
+LoadCredential=oci_s3_secret_key:{{ restic_backup_secrets_dir }}/oci_s3_secret_key
+{% endif %}
+{% if restic_backup_secondary_enabled | bool %}
+LoadCredential=restic_secondary_password:{{ restic_backup_secondary_password_file_path }}
+{% if restic_backup_secondary_s3_secret_key | default('') | length > 0 %}
+LoadCredential=cloudflare_s3_secret_key:{{ restic_backup_secrets_dir }}/cloudflare_s3_secret_key
+{% endif %}
+{% endif %}
+LoadCredential=healthchecks_ping_url:{{ restic_backup_secrets_dir }}/healthchecks_ping_url
+
 ExecStart={{ restic_backup_runner_script_path }}
 
 # --- Process & Security Hardening ---
