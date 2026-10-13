@@ -21,6 +21,7 @@ runs:
     - name: Install Mise
       uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
       with:
+        version: "2026.10.8" # renovate: datasource=github-releases depName=jdx/mise
         cache: true
 
     - name: Setup Python Virtual Environment
@@ -29,6 +30,7 @@ runs:
       run: mise exec -- uv sync --locked
 
     - name: Cache TFLint Plugins
+      id: cache-tflint
       if: inputs.tflint == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -36,7 +38,7 @@ runs:
         key: tflint-${{ runner.os }}-${{ hashFiles('.tflint.hcl') }}
 
     - name: Initialize TFLint
-      if: inputs.tflint == 'true'
+      if: inputs.tflint == 'true' && steps.cache-tflint.outputs.cache-hit != 'true'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
@@ -44,6 +46,7 @@ runs:
         mise exec -- tflint --init
 
     - name: Cache Ansible Galaxy
+      id: cache-galaxy
       if: inputs.galaxy == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -53,8 +56,8 @@ runs:
         key: galaxy-${{ runner.os }}-${{ hashFiles('configuration/roles/requirements.yml') }}
 
     - name: Install Ansible Galaxy requirements
-      if: inputs.galaxy == 'true'
+      if: inputs.galaxy == 'true' && steps.cache-galaxy.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        mise exec -- ansible-galaxy install -r configuration/roles/requirements.yml -p ~/.ansible/roles --force
+        mise exec -- ansible-galaxy install -r configuration/roles/requirements.yml -p ~/.ansible/roles
         mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml

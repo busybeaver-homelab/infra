@@ -17,13 +17,25 @@ setup() {
 }
 
 @test "tailscale production policy is tracked by git-crypt" {
-  run git-crypt status infrastructure/tailscale/policy.hujson
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "encrypted" ]]
+  if command -v git-crypt >/dev/null 2>&1; then
+    run git-crypt status infrastructure/tailscale/policy.hujson
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "encrypted" ]]
+  else
+    run git check-attr filter infrastructure/tailscale/policy.hujson
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "filter: git-crypt" ]]
+  fi
 }
 
 @test "tailscale CI policy is explicitly exempted from git-crypt" {
-  run git-crypt status infrastructure/tailscale/policy.ci.hujson
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "not encrypted" ]]
+  if command -v git-crypt >/dev/null 2>&1; then
+    run git-crypt status infrastructure/tailscale/policy.ci.hujson
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "not encrypted" ]]
+  else
+    run git check-attr filter infrastructure/tailscale/policy.ci.hujson
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "filter: unspecified" ]]
+  fi
 }
