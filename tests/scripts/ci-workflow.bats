@@ -264,3 +264,23 @@ setup() {
 
 
 
+
+@test "no workflow job uses a floating -latest runner label" {
+  run grep -rnE '^[[:space:]]*runs-on:[[:space:]]*[^#]*-latest' "${REPO_ROOT}/.github/workflows/"
+  [ "$status" -eq 1 ]
+}
+
+@test "every workflow job pins its runner to a versioned ubuntu image" {
+  local wf jobs pinned
+  for wf in "${REPO_ROOT}"/.github/workflows/*.yml; do
+    jobs="$(yq '.jobs | length' "$wf")"
+    pinned="$(yq '[.jobs[] | select(.["runs-on"] | test("^ubuntu-[0-9]{2}\\.[0-9]{2}$"))] | length' "$wf")"
+    [ "$jobs" -eq "$pinned" ] || { echo "unpinned runner in ${wf}" >&2; false; }
+  done
+}
+
+@test "all workflow jobs use one runner image (bumped together, deliberately)" {
+  run bash -c "cat '${REPO_ROOT}'/.github/workflows/*.yml | yq -N '.jobs[].runs-on' | sort -u"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq 1 ]
+}
