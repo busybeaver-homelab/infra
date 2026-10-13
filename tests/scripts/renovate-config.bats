@@ -407,28 +407,83 @@ console.log("Package rule for jdx/mise correctly configured with groupSlug mise-
   [[ "$output" =~ "Package rule for jdx/mise correctly configured" ]]
 }
 
-@test ".github/renovate.json5 configures ignorePaths containing .python-version" {
+@test ".github/renovate.json5 does not configure .python-version in ignorePaths" {
   local config="${REPO_ROOT}/.github/renovate.json5"
   run node -e '
 const fs = require("fs");
 const content = fs.readFileSync(process.argv[1], "utf8");
 const config = eval("(" + content + ")");
 
-if (!Array.isArray(config.ignorePaths)) {
-  console.error("ignorePaths is not an array");
+if (Array.isArray(config.ignorePaths) && config.ignorePaths.includes(".python-version")) {
+  console.error("ignorePaths still includes obsolete .python-version");
   process.exit(1);
 }
 
-if (!config.ignorePaths.includes(".python-version")) {
-  console.error("ignorePaths does not include .python-version");
-  process.exit(1);
-}
-
-console.log("ignorePaths correctly includes .python-version");
+console.log("ignorePaths does not include .python-version");
 ' "$config"
 
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "ignorePaths correctly includes .python-version" ]]
+  [[ "$output" =~ "ignorePaths does not include .python-version" ]]
+}
+
+@test ".github/renovate.json5 configures rangeStrategy bump for PEP 621 python" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+const rule = config.packageRules.find(r =>
+  Array.isArray(r.matchManagers) &&
+  r.matchManagers.includes("pep621") &&
+  Array.isArray(r.matchPackageNames) &&
+  r.matchPackageNames.includes("python") &&
+  r.rangeStrategy === "bump"
+);
+
+if (!rule) {
+  console.error("Package rule with rangeStrategy: bump for pep621 python not found");
+  process.exit(1);
+}
+
+console.log("rangeStrategy bump correctly configured for pep621 python");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "rangeStrategy bump correctly configured for pep621 python" ]]
+}
+
+@test ".github/renovate.json5 groups python runtime updates across mise and pep621" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+const runtimeGroupRule = config.packageRules.find(r =>
+  Array.isArray(r.matchManagers) &&
+  r.matchManagers.includes("mise") &&
+  r.matchManagers.includes("pep621") &&
+  Array.isArray(r.matchPackageNames) &&
+  r.matchPackageNames.includes("python") &&
+  r.groupSlug === "python-runtime"
+);
+
+if (!runtimeGroupRule) {
+  console.error("Unified python runtime group rule not found");
+  process.exit(1);
+}
+
+if (runtimeGroupRule.automerge !== false) {
+  console.error("Expected automerge: false for python runtime group");
+  process.exit(1);
+}
+
+console.log("Unified python runtime group correctly configured with automerge false");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Unified python runtime group correctly configured" ]]
 }
 
 @test ".github/renovate.json5 explicitly disables pyenv and nodenv managers" {
