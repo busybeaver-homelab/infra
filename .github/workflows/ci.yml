@@ -270,6 +270,17 @@ jobs:
           python: "true"
           galaxy: "true"
 
+      - name: Cache Molecule APT Archives
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            configuration/roles/base_ubuntu_server/.cache/apt/archives
+            configuration/roles/restic_backup/.cache/apt/archives
+            configuration/.cache/apt/archives
+          key: molecule-apt-${{ matrix.scenario }}-${{ hashFiles('configuration/**/*.yml', 'configuration/**/*.yaml') }}
+          restore-keys: |
+            molecule-apt-${{ matrix.scenario }}-
+
       - name: Setup SOPS Age Key for Molecule
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
