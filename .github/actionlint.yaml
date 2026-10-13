@@ -1,7 +1,14 @@
 # Configuration for actionlint (GitHub Actions workflow linter)
+
+# GitHub-hosted labels that are generally available but newer than actionlint's
+# built-in label list (actionlint 1.7.12). Remove an entry once actionlint knows it.
+# ubuntu-26.04: GA per actions/runner-images (Ubuntu 26.04 announcement #14747).
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
+
 # Ignore false positives for GitHub's dedicated self-repository action syntax '$/...'
 # which is recommended by zizmor and supported by GitHub Actions runner, but not yet natively parsed by actionlint.
-
 paths:
   .github/workflows/**/*.{yml,yaml}:
     ignore:

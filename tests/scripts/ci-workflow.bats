@@ -252,3 +252,9 @@ setup() {
     [ "$jobs" -eq "$pinned" ] || { echo "unpinned runner in ${wf}" >&2; false; }
   done
 }
+
+@test "all workflow jobs use one runner image (bumped together, deliberately)" {
+  run bash -c "cat '${REPO_ROOT}'/.github/workflows/*.yml | yq -N '.jobs[].runs-on' | sort -u"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq 1 ]
+}
