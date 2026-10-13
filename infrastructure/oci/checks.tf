@@ -1,12 +1,12 @@
 check "enforce_always_free_shape_compliance" {
   assert {
-    condition     = oci_core_instance.ampere.shape_config[0].ocpus <= 4
-    error_message = "Ampere OCPUs must strictly comply with Always Free limits (<= 4 OCPUs)"
+    condition     = oci_core_instance.ampere.shape_config[0].ocpus <= 2
+    error_message = "Ampere OCPUs must strictly comply with Always Free limits (<= 2 OCPUs)"
   }
 
   assert {
-    condition     = oci_core_instance.ampere.shape_config[0].memory_in_gbs <= 24
-    error_message = "Ampere Memory must strictly comply with Always Free limits (<= 24 GB)"
+    condition     = oci_core_instance.ampere.shape_config[0].memory_in_gbs <= 12
+    error_message = "Ampere Memory must strictly comply with Always Free limits (<= 12 GB)"
   }
 }
 

@@ -48,13 +48,13 @@ run "verify_compute_instances_and_free_tier" {
   }
 
   assert {
-    condition     = oci_core_instance.ampere.shape_config[0].ocpus <= 4
-    error_message = "ARM instance OCPUs must not exceed 4 (Always Free limit)"
+    condition     = oci_core_instance.ampere.shape_config[0].ocpus <= 2
+    error_message = "ARM instance OCPUs must not exceed 2 (Always Free limit)"
   }
 
   assert {
-    condition     = oci_core_instance.ampere.shape_config[0].memory_in_gbs <= 24
-    error_message = "ARM instance memory must not exceed 24 GB (Always Free limit)"
+    condition     = oci_core_instance.ampere.shape_config[0].memory_in_gbs <= 12
+    error_message = "ARM instance memory must not exceed 12 GB (Always Free limit)"
   }
 
   assert {
