@@ -96,3 +96,22 @@ load 'helpers/test_helper'
   [ "$status" -eq 0 ]
 }
 
+@test ".python-version file does not exist in repository" {
+  [ ! -f "${REPO_ROOT}/.python-version" ]
+}
+
+@test "pyproject.toml requires-python specifies compatible range matching mise.toml" {
+  local pyproject="${REPO_ROOT}/pyproject.toml"
+  local mise_config="${REPO_ROOT}/mise.toml"
+  [ -f "$pyproject" ]
+  [ -f "$mise_config" ]
+
+  # Must use compatible range (~=3.14.0), not strict patch pin (==)
+  run grep -E '^requires-python\s*=\s*"~=3\.14\.0"' "$pyproject"
+  [ "$status" -eq 0 ]
+
+  # Must NOT use exact equality pin
+  run grep -E '^requires-python\s*=\s*"==.*"' "$pyproject"
+  [ "$status" -ne 0 ]
+}
+

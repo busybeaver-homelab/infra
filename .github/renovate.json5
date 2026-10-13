@@ -35,7 +35,6 @@
     "**/examples/**",
     "**/init.t",
     "**/.mise/locks/**",
-    ".python-version",
   ],
 
   // Native manager toggles
@@ -210,6 +209,26 @@
       semanticCommitScope: "deps/python",
       groupName: "python dependencies (initial development)",
       groupSlug: "python-deps-0x",
+      automerge: false,
+    },
+
+    // 5c. Python runtime requires-python range strategy
+    {
+      description: "Ensure PEP 621 requires-python uses bump range strategy to prevent exact patch pinning",
+      matchManagers: ["pep621"],
+      matchPackageNames: ["python"],
+      rangeStrategy: "bump",
+    },
+
+    // 5d. Unified Python runtime grouping across mise and pyproject.toml
+    {
+      description: "Group Python runtime updates across Mise and PEP 621 pyproject.toml",
+      matchManagers: ["mise", "pep621"],
+      matchPackageNames: ["python"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "toolchain",
+      groupName: "python runtime",
+      groupSlug: "python-runtime",
       automerge: false,
     },
 
