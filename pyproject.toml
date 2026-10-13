@@ -15,7 +15,7 @@ dependencies = [
 [tool.uv]
 dev-dependencies = [
     "ruff==0.17.0",
-    "ansible-lint==26.10.0",
+    "ansible-lint==26.10.1",
     "molecule==26.10.0",
     "molecule-plugins[docker]==26.10.12",
     "pytest-testinfra==10.2.2",
