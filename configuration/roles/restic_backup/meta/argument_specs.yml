@@ -28,8 +28,8 @@ argument_specs:
         description: Encryption password for the primary restic repository.
       restic_backup_password_file_path:
         type: str
-        default: "/etc/restic/password"
-        description: Local path where the primary encryption password file is written.
+        default: "/run/secrets/restic_password"
+        description: Local path where the primary encryption password file is written (in-memory tmpfs).
       restic_backup_healthchecks_ping_url:
         type: str
         default: ""
@@ -58,8 +58,8 @@ argument_specs:
         description: Encryption password for the secondary restic repository.
       restic_backup_secondary_password_file_path:
         type: str
-        default: "/etc/restic/password-secondary"
-        description: Local path where the secondary password file is written.
+        default: "/run/secrets/restic_secondary_password"
+        description: Local path where the secondary password file is written (in-memory tmpfs).
       restic_backup_paths:
         type: list
         elements: str
@@ -101,6 +101,10 @@ argument_specs:
         type: str
         default: "/etc/restic"
         description: Directory for restic configuration files.
+      restic_backup_secrets_dir:
+        type: str
+        default: "/run/secrets"
+        description: Directory path for in-memory tmpfs secrets storage.
       restic_backup_runner_script_path:
         type: str
         default: "/usr/local/sbin/restic-backup-runner.sh"
