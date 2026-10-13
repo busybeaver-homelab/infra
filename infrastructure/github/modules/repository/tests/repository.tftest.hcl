@@ -29,6 +29,11 @@ run "verify_repository_module_plan" {
     condition     = github_repository.repo.delete_branch_on_merge == true
     error_message = "Repository must delete head branch upon merge"
   }
+
+  assert {
+    condition     = github_repository.repo.visibility == "public"
+    error_message = "Default repository visibility must be public"
+  }
 }
 
 run "verify_repository_module_apply" {
@@ -37,6 +42,11 @@ run "verify_repository_module_apply" {
   assert {
     condition     = output.repository_name == "test-repo"
     error_message = "Repository name output must match"
+  }
+
+  assert {
+    condition     = output.visibility == "public"
+    error_message = "Repository visibility output must match"
   }
 
   assert {
@@ -49,3 +59,29 @@ run "verify_repository_module_apply" {
     error_message = "Actions permissions must restrict allowed actions to selected"
   }
 }
+
+run "verify_repository_private_visibility" {
+  command = plan
+
+  variables {
+    visibility = "private"
+  }
+
+  assert {
+    condition     = github_repository.repo.visibility == "private"
+    error_message = "Repository visibility must be configurable to private"
+  }
+}
+
+run "reject_invalid_visibility" {
+  command = plan
+
+  variables {
+    visibility = "confidential"
+  }
+
+  expect_failures = [
+    var.visibility,
+  ]
+}
+

@@ -80,3 +80,9 @@ output "actions_permissions" {
   description = "Actions repository permissions."
 }
 
+output "visibility" {
+  value       = github_repository.repo.visibility
+  description = "The visibility of the managed repository."
+}
+
+

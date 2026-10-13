@@ -58,6 +58,11 @@ run "verify_github_root_hardening" {
   }
 
   assert {
+    condition     = module.repository["infra"].visibility == "public"
+    error_message = "Repository visibility must be public"
+  }
+
+  assert {
     condition     = module.repository["infra"].ruleset_enforcement == "active"
     error_message = "Main branch ruleset must be actively enforced"
   }
