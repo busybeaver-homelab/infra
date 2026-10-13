@@ -16,6 +16,17 @@ variable "topics" {
   default     = []
 }
 
+variable "visibility" {
+  type        = string
+  description = "The visibility of the target GitHub repository (public, private, or internal)."
+  default     = "public"
+
+  validation {
+    condition     = contains(["public", "private", "internal"], var.visibility)
+    error_message = "visibility must be one of: public, private, internal."
+  }
+}
+
 variable "allow_merge_commit" {
   type        = bool
   description = "Whether to allow merge commits on the repository (must be false to enforce linear trunk-based history)."
