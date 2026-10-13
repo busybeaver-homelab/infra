@@ -248,7 +248,7 @@ All internal architectural designs, operational plans, task trackers, and docume
 
 #### Unlocking the Repository
 
-If `docs/plans/task.md` or `backups/README.md` appears as encrypted binary data upon cloning or pulling:
+If `docs/plans/archive/task-2026-10-13-legacy-consolidated-tracker.md` or `backups/README.md` appears as encrypted binary data upon cloning or pulling:
 
 ```bash
 # Automated via bootstrap:
