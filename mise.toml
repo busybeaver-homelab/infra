@@ -23,6 +23,7 @@ node           = "lts"
 actionlint     = "1.7"
 trivy          = "0.75"
 gh             = "2.102"
+"aqua:shenwei356/rush" = "0.11.0"
 
 
 [env]
