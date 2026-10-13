@@ -19,7 +19,7 @@ Antigravity does NOT support parallel coding subagents. All work happens in a si
 2. **One execution thread only** — no parallel dispatch.
 3. **No parallel coding subagents** — Antigravity does not have `Task(...)`.
 4. **Browser automation** may use `browser_subagent` in isolated steps.
-5. **Track progress** by updating `<project-root>/docs/plans/task.md` at each state change (table-only tracker).
+5. **Track progress** by updating `<project-root>/docs/plans/task.md` at each state change (table-only tracker, gitignored during execution; archive upon plan completion).
 6. **Use `task_boundary`** to clearly delineate each unit of work.
 
 ## When to Use
@@ -321,9 +321,17 @@ Done!
 Before claiming all work is done:
 
 1. Ensure all task entries in `docs/plans/task.md` are `done` or `cancelled`
-2. Run full test/validation command
-3. Verify no regressions across all tasks
-4. Summarize evidence (test output, review approvals)
+2. Archive the completed task tracker to `docs/plans/archive/task-<YYYY-MM-DD>-<topic>.md` and stage it:
+   ```bash
+   if [ -f "docs/plans/task.md" ]; then
+     mkdir -p docs/plans/archive
+     mv docs/plans/task.md "docs/plans/archive/task-$(date +%Y-%m-%d)-<topic>.md"
+     git add "docs/plans/archive/task-$(date +%Y-%m-%d)-<topic>.md"
+   fi
+   ```
+3. Run full test/validation command
+4. Verify no regressions across all tasks
+5. Summarize evidence (test output, review approvals)
 
 ## Advantages
 

@@ -15,7 +15,7 @@ Guide completion of development work by presenting clear options and handling ch
 
 ## The Process
 
-### Step 1: Verify Tests
+### Step 1: Verify Tests and Archive Task Tracker
 
 **Before presenting options, verify tests pass:**
 
@@ -36,7 +36,20 @@ Cannot proceed with merge/PR until tests pass.
 
 Stop. Don't proceed to Step 2.
 
-**If tests pass:** Continue to Step 2.
+**Archive Task Tracker (if present):**
+
+If an active ephemeral task tracker exists at `docs/plans/task.md`, archive it and commit before proceeding:
+
+```bash
+if [ -f "docs/plans/task.md" ]; then
+  mkdir -p docs/plans/archive
+  mv docs/plans/task.md "docs/plans/archive/task-$(date +%Y-%m-%d)-<topic>.md"
+  git add "docs/plans/archive/task-$(date +%Y-%m-%d)-<topic>.md"
+  git commit -m "docs(plans): archive task tracker for <topic>"
+fi
+```
+
+**If tests pass and tracker is archived:** Continue to Step 2.
 
 ### Step 2: Determine Base Branch
 
