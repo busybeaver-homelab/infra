@@ -115,3 +115,26 @@ load 'helpers/test_helper'
   [ "$status" -ne 0 ]
 }
 
+@test "mise.toml specifies gh in toolchain" {
+  local mise_config="${REPO_ROOT}/mise.toml"
+  [ -f "$mise_config" ]
+  run grep -E '^gh\s*=\s*"2\.102"' "$mise_config"
+  [ "$status" -eq 0 ]
+}
+
+@test "mise.lock contains gh tool entry with aqua backend" {
+  local mise_lock="${REPO_ROOT}/mise.lock"
+  [ -f "$mise_lock" ]
+  run grep -E '\[\[tools\.gh\]\]' "$mise_lock"
+  [ "$status" -eq 0 ]
+  run grep -E 'backend = "aqua:cli/cli"' "$mise_lock"
+  [ "$status" -eq 0 ]
+}
+
+@test "gh cli executes cleanly via mise and outputs expected version" {
+  run mise exec -- gh --version
+  [ "$status" -eq 0 ]
+  run grep -E '^gh version 2\.102\.' <<< "$output"
+  [ "$status" -eq 0 ]
+}
+
