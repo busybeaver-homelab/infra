@@ -89,7 +89,7 @@ fi
 if [ -d ".git-crypt" ] && command -v git-crypt &>/dev/null; then
   # Check if docs/ or backups/ is currently encrypted/locked by git-crypt
   # A locked git-crypt file starts with the binary \0GITCRYPT signature
-  if ([ -f "docs/plans/task.md" ] && head -c 10 "docs/plans/task.md" 2>/dev/null | grep -q "GITCRYPT") ||
+  if ([ -f "docs/plans/archive/task-2026-10-13-legacy-consolidated-tracker.md" ] && head -c 10 "docs/plans/archive/task-2026-10-13-legacy-consolidated-tracker.md" 2>/dev/null | grep -q "GITCRYPT") ||
     ([ -f "backups/README.md" ] && head -c 10 "backups/README.md" 2>/dev/null | grep -q "GITCRYPT"); then
     log_warn "docs/ or backups/ is currently locked by git-crypt."
     if gpg --list-secret-keys 5EE1590FF82DC2A3829D224FAA73ACF495CC009D &>/dev/null; then
