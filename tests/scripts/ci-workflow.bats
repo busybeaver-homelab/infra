@@ -189,4 +189,31 @@ setup() {
   done
 }
 
+@test "ci.yml paths filter includes .python-version, pyproject.toml, and uv.lock in critical check jobs" {
+  run yq eval '.jobs.changes.steps[] | select(.id == "filter") | .with.filters' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  local filters="$output"
+
+  # Ensure lint filter checks python version and lock files
+  [[ "$filters" =~ ".python-version" ]] || false
+  [[ "$filters" =~ "uv.lock" ]] || false
+  [[ "$filters" =~ "mise.lock" ]] || false
+
+  # Ensure ansible filter checks python version and dependencies
+  run yq eval '.jobs.changes.steps[] | select(.id == "filter") | .with.filters' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  local ansible_section
+  ansible_section=$(echo "$output" | sed -n '/ansible:/,/molecule:/p')
+  [[ "$ansible_section" =~ ".python-version" ]] || false
+  [[ "$ansible_section" =~ "pyproject.toml" ]] || false
+  [[ "$ansible_section" =~ "uv.lock" ]] || false
+
+  # Ensure molecule filter checks python version and dependencies
+  local molecule_section
+  molecule_section=$(echo "$output" | sed -n '/molecule:/,$ p')
+  [[ "$molecule_section" =~ ".python-version" ]] || false
+  [[ "$molecule_section" =~ "pyproject.toml" ]] || false
+  [[ "$molecule_section" =~ "uv.lock" ]] || false
+}
+
 

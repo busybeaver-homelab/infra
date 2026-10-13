@@ -40,10 +40,10 @@ jobs:
         with:
           filters: |
             lint:
-              - '**/*.{yml,yaml,json,md,py,sh,tf,hcl}'
+              - '**/*.{yml,yaml,json,md,py,sh,tf,hcl,toml}'
+              - '.python-version'
               - '.tflint.hcl'
               - 'lefthook.yml'
-              - 'mise.toml'
               - 'mise.lock'
               - 'uv.lock'
               - '.github/**'
@@ -51,7 +51,12 @@ jobs:
               - 'scripts/**'
               - 'tests/scripts/**'
               - 'infrastructure/cloudflare/**'
-              - '.github/workflows/ci.yml'
+              - '.github/**'
+              - 'mise.toml'
+              - 'mise.lock'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.python-version'
             tofu:
               - 'infrastructure/**'
               - '.github/workflows/ci.yml'
@@ -59,10 +64,16 @@ jobs:
               - 'configuration/**'
               - 'secrets/credentials.ci.sops.yaml'
               - '.github/workflows/ci.yml'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.python-version'
             molecule:
               - 'configuration/**'
               - 'secrets/credentials.ci.sops.yaml'
               - '.github/workflows/ci.yml'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.python-version'
 
   lint-format:
     name: Code Quality and Lint Checks

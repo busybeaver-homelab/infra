@@ -407,4 +407,83 @@ console.log("Package rule for jdx/mise correctly configured with groupSlug mise-
   [[ "$output" =~ "Package rule for jdx/mise correctly configured" ]]
 }
 
+@test ".github/renovate.json5 configures ignorePaths containing .python-version" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+if (!Array.isArray(config.ignorePaths)) {
+  console.error("ignorePaths is not an array");
+  process.exit(1);
+}
+
+if (!config.ignorePaths.includes(".python-version")) {
+  console.error("ignorePaths does not include .python-version");
+  process.exit(1);
+}
+
+console.log("ignorePaths correctly includes .python-version");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "ignorePaths correctly includes .python-version" ]]
+}
+
+@test ".github/renovate.json5 explicitly disables pyenv and nodenv managers" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+if (!config.pyenv || config.pyenv.enabled !== false) {
+  console.error("pyenv manager is not disabled: " + JSON.stringify(config.pyenv));
+  process.exit(1);
+}
+
+if (!config.nodenv || config.nodenv.enabled !== false) {
+  console.error("nodenv manager is not disabled: " + JSON.stringify(config.nodenv));
+  process.exit(1);
+}
+
+console.log("pyenv and nodenv managers are explicitly disabled");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "pyenv and nodenv managers are explicitly disabled" ]]
+}
+
+@test ".github/renovate.json5 disables automerge for mise language runtimes" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const fs = require("fs");
+const content = fs.readFileSync(process.argv[1], "utf8");
+const config = eval("(" + content + ")");
+
+const runtimeRule = config.packageRules.find(r =>
+  Array.isArray(r.matchManagers) &&
+  r.matchManagers.includes("mise") &&
+  Array.isArray(r.matchPackageNames) &&
+  ["python", "node", "go"].every(pkg => r.matchPackageNames.includes(pkg))
+);
+
+if (!runtimeRule) {
+  console.error("Package rule for mise language runtimes not found");
+  process.exit(1);
+}
+
+if (runtimeRule.automerge !== false) {
+  console.error("Expected automerge: false for language runtimes, got: " + runtimeRule.automerge);
+  process.exit(1);
+}
+
+console.log("Mise language runtimes rule correctly configured with automerge false");
+' "$config"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Mise language runtimes rule correctly configured" ]]
+}
+
 

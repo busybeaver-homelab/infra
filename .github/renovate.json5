@@ -35,6 +35,7 @@
     "**/examples/**",
     "**/init.t",
     "**/.mise/locks/**",
+    ".python-version",
   ],
 
   // Native manager toggles
@@ -52,6 +53,12 @@
   },
   pep621: {
     enabled: true,
+  },
+  pyenv: {
+    enabled: false,
+  },
+  nodenv: {
+    enabled: false,
   },
 
   // Custom regex managers for shell scripts and toolchain pins
@@ -236,6 +243,14 @@
     {
       description: "Require human review for major version upgrades",
       matchUpdateTypes: ["major"],
+      automerge: false,
+    },
+
+    // 10. Language Runtimes (Python, Node, Go require explicit review)
+    {
+      description: "Require human review for language runtime upgrades in mise",
+      matchManagers: ["mise"],
+      matchPackageNames: ["python", "node", "go"],
       automerge: false,
     },
   ],
