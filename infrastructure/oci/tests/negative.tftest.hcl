@@ -54,6 +54,45 @@ run "reject_ampere_excessive_memory" {
   ]
 }
 
+# Boundary: the Always Free A1 allowance is 2 OCPU / 12 GB (1,500 OCPU-h, 9,000 GB-h per month).
+run "reject_ampere_ocpus_just_above_always_free" {
+  command = plan
+
+  variables {
+    ampere_ocpus = 3
+  }
+
+  expect_failures = [
+    var.ampere_ocpus,
+  ]
+}
+
+run "reject_ampere_memory_just_above_always_free" {
+  command = plan
+
+  variables {
+    ampere_memory_in_gbs = 13
+  }
+
+  expect_failures = [
+    var.ampere_memory_in_gbs,
+  ]
+}
+
+run "accept_ampere_at_always_free_limit" {
+  command = plan
+
+  variables {
+    ampere_ocpus         = 2
+    ampere_memory_in_gbs = 12
+  }
+
+  assert {
+    condition     = oci_core_instance.ampere.shape_config[0].ocpus == 2 && oci_core_instance.ampere.shape_config[0].memory_in_gbs == 12
+    error_message = "The Always Free A1 maximum (2 OCPU / 12 GB) must be accepted."
+  }
+}
+
 run "reject_invalid_project_tag" {
   command = plan
 

@@ -191,23 +191,25 @@ variable "assign_public_ip" {
 
 variable "ampere_ocpus" {
   type        = number
-  description = "Number of OCPUs for the Ampere ARM compute instance (must not exceed 4 for Always Free Tier)."
-  default     = 4
+  description = "Number of OCPUs for the Ampere ARM compute instance (Always Free: max 2, i.e. 1,500 OCPU-hours/month)."
+  default     = 2
 
   validation {
-    condition     = var.ampere_ocpus >= 1 && var.ampere_ocpus <= 4
-    error_message = "ampere_ocpus must be between 1 and 4 to remain within the OCI Always Free Tier limits."
+    # Always Free A1: 1,500 OCPU-hours + 9,000 GB-hours per month = 2 OCPU / 12 GB continuous.
+    # Source: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm (verified 2026-10-13)
+    condition     = var.ampere_ocpus >= 1 && var.ampere_ocpus <= 2
+    error_message = "ampere_ocpus must be between 1 and 2 to remain within the OCI Always Free Tier limits."
   }
 }
 
 variable "ampere_memory_in_gbs" {
   type        = number
-  description = "Memory in GBs for the Ampere ARM compute instance (must not exceed 24 for Always Free Tier)."
-  default     = 24
+  description = "Memory in GBs for the Ampere ARM compute instance (Always Free: max 12, i.e. 9,000 GB-hours/month)."
+  default     = 12
 
   validation {
-    condition     = var.ampere_memory_in_gbs >= 1 && var.ampere_memory_in_gbs <= 24
-    error_message = "ampere_memory_in_gbs must be between 1 and 24 to remain within the OCI Always Free Tier limits."
+    condition     = var.ampere_memory_in_gbs >= 1 && var.ampere_memory_in_gbs <= 12
+    error_message = "ampere_memory_in_gbs must be between 1 and 12 to remain within the OCI Always Free Tier limits."
   }
 }
 

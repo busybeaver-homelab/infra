@@ -62,7 +62,7 @@ resource "oci_core_instance" "amd" {
   }
 }
 
-# 1x Ampere A1 Compute Instance (VM.Standard.A1.Flex - 4 OCPUs, 24GB RAM)
+# 1x Ampere A1 Compute Instance (VM.Standard.A1.Flex - 2 OCPUs, 12GB RAM: the full Always Free A1 allowance)
 resource "oci_core_instance" "ampere" {
   availability_domain  = var.availability_domain
   compartment_id       = var.compartment_ocid
