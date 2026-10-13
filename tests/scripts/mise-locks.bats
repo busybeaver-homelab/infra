@@ -138,3 +138,27 @@ load 'helpers/test_helper'
   [ "$status" -eq 0 ]
 }
 
+@test "mise.toml specifies aqua:shenwei356/rush in toolchain" {
+  local mise_config="${REPO_ROOT}/mise.toml"
+  [ -f "$mise_config" ]
+  run grep -E '"aqua:shenwei356/rush"\s*=\s*"0\.11\.0"' "$mise_config"
+  [ "$status" -eq 0 ]
+}
+
+@test "mise.lock contains aqua:shenwei356/rush tool entries with aqua backend" {
+  local mise_lock="${REPO_ROOT}/mise.lock"
+  [ -f "$mise_lock" ]
+  run grep -E '\[\[tools\."aqua:shenwei356/rush"\]\]' "$mise_lock"
+  [ "$status" -eq 0 ]
+  run grep -E 'backend = "aqua:shenwei356/rush"' "$mise_lock"
+  [ "$status" -eq 0 ]
+}
+
+@test "rush parallel runner executes cleanly via mise and outputs expected version" {
+  run mise exec -- rush --version
+  [ "$status" -eq 0 ]
+  run grep -E '^rush v0\.11\.0' <<< "$output"
+  [ "$status" -eq 0 ]
+}
+
+
