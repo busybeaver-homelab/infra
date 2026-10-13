@@ -571,10 +571,10 @@ if unknown:
   local mise_config="$REPO_ROOT/mise.toml"
   [ -f "$mise_config" ]
 
-  # Ensure concurrent test:ansible task exists and tracks pids
+  # Ensure concurrent test:ansible task exists and uses rush
   run yq eval '.tasks."test:ansible".run' "$mise_config"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "pids=" ]]
+  [[ "$output" =~ "rush" ]]
 
   # Ensure sequential test:ansible:serial task exists and declares dependencies
   run yq eval '.tasks."test:ansible:serial".depends[]' "$mise_config"
@@ -584,9 +584,10 @@ if unknown:
   [[ "$output" =~ "test:ansible:oci" ]]
   [[ "$output" =~ "test:ansible:homelab" ]]
 
-  # Ensure test:ansible:fast runs converge and verify concurrently
+  # Ensure test:ansible:fast runs converge and verify concurrently via rush
   run yq eval '.tasks."test:ansible:fast".run' "$mise_config"
   [ "$status" -eq 0 ]
+  [[ "$output" =~ "rush" ]]
   [[ "$output" =~ "molecule converge" ]]
   [[ "$output" =~ "molecule verify" ]]
 }
