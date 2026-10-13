@@ -140,6 +140,11 @@ resource "github_actions_environment_secret" "backup_secrets" {
   value       = var.backup_secrets[each.key]
 }
 
+resource "github_repository_environment" "code_quality" {
+  environment = "code_quality"
+  repository  = github_repository.repo.name
+}
+
 resource "github_actions_repository_permissions" "repo" {
   repository = github_repository.repo.name
   enabled    = true

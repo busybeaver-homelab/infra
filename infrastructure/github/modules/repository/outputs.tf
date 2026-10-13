@@ -55,8 +55,9 @@ output "ruleset_enforcement" {
 
 output "environments" {
   value = {
-    ci     = github_repository_environment.ci.environment
-    backup = github_repository_environment.backup.environment
+    ci           = github_repository_environment.ci.environment
+    backup       = github_repository_environment.backup.environment
+    code_quality = github_repository_environment.code_quality.environment
   }
   description = "Managed GitHub Actions environments."
 }

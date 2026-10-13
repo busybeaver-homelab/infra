@@ -25,6 +25,7 @@
 | [github_repository_deploy_key.deploy_keys](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_deploy_key)                            | resource |
 | [github_repository_environment.backup](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                               | resource |
 | [github_repository_environment.ci](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                   | resource |
+| [github_repository_environment.code_quality](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                         | resource |
 | [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_ruleset)                              | resource |
 | [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_vulnerability_alerts)               | resource |
 | [github_workflow_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/workflow_repository_permissions)               | resource |
