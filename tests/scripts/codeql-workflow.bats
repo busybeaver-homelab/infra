@@ -93,3 +93,13 @@ assert "shellcheck" in categories
 
   [ "$invalid_pins" -eq 0 ]
 }
+
+@test "codeql.yml binds analyze-codeql and analyze-iac-and-scripts jobs to code_quality environment" {
+  run yq eval '.jobs.analyze-codeql.environment' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "code_quality" ]
+
+  run yq eval '.jobs.analyze-iac-and-scripts.environment' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "code_quality" ]
+}
