@@ -27,3 +27,52 @@ variable "default_labels" {
     error_message = "The 'project' label must be defined in default_labels and set to 'homelab'."
   }
 }
+
+variable "gcp_instance_type" {
+  type        = string
+  description = "The GCP compute instance machine type. Strictly restricted to the Always Free Tier shape: e2-micro."
+  default     = "e2-micro"
+  sensitive   = false
+
+  validation {
+    condition     = var.gcp_instance_type == "e2-micro"
+    error_message = "Instance type must be 'e2-micro' to comply with GCP Always Free Tier policy."
+  }
+}
+
+variable "gcp_boot_disk_size_gb" {
+  type        = number
+  description = "The boot disk size in GB. Strictly restricted to the Always Free Tier allowance: 10 to 30 GB."
+  default     = 30
+  sensitive   = false
+
+  validation {
+    condition     = var.gcp_boot_disk_size_gb >= 10 && var.gcp_boot_disk_size_gb <= 30
+    error_message = "Boot disk size must be between 10 and 30 GB to comply with GCP Always Free Tier policy."
+  }
+}
+
+variable "gcp_boot_disk_type" {
+  type        = string
+  description = "The persistent disk type. Strictly restricted to the Always Free Tier type: pd-standard."
+  default     = "pd-standard"
+  sensitive   = false
+
+  validation {
+    condition     = var.gcp_boot_disk_type == "pd-standard"
+    error_message = "Boot disk type must be 'pd-standard' to comply with GCP Always Free Tier policy."
+  }
+}
+
+variable "gcp_billing_account_id" {
+  type        = string
+  description = "The GCP billing account ID (e.g., 012345-6789AB-CDEF01) for budget and spend alert management. Leave empty to skip budget creation."
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = var.gcp_billing_account_id == "" || can(regex("^[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}$", var.gcp_billing_account_id))
+    error_message = "GCP billing account ID must be formatted as 6 alphanumeric characters separated by hyphens (e.g., 012345-6789AB-CDEF01), or empty."
+  }
+}
+
