@@ -201,8 +201,9 @@ description = "Destroy all Molecule test containers across all roles and scenari
 depends = ["test:ansible:clean:base", "test:ansible:clean:restic", "test:ansible:clean:oci", "test:ansible:clean:homelab"]
 
 [tasks."test:scripts"]
-description = "Run Bats tests for scripts"
-run = "bats tests/scripts/"
+description = "Run Bats tests for scripts concurrently via rush"
+env = { BATS_PARALLEL_BINARY_NAME = "rush" }
+run = "bats --parallel-binary-name rush -j 4 tests/scripts/"
 
 [tasks."ci:local"]
 description = "Run GitHub Actions workflows locally"
