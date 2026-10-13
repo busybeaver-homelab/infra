@@ -17,6 +17,7 @@ platforms:
     privileged: true
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ${MOLECULE_PROJECT_DIRECTORY}/.cache/apt/archives:/var/cache/apt/archives:rw
     cgroupns_mode: host
     command: /lib/systemd/systemd
 
