@@ -237,4 +237,30 @@ setup() {
   [[ "$output" =~ "configuration/.cache/apt/homelab/archives" ]]
 }
 
+@test "ci.yml caches OpenTofu plugins in tofu-validate job" {
+  local cache_step
+  cache_step=$(yq eval '.jobs.tofu-validate.steps[] | select(.name == "Cache OpenTofu Plugins")' "$WORKFLOW")
+  [ -n "$cache_step" ]
+
+  run yq eval '.jobs.tofu-validate.steps[] | select(.name == "Cache OpenTofu Plugins") | .uses' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "actions/cache@" ]]
+
+  run yq eval '.jobs.tofu-validate.steps[] | select(.name == "Cache OpenTofu Plugins") | .with.path' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = ".cache/tofu/plugins" ]
+
+  run yq eval '.jobs.tofu-validate.steps[] | select(.name == "Cache OpenTofu Plugins") | .with.key' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "tofu-plugins-" ]]
+  [[ "$output" =~ "hashFiles('infrastructure/**/.terraform.lock.hcl')" ]]
+}
+
+@test "ci.yml shell-bats job executes test:scripts via mise" {
+  run yq eval '.jobs.shell-bats.steps[] | select(.name == "Run Bats tests") | .run' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "mise run test:scripts" ]
+}
+
+
 

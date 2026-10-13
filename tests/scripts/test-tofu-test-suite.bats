@@ -32,12 +32,33 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "mise.toml test:infra executes module tests concurrently" {
+@test "mise.toml test:infra executes module tests concurrently via rush" {
   local mise_config="$REPO_ROOT/mise.toml"
   [ -f "$mise_config" ]
   local task_def
   task_def=$(sed -n '/\[tasks\."test:infra"\]/,/\[settings\]/p' "$mise_config")
-  run grep -E "rush|wait|tmp_dir|pids" <<<"$task_def"
+  run grep -E "rush -k" <<<"$task_def"
+  [ "$status" -eq 0 ]
+}
+
+@test "mise.toml configures TF_PLUGIN_CACHE_DIR in env" {
+  local mise_config="$REPO_ROOT/mise.toml"
+  [ -f "$mise_config" ]
+  run grep -E 'TF_PLUGIN_CACHE_DIR = "\{\{config_root\}\}/\.cache/tofu/plugins"' "$mise_config"
+  [ "$status" -eq 0 ]
+}
+
+@test "mise.toml test:tofu:children and test:tofu:mutations execute concurrently via rush" {
+  local mise_config="$REPO_ROOT/mise.toml"
+  [ -f "$mise_config" ]
+  local children_task
+  children_task=$(sed -n '/\[tasks\."test:tofu:children"\]/,/\[tasks\./p' "$mise_config")
+  run grep -E "rush -k" <<<"$children_task"
+  [ "$status" -eq 0 ]
+
+  local mutations_task
+  mutations_task=$(sed -n '/\[tasks\."test:tofu:mutations"\]/,/\[tasks\./p' "$mise_config")
+  run grep -E "rush -k" <<<"$mutations_task"
   [ "$status" -eq 0 ]
 }
 
