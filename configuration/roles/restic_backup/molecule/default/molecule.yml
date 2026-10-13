@@ -1,6 +1,7 @@
 ---
 dependency:
   name: galaxy
+  enabled: false
 
 driver:
   name: docker
@@ -24,19 +25,17 @@ provisioner:
     defaults:
       callbacks_enabled: profile_tasks
       remote_tmp: /tmp
+    connection:
+      pipelining: true
 
 scenario:
   test_sequence:
-    - dependency
-    - cleanup
     - destroy
     - syntax
     - create
-    - prepare
     - converge
     - idempotence
     - verify
-    - cleanup
     - destroy
 
 verifier:

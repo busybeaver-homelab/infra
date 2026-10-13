@@ -1,6 +1,7 @@
 ---
 dependency:
   name: galaxy
+  enabled: false
   options:
     role-file: ${MOLECULE_PROJECT_DIRECTORY}/roles/requirements.yml
     roles-path: ~/.ansible/roles
@@ -34,6 +35,8 @@ provisioner:
       callbacks_enabled: profile_tasks
       remote_tmp: /tmp
       roles_path: ${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles
+    connection:
+      pipelining: true
   playbooks:
     prepare: prepare.yml
     converge: converge.yml
@@ -41,8 +44,6 @@ provisioner:
 
 scenario:
   test_sequence:
-    - dependency
-    - cleanup
     - destroy
     - syntax
     - create
@@ -50,7 +51,6 @@ scenario:
     - converge
     - idempotence
     - verify
-    - cleanup
     - destroy
 
 verifier:

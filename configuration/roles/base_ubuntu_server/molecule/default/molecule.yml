@@ -1,6 +1,7 @@
 ---
 dependency:
   name: galaxy
+  enabled: false
 
 driver:
   name: docker
@@ -25,19 +26,17 @@ provisioner:
       callbacks_enabled: profile_tasks
       remote_tmp: /tmp
       roles_path: ../../..:~/.ansible/roles
+    connection:
+      pipelining: true
 
 scenario:
   test_sequence:
-    - dependency
-    - cleanup
     - destroy
     - syntax
     - create
-    - prepare
     - converge
     - idempotence
     - verify
-    - cleanup
     - destroy
 
 verifier:
