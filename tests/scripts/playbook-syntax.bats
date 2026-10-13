@@ -488,3 +488,99 @@ if unknown:
   [ "$status" -eq 0 ]
 }
 
+@test "all molecule scenarios configure unique container platform names" {
+  local scenarios=(
+    "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml:base-ubuntu-server-26"
+    "configuration/roles/restic_backup/molecule/default/molecule.yml:restic-ubuntu-server-26"
+    "configuration/molecule/oci/molecule.yml:oci-ubuntu-server-26"
+    "configuration/molecule/homelab/molecule.yml:homelab-ubuntu-server-26"
+  )
+
+  local names=()
+  for item in "${scenarios[@]}"; do
+    IFS=':' read -r path expected <<< "$item"
+    local full_path="$REPO_ROOT/$path"
+    [ -f "$full_path" ]
+
+    run yq eval '.platforms[0].name' "$full_path"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$expected" ]
+    names+=("$output")
+  done
+
+  # Verify all names are unique
+  local unique_count
+  unique_count=$(printf "%s\n" "${names[@]}" | sort -u | wc -l | tr -d ' ')
+  [ "$unique_count" -eq "${#names[@]}" ]
+}
+
+@test "all molecule scenarios configure provisioner pipelining and task profiling" {
+  local scenarios=(
+    "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
+    "configuration/roles/restic_backup/molecule/default/molecule.yml"
+    "configuration/molecule/oci/molecule.yml"
+    "configuration/molecule/homelab/molecule.yml"
+  )
+
+  for path in "${scenarios[@]}"; do
+    local full_path="$REPO_ROOT/$path"
+    [ -f "$full_path" ]
+
+    run yq eval '.provisioner.config_options.connection.pipelining' "$full_path"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+
+    run yq eval '.provisioner.config_options.defaults.callbacks_enabled' "$full_path"
+    [ "$status" -eq 0 ]
+    [ "$output" = "profile_tasks" ]
+  done
+}
+
+@test "all molecule scenarios configure persistent host apt archive cache mounts" {
+  local scenarios=(
+    "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
+    "configuration/roles/restic_backup/molecule/default/molecule.yml"
+    "configuration/molecule/oci/molecule.yml"
+    "configuration/molecule/homelab/molecule.yml"
+  )
+
+  for path in "${scenarios[@]}"; do
+    local full_path="$REPO_ROOT/$path"
+    [ -f "$full_path" ]
+
+    run yq eval '.platforms[0].volumes[]' "$full_path"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "/var/cache/apt/archives:rw" ]]
+    [[ "$output" =~ "\${MOLECULE_PROJECT_DIRECTORY}/.cache/apt/archives" ]]
+  done
+}
+
+@test ".gitignore ignores local .cache directory" {
+  run grep -E "^\.cache/" "$REPO_ROOT/.gitignore"
+  [ "$status" -eq 0 ]
+}
+
+@test "mise.toml defines concurrent and serial molecule execution tasks" {
+  local mise_config="$REPO_ROOT/mise.toml"
+  [ -f "$mise_config" ]
+
+  # Ensure concurrent test:ansible task exists and tracks pids
+  run yq eval '.tasks."test:ansible".run' "$mise_config"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "pids=" ]]
+
+  # Ensure sequential test:ansible:serial task exists and declares dependencies
+  run yq eval '.tasks."test:ansible:serial".depends[]' "$mise_config"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "test:ansible:base" ]]
+  [[ "$output" =~ "test:ansible:restic" ]]
+  [[ "$output" =~ "test:ansible:oci" ]]
+  [[ "$output" =~ "test:ansible:homelab" ]]
+
+  # Ensure test:ansible:fast runs converge and verify concurrently
+  run yq eval '.tasks."test:ansible:fast".run' "$mise_config"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "molecule converge" ]]
+  [[ "$output" =~ "molecule verify" ]]
+}
+
