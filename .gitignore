@@ -187,4 +187,8 @@ worktrees/
 ### Cache ###
 .cache/
 
+### Task Tracking ###
+# Ephemeral task tracker for local session/worktree execution (archived to docs/plans/archive/ upon completion)
+docs/plans/task.md
+
 
