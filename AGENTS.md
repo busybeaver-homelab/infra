@@ -32,6 +32,7 @@ Keep declarative infrastructure well-structured and secure. The hard rules below
 - **Ambiguous Sensitivity:** All variables and outputs that deal with state, domain names, network IDs, or credentials must default to `sensitive = true`.
 - **TFLint & Formats:** Always run `tofu fmt` and `tflint` (after `tflint --init`, with the repository `.tflint.hcl` passed via `--config`) locally before completing a task. Never commit unformatted `.tf` code.
 - **Always Free Tier Hard Gate:** All cloud infrastructure must strictly use the Always Free Tier. If resources will be used/added that are not in the always free tier, this is a hard gate that must be explicitly approved first by the user. Vendors change free-tier limits, so re-verify the limit against vendor documentation whenever a sizing gate is touched.
+  - _Approved exceptions:_ Azure budget ceiling of $165/month (owner decision D4, 2026-10-13).
 - **Mandatory Resource Tagging:** All cloud resources across all providers must be tagged/labeled with `project = "homelab"` (e.g., via `freeform_tags` in OCI, `labels` in GCP, or `tags` in Azure). When merging resource-specific tags, the mandatory map must be merged **last** (e.g., `merge(local.effective_tags, { role = "backup" }, { project = "homelab" })`) so that `project = "homelab"` can never be omitted or overridden.
 
 ---
@@ -54,7 +55,7 @@ Automated gates must be respected. Changes to GitHub workflows, the composite se
 - **Verification Command:** Before submitting work or claiming a task is done, run local linting and testing commands (e.g., `mise exec lefthook -- lefthook run pre-commit`) to guarantee your changes comply with repo guidelines.
 - **Conventional Commits:** You must format every commit message according to the Conventional Commits specification.
   - _Examples:_ `feat(gcp): add compute engine instance`, `fix(unifi): update dhcp leases sops secret`.
-- **Trunk-Based Development:** Create short-lived feature branches, running CI, and merging to `main` locally or via PRs with squash-merging.
+- **Trunk-Based Development:** Create short-lived feature branches and merge them to `main` via squash-merged PRs that pass `CI Gate`. Only the repository owner may merge small changes locally, and history must stay linear (rebase and fast-forward, or squash; no merge commits). Agents open a PR unless the owner explicitly asks for a local merge in that session.
 - **Branch Naming:** All task branches must be named following the pattern: `<type>/<scope>/<short-desc>` (e.g., `feat/gcp/state-bucket`).
 - **Plan File Location:** All plan files should be stored at: `docs/plans` (e.g., `docs/plans/2026-06-01-short-plan-name.md`).
 - **Git Worktrees Mandatory:** When running tasks that add, update, or delete files, you **must** use isolated git worktrees rather than modifying the main workspace directly. Consult the `.agent/skills/using-git-worktrees/SKILL.md` skill for the proper directory selection and setup process.
