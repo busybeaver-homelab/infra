@@ -28,7 +28,7 @@ setup() {
   [ -f "$mise_config" ]
   run grep -E "tasks\.\"test:infra\"" "$mise_config"
   [ "$status" -eq 0 ]
-  run grep -E "tofu test" "$mise_config"
+  run grep -E "tofu .*test" "$mise_config"
   [ "$status" -eq 0 ]
 }
 
@@ -37,7 +37,7 @@ setup() {
   [ -f "$mise_config" ]
   local task_def
   task_def=$(sed -n '/\[tasks\."test:infra"\]/,/\[settings\]/p' "$mise_config")
-  run grep -E "wait|tmp_dir|pids" <<<"$task_def"
+  run grep -E "rush|wait|tmp_dir|pids" <<<"$task_def"
   [ "$status" -eq 0 ]
 }
 

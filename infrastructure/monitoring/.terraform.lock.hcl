@@ -32,6 +32,7 @@ provider "registry.opentofu.org/kristofferahl/healthchecksio" {
     "zh:ca90818977e26da8fa390bcfc892a8202b0780f8d5e99ec6da34e5b8e83b9a62",
     "zh:cd44bd61538fb11ad646e84d6e658dccd01c3f6e316d01256ecadbd1f41bc546",
     "zh:e3ad3fa1977b60127b8609ebf3df6dbb21f2a270aa615ad21168688720166688",
+    "zh:fbd1fee2c9df3aa19cf8851ce134dea6e45ea01cb85695c1726670c285797e25",
     "zh:fbf944a0ffdafcbbc77a83b320a7c7a5d9370e67357c4690022a7e4216a98fe4",
   ]
 }

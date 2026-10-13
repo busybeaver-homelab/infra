@@ -399,62 +399,25 @@ run = "npx skills update -p -y"
 [tasks."test:infra"]
 description = "Run native OpenTofu tests concurrently across all infrastructure modules"
 run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-modules=(oci cloudflare gcp azure github homelab monitoring tailscale)
-tmp_dir=$(mktemp -d)
-trap 'rm -rf "$tmp_dir"' EXIT
-
-pids=()
-for mod in "${modules[@]}"; do
-  (
-    set +e
-    (cd "infrastructure/$mod" && tofu test -test-directory=tests) >"$tmp_dir/$mod.log" 2>&1
-    echo $? >"$tmp_dir/$mod.exit"
-  ) &
-  pids+=($!)
-done
-
-for pid in "${pids[@]}"; do
-  wait "$pid" 2>/dev/null || true
-done
-
-failed=0
-for mod in "${modules[@]}"; do
-  exit_val=$(cat "$tmp_dir/$mod.exit" 2>/dev/null || echo 1)
-  if [ "$exit_val" -eq 0 ]; then
-    echo "==> [PASS] infrastructure/$mod"
-  else
-    echo "==> [FAIL] infrastructure/$mod (exit code: $exit_val)"
-    cat "$tmp_dir/$mod.log"
-    failed=1
-  fi
-done
-
-if [ "$failed" -ne 0 ]; then
-  exit 1
-fi
+mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
+printf "%s\n" oci cloudflare gcp azure github homelab monitoring tailscale | \
+  rush -k 'tofu -chdir="infrastructure/{}" test -test-directory=tests'
 '''
 
 [tasks."test:tofu:children"]
-description = "Run unit tests on isolated child modules"
+description = "Run unit tests on isolated child modules concurrently"
 run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-tofu -chdir=infrastructure/cloudflare/modules/zone test
-tofu -chdir=infrastructure/github/modules/repository test
+mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
+printf "%s\n" cloudflare/modules/zone github/modules/repository | \
+  rush -k 'tofu -chdir="infrastructure/{}" test'
 '''
 
 [tasks."test:tofu:mutations"]
-description = "Run OpenTofu lifecycle mutation tests across all modules"
+description = "Run OpenTofu lifecycle mutation tests across all modules concurrently"
 run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-modules=(cloudflare gcp github oci tailscale)
-for mod in "${modules[@]}"; do
-  echo "==> Running mutation tests for infrastructure/$mod"
-  tofu -chdir="infrastructure/$mod" test -filter=tests/mutation.tftest.hcl
-done
+mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
+printf "%s\n" cloudflare gcp github oci tailscale | \
+  rush -k 'tofu -chdir="infrastructure/{}" test -filter=tests/mutation.tftest.hcl'
 '''
 
 [tasks."test:tofu:checks"]
