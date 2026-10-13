@@ -113,6 +113,12 @@ pre-commit:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-secrets-schema-parity.sh secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml
 
+    # Mise Lockfile Synchronization Check
+    mise-lock-check:
+      glob: "mise.{toml,lock}"
+      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      run: mise lock --dry-run
+
 commit-msg:
   commands:
     conventional-commits:

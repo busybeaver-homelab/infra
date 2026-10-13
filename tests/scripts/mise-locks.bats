@@ -38,24 +38,46 @@ load 'helpers/test_helper'
   run git check-ignore -q .mise/locks/oxfmt/0.71.0/package.json
   [ "$status" -eq 1 ]
 
-  run git check-ignore -q .mise/locks/ansible/14.5.0~0672620e/uv.lock
+  run git check-ignore -q .mise/locks/oxfmt/0.71.0/aube-lock.yaml
   [ "$status" -eq 1 ]
 }
 
-@test "lock sidecar files exist for oxfmt and ansible" {
+@test "lock sidecar files exist for oxfmt and ansible sidecar is removed" {
   [ -f "${REPO_ROOT}/.mise/locks/oxfmt/0.71.0/package.json" ]
   [ -f "${REPO_ROOT}/.mise/locks/oxfmt/0.71.0/aube-lock.yaml" ]
-  [ -f "${REPO_ROOT}/.mise/locks/ansible/14.5.0~0672620e/uv.lock" ]
-  [ -f "${REPO_ROOT}/.mise/locks/ansible/14.5.0~0672620e/pyproject.toml" ]
+  [ ! -d "${REPO_ROOT}/.mise/locks/ansible" ]
 }
 
-@test "mise.lock references the sidecar lock files" {
+@test "mise.toml does not configure ansible in [tools]" {
+  local mise_config="${REPO_ROOT}/mise.toml"
+  [ -f "$mise_config" ]
+  run grep -E '^ansible\s*=' "$mise_config"
+  [ "$status" -ne 0 ]
+}
+
+@test "mise.toml configures min_version and lockfile_platforms" {
+  local mise_config="${REPO_ROOT}/mise.toml"
+  [ -f "$mise_config" ]
+  run grep -E '^min_version\s*=\s*"2026\.10\.8"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'lockfile_platforms\s*=\s*\["macos-arm64",\s*"linux-x64"\]' "$mise_config"
+  [ "$status" -eq 0 ]
+}
+
+@test "setup-environment composite action pins matching Mise CLI version" {
+  local action_file="${REPO_ROOT}/.github/actions/setup-environment/action.yml"
+  [ -f "$action_file" ]
+  run grep -E 'version:\s*"2026\.10\.8"' "$action_file"
+  [ "$status" -eq 0 ]
+}
+
+@test "mise.lock references oxfmt sidecar and does not reference ansible" {
   local mise_lock="${REPO_ROOT}/mise.lock"
   [ -f "$mise_lock" ]
   run grep -E '\.mise/locks/oxfmt/0\.71\.0' "$mise_lock"
   [ "$status" -eq 0 ]
-  run grep -E '\.mise/locks/ansible/14\.5\.0~0672620e' "$mise_lock"
-  [ "$status" -eq 0 ]
+  run grep -i 'ansible' "$mise_lock"
+  [ "$status" -ne 0 ]
 }
 
 @test "mise.lock oxfmt aube digest matches CI Linux digest" {
@@ -65,10 +87,12 @@ load 'helpers/test_helper'
   [ "$status" -eq 0 ]
 }
 
-@test "mise.lock ansible sidecar digest matches clean state" {
-  local mise_lock="${REPO_ROOT}/mise.lock"
-  [ -f "$mise_lock" ]
-  run grep -E 'digest = "sha256:7ec9fcacb6e9b94c71544f022e48ddec3e99556eed061c9836588b97c7e133d3"' "$mise_lock"
+@test "lefthook.yml defines mise-lock-check hook" {
+  local lefthook_config="${REPO_ROOT}/lefthook.yml"
+  [ -f "$lefthook_config" ]
+  run grep -E 'mise-lock-check:' "$lefthook_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'run:\s*mise lock --dry-run' "$lefthook_config"
   [ "$status" -eq 0 ]
 }
 

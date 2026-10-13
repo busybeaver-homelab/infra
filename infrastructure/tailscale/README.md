@@ -2,11 +2,11 @@
 
 ## Requirements
 
-| Name                                                                     | Version   |
-| ------------------------------------------------------------------------ | --------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5    |
-| <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1     |
-| <a name="requirement_tailscale"></a> [tailscale](#requirement_tailscale) | ~> 0.29.2 |
+| Name                                                                     | Version |
+| ------------------------------------------------------------------------ | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
+| <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1   |
+| <a name="requirement_tailscale"></a> [tailscale](#requirement_tailscale) | 0.29.2  |
 
 ## Providers
 
@@ -19,24 +19,24 @@
 
 | Name                                                                                                                                              | Type        |
 | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| [tailscale_acl.homelab](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/acl)                                    | resource    |
-| [tailscale_contacts.homelab](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/contacts)                          | resource    |
-| [tailscale_device_authorization.nodes](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/device_authorization)    | resource    |
-| [tailscale_device_key.nodes](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/device_key)                        | resource    |
-| [tailscale_device_subnet_routes.routes](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/device_subnet_routes)   | resource    |
-| [tailscale_device_tags.nodes](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/device_tags)                      | resource    |
-| [tailscale_dns_nameservers.homelab](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/dns_nameservers)            | resource    |
-| [tailscale_dns_preferences.homelab](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/dns_preferences)            | resource    |
-| [tailscale_dns_search_paths.homelab](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/dns_search_paths)          | resource    |
-| [tailscale_dns_split_nameservers.routes](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/dns_split_nameservers) | resource    |
-| [tailscale_tailnet_key.bootstrap](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/tailnet_key)                  | resource    |
-| [tailscale_tailnet_key.roles](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/tailnet_key)                      | resource    |
-| [tailscale_tailnet_settings.homelab](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/tailnet_settings)          | resource    |
-| [tailscale_webhook.events](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/webhook)                             | resource    |
+| [tailscale_acl.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/acl)                                    | resource    |
+| [tailscale_contacts.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/contacts)                          | resource    |
+| [tailscale_device_authorization.nodes](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/device_authorization)    | resource    |
+| [tailscale_device_key.nodes](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/device_key)                        | resource    |
+| [tailscale_device_subnet_routes.routes](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/device_subnet_routes)   | resource    |
+| [tailscale_device_tags.nodes](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/device_tags)                      | resource    |
+| [tailscale_dns_nameservers.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_nameservers)            | resource    |
+| [tailscale_dns_preferences.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_preferences)            | resource    |
+| [tailscale_dns_search_paths.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_search_paths)          | resource    |
+| [tailscale_dns_split_nameservers.routes](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_split_nameservers) | resource    |
+| [tailscale_tailnet_key.bootstrap](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)                  | resource    |
+| [tailscale_tailnet_key.roles](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)                      | resource    |
+| [tailscale_tailnet_settings.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_settings)          | resource    |
+| [tailscale_webhook.events](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/webhook)                             | resource    |
 | [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/1.4.1/docs/data-sources/file)                                           | data source |
-| [tailscale_device.monitored](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/data-sources/device)                         | data source |
-| [tailscale_devices.all](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/data-sources/devices)                             | data source |
-| [tailscale_users.all](https://registry.terraform.io/providers/tailscale/tailscale/latest/docs/data-sources/users)                                 | data source |
+| [tailscale_device.monitored](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/data-sources/device)                         | data source |
+| [tailscale_devices.all](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/data-sources/devices)                             | data source |
+| [tailscale_users.all](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/data-sources/users)                                 | data source |
 
 ## Inputs
 
