@@ -102,7 +102,7 @@ run "unit_plan_matches_baseline" {
 
   assert {
     condition     = strcontains(tailscale_acl.homelab.acl, "tag:decoy-client")
-    error_message = "Tailscale ACL policy must include decoy client tag in nodeAttrs."
+    error_message = "Tailscale ACL policy must include decoy client target in nodeAttrs."
   }
 }
 
