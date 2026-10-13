@@ -78,6 +78,11 @@ run "verify_github_root_hardening" {
   }
 
   assert {
+    condition     = module.repository["infra"].environments.code_quality == "code_quality"
+    error_message = "Code quality environment must be defined in outputs"
+  }
+
+  assert {
     condition     = module.repository["infra"].actions_permissions.allowed_actions == "selected"
     error_message = "Actions permissions must be selected"
   }

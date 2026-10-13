@@ -113,4 +113,9 @@ run "verify_repository_child_module" {
     condition     = github_repository_environment.backup.environment == "backup"
     error_message = "Backup environment must be defined"
   }
+
+  assert {
+    condition     = github_repository_environment.code_quality.environment == "code_quality"
+    error_message = "Code quality environment must be defined"
+  }
 }
