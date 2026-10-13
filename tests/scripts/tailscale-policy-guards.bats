@@ -39,3 +39,23 @@ setup() {
     [[ "$output" =~ "filter: unspecified" ]]
   fi
 }
+
+@test "tailscale CI policy template strictly uses decoy NextDNS profile ID and target" {
+  run grep -E '"nextdns:000000"' "$CI_POLICY"
+  [ "$status" -eq 0 ]
+
+  run grep -E '"tag:decoy-client"' "$CI_POLICY"
+  [ "$status" -eq 0 ]
+
+  # Ensure no non-decoy nextdns attribute exists
+  run python3 -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    data = json.loads(f.read().replace('\${tag_owners}', '{}'))
+for item in data.get('nodeAttrs', []):
+    for attr in item.get('attr', []):
+        if attr.startswith('nextdns:') and attr != 'nextdns:000000':
+            sys.exit(1)
+" "$CI_POLICY"
+  [ "$status" -eq 0 ]
+}
