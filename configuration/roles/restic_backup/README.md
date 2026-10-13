@@ -22,32 +22,32 @@ Ansible role for configuring automated, encrypted, and deduplicated nightly back
 
 ## Role Variables
 
-| Variable                                     | Default                                                       | Description                                                             |
-| -------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `restic_backup_secrets_dir`                  | `"/run/secrets"`                                              | In-memory tmpfs directory where secrets are staged                      |
-| `restic_backup_repository`                   | `""`                                                          | Primary Restic repository URL (e.g., `s3:<endpoint>/<bucket>/<host>`)   |
-| `restic_backup_s3_access_key`                | `""`                                                          | Primary S3 Access Key ID (e.g., OCI Customer Secret Key ID)             |
-| `restic_backup_s3_secret_key`                | `""`                                                          | Primary S3 Secret Access Key (e.g., OCI Customer Secret Key)            |
-| `restic_backup_password`                     | `""`                                                          | Strong password used for primary repository encryption                  |
-| `restic_backup_password_file_path`           | `"{{ restic_backup_secrets_dir }}/restic_password"`           | Path to primary password file in memory                                 |
-| `restic_backup_secondary_enabled`            | `false`                                                       | Enable secondary disaster recovery backup target (e.g., Cloudflare R2)  |
-| `restic_backup_secondary_repository`         | `""`                                                          | Secondary Restic repository URL (e.g., `s3:<endpoint>/<bucket>/<host>`) |
-| `restic_backup_secondary_s3_access_key`      | `""`                                                          | Secondary S3 Access Key ID                                              |
-| `restic_backup_secondary_s3_secret_key`      | `""`                                                          | Secondary S3 Secret Access Key                                          |
-| `restic_backup_secondary_password`           | `""`                                                          | Strong password used for secondary repository encryption                |
-| `restic_backup_secondary_password_file_path` | `"{{ restic_backup_secrets_dir }}/restic_secondary_password"` | Path to secondary password file in memory                               |
-| `restic_backup_healthchecks_ping_url`        | `""`                                                          | Healthchecks.io ping URL for backup run heartbeat reporting             |
-| `restic_backup_paths`                        | `["/etc", "/root", "/usr/local/etc", "/opt/containers"]`      | Paths to include in the backup                                          |
-| `restic_backup_excludes`                     | `["*.log", "*.tmp", "*.bak", ...]`                            | Patterns to exclude from backups                                        |
-| `restic_backup_keep_daily`                   | `3`                                                           | Number of daily snapshots to retain                                     |
-| `restic_backup_keep_weekly`                  | `1`                                                           | Number of weekly snapshots to retain                                    |
-| `restic_backup_keep_monthly`                 | `0`                                                           | Number of monthly snapshots to retain                                   |
-| `restic_backup_schedule_calendar`            | `"*-*-* 03:00:00 UTC"`                                        | Systemd OnCalendar schedule                                             |
-| `restic_backup_random_delay_sec`             | `1800`                                                        | Systemd RandomizedDelaySec                                              |
-| `restic_backup_cache_dir`                    | `"/var/cache/restic"`                                         | Local cache directory                                                   |
-| `restic_backup_log_dir`                      | `"/var/log/restic"`                                           | Local log directory                                                     |
-| `restic_backup_config_dir`                   | `"/etc/restic"`                                               | Directory for configuration and hooks                                   |
-| `restic_backup_runner_script_path`           | `"/usr/local/sbin/restic-backup-runner.sh"`                   | Path to the runner script                                               |
+| Variable                                | Default                                                  | Description                                                              |
+| --------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `restic_backup_repository`              | `""`                                                     | Primary Restic repository URL (e.g., `s3:<endpoint>/<bucket>/<host>`)    |
+| `restic_backup_s3_access_key`           | `""`                                                     | Primary S3 Access Key ID (e.g., OCI Customer Secret Key ID)              |
+| `restic_backup_s3_secret_key`           | `""`                                                     | Primary S3 Secret Access Key (e.g., OCI Customer Secret Key)             |
+| `restic_backup_password`                | `""`                                                     | Strong password used for primary repository encryption                   |
+| `restic_backup_secondary_enabled`       | `false`                                                  | Enable secondary disaster recovery backup target (e.g., Cloudflare R2)   |
+| `restic_backup_secondary_repository`    | `""`                                                     | Secondary Restic repository URL (e.g., `s3:<endpoint>/<bucket>/<host>`)  |
+| `restic_backup_secondary_s3_access_key` | `""`                                                     | Secondary S3 Access Key ID                                               |
+| `restic_backup_secondary_s3_secret_key` | `""`                                                     | Secondary S3 Secret Access Key                                           |
+| `restic_backup_secondary_password`      | `""`                                                     | Strong password used for secondary repository encryption                 |
+| `restic_backup_healthchecks_ping_url`   | `""`                                                     | Healthchecks.io ping URL for backup run heartbeat reporting              |
+| `restic_backup_paths`                   | `["/etc", "/root", "/usr/local/etc", "/opt/containers"]` | Paths to include in the backup                                           |
+| `restic_backup_excludes`                | `["*.log", "*.tmp", "*.bak", ...]`                       | Patterns to exclude from backups                                         |
+| `restic_backup_keep_daily`              | `3`                                                      | Number of daily snapshots to retain                                      |
+| `restic_backup_keep_weekly`             | `1`                                                      | Number of weekly snapshots to retain                                     |
+| `restic_backup_keep_monthly`            | `0`                                                      | Number of monthly snapshots to retain                                    |
+| `restic_backup_credstore_dir`           | `"/etc/credstore.encrypted"`                             | Directory for systemd encrypted credentials (`LoadCredentialEncrypted=`) |
+| `restic_backup_credential_key`          | `"host"`                                                 | Key the credentials are bound to (`host`, `tpm2`, `host+tpm2`, `auto`)   |
+| `restic_backup_libexec_dir`             | `"/usr/local/libexec/restic-backup"`                     | Location of the credential-sync and Healthchecks notify helpers          |
+| `restic_backup_schedule_calendar`       | `"*-*-* 03:00:00 UTC"`                                   | Systemd OnCalendar schedule                                              |
+| `restic_backup_random_delay_sec`        | `1800`                                                   | Systemd RandomizedDelaySec                                               |
+| `restic_backup_cache_dir`               | `"/var/cache/restic"`                                    | Local cache directory                                                    |
+| `restic_backup_log_dir`                 | `"/var/log/restic"`                                      | Local log directory                                                      |
+| `restic_backup_config_dir`              | `"/etc/restic"`                                          | Directory for configuration and hooks                                    |
+| `restic_backup_runner_script_path`      | `"/usr/local/sbin/restic-backup-runner.sh"`              | Path to the runner script                                                |
 
 ## Example Playbook
 
@@ -73,14 +73,14 @@ Ansible role for configuring automated, encrypted, and deduplicated nightly back
 
 ## Security & Secrets
 
-All credentials should be supplied via SOPS-encrypted group variables (`secrets/credentials.sops.yaml` for production or `secrets/credentials.ci.sops.yaml` for testing/CI) or retrieved via early-boot cloud secrets fetch (`oci-secrets-fetch.service`).
+All credentials are supplied from the canonical SOPS files (`secrets/credentials.sops.yaml` for production, `secrets/credentials.ci.sops.yaml` for CI and Molecule) through group variables.
 
-Sensitive credentials (encryption passwords and S3 secret keys) are strictly maintained in memory:
+Secrets (repository passwords, S3 secret keys, the Healthchecks ping URL) are stored as **systemd encrypted credentials**:
 
-- Staged into volatile `tmpfs` `/run/secrets/` with mode `0400 root:root` (never written to persistent disk).
-- Loaded into isolated systemd service instances using modern `LoadCredential=` directives (`$CREDENTIALS_DIRECTORY`).
-- Non-sensitive configuration remains in `/etc/restic` (`0600 root:root`):
-  - `/etc/restic/backup.env`: mode `0600 root:root`
-  - `/etc/restic/primary.env`: mode `0600 root:root`
-  - `/etc/restic/secondary.env`: mode `0600 root:root`
-- Legacy persistent password files (`/etc/restic/password` and `/etc/restic/password-secondary`) are automatically scrubbed on convergence.
+- `restic-credential-sync` encrypts each secret from stdin with `systemd-creds encrypt --with-key=host` into `/etc/credstore.encrypted/<name>` (`0400 root:root`, AES-256-GCM, bound to the host key `/var/lib/systemd/credential.secret`). It only re-encrypts when the value changed, so runs stay idempotent.
+- The units load them with `LoadCredentialEncrypted=`; systemd decrypts them only into the service's private `$CREDENTIALS_DIRECTORY` at start. Credentials survive reboots and never exist in plaintext on disk.
+- `/etc` is part of the backup set, so backups contain only the ciphertext. The host key in `/var/lib/systemd` is not backed up, which keeps backed-up credentials undecryptable.
+- Root on the running host can still decrypt the credentials, which is true of every host-side secret delivery. On hosts with a TPM2 chip, set `restic_backup_credential_key: host+tpm2` to also bind them to the hardware.
+- The Healthchecks ping URL is passed to curl via stdin (`--config -`), never as a process argument.
+- Non-sensitive configuration stays in `/etc/restic` (`0600 root:root`): `backup.env`, `primary.env`, `secondary.env`.
+- Legacy plaintext files (`/etc/restic/password*`) and the former tmpfs copies (`/run/secrets/*`) are removed on every run.
