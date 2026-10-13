@@ -538,20 +538,21 @@ if unknown:
 
 @test "all molecule scenarios configure persistent host apt archive cache mounts" {
   local scenarios=(
-    "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
-    "configuration/roles/restic_backup/molecule/default/molecule.yml"
-    "configuration/molecule/oci/molecule.yml"
-    "configuration/molecule/homelab/molecule.yml"
+    "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml:base_ubuntu_server/.cache/apt/archives"
+    "configuration/roles/restic_backup/molecule/default/molecule.yml:restic_backup/.cache/apt/archives"
+    "configuration/molecule/oci/molecule.yml:.cache/apt/oci/archives"
+    "configuration/molecule/homelab/molecule.yml:.cache/apt/homelab/archives"
   )
 
-  for path in "${scenarios[@]}"; do
+  for item in "${scenarios[@]}"; do
+    IFS=':' read -r path expected_suffix <<< "$item"
     local full_path="$REPO_ROOT/$path"
     [ -f "$full_path" ]
 
     run yq eval '.platforms[0].volumes[]' "$full_path"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "/var/cache/apt/archives:rw" ]]
-    [[ "$output" =~ "\${MOLECULE_PROJECT_DIRECTORY}/.cache/apt/archives" ]]
+    [[ "$output" =~ "$expected_suffix" ]]
   done
 }
 

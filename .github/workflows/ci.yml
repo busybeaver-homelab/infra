@@ -276,7 +276,8 @@ jobs:
           path: |
             configuration/roles/base_ubuntu_server/.cache/apt/archives
             configuration/roles/restic_backup/.cache/apt/archives
-            configuration/.cache/apt/archives
+            configuration/.cache/apt/oci/archives
+            configuration/.cache/apt/homelab/archives
           key: molecule-apt-${{ matrix.scenario }}-${{ hashFiles('configuration/**/*.yml', 'configuration/**/*.yaml') }}
           restore-keys: |
             molecule-apt-${{ matrix.scenario }}-

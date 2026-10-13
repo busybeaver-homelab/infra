@@ -233,7 +233,8 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" =~ "configuration/roles/base_ubuntu_server/.cache/apt/archives" ]]
   [[ "$output" =~ "configuration/roles/restic_backup/.cache/apt/archives" ]]
-  [[ "$output" =~ "configuration/.cache/apt/archives" ]]
+  [[ "$output" =~ "configuration/.cache/apt/oci/archives" ]]
+  [[ "$output" =~ "configuration/.cache/apt/homelab/archives" ]]
 }
 
 
