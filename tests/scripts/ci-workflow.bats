@@ -262,5 +262,22 @@ setup() {
   [ "$output" = "mise run test:scripts" ]
 }
 
+@test "ci.yml cleans up apt locks and fixes permissions for molecule apt cache" {
+  local cleanup_step
+  cleanup_step=$(yq eval '.jobs.molecule.steps[] | select(.name == "Prepare Molecule APT Cache for Saving")' "$WORKFLOW")
+  [ -n "$cleanup_step" ]
+
+  run yq eval '.jobs.molecule.steps[] | select(.name == "Prepare Molecule APT Cache for Saving") | .if' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "always()" ]
+
+  run yq eval '.jobs.molecule.steps[] | select(.name == "Prepare Molecule APT Cache for Saving") | .run' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "name lock" ]]
+  [[ "$output" =~ "name partial" ]]
+  [[ "$output" =~ "chown -R" ]]
+  [[ "$output" =~ "chmod -R" ]]
+}
+
 
 
