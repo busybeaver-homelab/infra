@@ -28,6 +28,7 @@ gh             = "2.102"
 
 [env]
 _.python.venv = ".venv"
+TF_PLUGIN_CACHE_DIR = "{{config_root}}/.cache/tofu/plugins"
 
 [tasks.lint]
 description = "Run all pre-commit hooks for linting and formatting"
