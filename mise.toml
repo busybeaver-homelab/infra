@@ -124,7 +124,56 @@ dir = "configuration"
 run = "molecule test -s homelab"
 
 [tasks."test:ansible"]
-description = "Run full Molecule test matrix across all Ansible roles and scenarios"
+description = "Run full Molecule test matrix concurrently across all Ansible roles and scenarios"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+scenarios=(
+  "base:configuration/roles/base_ubuntu_server:molecule test"
+  "restic:configuration/roles/restic_backup:molecule test"
+  "oci:configuration:molecule test -s oci"
+  "homelab:configuration:molecule test -s homelab"
+)
+
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' EXIT
+
+pids=()
+for item in "${scenarios[@]}"; do
+  IFS=':' read -r name dir cmd <<< "$item"
+  (
+    set +e
+    (cd "$dir" && eval "$cmd") >"$tmp_dir/$name.log" 2>&1
+    echo $? >"$tmp_dir/$name.exit"
+  ) &
+  pids+=($!)
+done
+
+for pid in "${pids[@]}"; do
+  wait "$pid" 2>/dev/null || true
+done
+
+failed=0
+for item in "${scenarios[@]}"; do
+  IFS=':' read -r name dir cmd <<< "$item"
+  exit_val=$(cat "$tmp_dir/$name.exit" 2>/dev/null || echo 1)
+  if [ "$exit_val" -eq 0 ]; then
+    echo "==> [PASS] Molecule scenario: $name"
+  else
+    echo "==> [FAIL] Molecule scenario: $name (exit code: $exit_val)"
+    cat "$tmp_dir/$name.log"
+    failed=1
+  fi
+done
+
+if [ "$failed" -ne 0 ]; then
+  exit 1
+fi
+'''
+
+[tasks."test:ansible:serial"]
+description = "Run all Molecule test scenarios sequentially"
 depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:oci", "test:ansible:homelab"]
 
 [tasks."test:molecule"]
@@ -152,8 +201,53 @@ dir = "configuration"
 run = "molecule converge -s homelab && molecule verify -s homelab"
 
 [tasks."test:ansible:fast"]
-description = "Fast iterate across all Ansible roles and scenarios (converge and verify without rebuild)"
-depends = ["test:ansible:fast:base", "test:ansible:fast:restic", "test:ansible:fast:oci", "test:ansible:fast:homelab"]
+description = "Fast iterate concurrently across all Ansible roles and scenarios (converge and verify without rebuild)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+scenarios=(
+  "base:configuration/roles/base_ubuntu_server:molecule converge && molecule verify"
+  "restic:configuration/roles/restic_backup:molecule converge && molecule verify"
+  "oci:configuration:molecule converge -s oci && molecule verify -s oci"
+  "homelab:configuration:molecule converge -s homelab && molecule verify -s homelab"
+)
+
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' EXIT
+
+pids=()
+for item in "${scenarios[@]}"; do
+  IFS=':' read -r name dir cmd <<< "$item"
+  (
+    set +e
+    (cd "$dir" && eval "$cmd") >"$tmp_dir/$name.log" 2>&1
+    echo $? >"$tmp_dir/$name.exit"
+  ) &
+  pids+=($!)
+done
+
+for pid in "${pids[@]}"; do
+  wait "$pid" 2>/dev/null || true
+done
+
+failed=0
+for item in "${scenarios[@]}"; do
+  IFS=':' read -r name dir cmd <<< "$item"
+  exit_val=$(cat "$tmp_dir/$name.exit" 2>/dev/null || echo 1)
+  if [ "$exit_val" -eq 0 ]; then
+    echo "==> [PASS] Fast iterate scenario: $name"
+  else
+    echo "==> [FAIL] Fast iterate scenario: $name (exit code: $exit_val)"
+    cat "$tmp_dir/$name.log"
+    failed=1
+  fi
+done
+
+if [ "$failed" -ne 0 ]; then
+  exit 1
+fi
+'''
 
 [tasks."test:ansible:clean:base"]
 description = "Destroy Molecule test containers for base_ubuntu_server role"

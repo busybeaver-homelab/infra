@@ -216,4 +216,25 @@ setup() {
   [[ "$molecule_section" =~ "uv.lock" ]] || false
 }
 
+@test "ci.yml caches molecule apt archives in molecule matrix job" {
+  local cache_step
+  cache_step=$(yq eval '.jobs.molecule.steps[] | select(.name == "Cache Molecule APT Archives")' "$WORKFLOW")
+  [ -n "$cache_step" ]
+
+  run yq eval '.jobs.molecule.steps[] | select(.name == "Cache Molecule APT Archives") | .uses' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "actions/cache@" ]]
+
+  run yq eval '.jobs.molecule.steps[] | select(.name == "Cache Molecule APT Archives") | .with.key' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "molecule-apt-\${{ matrix.scenario }}-" ]]
+
+  run yq eval '.jobs.molecule.steps[] | select(.name == "Cache Molecule APT Archives") | .with.path' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "configuration/roles/base_ubuntu_server/.cache/apt/archives" ]]
+  [[ "$output" =~ "configuration/roles/restic_backup/.cache/apt/archives" ]]
+  [[ "$output" =~ "configuration/.cache/apt/oci/archives" ]]
+  [[ "$output" =~ "configuration/.cache/apt/homelab/archives" ]]
+}
+
 
