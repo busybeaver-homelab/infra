@@ -86,4 +86,4 @@ Before claiming a task is complete, verify your work:
     > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver across the four scenarios above (`base_ubuntu_server`, `restic_backup`, `oci`, and `homelab`).
 2.  **Verify exit status** — all commands above must exit 0 before proceeding.
 3.  **Perform a self-review diff** of your modifications to ensure no stray code, unused variables, or comments remain.
-4.  **Update the task tracker** located at `docs/plans/task.md` with progress.
+4.  **Update the task tracker** located at `docs/plans/task.md` during execution (this file is ignored by Git to avoid worktree merge conflicts). Upon completing all tasks for a branch or plan, move `docs/plans/task.md` to `docs/plans/archive/task-<YYYY-MM-DD>-<topic>.md` and commit the archived tracker.
