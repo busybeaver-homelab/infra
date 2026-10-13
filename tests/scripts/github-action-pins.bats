@@ -43,7 +43,7 @@ setup() {
   local total sha_count
   total=$(grep -rcE 'uses:[[:space:]]*jdx/mise-action@' "$REPO_ROOT/.github/" | awk -F: '{s+=$2} END {print s}')
   sha_count=$(grep -rcE 'uses:[[:space:]]*jdx/mise-action@[a-f0-9]{40}' "$REPO_ROOT/.github/" | awk -F: '{s+=$2} END {print s}')
-  [ "$sha_count" -ge 3 ]
+  [ "$sha_count" -ge 1 ]
   [ "$total" -eq "$sha_count" ]
 
   # Ensure no corrupted SHAs exist

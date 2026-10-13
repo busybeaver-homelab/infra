@@ -35,6 +35,7 @@
     "**/examples/**",
     "**/init.t",
     "**/.mise/locks/**",
+    ".python-version",
   ],
 
   // Native manager toggles
@@ -53,8 +54,14 @@
   pep621: {
     enabled: true,
   },
+  pyenv: {
+    enabled: false,
+  },
+  nodenv: {
+    enabled: false,
+  },
 
-  // Custom regex manager for shell script version pins
+  // Custom regex managers for shell scripts and toolchain pins
   customManagers: [
     {
       customType: "regex",
@@ -63,6 +70,18 @@
       matchStrings: [
         '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+[A-Za-z0-9_]+_VERSION="?(?<currentValue>[^"\\s]+)"?',
       ],
+    },
+    {
+      customType: "regex",
+      description: "Track Mise CLI version pins in mise.toml and setup-environment composite action",
+      managerFilePatterns: [
+        "^mise\\.toml$",
+        "^\\.github/actions/setup-environment/action\\.ya?ml$",
+      ],
+      matchStrings: [
+        '(?:min_version = "|version: ")(?<currentValue>[^"]+)"[^\n]*# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?(?:\\s|$)',
+      ],
+      datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
     },
   ],
 
@@ -160,6 +179,17 @@
       automerge: false,
     },
 
+    // 4c. Mise CLI (custom regex manager)
+    {
+      description: "Group and scope Mise CLI version updates across mise.toml and setup-environment action",
+      matchPackageNames: ["jdx/mise"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "toolchain",
+      groupName: "mise cli",
+      groupSlug: "mise-cli",
+      automerge: false,
+    },
+
     // 5a. Python / UV (stable >= 1.0)
     {
       description: "Group and scope stable Python / UV dependencies",
@@ -213,6 +243,14 @@
     {
       description: "Require human review for major version upgrades",
       matchUpdateTypes: ["major"],
+      automerge: false,
+    },
+
+    // 10. Language Runtimes (Python, Node, Go require explicit review)
+    {
+      description: "Require human review for language runtime upgrades in mise",
+      matchManagers: ["mise"],
+      matchPackageNames: ["python", "node", "go"],
       automerge: false,
     },
   ],
