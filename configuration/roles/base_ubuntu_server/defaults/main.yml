@@ -15,3 +15,8 @@ base_ubuntu_server_firewall_docker_isolation: true
 
 # SSH daemon state verification
 base_ubuntu_server_verify_ssh_running: false
+
+# OCI Vault secrets fetcher and in-memory delivery
+base_ubuntu_server_oci_secrets_fetch_enabled: false
+base_ubuntu_server_oci_secrets_dest_dir: "/run/secrets"
+base_ubuntu_server_oci_vault_ocid: ""

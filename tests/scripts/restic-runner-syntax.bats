@@ -44,3 +44,17 @@ RUNNER_TEMPLATE="${REPO_ROOT}/configuration/roles/restic_backup/templates/restic
   [ "$status" -eq 0 ]
 }
 
+@test "restic runner resolves credentials from CREDENTIALS_DIRECTORY when available" {
+  run grep -F 'CREDENTIALS_DIRECTORY' "${RUNNER_TEMPLATE}"
+  [ "$status" -eq 0 ]
+  run grep -F '${CREDENTIALS_DIRECTORY}/restic_password' "${RUNNER_TEMPLATE}"
+  [ "$status" -eq 0 ]
+  run grep -F '${CREDENTIALS_DIRECTORY}/oci_s3_secret_key' "${RUNNER_TEMPLATE}"
+  [ "$status" -eq 0 ]
+}
+
+@test "restic runner resolves fallback credentials from in-memory secrets directory" {
+  run grep -F 'restic_backup_secrets_dir' "${RUNNER_TEMPLATE}"
+  [ "$status" -eq 0 ]
+}
+
