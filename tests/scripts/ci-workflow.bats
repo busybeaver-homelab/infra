@@ -143,4 +143,77 @@ setup() {
   [[ "$output" =~ "ref is missing" ]] || false
 }
 
+@test "setup-environment caches tflint plugins with cache-tflint id and skips init on cache hit" {
+  run yq eval '.runs.steps[] | select(.name == "Cache TFLint Plugins") | .id' "$ACTION"
+  [ "$status" -eq 0 ]
+  [ "$output" = "cache-tflint" ]
+
+  run yq eval '.runs.steps[] | select(.name == "Initialize TFLint") | .if' "$ACTION"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "steps.cache-tflint.outputs.cache-hit != 'true'" ]] || false
+}
+
+@test "setup-environment caches ansible galaxy with cache-galaxy id and skips install on cache hit" {
+  run yq eval '.runs.steps[] | select(.name == "Cache Ansible Galaxy") | .id' "$ACTION"
+  [ "$status" -eq 0 ]
+  [ "$output" = "cache-galaxy" ]
+
+  run yq eval '.runs.steps[] | select(.name == "Install Ansible Galaxy requirements") | .if' "$ACTION"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "steps.cache-galaxy.outputs.cache-hit != 'true'" ]] || false
+}
+
+@test "setup-environment ansible-galaxy install does not specify --force" {
+  run yq eval '.runs.steps[] | select(.name == "Install Ansible Galaxy requirements") | .run' "$ACTION"
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "--force" ]] || false
+}
+
+@test "codeql, drift-detection, and backup-prune invoke setup-environment with lean defaults" {
+  for wf in codeql.yml drift-detection.yml backup-prune.yml; do
+    run grep -F "uses: $/.github/actions/setup-environment" "$REPO_ROOT/.github/workflows/$wf"
+    [ "$status" -eq 0 ]
+
+    # None of these lean workflows should enable python, galaxy, or tflint
+    run yq eval '.. | select(.uses? == "$/.github/actions/setup-environment") | .with.python // "false"' "$REPO_ROOT/.github/workflows/$wf"
+    [ "$status" -eq 0 ]
+    [ "$output" = "false" ]
+
+    run yq eval '.. | select(.uses? == "$/.github/actions/setup-environment") | .with.galaxy // "false"' "$REPO_ROOT/.github/workflows/$wf"
+    [ "$status" -eq 0 ]
+    [ "$output" = "false" ]
+
+    run yq eval '.. | select(.uses? == "$/.github/actions/setup-environment") | .with.tflint // "false"' "$REPO_ROOT/.github/workflows/$wf"
+    [ "$status" -eq 0 ]
+    [ "$output" = "false" ]
+  done
+}
+
+@test "ci.yml paths filter includes .python-version, pyproject.toml, and uv.lock in critical check jobs" {
+  run yq eval '.jobs.changes.steps[] | select(.id == "filter") | .with.filters' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  local filters="$output"
+
+  # Ensure lint filter checks python version and lock files
+  [[ "$filters" =~ ".python-version" ]] || false
+  [[ "$filters" =~ "uv.lock" ]] || false
+  [[ "$filters" =~ "mise.lock" ]] || false
+
+  # Ensure ansible filter checks python version and dependencies
+  run yq eval '.jobs.changes.steps[] | select(.id == "filter") | .with.filters' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  local ansible_section
+  ansible_section=$(echo "$output" | sed -n '/ansible:/,/molecule:/p')
+  [[ "$ansible_section" =~ ".python-version" ]] || false
+  [[ "$ansible_section" =~ "pyproject.toml" ]] || false
+  [[ "$ansible_section" =~ "uv.lock" ]] || false
+
+  # Ensure molecule filter checks python version and dependencies
+  local molecule_section
+  molecule_section=$(echo "$output" | sed -n '/molecule:/,$ p')
+  [[ "$molecule_section" =~ ".python-version" ]] || false
+  [[ "$molecule_section" =~ "pyproject.toml" ]] || false
+  [[ "$molecule_section" =~ "uv.lock" ]] || false
+}
+
 
