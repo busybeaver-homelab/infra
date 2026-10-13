@@ -22,6 +22,7 @@ yq             = "4"
 node           = "lts"
 actionlint     = "1.7"
 trivy          = "0.75"
+gh             = "2.102"
 
 
 [env]
