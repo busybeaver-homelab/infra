@@ -15,7 +15,7 @@ permissions:
 jobs:
   drift-detect:
     name: Drift Detection (${{ matrix.module }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned; bump deliberately via PR together with Molecule/host OS
     environment: ci
     permissions:
       contents: read

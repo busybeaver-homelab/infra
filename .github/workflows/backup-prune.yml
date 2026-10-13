@@ -15,7 +15,7 @@ permissions:
 jobs:
   prune:
     name: Restic Snapshot Retention & Integrity Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned; bump deliberately via PR together with Molecule/host OS
     environment: backup
     permissions:
       contents: read
