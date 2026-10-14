@@ -7,6 +7,9 @@ DETECT_SCRIPT="${REPO_ROOT}/scripts/detect-private-keys.sh"
 
 setup() {
   setup_tmpdir
+  # Format-valid (matches the detector) but not a real identity: built at runtime so no
+  # key-shaped literal is ever committed. Never use real or previously leaked keys.
+  FAKE_AGE_KEY="AGE-SECRET-KEY-1$(printf 'Q%.0s' $(seq 1 58))"
 }
 
 teardown() {
@@ -35,7 +38,8 @@ teardown() {
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  printf '%s%s\n' 'AGE-SECRET-' 'KEY-17PR87XDZLMHYWLR542HNRFPWV53GWRHA0TQ904YJ2850Q3333TSSULL055' > leaked.env
+  printf '%s
+' "${FAKE_AGE_KEY}" > leaked.env
   git add leaked.env
 
   run bash "${DETECT_SCRIPT}" "leaked.env"
@@ -74,7 +78,8 @@ teardown() {
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  printf '%s%s\n' 'AGE-SECRET-' 'KEY-17PR87XDZLMHYWLR542HNRFPWV53GWRHA0TQ904YJ2850Q3333TSSULL055' > leaked.env
+  printf '%s
+' "${FAKE_AGE_KEY}" > leaked.env
   git add leaked.env
   # Replace disk file with sanitized content
   echo "SAFE=true" > leaked.env
@@ -92,7 +97,8 @@ teardown() {
   echo "SAFE=true" > file.env
   git add file.env
   # Place leak in disk copy only
-  printf '%s%s\n' 'AGE-SECRET-' 'KEY-17PR87XDZLMHYWLR542HNRFPWV53GWRHA0TQ904YJ2850Q3333TSSULL055' > file.env
+  printf '%s
+' "${FAKE_AGE_KEY}" > file.env
 
   run bash "${DETECT_SCRIPT}" "file.env"
   [ "$status" -eq 0 ]
@@ -118,7 +124,8 @@ teardown() {
   cd "${mock_repo}"
   git init -q
   echo "clean content" > file_clean.txt
-  printf '%s%s\n' 'AGE-SECRET-' 'KEY-17PR87XDZLMHYWLR542HNRFPWV53GWRHA0TQ904YJ2850Q3333TSSULL055' > file_age.env
+  printf '%s
+' "${FAKE_AGE_KEY}" > file_age.env
   printf '%s%s\n' '-----BEGIN ' 'OPENSSH PRIVATE KEY-----' > file_ssh.key
   git add file_clean.txt file_age.env file_ssh.key
 
@@ -126,4 +133,14 @@ teardown() {
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Age private key detected in file_age.env" ]]
   [[ "$output" =~ "Private key header detected in file_ssh.key" ]]
+}
+
+@test "detect-private-keys.sh does not exempt its own test suite" {
+  run grep -F 'tests/scripts/detect-private-keys.bats' "${REPO_ROOT}/scripts/detect-private-keys.sh"
+  [ "$status" -eq 1 ]
+}
+
+@test "detector test suite contains no key-shaped literal" {
+  run grep -E "AGE-SECRET-'? *'?KEY-1[0-9A-Z]{10}" "${REPO_ROOT}/tests/scripts/detect-private-keys.bats"
+  [ "$status" -eq 1 ]
 }
