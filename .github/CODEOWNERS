@@ -1,0 +1,24 @@
+# Code owners: the repository owner reviews changes to security-boundary files.
+# Paths that Renovate updates (workflows, actions, renovate.json5, mise.toml,
+# mise.lock, uv.lock, pyproject.toml, requirements.yml, *.terraform.lock.hcl)
+# are deliberately NOT listed, so dependency updates keep merging automatically
+# (owner decision D7, docs/runbooks/ci-workflows-standards.md STD-CI-69).
+
+/.sops.yaml                         @busybeaver
+/.gitattributes                     @busybeaver
+/secrets/                           @busybeaver
+/lefthook.yml                       @busybeaver
+/scripts/verify-sops-encryption.sh  @busybeaver
+/scripts/verify-commit-msg.sh       @busybeaver
+/scripts/detect-private-keys.sh     @busybeaver
+/scripts/check-network-masking.sh   @busybeaver
+/scripts/check-secrets-schema-parity.sh @busybeaver
+/scripts/block-ansible-vault.sh     @busybeaver
+/infrastructure/github/             @busybeaver
+/AGENTS.md                          @busybeaver
+/LICENSE                            @busybeaver
+/.github/CODEOWNERS                 @busybeaver
+
+# Renovate-managed files inside owned directories: explicitly unowned (later rules win).
+/infrastructure/github/**/versions.tf
+/infrastructure/github/**/.terraform.lock.hcl
