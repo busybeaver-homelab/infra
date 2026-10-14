@@ -16,9 +16,10 @@ Security is the absolute highest priority in this repository.
 - **Privacy in Conversations:** Never output decrypted secrets, private keys, or API tokens into the chat/transcript.
 - **Masking Network Details:** All internal IPs, subnets, internal hostnames, and server domains are classified as sensitive. Treat them as encrypted secrets; do not hardcode them in open playbooks, variables, or OpenTofu manifests.
 - **Canonical Two-File Secrets Architecture:** All secrets, tokens, and credentials across the entire repository **must** reside exclusively in exactly two canonical files:
-  - `secrets/credentials.ci.sops.yaml`: Encrypted via Age for continuous integration pipelines, automated linting, and Molecule testing. It should only contain decoy or dummy values, never production values (i.e. never the name values as the production file).
+  - `secrets/credentials.ci.sops.yaml`: Encrypted via Age for continuous integration pipelines, automated linting, and Molecule testing. It should only contain decoy or dummy values, never production values (i.e. never the same values as the production file; enforced automatically via `scripts/check-sops-secret-leaks.sh --check-disjointness`).
   - `secrets/credentials.sops.yaml`: Encrypted via GPG for production operations and administrative deployments.
   - Creating separate, domain-specific, or ad-hoc secret files (e.g., `secrets.*.sops.yaml`) is strictly forbidden. All secrets must be consolidated into these two canonical files.
+- **Synthetic Test Fixtures Only:** Automated tests (`.bats`, `.tftest.hcl`, Molecule scenarios, and mock fixtures) are **never** exempt from secret or network masking scanners (`scripts/check-sops-secret-leaks.sh`, `scripts/check-network-masking.sh`, `scripts/detect-private-keys.sh`). Tests **must never** contain values copied from `secrets/credentials.sops.yaml` or `secrets/credentials.ci.sops.yaml`. Always use RFC 2606 domains (`example.com`, `example.test`), RFC 5737 TEST-NET IPs (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`), RFC 3849 IPv6 (`2001:db8::/32`), dynamically generated runtime keys (`age-keygen`, `openssl rand`), or split-string concatenation in negative scanner tests.
 - **No Textconv Diff on Production Secrets:** Always execute git diff operations with `--no-textconv` (e.g., `git diff --no-textconv`) when inspecting diffs or changes to ensure decrypted secrets are never accidentally materialized or printed into tool execution output or chat history.
 - **Forbid Secret Getter Invocations:** AI agents are strictly forbidden from executing commands such as `mise run secret:*:get` or any scripts/commands whose purpose is to dump or display decrypted secret keys and credentials in logs or chat.
 
@@ -79,7 +80,7 @@ Before claiming a task is complete, verify your work:
       - `(cd configuration && mise exec -- molecule test -s oci)`
       - `(cd configuration && mise exec -- molecule test -s gcp)`
       - `(cd configuration && mise exec -- molecule test -s homelab)`
-    - **Script changes:** `mise exec -- shellcheck scripts/*.sh tests/scripts/helpers/*` · `mise exec -- bats tests/scripts/`
+    - **Script / Secrets changes:** `mise exec -- shellcheck scripts/*.sh tests/scripts/helpers/*` · `mise exec -- bats tests/scripts/` · `mise exec -- bash scripts/check-sops-secret-leaks.sh --check-disjointness`
     - **Workflow / Renovate changes:** `mise exec -- actionlint` · the CI-related bats suites listed in `docs/runbooks/ci-workflows-standards.md` §15
     - **Python changes:** `uv run ruff check` · `uv run ruff format --check`
     - **Pre-commit gate (all changes):** `mise exec lefthook -- lefthook run pre-commit`

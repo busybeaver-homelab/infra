@@ -113,6 +113,19 @@ pre-commit:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-secrets-schema-parity.sh secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml
 
+    # SOPS Secret Leak Detector
+    # Scans staged plaintext files (including .bats, .tftest.hcl, Molecule) for decrypted SOPS secret values
+    sops-secret-leaks:
+      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      run: bash scripts/check-sops-secret-leaks.sh --check-files {staged_files}
+
+    # SOPS Prod-vs-CI Value Disjointness Check
+    # Ensures secrets/credentials.ci.sops.yaml never shares secret values with secrets/credentials.sops.yaml
+    sops-disjointness:
+      glob: "secrets/credentials*.sops.{yml,yaml}"
+      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      run: bash scripts/check-sops-secret-leaks.sh --check-disjointness
+
     # Mise Lockfile Synchronization Check
     mise-lock-check:
       glob: "mise.{toml,lock}"
