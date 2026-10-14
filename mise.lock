@@ -786,7 +786,7 @@ url = "https://github.com/trufflesecurity/trufflehog/releases/download/v3.97.9/t
 url_api = "https://api.github.com/repos/trufflesecurity/trufflehog/releases/assets/585605832"
 
 [[tools.uv]]
-version = "0.13.0"
+version = "0.13.1"
 backend = "asdf:uv"
 specifiers = ["0.13"]
 
