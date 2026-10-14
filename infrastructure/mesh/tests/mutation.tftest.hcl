@@ -37,6 +37,11 @@ run "initial_apply" {
   }
 
   assert {
+    condition     = tailscale_tailnet_key.bootstrap_gcp.tags == toset(["tag:type-server", "tag:os-linux", "tag:hosting-cloud", "tag:location-us", "tag:env-gcp"])
+    error_message = "Initial apply must retain default GCP bootstrap key tags."
+  }
+
+  assert {
     condition     = tailscale_tailnet_settings.homelab.devices_key_duration_days == 90
     error_message = "Initial apply must set device key duration to 90 days."
   }
@@ -46,7 +51,8 @@ run "mutate_bootstrap_tags" {
   command = plan
 
   variables {
-    bootstrap_key_tags = ["tag:type-server", "tag:env-ci"]
+    bootstrap_key_tags     = ["tag:type-server", "tag:env-ci"]
+    bootstrap_gcp_key_tags = ["tag:type-server", "tag:env-gcp-ci"]
   }
 
   assert {
@@ -57,6 +63,16 @@ run "mutate_bootstrap_tags" {
   assert {
     condition     = tailscale_tailnet_key.bootstrap.reusable == true
     error_message = "Bootstrap key must remain reusable after tag mutation."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.bootstrap_gcp.tags == toset(["tag:type-server", "tag:env-gcp-ci"])
+    error_message = "Mutated GCP bootstrap tags must reflect in plan."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.bootstrap_gcp.reusable == true
+    error_message = "GCP bootstrap key must remain reusable after tag mutation."
   }
 }
 

@@ -8,7 +8,7 @@ restic_backup_credentials:
   - name: restic_password
     value: "{{ restic_backup_password }}"
     enabled: true
-  - name: oci_s3_secret_key
+  - name: primary_s3_secret_key
     value: "{{ restic_backup_s3_secret_key }}"
     enabled: "{{ restic_backup_s3_secret_key | default('') | length > 0 }}"
   - name: restic_secondary_password
@@ -31,3 +31,4 @@ restic_backup_legacy_secret_paths:
   - /run/secrets/oci_s3_secret_key
   - /run/secrets/cloudflare_s3_secret_key
   - /run/secrets/healthchecks_ping_url
+  - "{{ restic_backup_credstore_dir }}/oci_s3_secret_key"

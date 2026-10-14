@@ -1,0 +1,81 @@
+---
+# Shared group variables for all cloud compute instances (OCI and GCP)
+
+# Firewall settings (geerlingguy.firewall)
+# Disable base_ubuntu_server UFW firewall because geerlingguy.firewall manages iptables directly on cloud instances
+base_ubuntu_server_firewall_enabled: false
+firewall_enabled: true
+firewall_allowed_tcp_ports: []
+firewall_allowed_udp_ports:
+  # Tailscale WireGuard direct peer-to-peer port
+  - "41641"
+firewall_additional_rules:
+  # Allow all incoming traffic on Tailscale WireGuard overlay interface
+  - "iptables -A INPUT -i tailscale0 -j ACCEPT"
+firewall_ip6_additional_rules:
+  # Allow all incoming IPv6 traffic on Tailscale WireGuard overlay interface
+  - "ip6tables -A INPUT -i tailscale0 -j ACCEPT"
+
+# SSH Configuration & Hardening (dev-sec.ssh-hardening)
+# 1. ssh_server_enabled: false
+#    - OpenSSH server daemon (sshd) and socket are completely stopped, disabled, and blocked
+#      at the firewall (port 22 closed) to reduce the attack surface to zero listening OpenSSH ports.
+#    - Primary administrative access is handled exclusively by Tailscale SSH running inside the
+#      tailscaled daemon over the encrypted WireGuard overlay interface (tailscale0).
+#    - Emergency break-glass access is out-of-band via Cloud Serial Console
+#      (direct TTY login with break-glass credentials), completely independent of SSH network daemons.
+# 2. ssh_server_hardening: false
+#    - Tailscale SSH implements its own self-contained SSH server in Go and does not read /etc/ssh/sshd_config.
+#    - Since OpenSSH server is stopped and disabled, generating a hardened /etc/ssh/sshd_config is inert.
+#    - Leaving server hardening enabled would enforce 'PasswordAuthentication no' in sshd_config,
+#      which would lockout password authentication if an operator ever temporarily starts sshd
+#      during out-of-band recovery.
+#    - Avoids template parser incompatibilities between Ansible Core 2.21+ strict literal parsing
+#      and legacy dev-sec.ssh-hardening templates (trim_blocks: "true").
+# 3. ssh_client_hardening: false
+#    - Modern Ubuntu 26.04 LTS already ships with OpenSSH 9.6+ and system crypto policies that disable
+#      legacy/insecure ciphers (3DES, RC4, Blowfish, DSA) out of the box for outbound connections.
+#    - Avoids identical template parser incompatibilities in dev-sec.ssh-hardening client templates
+#      while keeping client configuration clean, minimal, and native to Ubuntu 26.04.
+ssh_server_enabled: false
+ssh_server_hardening: false
+ssh_client_hardening: false
+ssh_hardening_enabled: false
+
+# Security settings (geerlingguy.security)
+# Explicit comment: Disable geerlingguy.security SSH hardening because
+# dev-sec.ssh-hardening is used instead for advanced SSH configuration.
+security_ssh_hardening: false
+security_sshd_state: stopped
+security_fail2ban_enabled: true
+security_autoupdate_enabled: true
+
+# OS Hardening settings (dev-sec.os-hardening)
+# Set to empty list to prevent non-deterministic line order in /etc/modprobe.d/dev-sec.conf
+# caused by unordered set difference operations across runs.
+os_unused_filesystems: []
+sysctl_overwrite:
+  # Enable IPv4 traffic forwarding - required for Docker bridge networking
+  net.ipv4.ip_forward: 1
+
+# Swap settings (geerlingguy.swap)
+# Allocate 2GB swap file (crucial for 1GB RAM micro instances on OCI and GCP)
+swap_file_size_mb: 2048
+swap_swappiness: "10"
+
+# NTP settings (geerlingguy.ntp)
+ntp_timezone: "UTC"
+ntp_package: ntpsec
+ntp_daemon: ntpsec
+ntp_config_file: /etc/ntpsec/ntp.conf
+ntp_driftfile: /var/lib/ntpsec/ntp.drift
+
+# Users management (singleplatform-eng.users)
+users: []
+
+# Secondary Cloudflare R2 Disaster Recovery Backup (Western Europe jurisdiction)
+restic_backup_secondary_enabled: true
+restic_backup_secondary_repository: "s3:{{ cloudflare_restic.s3_endpoint }}/{{ cloudflare_restic.bucket }}/{{ inventory_hostname }}"
+restic_backup_secondary_s3_access_key: "{{ cloudflare_restic.s3_access_key_id }}"
+restic_backup_secondary_s3_secret_key: "{{ cloudflare_restic.s3_secret_access_key }}"
+restic_backup_secondary_password: "{{ cloudflare_restic.password }}"

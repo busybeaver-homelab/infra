@@ -59,6 +59,30 @@ run "reject_malformed_bootstrap_key_tag" {
   ]
 }
 
+run "reject_empty_bootstrap_gcp_key_tags" {
+  command = plan
+
+  variables {
+    bootstrap_gcp_key_tags = []
+  }
+
+  expect_failures = [
+    var.bootstrap_gcp_key_tags,
+  ]
+}
+
+run "reject_malformed_bootstrap_gcp_key_tag" {
+  command = plan
+
+  variables {
+    bootstrap_gcp_key_tags = ["invalid-tag-no-prefix"]
+  }
+
+  expect_failures = [
+    var.bootstrap_gcp_key_tags,
+  ]
+}
+
 run "reject_invalid_secrets_file_extension" {
   command = plan
 

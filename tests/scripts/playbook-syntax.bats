@@ -32,11 +32,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "configuration/playbooks/oci.yml eliminates failed_when: false on sshd disable" {
-  local playbook="$REPO_ROOT/configuration/playbooks/oci.yml"
+@test "configuration/playbooks/cloud.yml eliminates failed_when: false on sshd disable" {
+  local playbook="$REPO_ROOT/configuration/playbooks/cloud.yml"
   [ -f "$playbook" ]
 
-  # Ensure no failed_when: false is present in oci.yml
+  # Ensure no failed_when: false is present in cloud.yml
   run grep "failed_when: false" "$playbook"
   [ "$status" -ne 0 ]
 
@@ -58,7 +58,13 @@ setup() {
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/site.yml"
   [ "$status" -eq 0 ]
 
+  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/cloud.yml"
+  [ "$status" -eq 0 ]
+
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/oci.yml"
+  [ "$status" -eq 0 ]
+
+  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/gcp.yml"
   [ "$status" -eq 0 ]
 
   run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/unifi.yml"
@@ -76,9 +82,11 @@ setup() {
 
   run yq eval '.platforms[0].groups[]' "$mol"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "homelab" ]]
-  [[ "$output" =~ "oci" ]]
-  [[ "$output" =~ "unifi" ]]
+  grep -q "^cloud$" <<<"$output"
+  grep -q "^homelab$" <<<"$output"
+  grep -q "^oci$" <<<"$output"
+  grep -q "^gcp$" <<<"$output"
+  grep -q "^unifi$" <<<"$output"
 
   run grep "site.yml --syntax-check" "$conv"
   [ "$status" -eq 0 ]
@@ -105,6 +113,7 @@ setup() {
     "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
     "configuration/roles/restic_backup/molecule/default/molecule.yml"
     "configuration/molecule/oci/molecule.yml"
+    "configuration/molecule/gcp/molecule.yml"
     "configuration/molecule/homelab/molecule.yml"
   )
 
@@ -170,6 +179,8 @@ setup() {
   [ "$status" -eq 0 ]
   run grep -E 'tasks\."test:ansible:oci"' "$mise_config"
   [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:gcp"' "$mise_config"
+  [ "$status" -eq 0 ]
 }
 
 @test "mise.toml configures fast and clean molecule tasks" {
@@ -183,8 +194,11 @@ setup() {
   [ "$status" -eq 0 ]
   run grep -E 'tasks\."test:ansible:clean:base"' "$mise_config"
   [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:fast:gcp"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:clean:gcp"' "$mise_config"
+  [ "$status" -eq 0 ]
 }
-
 
 @test "base_ubuntu_server defines argument_specs validation metadata" {
   local spec="$REPO_ROOT/configuration/roles/base_ubuntu_server/meta/argument_specs.yml"
@@ -250,6 +264,9 @@ setup() {
   run grep -E "molecule test -s oci" "$doc"
   [ "$status" -eq 0 ]
 
+  run grep -E "molecule test -s gcp" "$doc"
+  [ "$status" -eq 0 ]
+
   run grep -E "molecule test -s homelab" "$doc"
   [ "$status" -eq 0 ]
 }
@@ -261,7 +278,7 @@ setup() {
   # Ensure continue-on-error is not set on ansible-check steps
   run yq eval '.jobs.ansible-check.steps[].continue-on-error' "$ci"
   [ "$status" -eq 0 ]
-  run grep -E "true" <<< "$output"
+  run grep -E "true" <<<"$output"
   [ "$status" -ne 0 ]
 
   # Ensure ephemeral target is used for check mode
@@ -273,7 +290,7 @@ setup() {
   # Ensure homelab scenario is in molecule matrix
   run yq eval '.jobs.molecule.strategy.matrix.scenario[]' "$ci"
   [ "$status" -eq 0 ]
-  run grep -E "^homelab$" <<< "$output"
+  run grep -E "^homelab$" <<<"$output"
   [ "$status" -eq 0 ]
 }
 
@@ -397,19 +414,54 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "configuration/group_vars/oci.yml wires dual restic backup targets" {
+@test "configuration/group_vars/cloud.yml, oci.yml, and gcp.yml wire DRY dual restic backup targets" {
+  local cloud_vars="$REPO_ROOT/configuration/group_vars/cloud.yml"
   local oci_vars="$REPO_ROOT/configuration/group_vars/oci.yml"
+  local gcp_vars="$REPO_ROOT/configuration/group_vars/gcp.yml"
+  [ -f "$cloud_vars" ]
   [ -f "$oci_vars" ]
-  run grep "restic_backup_secondary_enabled: true" "$oci_vars"
+  [ -f "$gcp_vars" ]
+
+  run grep "restic_backup_secondary_enabled: true" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.s3_endpoint" "$oci_vars"
+  run grep "cloudflare_restic.s3_endpoint" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.bucket" "$oci_vars"
+  run grep "cloudflare_restic.bucket" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.s3_access_key_id" "$oci_vars"
+  run grep "cloudflare_restic.s3_access_key_id" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.password" "$oci_vars"
+  run grep "cloudflare_restic.password" "$cloud_vars"
   [ "$status" -eq 0 ]
+
+  run grep "oci_restic.bucket" "$oci_vars"
+  [ "$status" -eq 0 ]
+
+  run grep "gcp_restic.bucket" "$gcp_vars"
+  [ "$status" -eq 0 ]
+  run grep 'restic_backup_credential_key: "host+tpm2"' "$gcp_vars"
+  [ "$status" -eq 0 ]
+}
+
+@test "restic_backup generalizes primary S3 credential name to primary_s3_secret_key" {
+  local vars_file="$REPO_ROOT/configuration/roles/restic_backup/vars/main.yml"
+  local runner_tpl="$REPO_ROOT/configuration/roles/restic_backup/templates/restic-backup-runner.sh.j2"
+  local service_tpl="$REPO_ROOT/configuration/roles/restic_backup/templates/restic-backup.service.j2"
+
+  run grep "name: primary_s3_secret_key" "$vars_file"
+  [ "$status" -eq 0 ]
+  run grep "primary_s3_secret_key" "$runner_tpl"
+  [ "$status" -eq 0 ]
+  run grep "LoadCredentialEncrypted=primary_s3_secret_key:" "$service_tpl"
+  [ "$status" -eq 0 ]
+}
+
+@test "gcp.yml fails closed when executed without valid production SOPS key" {
+  local playbook="$REPO_ROOT/configuration/playbooks/gcp.yml"
+  [ -f "$playbook" ]
+
+  run env SOPS_AGE_KEY="" GNUPGHOME="/dev/null" ansible-playbook -i "gcp," -c local -e ansible_become=false -e ansible_gather_facts=false --check "$playbook"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "SOPS" || "$output" =~ "Failed" || "$output" =~ "error" || "$output" =~ "Could not" || "$output" =~ "unreachable" || "$output" =~ "credentials" ]]
 }
 
 @test "AGENTS.md mandates automated pull request creation when separate branch is pushed" {
@@ -499,12 +551,13 @@ if unknown:
     "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml:base-ubuntu-server-26"
     "configuration/roles/restic_backup/molecule/default/molecule.yml:restic-ubuntu-server-26"
     "configuration/molecule/oci/molecule.yml:oci-ubuntu-server-26"
+    "configuration/molecule/gcp/molecule.yml:gcp-ubuntu-server-26"
     "configuration/molecule/homelab/molecule.yml:homelab-ubuntu-server-26"
   )
 
   local names=()
   for item in "${scenarios[@]}"; do
-    IFS=':' read -r path expected <<< "$item"
+    IFS=':' read -r path expected <<<"$item"
     local full_path="$REPO_ROOT/$path"
     [ -f "$full_path" ]
 
@@ -525,6 +578,7 @@ if unknown:
     "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
     "configuration/roles/restic_backup/molecule/default/molecule.yml"
     "configuration/molecule/oci/molecule.yml"
+    "configuration/molecule/gcp/molecule.yml"
     "configuration/molecule/homelab/molecule.yml"
   )
 
@@ -547,19 +601,20 @@ if unknown:
     "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml:.cache/apt/archives"
     "configuration/roles/restic_backup/molecule/default/molecule.yml:.cache/apt/archives"
     "configuration/molecule/oci/molecule.yml:.cache/apt/oci/archives"
+    "configuration/molecule/gcp/molecule.yml:.cache/apt/gcp/archives"
     "configuration/molecule/homelab/molecule.yml:.cache/apt/homelab/archives"
   )
 
   for item in "${scenarios[@]}"; do
-    IFS=':' read -r path expected_suffix <<< "$item"
+    IFS=':' read -r path expected_suffix <<<"$item"
     local full_path="$REPO_ROOT/$path"
     [ -f "$full_path" ]
 
     run yq eval '.platforms[0].volumes[]' "$full_path"
     [ "$status" -eq 0 ]
-    run grep -F "/var/cache/apt/archives:rw" <<< "$output"
+    run grep -F "/var/cache/apt/archives:rw" <<<"$output"
     [ "$status" -eq 0 ]
-    run grep -F "$expected_suffix" <<< "$output"
+    run grep -F "$expected_suffix" <<<"$output"
     [ "$status" -eq 0 ]
   done
 }
@@ -581,16 +636,16 @@ if unknown:
   # Ensure sequential test:ansible:serial task exists and declares dependencies
   run yq eval '.tasks."test:ansible:serial".depends[]' "$mise_config"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "test:ansible:base" ]]
-  [[ "$output" =~ "test:ansible:restic" ]]
-  [[ "$output" =~ "test:ansible:oci" ]]
-  [[ "$output" =~ "test:ansible:homelab" ]]
+  echo "$output" | grep -q "test:ansible:base"
+  echo "$output" | grep -q "test:ansible:restic"
+  echo "$output" | grep -q "test:ansible:oci"
+  echo "$output" | grep -q "test:ansible:gcp"
+  echo "$output" | grep -q "test:ansible:homelab"
 
   # Ensure test:ansible:fast runs converge and verify concurrently via rush
   run yq eval '.tasks."test:ansible:fast".run' "$mise_config"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "rush" ]]
-  [[ "$output" =~ "molecule converge" ]]
-  [[ "$output" =~ "molecule verify" ]]
+  echo "$output" | grep -q "rush"
+  echo "$output" | grep -q "molecule converge"
+  echo "$output" | grep -q "molecule verify"
 }
-

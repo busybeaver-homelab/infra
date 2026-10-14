@@ -11,6 +11,8 @@ driver:
 platforms:
   - name: playbooks-mock-node
     groups:
+      - cloud
+      - gcp
       - homelab
       - oci
       - unifi

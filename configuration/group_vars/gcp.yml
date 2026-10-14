@@ -1,0 +1,11 @@
+---
+# Group variables for GCP compute instances (inherits shared baseline from group_vars/cloud.yml)
+
+# Primary GCP Cloud Storage Backup (US-Central1 Always Free Regional Bucket via S3 HMAC Interop)
+restic_backup_repository: "s3:{{ gcp_restic.s3_endpoint }}/{{ gcp_restic.bucket }}/{{ inventory_hostname }}"
+restic_backup_s3_access_key: "{{ gcp_restic.s3_access_key_id }}"
+restic_backup_s3_secret_key: "{{ gcp_restic.s3_secret_access_key }}"
+restic_backup_password: "{{ gcp_restic.password }}"
+
+# Bind systemd encrypted credentials on GCP Shielded VMs to both host secret and vTPM2
+restic_backup_credential_key: "host+tpm2"

@@ -82,6 +82,16 @@ run "verify_compute_instances_and_free_tier" {
     condition     = oci_core_instance.ampere.launch_options[0].is_pv_encryption_in_transit_enabled == true
     error_message = "ARM instance must have in-transit encryption enabled on launch options"
   }
+
+  assert {
+    condition     = strcontains(base64decode(oci_core_instance.amd[0].metadata["user_data"]), "--hostname=\"oci-amd-1\"")
+    error_message = "AMD instance user_data must render shared cloud-init template with hostname oci-amd-1"
+  }
+
+  assert {
+    condition     = strcontains(base64decode(oci_core_instance.ampere.metadata["user_data"]), "--hostname=\"oci-arm-1\"")
+    error_message = "ARM instance user_data must render shared cloud-init template with hostname oci-arm-1"
+  }
 }
 
 run "verify_computed_outputs_on_apply" {

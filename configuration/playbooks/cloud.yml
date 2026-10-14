@@ -1,0 +1,91 @@
+---
+- name: Configure Cloud Instances (OCI and GCP)
+  hosts: "{{ cloud_target_hosts | default('cloud:oci:gcp') }}"
+  become: true
+  module_defaults:
+    ansible.builtin.template:
+      unsafe_writes: true
+    template:
+      unsafe_writes: true
+  pre_tasks:
+    - name: Load SOPS credentials
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../../secrets/{{ custom_sops_secrets_file | default('credentials.sops.yaml') }}"
+      when: (oci is not defined) or (gcp is not defined)
+
+    - name: Validate environment sentinel
+      ansible.builtin.assert:
+        that:
+          - (is_production | default(false) | bool) or (is_ci_environment | default(false) | bool)
+        fail_msg: >-
+          Refusing to execute playbook: Loaded secrets file does not have is_production: true,
+          and is_ci_environment is not set to true. Verify credentials and decryption keys.
+        success_msg: "Environment sentinel verified successfully."
+
+    - name: Set active cloud provider configuration dictionary
+      ansible.builtin.set_fact:
+        cloud_provider_config: >-
+          {{
+            lookup(
+              'ansible.builtin.vars',
+              cloud_provider_secret_key | default('gcp' if ('gcp' in group_names) else 'oci')
+            )
+          }}
+      no_log: true
+
+    - name: Ensure breakglass user exists with active shadow password
+      ansible.builtin.user:
+        name: "{{ cloud_provider_config.breakglass_user }}"
+        password: "{{ cloud_provider_config.breakglass_password_hash }}"
+        update_password: always
+        groups:
+          - sudo
+        append: true
+        shell: /bin/bash
+        state: present
+      no_log: true
+      when:
+        - cloud_provider_config is defined
+        - cloud_provider_config.breakglass_user is defined
+        - cloud_provider_config.breakglass_password_hash is defined
+
+  roles:
+    - ajsalminen.hosts
+    - base_ubuntu_server
+    - geerlingguy.swap
+    - geerlingguy.ntp
+    - dev-sec.os-hardening
+    - dev-sec.ssh-hardening
+    - geerlingguy.security
+    - geerlingguy.firewall
+    - geerlingguy.docker
+    - singleplatform-eng.users
+    - restic_backup
+
+  post_tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Ensure OpenSSH server service and socket are stopped and disabled
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - ssh.service
+        - ssh.socket
+      when:
+        - not (ssh_server_enabled | default(true) | bool)
+        - ansible_facts.services[item] is defined
+
+    - name: Refresh service facts after stopping OpenSSH
+      ansible.builtin.service_facts:
+      when: not (ssh_server_enabled | default(true) | bool)
+
+    - name: Assert OpenSSH service and socket are not running
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['ssh.service']['state'] | default('stopped') != 'running'
+          - ansible_facts.services['ssh.socket']['state'] | default('stopped') != 'running'
+        fail_msg: "OpenSSH service or socket is unexpectedly still running"
+      when: not (ssh_server_enabled | default(true) | bool)

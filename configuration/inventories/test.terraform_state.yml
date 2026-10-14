@@ -11,15 +11,26 @@ provider_mapping:
   - provider_name: registry.terraform.io/oracle/oci
     types:
       - oci_core_instance
+  - provider_name: registry.terraform.io/hashicorp/google
+    types:
+      - google_compute_instance
 
 hostnames:
   - display_name
+  - name
   - id
 
 compose:
-  ansible_host: display_name ~ '.homelab.ts.net'
-  tailscale_ip: private_ip
+  ansible_host: (display_name | default(name)) ~ '.homelab.ts.net'
+  tailscale_ip: private_ip if (private_ip is defined) else network_interface[0].network_ip
+
+groups:
+  oci: display_name is defined
+  gcp: machine_type is defined
+  cloud: display_name is defined or machine_type is defined
 
 keyed_groups:
   - prefix: tag
     key: freeform_tags
+  - prefix: tag
+    key: labels

@@ -17,7 +17,7 @@ teardown() {
   local file_a="${BATS_TMPDIR}/a.yaml"
   local file_b="${BATS_TMPDIR}/b.yaml"
 
-  cat <<'EOF' > "${file_a}"
+  cat <<'EOF' >"${file_a}"
 oci:
   region: dummy
   tenancy_ocid: dummy
@@ -26,7 +26,7 @@ sops:
   version: 3.8.1
 EOF
 
-  cat <<'EOF' > "${file_b}"
+  cat <<'EOF' >"${file_b}"
 oci:
   region: synthetic
   tenancy_ocid: synthetic
@@ -44,7 +44,7 @@ EOF
   local file_a="${BATS_TMPDIR}/a.yaml"
   local file_b="${BATS_TMPDIR}/b.yaml"
 
-  cat <<'EOF' > "${file_a}"
+  cat <<'EOF' >"${file_a}"
 oci:
   region: dummy
   tenancy_ocid: dummy
@@ -52,7 +52,7 @@ oci:
 is_production: true
 EOF
 
-  cat <<'EOF' > "${file_b}"
+  cat <<'EOF' >"${file_b}"
 oci:
   region: synthetic
   tenancy_ocid: synthetic
@@ -69,13 +69,13 @@ EOF
   local file_a="${BATS_TMPDIR}/a.yaml"
   local file_b="${BATS_TMPDIR}/b.yaml"
 
-  cat <<'EOF' > "${file_a}"
+  cat <<'EOF' >"${file_a}"
 oci:
   region: dummy
 is_production: true
 EOF
 
-  cat <<'EOF' > "${file_b}"
+  cat <<'EOF' >"${file_b}"
 oci:
   region: synthetic
   new_key: synthetic
@@ -137,6 +137,30 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
     run yq eval "has(\"tailscale\") and (.tailscale | has(\"config\")) and (.tailscale.config | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+  done
+}
+
+@test "canonical secrets files define gcp schema keys" {
+  local keys=("project_id" "region" "zone" "billing_account_id" "budget_alert_recipients" "tailscale_auth_key" "breakglass_user" "breakglass_password" "breakglass_password_hash")
+  for key in "${keys[@]}"; do
+    run yq eval "has(\"gcp\") and (.gcp | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+    run yq eval "has(\"gcp\") and (.gcp | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+  done
+}
+
+@test "canonical secrets files define gcp_restic schema keys" {
+  local keys=("s3_endpoint" "bucket" "s3_access_key_id" "s3_secret_access_key" "password")
+  for key in "${keys[@]}"; do
+    run yq eval "has(\"gcp_restic\") and (.gcp_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+    run yq eval "has(\"gcp_restic\") and (.gcp_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
   done

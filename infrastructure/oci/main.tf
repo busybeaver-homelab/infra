@@ -43,7 +43,7 @@ resource "oci_core_instance" "amd" {
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
-    user_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
+    user_data = base64encode(templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
       tailscale_auth_key = local.tailscale_auth_key
       hostname           = "oci-amd-${count.index + 1}"
       tailscale_tags     = local.tailscale_tags
@@ -102,7 +102,7 @@ resource "oci_core_instance" "ampere" {
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
-    user_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
+    user_data = base64encode(templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
       tailscale_auth_key = local.tailscale_auth_key
       hostname           = "oci-arm-1"
       tailscale_tags     = local.tailscale_tags

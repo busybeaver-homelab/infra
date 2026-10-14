@@ -118,7 +118,7 @@ execute_target() {
 
 FAILED_TARGETS=()
 
-if ! execute_target "primary" "{{ restic_backup_config_dir }}/primary.env" restic_password oci_s3_secret_key; then
+if ! execute_target "primary" "{{ restic_backup_config_dir }}/primary.env" restic_password primary_s3_secret_key; then
   log "Error: Target 'primary' failed" >&2
   FAILED_TARGETS+=("primary")
 fi

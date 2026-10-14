@@ -1,0 +1,6 @@
+---
+- name: Configure GCP Cloud Instances
+  ansible.builtin.import_playbook: cloud.yml
+  vars:
+    cloud_target_hosts: gcp
+    cloud_provider_secret_key: gcp

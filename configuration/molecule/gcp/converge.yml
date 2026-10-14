@@ -1,0 +1,16 @@
+---
+- name: Converge GCP Instance Base Configuration
+  ansible.builtin.import_playbook: ../../playbooks/gcp.yml
+  vars:
+    is_ci_environment: true
+    custom_sops_secrets_file: credentials.ci.sops.yaml
+    swap_test_mode: true
+    swap_file_path: /swapfile_molecule
+    swap_file_size_mb: 1
+    # Docker test containers do not expose a hardware/virtual TPM2 device (/dev/tpmrm0),
+    # so override the GCP Shielded VM default (host+tpm2) with host-only binding in Molecule.
+    restic_backup_credential_key: "host"
+    users:
+      - username: dockerapp
+        name: Docker Application Service User
+        shell: /usr/sbin/nologin

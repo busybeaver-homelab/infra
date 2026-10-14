@@ -2,6 +2,11 @@ variable "gcp_project_id" {
   type        = string
   description = "The Google Cloud project ID."
   sensitive   = true
+
+  validation {
+    condition     = length(trimspace(var.gcp_project_id)) > 0
+    error_message = "The gcp_project_id must not be empty."
+  }
 }
 
 variable "gcp_region" {
@@ -11,10 +16,25 @@ variable "gcp_region" {
   sensitive   = false
 
   validation {
+    # Always Free e2-micro & 5 GB regional Standard Storage: us-central1, us-east1, us-west1.
+    # Source: https://cloud.google.com/free/docs/free-cloud-features#compute (verified 2026-10-14)
     condition     = contains(["us-central1", "us-east1", "us-west1"], var.gcp_region)
     error_message = "The gcp_region must be one of the Always Free tier regions: us-central1, us-east1, us-west1."
   }
 }
+
+variable "gcp_zone" {
+  type        = string
+  description = "The Google Cloud availability zone within gcp_region (e.g., us-central1-a)."
+  default     = "us-central1-a"
+  sensitive   = false
+
+  validation {
+    condition     = can(regex("^(us-central1|us-east1|us-west1)-[a-f]$", var.gcp_zone)) && startswith(var.gcp_zone, "${var.gcp_region}-")
+    error_message = "The gcp_zone must be a valid zone inside the selected Always Free gcp_region (e.g., us-central1-a)."
+  }
+}
+
 variable "default_labels" {
   type        = map(string)
   description = "Default labels applied to all GCP resources. Must include project = 'homelab'."
@@ -35,6 +55,8 @@ variable "gcp_instance_type" {
   sensitive   = false
 
   validation {
+    # Always Free Compute Engine: 1 non-preemptible e2-micro instance per month.
+    # Source: https://cloud.google.com/free/docs/free-cloud-features#compute (verified 2026-10-14)
     condition     = var.gcp_instance_type == "e2-micro"
     error_message = "Instance type must be 'e2-micro' to comply with GCP Always Free Tier policy."
   }
@@ -47,6 +69,8 @@ variable "gcp_boot_disk_size_gb" {
   sensitive   = false
 
   validation {
+    # Always Free Compute Engine: up to 30 GB-months of Standard persistent disk (pd-standard).
+    # Source: https://cloud.google.com/free/docs/free-cloud-features#compute (verified 2026-10-14)
     condition     = var.gcp_boot_disk_size_gb >= 10 && var.gcp_boot_disk_size_gb <= 30
     error_message = "Boot disk size must be between 10 and 30 GB to comply with GCP Always Free Tier policy."
   }
@@ -64,16 +88,102 @@ variable "gcp_boot_disk_type" {
   }
 }
 
-variable "gcp_billing_account_id" {
+variable "gcp_network_tier" {
   type        = string
-  description = "The GCP billing account ID (e.g., 012345-6789AB-CDEF01) for budget and spend alert management. Leave empty to skip budget creation."
-  default     = ""
-  sensitive   = true
+  description = "Network Service Tier for the external IPv4 access config. Strictly restricted to STANDARD."
+  default     = "STANDARD"
+  sensitive   = false
 
   validation {
-    condition     = var.gcp_billing_account_id == "" || can(regex("^[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}$", var.gcp_billing_account_id))
-    error_message = "GCP billing account ID must be formatted as 6 alphanumeric characters separated by hyphens (e.g., 012345-6789AB-CDEF01), or empty."
+    condition     = var.gcp_network_tier == "STANDARD"
+    error_message = "Network tier must be 'STANDARD' to avoid Premium tier egress charges."
   }
+}
+
+variable "gcp_billing_account_id" {
+  type        = string
+  description = "The GCP billing account ID (e.g., 012345-6789AB-CDEF01) for mandatory $1 budget and spend alert management."
+  sensitive   = true
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}$", var.gcp_billing_account_id))
+    error_message = "GCP billing account ID is mandatory (STD-OT-41) and must be formatted as 6 uppercase alphanumeric characters separated by hyphens (e.g., 012345-6789AB-CDEF01)."
+  }
+}
+
+variable "budget_alert_recipients" {
+  type        = list(string)
+  description = "Optional list of email addresses to receive GCP budget alert notifications (overrides SOPS gcp.budget_alert_recipients if non-empty)."
+  sensitive   = true
+  default     = []
+
+  validation {
+    condition     = alltrue([for r in var.budget_alert_recipients : can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", r))])
+    error_message = "All entries in budget_alert_recipients must be valid email addresses."
+  }
+}
+
+variable "vpc_subnet_cidr" {
+  type        = string
+  description = "IPv4 CIDR block for the private GCP compute subnetwork (sourced from SOPS gcp.subnet_cidr when null)."
+  sensitive   = true
+  nullable    = true
+  default     = null
+
+  validation {
+    condition     = var.vpc_subnet_cidr == null || (trimspace(var.vpc_subnet_cidr) != "" && can(cidrhost(var.vpc_subnet_cidr, 0)))
+    error_message = "The vpc_subnet_cidr must be null (to load from SOPS gcp.subnet_cidr) or a valid IPv4 CIDR block."
+  }
+}
+
+variable "admin_cidr" {
+  type        = string
+  description = "Optional emergency breakglass IPv4 CIDR block for TCP/22 ingress. Leave null in steady state."
+  sensitive   = true
+  nullable    = true
+  default     = null
+
+  validation {
+    condition     = var.admin_cidr == null || var.admin_cidr == "" || can(cidrhost(var.admin_cidr, 0))
+    error_message = "When set, admin_cidr must be a valid IPv4 CIDR block (e.g., 203.0.113.10/32)."
+  }
+}
+
+variable "tailscale_auth_key" {
+  type        = string
+  description = "Tailscale authentication key for instance bootstrapping (overrides SOPS gcp.tailscale_auth_key if non-empty)."
+  sensitive   = true
+  default     = ""
+}
+
+variable "tailscale_common_tags" {
+  type        = list(string)
+  description = "Common Tailscale tags applied across all cloud instances."
+  default     = ["tag:type-server", "tag:os-linux", "tag:hosting-cloud"]
+}
+
+variable "tailscale_extra_tags_gcp" {
+  type        = list(string)
+  description = "GCP-specific Tailscale tags applied to the GCP compute instance."
+  default     = ["tag:location-us", "tag:env-gcp"]
+}
+
+variable "secrets_file_path" {
+  type        = string
+  description = "Path to the canonical SOPS credentials file (defaults to production credentials)."
+  default     = "../../secrets/credentials.sops.yaml"
+
+  validation {
+    condition     = can(regex("\\.ya?ml$", var.secrets_file_path))
+    error_message = "Secrets file path must point to a YAML file (.yaml or .yml)."
+  }
+}
+
+variable "enable_prevent_destroy" {
+  type        = bool
+  description = "Whether to prevent destruction of critical compute and backup resources."
+  default     = true
 }
 
 variable "state_encryption_passphrase" {

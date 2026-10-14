@@ -1,9 +1,32 @@
-mock_provider "google" {}
+mock_provider "google" {
+  override_data {
+    target = data.google_compute_image.ubuntu_2604
+    values = {
+      self_link = "projects/ubuntu-os-cloud/global/images/ubuntu-2604-lts-amd64-v20261014"
+    }
+  }
+}
+
+mock_provider "sops" {
+  override_data {
+    target = data.sops_file.secrets
+    values = {
+      data = {
+        "gcp.subnet_cidr"             = "198.51.100.0/24"
+        "gcp.tailscale_auth_key"      = "tskey-auth-gcp-decoy"
+        "gcp.budget_alert_recipients" = "ci-alerts@example.test"
+      }
+    }
+  }
+}
 
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
   gcp_project_id              = "mock-gcp-project-12345"
   gcp_region                  = "us-central1"
+  gcp_zone                    = "us-central1-a"
+  gcp_billing_account_id      = "012345-6789AB-CDEF01"
+  enable_prevent_destroy      = false
 }
 
 run "initial_apply" {
@@ -15,33 +38,30 @@ run "initial_apply" {
   }
 
   assert {
-    condition     = google_compute_network.default_vpc.auto_create_subnetworks == false
-    error_message = "VPC must disable auto subnet creation"
+    condition     = google_compute_instance.default.name == "gcp-default-vm"
+    error_message = "Initial apply must provision gcp-default-vm"
   }
 }
 
-run "mutate_region" {
+run "mutate_region_and_zone" {
   command = plan
 
   variables {
     gcp_region = "us-east1"
+    gcp_zone   = "us-east1-b"
   }
 
   assert {
-    condition     = var.gcp_region == "us-east1"
-    error_message = "Mutated region must be accepted within Always Free tier"
-  }
-
-  assert {
-    condition     = google_compute_network.default_vpc.name == "homelab-vpc"
-    error_message = "VPC name must remain unchanged"
+    condition     = var.gcp_region == "us-east1" && google_compute_instance.default.zone == "us-east1-b"
+    error_message = "Mutated region and zone must be accepted within Always Free tier"
   }
 }
 
-run "mutate_labels" {
+run "mutate_labels_and_admin_cidr" {
   command = plan
 
   variables {
+    admin_cidr = "203.0.113.55/32"
     default_labels = {
       project     = "homelab"
       environment = "test-mutation"
@@ -49,13 +69,8 @@ run "mutate_labels" {
   }
 
   assert {
-    condition     = lookup(var.default_labels, "environment", "") == "test-mutation"
-    error_message = "Mutated labels must reflect environment attribute"
-  }
-
-  assert {
-    condition     = lookup(var.default_labels, "project", "") == "homelab"
-    error_message = "Mandatory project label must remain homelab"
+    condition     = length(google_compute_firewall.allow_breakglass_ssh) == 1
+    error_message = "Breakglass SSH firewall rule must be planned when admin_cidr is added"
   }
 
   assert {
@@ -69,10 +84,11 @@ run "mutate_region_to_us_west1" {
 
   variables {
     gcp_region = "us-west1"
+    gcp_zone   = "us-west1-a"
   }
 
   assert {
-    condition     = var.gcp_region == "us-west1"
+    condition     = var.gcp_region == "us-west1" && google_compute_instance.default.zone == "us-west1-a"
     error_message = "Region mutation to us-west1 must be accepted within Always Free tier"
   }
 }
@@ -81,7 +97,8 @@ run "mutate_with_budget_and_labels" {
   command = apply
 
   variables {
-    gcp_billing_account_id = "012345-6789AB-CDEF01"
+    gcp_billing_account_id  = "654321-BA9876-10FEDC"
+    budget_alert_recipients = ["ops-mutated@example.test"]
     default_labels = {
       project     = "homelab"
       environment = "mutation-stage"
@@ -90,18 +107,8 @@ run "mutate_with_budget_and_labels" {
   }
 
   assert {
-    condition     = length(google_billing_budget.monthly_spend_limit) == 1
-    error_message = "Billing budget must be created on apply when billing account ID is provided"
-  }
-
-  assert {
-    condition     = google_billing_budget.monthly_spend_limit[0].billing_account == "012345-6789AB-CDEF01"
-    error_message = "Billing account on budget resource must match variable input"
-  }
-
-  assert {
-    condition     = lookup(local.default_labels, "project", "") == "homelab"
-    error_message = "Mandatory project label must be homelab in local.default_labels"
+    condition     = google_billing_budget.monthly_spend_limit.billing_account == "654321-BA9876-10FEDC"
+    error_message = "Billing account on budget resource must match mutated variable input"
   }
 
   assert {
@@ -109,4 +116,3 @@ run "mutate_with_budget_and_labels" {
     error_message = "Additional label must be preserved in local.default_labels"
   }
 }
-

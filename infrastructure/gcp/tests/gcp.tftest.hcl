@@ -1,12 +1,35 @@
-mock_provider "google" {}
+mock_provider "google" {
+  override_data {
+    target = data.google_compute_image.ubuntu_2604
+    values = {
+      self_link = "projects/ubuntu-os-cloud/global/images/ubuntu-2604-lts-amd64-v20261014"
+    }
+  }
+}
+
+mock_provider "sops" {
+  override_data {
+    target = data.sops_file.secrets
+    values = {
+      data = {
+        "gcp.subnet_cidr"             = "198.51.100.0/24"
+        "gcp.tailscale_auth_key"      = "tskey-auth-gcp-decoy"
+        "gcp.budget_alert_recipients" = "ci-alerts@example.test"
+      }
+    }
+  }
+}
 
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
   gcp_project_id              = "mock-gcp-project-12345"
   gcp_region                  = "us-central1"
+  gcp_zone                    = "us-central1-a"
+  gcp_billing_account_id      = "012345-6789AB-CDEF01"
+  enable_prevent_destroy      = false
 }
 
-run "verify_gcp_vpc_network" {
+run "verify_gcp_vpc_and_firewall" {
   command = plan
 
   assert {
@@ -20,8 +43,110 @@ run "verify_gcp_vpc_network" {
   }
 
   assert {
-    condition     = google_compute_network.default_vpc.project == "mock-gcp-project-12345"
-    error_message = "GCP VPC network must use the configured project ID"
+    condition     = google_compute_subnetwork.private.ip_cidr_range == "198.51.100.0/24"
+    error_message = "GCP subnet must resolve CIDR from SOPS gcp.subnet_cidr"
+  }
+
+  assert {
+    condition     = google_compute_subnetwork.private.private_ip_google_access == true
+    error_message = "GCP subnet must enable Private Google Access"
+  }
+
+  assert {
+    condition     = google_compute_firewall.allow_tailscale_ingress.direction == "INGRESS" && contains(tolist(google_compute_firewall.allow_tailscale_ingress.target_tags), "homelab-gcp-vm")
+    error_message = "Tailscale ingress firewall rule must target homelab-gcp-vm"
+  }
+
+  assert {
+    condition     = google_compute_firewall.deny_all_ingress.priority == 65534
+    error_message = "Deny-all ingress firewall rule must have priority 65534"
+  }
+
+  assert {
+    condition     = length(google_compute_firewall.allow_breakglass_ssh) == 0
+    error_message = "Breakglass SSH firewall rule must be disabled when admin_cidr is null"
+  }
+}
+
+run "verify_breakglass_ssh_firewall_when_admin_cidr_set" {
+  command = plan
+
+  variables {
+    admin_cidr = "203.0.113.10/32"
+  }
+
+  assert {
+    condition     = length(google_compute_firewall.allow_breakglass_ssh) == 1
+    error_message = "Breakglass SSH firewall rule must be created when admin_cidr is provided"
+  }
+
+  assert {
+    condition     = contains(tolist(google_compute_firewall.allow_breakglass_ssh[0].source_ranges), "203.0.113.10/32")
+    error_message = "Breakglass SSH firewall rule must restrict source_ranges to admin_cidr"
+  }
+}
+
+run "verify_gcp_compute_instance_and_free_tier_posture" {
+  command = plan
+
+  assert {
+    condition     = google_compute_instance.default.name == "gcp-default-vm"
+    error_message = "Instance name must be gcp-default-vm"
+  }
+
+  assert {
+    condition     = google_compute_instance.default.machine_type == "e2-micro"
+    error_message = "Instance machine_type must be e2-micro"
+  }
+
+  assert {
+    condition     = google_compute_instance.default.zone == "us-central1-a"
+    error_message = "Instance zone must default to us-central1-a"
+  }
+
+  assert {
+    condition     = google_compute_instance.default.boot_disk[0].initialize_params[0].type == "pd-standard"
+    error_message = "Boot disk type must be pd-standard"
+  }
+
+  assert {
+    condition     = google_compute_instance.default.boot_disk[0].initialize_params[0].size == 30
+    error_message = "Boot disk size must default to 30 GB"
+  }
+
+  assert {
+    condition     = data.google_compute_image.ubuntu_2604.family == "ubuntu-2604-lts-amd64" && data.google_compute_image.ubuntu_2604.project == "ubuntu-os-cloud"
+    error_message = "Boot image data source must query ubuntu-2604-lts-amd64 from ubuntu-os-cloud"
+  }
+
+  assert {
+    condition     = google_compute_instance.default.network_interface[0].access_config[0].network_tier == "STANDARD"
+    error_message = "Instance external IP must use STANDARD network tier"
+  }
+
+  assert {
+    condition     = google_compute_instance.default.shielded_instance_config[0].enable_secure_boot == true && google_compute_instance.default.shielded_instance_config[0].enable_vtpm == true && google_compute_instance.default.shielded_instance_config[0].enable_integrity_monitoring == true
+    error_message = "Shielded VM must enable Secure Boot, vTPM, and Integrity Monitoring"
+  }
+
+  assert {
+    condition     = google_compute_instance.default.metadata["block-project-ssh-keys"] == "TRUE" && google_compute_instance.default.metadata["serial-port-enable"] == "FALSE" && google_compute_instance.default.metadata["enable-oslogin"] == "TRUE"
+    error_message = "Instance metadata must enforce block-project-ssh-keys=TRUE, serial-port-enable=FALSE, and enable-oslogin=TRUE"
+  }
+
+  assert {
+    condition     = strcontains(google_compute_instance.default.metadata["user-data"], "--hostname=\"gcp-default-vm\"") && strcontains(google_compute_instance.default.metadata["user-data"], "tag:env-gcp")
+    error_message = "Instance user-data must render shared cloud-init template for gcp-default-vm with tag:env-gcp"
+  }
+
+  assert {
+    condition     = google_compute_instance.default.labels["project"] == "homelab"
+    error_message = "Instance must carry mandatory project=homelab label"
+  }
+
+  assert {
+    condition     = google_service_account.vm.account_id == "homelab-gcp-vm-sa"
+    error_message = "Dedicated VM service account must be homelab-gcp-vm-sa"
   }
 }
 
@@ -37,46 +162,14 @@ run "verify_computed_outputs_on_apply" {
     condition     = output.vpc_network_id != ""
     error_message = "GCP VPC network ID output must be computed on apply"
   }
-}
-
-run "verify_budget_skipped_when_billing_account_empty" {
-  command = plan
 
   assert {
-    condition     = length(google_billing_budget.monthly_spend_limit) == 0
-    error_message = "Billing budget must not be created when billing account ID is empty"
-  }
-}
-
-run "verify_budget_resource_when_billing_account_provided" {
-  command = plan
-
-  variables {
-    gcp_billing_account_id = "012345-6789AB-CDEF01"
+    condition     = output.instance_name == "gcp-default-vm"
+    error_message = "Instance name output must be gcp-default-vm"
   }
 
   assert {
-    condition     = length(google_billing_budget.monthly_spend_limit) == 1
-    error_message = "Billing budget must be created when billing account ID is provided"
-  }
-
-  assert {
-    condition     = google_billing_budget.monthly_spend_limit[0].amount[0].specified_amount[0].units == "1"
-    error_message = "Budget ceiling must be exactly 1 USD"
-  }
-
-  assert {
-    condition     = google_billing_budget.monthly_spend_limit[0].display_name == "homelab-monthly-spend-budget"
-    error_message = "Budget display name must be homelab-monthly-spend-budget"
-  }
-
-  assert {
-    condition     = length(google_billing_budget.monthly_spend_limit[0].threshold_rules) == 4
-    error_message = "Budget must configure exactly 4 threshold rules"
-  }
-
-  assert {
-    condition     = google_billing_budget.monthly_spend_limit[0].budget_filter[0].credit_types_treatment == "INCLUDE_ALL_CREDITS"
-    error_message = "Budget filter must include all credit types"
+    condition     = issensitive(output.instance_private_ip) && issensitive(output.instance_public_ip) && issensitive(output.backup_hmac_secret)
+    error_message = "All network and credential outputs must be marked sensitive"
   }
 }

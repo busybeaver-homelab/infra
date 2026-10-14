@@ -1,9 +1,32 @@
-mock_provider "google" {}
+mock_provider "google" {
+  override_data {
+    target = data.google_compute_image.ubuntu_2604
+    values = {
+      self_link = "projects/ubuntu-os-cloud/global/images/ubuntu-2604-lts-amd64-v20261014"
+    }
+  }
+}
+
+mock_provider "sops" {
+  override_data {
+    target = data.sops_file.secrets
+    values = {
+      data = {
+        "gcp.subnet_cidr"             = "198.51.100.0/24"
+        "gcp.tailscale_auth_key"      = "tskey-auth-gcp-decoy"
+        "gcp.budget_alert_recipients" = "ci-alerts@example.test"
+      }
+    }
+  }
+}
 
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
   gcp_project_id              = "mock-gcp-project-12345"
   gcp_region                  = "us-central1"
+  gcp_zone                    = "us-central1-a"
+  gcp_billing_account_id      = "012345-6789AB-CDEF01"
+  enable_prevent_destroy      = false
 }
 
 run "reject_non_free_tier_region" {
@@ -11,10 +34,24 @@ run "reject_non_free_tier_region" {
 
   variables {
     gcp_region = "europe-west3"
+    gcp_zone   = "europe-west3-a"
   }
 
   expect_failures = [
     var.gcp_region,
+  ]
+}
+
+run "reject_mismatched_region_and_zone" {
+  command = plan
+
+  variables {
+    gcp_region = "us-central1"
+    gcp_zone   = "us-east1-b"
+  }
+
+  expect_failures = [
+    var.gcp_zone,
   ]
 }
 
@@ -94,6 +131,30 @@ run "reject_non_standard_disk_type" {
   ]
 }
 
+run "reject_premium_network_tier" {
+  command = plan
+
+  variables {
+    gcp_network_tier = "PREMIUM"
+  }
+
+  expect_failures = [
+    var.gcp_network_tier,
+  ]
+}
+
+run "reject_empty_billing_account_id" {
+  command = plan
+
+  variables {
+    gcp_billing_account_id = ""
+  }
+
+  expect_failures = [
+    var.gcp_billing_account_id,
+  ]
+}
+
 run "reject_malformed_billing_account_id" {
   command = plan
 
@@ -103,6 +164,30 @@ run "reject_malformed_billing_account_id" {
 
   expect_failures = [
     var.gcp_billing_account_id,
+  ]
+}
+
+run "reject_invalid_vpc_subnet_cidr" {
+  command = plan
+
+  variables {
+    vpc_subnet_cidr = "invalid-subnet-cidr"
+  }
+
+  expect_failures = [
+    var.vpc_subnet_cidr,
+  ]
+}
+
+run "reject_invalid_admin_cidr" {
+  command = plan
+
+  variables {
+    admin_cidr = "not-a-cidr"
+  }
+
+  expect_failures = [
+    var.admin_cidr,
   ]
 }
 
