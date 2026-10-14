@@ -25,12 +25,18 @@ CI_SOPS_FILE="${CI_SOPS_FILE:-secrets/credentials.ci.sops.yaml}"
 
 do_check_files=false
 do_check_disjointness=false
+do_all_files=false
 file_args=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --check-files)
       do_check_files=true
+      shift
+      ;;
+    --all-files)
+      do_check_files=true
+      do_all_files=true
       shift
       ;;
     --check-disjointness)
@@ -69,12 +75,14 @@ fi
 
 scan_targets=()
 if [ "$do_check_files" = true ]; then
-  if [ ${#file_args[@]} -eq 0 ]; then
-    if [ "$is_git" = true ]; then
-      while IFS= read -r f; do
-        [ -n "$f" ] && file_args+=("$f")
-      done < <(git diff --cached --name-only --diff-filter=ACM)
-    fi
+  if [ "$do_all_files" = true ] && [ "$is_git" = true ]; then
+    while IFS= read -r f; do
+      [ -n "$f" ] && file_args+=("$f")
+    done < <(git ls-files)
+  elif [ ${#file_args[@]} -eq 0 ] && [ "$is_git" = true ]; then
+    while IFS= read -r f; do
+      [ -n "$f" ] && file_args+=("$f")
+    done < <(git diff --cached --name-only --diff-filter=ACM)
   fi
 
   if [ ${#file_args[@]} -gt 0 ]; then

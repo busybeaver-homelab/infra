@@ -80,7 +80,7 @@ Before claiming a task is complete, verify your work:
       - `(cd configuration && mise exec -- molecule test -s oci)`
       - `(cd configuration && mise exec -- molecule test -s gcp)`
       - `(cd configuration && mise exec -- molecule test -s homelab)`
-    - **Script / Secrets changes:** `mise exec -- shellcheck scripts/*.sh tests/scripts/helpers/*` · `mise exec -- bats tests/scripts/` · `mise exec -- bash scripts/check-sops-secret-leaks.sh --check-disjointness`
+    - **Script / Secrets changes:** `mise exec -- shellcheck scripts/*.sh tests/scripts/helpers/*` · `mise exec -- bats tests/scripts/` · `mise exec -- bash scripts/check-sops-secret-leaks.sh --check-disjointness --all-files`
     - **Workflow / Renovate changes:** `mise exec -- actionlint` · the CI-related bats suites listed in `docs/runbooks/ci-workflows-standards.md` §15
     - **Python changes:** `uv run ruff check` · `uv run ruff format --check`
     - **Pre-commit gate (all changes):** `mise exec lefthook -- lefthook run pre-commit`

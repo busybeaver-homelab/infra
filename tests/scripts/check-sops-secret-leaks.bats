@@ -288,7 +288,26 @@ EOF
   assert_output_not_contains "${CI_TOKEN_VAL}"
 }
 
-@test "lefthook.yml wires sops-secret-leaks and sops-disjointness into pre-commit" {
+@test "check-sops-secret-leaks.sh --all-files scans tracked repository files even when nothing is staged" {
+  cd "${MOCK_REPO}"
+  git init -q
+  git config user.email "test@example.com"
+  git config user.name "Test User"
+  cat <<EOF >tracked_leak.bats
+# existing tracked file containing a secret that was just added to SOPS
+token="${PROD_TOKEN_VAL}"
+EOF
+  git add tracked_leak.bats
+  git commit -q -m "chore: initial tracked file"
+
+  run bash "${LEAK_SCRIPT}" --check-disjointness --all-files
+  [ "$status" -eq 1 ]
+  assert_output_contains "tracked_leak.bats:2"
+  assert_output_contains "secrets/credentials.sops.yaml:cloudflare.api_token"
+  assert_output_not_contains "${PROD_TOKEN_VAL}"
+}
+
+@test "lefthook.yml wires sops-secret-leaks, sops-disjointness (--all-files), and verify-sops-encryption (secrets/**) into pre-commit" {
   local lefthook_config="${REPO_ROOT}/lefthook.yml"
   [ -f "$lefthook_config" ]
 
@@ -298,5 +317,9 @@ EOF
 
   run yq '.pre-commit.commands.sops-disjointness.run' "$lefthook_config"
   [ "$status" -eq 0 ]
-  assert_output_contains "scripts/check-sops-secret-leaks.sh --check-disjointness"
+  assert_output_contains "scripts/check-sops-secret-leaks.sh --check-disjointness --all-files"
+
+  run yq '.pre-commit.commands.verify-sops-encryption.glob' "$lefthook_config"
+  [ "$status" -eq 0 ]
+  assert_output_contains "secrets/**/*.{yml,yaml,json}"
 }

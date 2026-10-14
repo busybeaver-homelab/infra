@@ -82,9 +82,9 @@ pre-commit:
       run: ansible-lint {staged_files}
 
     # Custom SOPS Metadata Verification (P2-4)
-    # Checks that all committed *.sops.yaml files are actually encrypted
+    # Checks that all committed *.sops.yaml files and YAML/JSON files under secrets/ are actually encrypted
     verify-sops-encryption:
-      glob: "*.sops.{yml,yaml,json}"
+      glob: "{*.sops.{yml,yaml,json},secrets/**/*.{yml,yaml,json}}"
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/verify-sops-encryption.sh {staged_files}
 
@@ -119,12 +119,13 @@ pre-commit:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-sops-secret-leaks.sh --check-files {staged_files}
 
-    # SOPS Prod-vs-CI Value Disjointness Check
+    # SOPS Prod-vs-CI Value Disjointness & Full-Repo Leak Check
     # Ensures secrets/credentials.ci.sops.yaml never shares secret values with secrets/credentials.sops.yaml
+    # and scans all tracked repo files against the updated SOPS files in a single pass
     sops-disjointness:
       glob: "secrets/credentials*.sops.{yml,yaml}"
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
-      run: bash scripts/check-sops-secret-leaks.sh --check-disjointness
+      run: bash scripts/check-sops-secret-leaks.sh --check-disjointness --all-files
 
     # Mise Lockfile Synchronization Check
     mise-lock-check:
