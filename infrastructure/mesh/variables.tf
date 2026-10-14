@@ -231,7 +231,7 @@ variable "acls_externally_managed_on" {
 variable "acls_external_link" {
   description = "Optional URL linking to the external repository where ACL policies are managed."
   type        = string
-  default     = "https://github.com/busybeaver-homelab/infra/blob/main/infrastructure/tailscale/policy.hujson.tftpl"
+  default     = "https://github.com/busybeaver-homelab/infra/blob/main/infrastructure/mesh/policy.hujson.tftpl"
 
   validation {
     condition     = var.acls_external_link == "" || can(regex("^https?://", var.acls_external_link))

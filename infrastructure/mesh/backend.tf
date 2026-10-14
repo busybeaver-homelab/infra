@@ -2,7 +2,7 @@ terraform {
   backend "s3" {
     endpoint                    = "https://<account_id>.r2.cloudflarestorage.com"
     bucket                      = "homelab-infra-tfstate"
-    key                         = "homelab-infra/state/tailscale/tofu.tfstate"
+    key                         = "homelab-infra/state/mesh/tofu.tfstate"
     region                      = "auto"
     use_lockfile                = true
     force_path_style            = true

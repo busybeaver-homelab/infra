@@ -20,7 +20,7 @@ setup() {
   [ -f "$REPO_ROOT/infrastructure/github/tests/github.tftest.hcl" ]
   [ -f "$REPO_ROOT/infrastructure/homelab/tests/homelab.tftest.hcl" ]
   [ -f "$REPO_ROOT/infrastructure/monitoring/tests/monitoring.tftest.hcl" ]
-  [ -f "$REPO_ROOT/infrastructure/tailscale/tests/tailscale.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/mesh/tests/tailscale.tftest.hcl" ]
 }
 
 @test "mise.toml configures test:infra using native tofu test" {
@@ -70,7 +70,7 @@ setup() {
   [ -f "$REPO_ROOT/infrastructure/gcp/tests/negative.tftest.hcl" ]
   [ -f "$REPO_ROOT/infrastructure/azure/tests/negative.tftest.hcl" ]
   [ -f "$REPO_ROOT/infrastructure/homelab/tests/negative.tftest.hcl" ]
-  [ -f "$REPO_ROOT/infrastructure/tailscale/tests/negative.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/mesh/tests/negative.tftest.hcl" ]
 }
 
 @test "mise.toml defines test:all and test:molecule tasks" {
@@ -97,7 +97,7 @@ setup() {
 }
 
 @test "all 8 infrastructure modules define native checks.tf invariant policy checks" {
-  local modules=(oci cloudflare gcp azure github homelab monitoring tailscale)
+  local modules=(oci cloudflare gcp azure github homelab monitoring mesh)
   for mod in "${modules[@]}"; do
     [ -f "$REPO_ROOT/infrastructure/$mod/checks.tf" ]
     run grep -E '^check ' "$REPO_ROOT/infrastructure/$mod/checks.tf"
@@ -105,12 +105,12 @@ setup() {
   done
 }
 
-@test "mutation.tftest.hcl lifecycle mutation test suites exist in cloudflare, gcp, github, oci, and tailscale" {
+@test "mutation.tftest.hcl lifecycle mutation test suites exist in cloudflare, gcp, github, oci, and mesh" {
   [ -f "$REPO_ROOT/infrastructure/cloudflare/tests/mutation.tftest.hcl" ]
   [ -f "$REPO_ROOT/infrastructure/gcp/tests/mutation.tftest.hcl" ]
   [ -f "$REPO_ROOT/infrastructure/github/tests/mutation.tftest.hcl" ]
   [ -f "$REPO_ROOT/infrastructure/oci/tests/mutation.tftest.hcl" ]
-  [ -f "$REPO_ROOT/infrastructure/tailscale/tests/mutation.tftest.hcl" ]
+  [ -f "$REPO_ROOT/infrastructure/mesh/tests/mutation.tftest.hcl" ]
 }
 
 @test "mise.toml configures test:tofu:children, test:tofu:mutations, test:tofu:checks, and test:inventory:matrix" {

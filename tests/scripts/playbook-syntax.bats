@@ -369,7 +369,7 @@ setup() {
   run grep -E "oci/" "$doc"
   [ "$status" -eq 0 ]
 
-  run grep -E "tailscale/" "$doc"
+  run grep -E "mesh/" "$doc"
   [ "$status" -eq 0 ]
 }
 

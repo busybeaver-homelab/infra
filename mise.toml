@@ -325,7 +325,7 @@ run = "npx skills update -p -y"
 description = "Run native OpenTofu tests concurrently across all infrastructure modules"
 run = '''
 mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
-printf "%s\n" oci cloudflare gcp azure github homelab monitoring tailscale | \
+printf "%s\n" oci cloudflare gcp azure github homelab monitoring mesh | \
   rush -k 'tofu -chdir="infrastructure/{}" test -test-directory=tests'
 '''
 
@@ -341,7 +341,7 @@ printf "%s\n" cloudflare/modules/zone github/modules/repository | \
 description = "Run OpenTofu lifecycle mutation tests across all modules concurrently"
 run = '''
 mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
-printf "%s\n" cloudflare gcp github oci tailscale | \
+printf "%s\n" cloudflare gcp github oci mesh | \
   rush -k 'tofu -chdir="infrastructure/{}" test -filter=tests/mutation.tftest.hcl'
 '''
 

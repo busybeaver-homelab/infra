@@ -18,7 +18,7 @@ docs/** filter=git-crypt diff=git-crypt
 backups/** filter=git-crypt diff=git-crypt
 .gitattributes !filter !diff
 
-# Tailscale ACL policy encryption
-infrastructure/tailscale/policy.hujson.tftpl filter=git-crypt diff=git-crypt
-infrastructure/tailscale/policy.ci.hujson.tftpl !filter !diff
+# Tailscale / Mesh ACL policy encryption
+infrastructure/mesh/policy.hujson.tftpl filter=git-crypt diff=git-crypt
+infrastructure/mesh/policy.ci.hujson.tftpl !filter !diff
 
