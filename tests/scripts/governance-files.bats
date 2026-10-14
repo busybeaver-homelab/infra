@@ -17,12 +17,27 @@ CODEOWNERS="${REPO_ROOT}/.github/CODEOWNERS"
 @test "every vendored skill in skills-lock.json is listed in THIRD_PARTY_NOTICES.md" {
   local skill missing=0
   while IFS= read -r skill; do
-    if ! grep -qF "| ${skill} |" "${REPO_ROOT}/THIRD_PARTY_NOTICES.md"; then
+    if ! grep -qE "^[[:space:]]*\|[[:space:]]*(\`${skill}\`|${skill})[[:space:]]*\|" "${REPO_ROOT}/THIRD_PARTY_NOTICES.md"; then
       echo "missing notice: ${skill}" >&2
       missing=1
     fi
   done < <(jq -r '.skills | keys[]' "${REPO_ROOT}/skills-lock.json")
   [ "$missing" -eq 0 ]
+}
+
+@test "every vendored skill notice check rejects missing skill or substring match" {
+  local fixture
+  fixture="$(mktemp)"
+  cat <<'EOF' > "$fixture"
+| agent-ci-extended | `.agents/skills/agent-ci-extended/` | upstream | MIT | note |
+EOF
+  run grep -qE "^[[:space:]]*\|[[:space:]]*(\`agent-ci\`|agent-ci)[[:space:]]*\|" "$fixture"
+  [ "$status" -ne 0 ]
+
+  run grep -qE "^[[:space:]]*\|[[:space:]]*(\`non-existent-skill\`|non-existent-skill)[[:space:]]*\|" "$fixture"
+  [ "$status" -ne 0 ]
+
+  rm -f "$fixture"
 }
 
 @test "every owned CODEOWNERS path exists in the repository" {
