@@ -301,3 +301,10 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq 1 ]
 }
+||||||| parent of 6676a9a (fix(ci): exclude deleted files from the pull request lefthook run)
+
+@test "PR lefthook run excludes deleted files from the changed-file list" {
+  # Deleted paths make file-based hooks (e.g. ansible-lint) fail with load errors.
+  run grep -F -- 'git diff --name-only --diff-filter=d -z "origin/${BASE_REF}...HEAD"' "${REPO_ROOT}/.github/workflows/ci.yml"
+  [ "$status" -eq 0 ]
+}
