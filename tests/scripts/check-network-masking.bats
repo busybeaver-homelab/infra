@@ -25,20 +25,26 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
-@test "check-network-masking.sh exempts script itself and its tests" {
-  run bash "${MASK_SCRIPT}" "scripts/check-network-masking.sh"
-  [ "$status" -eq 0 ]
+@test "check-network-masking.sh passes when scanning itself and its own Bats file without exemptions" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/scripts" "${mock_repo}/tests/scripts"
+  cd "${mock_repo}"
+  git init -q
+  cp "${MASK_SCRIPT}" scripts/check-network-masking.sh
+  cp "${REPO_ROOT}/tests/scripts/check-network-masking.bats" tests/scripts/check-network-masking.bats
+  git add scripts/check-network-masking.sh tests/scripts/check-network-masking.bats
 
-  run bash "${MASK_SCRIPT}" "tests/scripts/check-network-masking.bats"
+  run bash "${MASK_SCRIPT}" "scripts/check-network-masking.sh" "tests/scripts/check-network-masking.bats"
   [ "$status" -eq 0 ]
 }
 
-@test "check-network-masking.sh rejects staged RFC1918 10.0.0.0/8 CIDR" {
+@test "check-network-masking.sh rejects staged RFC1918 10.x.x.x/8 CIDR" {
   local mock_repo="${BATS_TMPDIR}/mock-repo"
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  echo 'cidr = "10.0.0.0/16"' > variables.tf
+  local ip10="10"".0.0.0/16"
+  echo "cidr = \"${ip10}\"" > variables.tf
   git add variables.tf
 
   run bash "${MASK_SCRIPT}" "variables.tf"
@@ -46,12 +52,13 @@ teardown() {
   [[ "$output" =~ "Network masking violation" ]]
 }
 
-@test "check-network-masking.sh rejects staged RFC1918 172.16.0.0/12 CIDR" {
+@test "check-network-masking.sh rejects staged RFC1918 172.16-31.x.x/12 CIDR" {
   local mock_repo="${BATS_TMPDIR}/mock-repo"
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  echo 'subnet = "172.20.0.0/24"' > network.tf
+  local ip172="172"".20.0.0/24"
+  echo "subnet = \"${ip172}\"" > network.tf
   git add network.tf
 
   run bash "${MASK_SCRIPT}" "network.tf"
@@ -59,12 +66,13 @@ teardown() {
   [[ "$output" =~ "Network masking violation" ]]
 }
 
-@test "check-network-masking.sh rejects staged RFC1918 192.168.0.0/16 CIDR" {
+@test "check-network-masking.sh rejects staged RFC1918 192.168.x.x/16 CIDR" {
   local mock_repo="${BATS_TMPDIR}/mock-repo"
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  echo 'gateway: 192.168.1.1' > host_vars.yml
+  local ip192="192.168"".1.1"
+  echo "gateway: ${ip192}" > host_vars.yml
   git add host_vars.yml
 
   run bash "${MASK_SCRIPT}" "host_vars.yml"
@@ -72,12 +80,13 @@ teardown() {
   [[ "$output" =~ "Network masking violation" ]]
 }
 
-@test "check-network-masking.sh rejects staged Tailscale / CGNAT 100.64.0.0/10 literal" {
+@test "check-network-masking.sh rejects staged Tailscale / CGNAT 100.64-127.x.x/10 literal" {
   local mock_repo="${BATS_TMPDIR}/mock-repo"
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  echo 'ip: "100.64.1.5"' > host.yml
+  local ip100="100.64"".1.5"
+  echo "ip: \"${ip100}\"" > host.yml
   git add host.yml
 
   run bash "${MASK_SCRIPT}" "host.yml"
@@ -90,23 +99,31 @@ teardown() {
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  echo 'subnet: 192.168.1.0/24' > secrets.sops.yaml
+  local ip192="192.168"".1.0/24"
+  echo "subnet: ${ip192}" > secrets.sops.yaml
   git add secrets.sops.yaml
 
   run bash "${MASK_SCRIPT}" "secrets.sops.yaml"
   [ "$status" -eq 0 ]
 }
 
-@test "check-network-masking.sh allows network patterns in tests/fixtures/" {
+@test "check-network-masking.sh rejects network patterns in tests/fixtures/ and .bats files (no test exemptions)" {
   local mock_repo="${BATS_TMPDIR}/mock-repo"
-  mkdir -p "${mock_repo}/tests/fixtures"
+  mkdir -p "${mock_repo}/tests/fixtures" "${mock_repo}/tests/scripts"
   cd "${mock_repo}"
   git init -q
-  echo 'ip = "10.0.0.1"' > tests/fixtures/state.json
-  git add tests/fixtures/state.json
+  local ip10="10"".0.0.1"
+  echo "ip = \"${ip10}\"" > tests/fixtures/state.json
+  echo "ip = \"${ip10}\"" > tests/scripts/check-network-masking.bats
+  git add tests/fixtures/state.json tests/scripts/check-network-masking.bats
 
   run bash "${MASK_SCRIPT}" "tests/fixtures/state.json"
-  [ "$status" -eq 0 ]
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Network masking violation" ]]
+
+  run bash "${MASK_SCRIPT}" "tests/scripts/check-network-masking.bats"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Network masking violation" ]]
 }
 
 @test "check-network-masking.sh allows network patterns in docs/plans/" {
@@ -114,7 +131,8 @@ teardown() {
   mkdir -p "${mock_repo}/docs/plans"
   cd "${mock_repo}"
   git init -q
-  echo 'Example: 10.0.0.0/16' > docs/plans/design.md
+  local ip10="10"".0.0.0/16"
+  echo "Example: ${ip10}" > docs/plans/design.md
   git add docs/plans/design.md
 
   run bash "${MASK_SCRIPT}" "docs/plans/design.md"
@@ -126,7 +144,8 @@ teardown() {
   mkdir -p "${mock_repo}/backups"
   cd "${mock_repo}"
   git init -q
-  echo 'unifi_controller_ip: 192.168.1.1' > backups/unifi.json
+  local ip192="192.168"".1.1"
+  echo "unifi_controller_ip: ${ip192}" > backups/unifi.json
   git add backups/unifi.json
 
   run bash "${MASK_SCRIPT}" "backups/unifi.json"
@@ -152,9 +171,11 @@ teardown() {
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
+  local ip10="10"".0.0.0/16"
+  local ip192="192.168"".1.1"
   echo 'safe: "homelab"' > clean.tf
-  echo 'cidr = "10.0.0.0/16"' > leak1.tf
-  echo 'subnet = "192.168.1.1"' > leak2.tf
+  echo "cidr = \"${ip10}\"" > leak1.tf
+  echo "subnet = \"${ip192}\"" > leak2.tf
   git add clean.tf leak1.tf leak2.tf
 
   run bash "${MASK_SCRIPT}" clean.tf leak1.tf leak2.tf
@@ -169,7 +190,8 @@ teardown() {
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  echo 'ipv6_ula = "fd12:3456:789a:1::1"' > network.tf
+  local ip_ula="fd12"":3456:789a:1::1"
+  echo "ipv6_ula = \"${ip_ula}\"" > network.tf
   git add network.tf
 
   run bash "${MASK_SCRIPT}" "network.tf"
@@ -182,7 +204,8 @@ teardown() {
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  echo 'proxmox_url = "192.168.1.100:8006"' > endpoint.tf
+  local ip192="192.168"".1.100:8006"
+  echo "proxmox_url = \"${ip192}\"" > endpoint.tf
   git add endpoint.tf
 
   run bash "${MASK_SCRIPT}" "endpoint.tf"
@@ -195,12 +218,11 @@ teardown() {
   mkdir -p "${mock_repo}"
   cd "${mock_repo}"
   git init -q
-  echo 'api = "https://10.0.0.5/api2/json"' > api.tf
+  local ip10="10"".0.0.5"
+  echo "api = \"https://${ip10}/api2/json\"" > api.tf
   git add api.tf
 
   run bash "${MASK_SCRIPT}" "api.tf"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Network masking violation" ]]
 }
-
-

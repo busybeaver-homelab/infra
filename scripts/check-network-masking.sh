@@ -3,15 +3,13 @@
 set -euo pipefail
 
 # Script to verify that staged files do not contain unencrypted RFC1918 or CGNAT IPv4 addresses:
-# - RFC1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-# - CGNAT (Tailscale): 100.64.0.0/10
+# - RFC1918: 10.x.x.x/8, 172.16-31.x.x/12, 192.168.x.x/16
+# - CGNAT (Tailscale): 100.64-127.x.x/10
 #
 # Exemptions:
 # - *.sops.* (SOPS-encrypted files)
-# - tests/fixtures/* (mock test fixtures)
-# - docs/* (documentation and plans)
-# - backups/* (encrypted backups)
-# - scripts/check-network-masking.sh & tests/scripts/check-network-masking.bats
+# - docs/* (git-crypt encrypted documentation and plans)
+# - backups/* (git-crypt encrypted backups)
 
 RED='\033[0;31m'
 NC='\033[0m' # No Color
@@ -25,7 +23,7 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   repo_root=$(git rev-parse --show-toplevel)
 fi
 
-# Regex matching RFC1918, CGNAT (100.64.0.0/10), and IPv6 ULA (fc00::/7) addresses or CIDRs
+# Regex matching RFC1918, CGNAT (100.64-127.x.x/10), and IPv6 ULA (fc00::/7) addresses or CIDRs
 NETWORK_REGEX='(\b(10\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|172\.(1[6-9]|2[0-9]|3[01])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|192\.168\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?)\b|\b[fF][cdCD][0-9a-fA-F]{2}:[0-9a-fA-F:]+\b)'
 
 # Collect targets: positional arguments or staged files
@@ -53,20 +51,14 @@ for file in "${targets[@]}"; do
     normalized_file="${normalized_file#"$repo_root"/}"
   fi
 
-  # Skip scanning this script and its tests
-  if [ "$normalized_file" = "scripts/check-network-masking.sh" ] || [ "$normalized_file" = "tests/scripts/check-network-masking.bats" ]; then
-    continue
-  fi
-
   # Skip SOPS encrypted files (*.sops.*)
   if [[ "$normalized_file" == *.sops.* ]] || [[ "$normalized_file" == *.sops.yaml ]] || [[ "$normalized_file" == *.sops.yml ]]; then
     continue
   fi
 
-  # Skip agent skills/documentation, test fixtures, plans/docs, and encrypted backups
+  # Skip agent skills/documentation, git-crypt plans/docs, and git-crypt encrypted backups
   if [[ "$normalized_file" == .agents/* ]] || [[ "$normalized_file" == */.agents/* ]] ||
     [[ "$normalized_file" == .agent/* ]] || [[ "$normalized_file" == */.agent/* ]] ||
-    [[ "$normalized_file" == tests/fixtures/* ]] || [[ "$normalized_file" == */tests/fixtures/* ]] ||
     [[ "$normalized_file" == docs/* ]] || [[ "$normalized_file" == */docs/* ]] ||
     [[ "$normalized_file" == backups/* ]] || [[ "$normalized_file" == */backups/* ]]; then
     continue
