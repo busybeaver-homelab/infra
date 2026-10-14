@@ -93,7 +93,7 @@ See `variables.tf` for full descriptions. All variables are `sensitive = true`.
 
 | Name                                                                     | Version |
 | ------------------------------------------------------------------------ | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.6  |
 | <a name="requirement_github"></a> [github](#requirement_github)          | 6.13.0  |
 | <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1   |
 

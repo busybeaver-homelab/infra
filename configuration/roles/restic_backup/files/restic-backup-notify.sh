@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Managed by Ansible - restic_backup role.
+# Sends a Healthchecks.io signal for the restic backup.
+#   restic-backup-notify.sh success [unit]  -> heartbeat ping
+#   restic-backup-notify.sh fail [unit]     -> /fail ping (called from the OnFailure unit)
+# The ping URL is read from the systemd credential "healthchecks_ping_url" and is passed
+# to curl via stdin (--config -), so it never appears in process arguments or logs.
+set -euo pipefail
+
+event="${1:-success}"
+unit="${2:-restic-backup.service}"
+
+case "${event}" in
+  success) suffix="" ;;
+  fail) suffix="/fail" ;;
+  *)
+    echo "unknown event: ${event} (expected success|fail)" >&2
+    exit 2
+    ;;
+esac
+
+url_file="${CREDENTIALS_DIRECTORY:-}/healthchecks_ping_url"
+if [ -z "${CREDENTIALS_DIRECTORY:-}" ] || [ ! -s "${url_file}" ]; then
+  echo "No Healthchecks ping URL configured; skipping ${event} signal" >&2
+  exit 0
+fi
+
+ping_url="$(cat "${url_file}")"
+
+if printf 'url = "%s%s"\n' "${ping_url}" "${suffix}" |
+  curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "${event}: ${unit} on $(hostname)" --config -; then
+  echo "Healthchecks ${event} signal sent"
+  exit 0
+fi
+
+echo "Warning: Healthchecks ${event} signal could not be delivered" >&2
+# A missed success heartbeat is caught by the dead-man's switch; a missed failure
+# signal must surface as a failed unit in the journal.
+[ "${event}" = "fail" ] && exit 1
+exit 0

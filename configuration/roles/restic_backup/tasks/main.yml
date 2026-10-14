@@ -28,101 +28,60 @@
     - { path: "{{ restic_backup_config_dir }}/hooks.d/post.d", mode: "0750" }
     - { path: "{{ restic_backup_cache_dir }}", mode: "0700" }
     - { path: "{{ restic_backup_log_dir }}", mode: "0750" }
-    - { path: "{{ restic_backup_secrets_dir }}", mode: "0700" }
+    - { path: "{{ restic_backup_credstore_dir }}", mode: "0700" }
+    - { path: "{{ restic_backup_libexec_dir }}", mode: "0755" }
     - { path: "/opt/containers", mode: "0755" }
   become: true
 
-- name: Deploy restic backup password file
-  ansible.builtin.template:
-    src: password.j2
-    dest: "{{ restic_backup_password_file_path }}"
-    owner: root
-    group: root
-    mode: "0400"
-  no_log: true
-  diff: false
-  become: true
-
-- name: Deploy secondary restic backup password file
-  ansible.builtin.template:
-    src: password-secondary.j2
-    dest: "{{ restic_backup_secondary_password_file_path }}"
-    owner: root
-    group: root
-    mode: "0400"
-  no_log: true
-  diff: false
-  when: restic_backup_secondary_enabled | bool
-  become: true
-
-- name: Remove secondary restic backup password file when disabled
-  ansible.builtin.file:
-    path: "{{ restic_backup_secondary_password_file_path }}"
-    state: absent
-  when: not (restic_backup_secondary_enabled | bool)
-  become: true
-
-- name: Deploy primary S3 secret access key file
+- name: Deploy restic helper scripts
   ansible.builtin.copy:
-    content: "{{ restic_backup_s3_secret_key }}\n"
-    dest: "{{ restic_backup_secrets_dir }}/oci_s3_secret_key"
+    src: "{{ item }}.sh"
+    dest: "{{ restic_backup_libexec_dir }}/{{ item }}"
     owner: root
     group: root
-    mode: "0400"
-  no_log: true
-  diff: false
-  when: restic_backup_s3_secret_key | default('') | length > 0
+    mode: "0750"
+  loop:
+    - restic-credential-sync
+    - restic-backup-notify
   become: true
 
-- name: Remove primary S3 secret access key file when unset
+# Secrets are stored as systemd encrypted credentials (AES-256-GCM, bound to the
+# host key in /var/lib/systemd/credential.secret). They survive reboots, are never
+# written to disk in plaintext and are only decrypted into the service's private
+# $CREDENTIALS_DIRECTORY at start (LoadCredentialEncrypted=).
+- name: Encrypt restic credentials into the systemd credential store
+  ansible.builtin.command:
+    argv:
+      - "{{ restic_backup_libexec_dir }}/restic-credential-sync"
+      - "{{ item.name }}"
+      - "{{ restic_backup_credstore_dir }}"
+      - "{{ restic_backup_credential_key }}"
+    stdin: "{{ item.value }}"
+    stdin_add_newline: false
+  loop: "{{ restic_backup_credentials }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.enabled | bool
+  register: restic_backup_credential_sync
+  changed_when: restic_backup_credential_sync.stdout == 'changed'
+  no_log: true
+  become: true
+
+- name: Remove disabled restic credentials from the credential store
   ansible.builtin.file:
-    path: "{{ restic_backup_secrets_dir }}/oci_s3_secret_key"
+    path: "{{ restic_backup_credstore_dir }}/{{ item.name }}"
     state: absent
-  when: not (restic_backup_s3_secret_key | default('') | length > 0)
+  loop: "{{ restic_backup_credentials }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: not (item.enabled | bool)
   become: true
 
-- name: Deploy secondary S3 secret access key file
-  ansible.builtin.copy:
-    content: "{{ restic_backup_secondary_s3_secret_key }}\n"
-    dest: "{{ restic_backup_secrets_dir }}/cloudflare_s3_secret_key"
-    owner: root
-    group: root
-    mode: "0400"
-  no_log: true
-  diff: false
-  when:
-    - restic_backup_secondary_enabled | bool
-    - restic_backup_secondary_s3_secret_key | default('') | length > 0
-  become: true
-
-- name: Remove secondary S3 secret access key file when disabled or unset
-  ansible.builtin.file:
-    path: "{{ restic_backup_secrets_dir }}/cloudflare_s3_secret_key"
-    state: absent
-  when: >-
-    not (restic_backup_secondary_enabled | bool) or
-    not (restic_backup_secondary_s3_secret_key | default('') | length > 0)
-  become: true
-
-- name: Deploy healthchecks ping URL file
-  ansible.builtin.copy:
-    content: "{{ (restic_backup_healthchecks_ping_url | default('')) ~ ('\n' if (restic_backup_healthchecks_ping_url | default('') | length > 0) else '') }}"
-    dest: "{{ restic_backup_secrets_dir }}/healthchecks_ping_url"
-    owner: root
-    group: root
-    mode: "0400"
-  no_log: true
-  diff: false
-  become: true
-
-- name: Clean up legacy persistent disk password files
+- name: Remove legacy plaintext and tmpfs secret files
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
-  loop:
-    - "{{ restic_backup_config_dir }}/password"
-    - "{{ restic_backup_config_dir }}/password-secondary"
-  when: restic_backup_password_file_path != (restic_backup_config_dir ~ '/password')
+  loop: "{{ restic_backup_legacy_secret_paths }}"
   become: true
 
 - name: Deploy restic common backup environment file
@@ -176,6 +135,7 @@
     owner: root
     group: root
     mode: "0750"
+    validate: bash -n %s
   become: true
 
 - name: Deploy restic backup failure systemd service unit

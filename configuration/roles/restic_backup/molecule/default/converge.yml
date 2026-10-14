@@ -31,6 +31,8 @@
     restic_backup_secondary_enabled: true
     restic_backup_secondary_repository: "/var/cache/restic/secondary-repo"
     restic_backup_secondary_password: "test-secondary-encryption-password-molecule!"
+    # Local stub listener started by verify.yml; proves heartbeat and /fail delivery.
+    restic_backup_healthchecks_ping_url: "http://127.0.0.1:18080/molecule-check"
     restic_backup_paths:
       - "/etc"
       - "/opt/containers"

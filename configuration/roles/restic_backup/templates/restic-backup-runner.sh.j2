@@ -2,13 +2,17 @@
 # Managed by Ansible - do not edit manually
 set -euo pipefail
 
-echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Starting restic backup procedure..."
+log() {
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] $*"
+}
+
+log "Starting restic backup procedure..."
 
 # Execute post-hooks on exit (even on failure)
 run_post_hooks() {
   local exit_code=$?
   if [ -d "{{ restic_backup_config_dir }}/hooks.d/post.d" ] && [ -n "$(ls -A "{{ restic_backup_config_dir }}/hooks.d/post.d" 2>/dev/null)" ]; then
-    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Executing post-backup hooks..."
+    log "Executing post-backup hooks..."
     run-parts --regex='.*' "{{ restic_backup_config_dir }}/hooks.d/post.d" || true
   fi
   exit "$exit_code"
@@ -17,130 +21,121 @@ trap run_post_hooks EXIT
 
 # Execute pre-hooks
 if [ -d "{{ restic_backup_config_dir }}/hooks.d/pre.d" ] && [ -n "$(ls -A "{{ restic_backup_config_dir }}/hooks.d/pre.d" 2>/dev/null)" ]; then
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Executing pre-backup hooks..."
+  log "Executing pre-backup hooks..."
   run-parts --regex='.*' "{{ restic_backup_config_dir }}/hooks.d/pre.d"
 fi
 
 # Collect existing paths to backup
+CANDIDATE_PATHS=({% for path in restic_backup_paths %} "{{ path }}"{% endfor %} )
 BACKUP_PATHS=()
-for path in {% for path in restic_backup_paths %}"{{ path }}" {% endfor %}; do
+for path in "${CANDIDATE_PATHS[@]}"; do
   if [ -e "$path" ]; then
     BACKUP_PATHS+=("$path")
   else
-    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Warning: Backup path $path does not exist, skipping..."
+    log "Warning: Backup path $path does not exist, skipping..."
   fi
 done
 
 if [ {{ '${#' }}BACKUP_PATHS[@]} -eq 0 ]; then
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: No backup paths exist to back up." >&2
+  log "Error: No backup paths exist to back up." >&2
   exit 1
 fi
 
+# Secrets are read only from the systemd credentials directory
+# (LoadCredentialEncrypted=). RESTIC_PASSWORD_FILE / RESTIC_REPOSITORY set by the
+# caller take precedence (used by tests for fault injection).
+credential_path() {
+  local name="$1"
+  if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -f "${CREDENTIALS_DIRECTORY}/${name}" ]; then
+    printf '%s' "${CREDENTIALS_DIRECTORY}/${name}"
+  fi
+}
+
+# NOTE: execute_target is called from an `if !` condition, where bash ignores
+# `set -e` for the whole call tree. Every command therefore propagates its own
+# failure explicitly (`|| exit $?`), otherwise a failed backup would be masked by
+# a later successful command.
 execute_target() {
   local label="$1"
   local env_file="$2"
+  local password_name="$3"
+  local s3_secret_name="$4"
 
   if [ ! -f "$env_file" ]; then
-    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: Configuration file $env_file not found for target ${label}" >&2
+    log "Error: Configuration file $env_file not found for target ${label}" >&2
     return 1
   fi
 
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Executing backup target: ${label}"
+  log "Executing backup target: ${label}"
   (
     CALLER_RESTIC_PASSWORD_FILE="${RESTIC_PASSWORD_FILE:-}"
     CALLER_RESTIC_REPOSITORY="${RESTIC_REPOSITORY:-}"
     set -a
     # shellcheck disable=SC1090
-    . "${env_file}"
+    . "${env_file}" || exit $?
     set +a
+
     if [ -n "${CALLER_RESTIC_PASSWORD_FILE}" ]; then
       RESTIC_PASSWORD_FILE="${CALLER_RESTIC_PASSWORD_FILE}"
-    elif [ "${label}" = "primary" ]; then
-      if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -f "${CREDENTIALS_DIRECTORY}/restic_password" ]; then
-        RESTIC_PASSWORD_FILE="${CREDENTIALS_DIRECTORY}/restic_password"
-      elif [ -f "{{ restic_backup_secrets_dir }}/restic_password" ]; then
-        RESTIC_PASSWORD_FILE="{{ restic_backup_secrets_dir }}/restic_password"
-      fi
-    elif [ "${label}" = "secondary" ]; then
-      if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -f "${CREDENTIALS_DIRECTORY}/restic_secondary_password" ]; then
-        RESTIC_PASSWORD_FILE="${CREDENTIALS_DIRECTORY}/restic_secondary_password"
-      elif [ -f "{{ restic_backup_secrets_dir }}/restic_secondary_password" ]; then
-        RESTIC_PASSWORD_FILE="{{ restic_backup_secrets_dir }}/restic_secondary_password"
-      fi
+    else
+      RESTIC_PASSWORD_FILE="$(credential_path "${password_name}")"
     fi
+    if [ -z "${RESTIC_PASSWORD_FILE}" ]; then
+      log "Error: credential ${password_name} not available for target ${label}" >&2
+      exit 1
+    fi
+    export RESTIC_PASSWORD_FILE
 
     if [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
-      if [ "${label}" = "primary" ]; then
-        if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -f "${CREDENTIALS_DIRECTORY}/oci_s3_secret_key" ]; then
-          AWS_SECRET_ACCESS_KEY="$(cat "${CREDENTIALS_DIRECTORY}/oci_s3_secret_key")"
-          export AWS_SECRET_ACCESS_KEY
-        elif [ -f "{{ restic_backup_secrets_dir }}/oci_s3_secret_key" ]; then
-          AWS_SECRET_ACCESS_KEY="$(cat "{{ restic_backup_secrets_dir }}/oci_s3_secret_key")"
-          export AWS_SECRET_ACCESS_KEY
-        fi
-      elif [ "${label}" = "secondary" ]; then
-        if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -f "${CREDENTIALS_DIRECTORY}/cloudflare_s3_secret_key" ]; then
-          AWS_SECRET_ACCESS_KEY="$(cat "${CREDENTIALS_DIRECTORY}/cloudflare_s3_secret_key")"
-          export AWS_SECRET_ACCESS_KEY
-        elif [ -f "{{ restic_backup_secrets_dir }}/cloudflare_s3_secret_key" ]; then
-          AWS_SECRET_ACCESS_KEY="$(cat "{{ restic_backup_secrets_dir }}/cloudflare_s3_secret_key")"
-          export AWS_SECRET_ACCESS_KEY
-        fi
+      s3_secret_file="$(credential_path "${s3_secret_name}")"
+      if [ -n "${s3_secret_file}" ]; then
+        AWS_SECRET_ACCESS_KEY="$(cat "${s3_secret_file}")" || exit $?
+        export AWS_SECRET_ACCESS_KEY
       fi
     fi
 
     if [ -n "${CALLER_RESTIC_REPOSITORY}" ]; then
       RESTIC_REPOSITORY="${CALLER_RESTIC_REPOSITORY}"
+      export RESTIC_REPOSITORY
     fi
 
     if ! restic --retry-lock 2h cat config >/dev/null 2>&1; then
-      echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Initializing repository for ${label}..."
-      restic --retry-lock 2h init
+      log "Initializing repository for ${label}..."
+      restic --retry-lock 2h init || exit $?
     fi
 
-    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running backup snapshot to ${label}..."
+    log "Running backup snapshot to ${label}..."
     restic --retry-lock 2h backup \
       --exclude-file="{{ restic_backup_config_dir }}/excludes.txt" \
       --tag "scheduled" \
       --tag "${label}" \
-      "${BACKUP_PATHS[@]}"
+      "${BACKUP_PATHS[@]}" || exit $?
 
-    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running integrity check for ${label}..."
-    restic --retry-lock 2h check --read-data-subset=1%
+    log "Running integrity check for ${label}..."
+    restic --retry-lock 2h check --read-data-subset=1% || exit $?
   )
 }
 
 FAILED_TARGETS=()
 
-if ! execute_target "primary" "{{ restic_backup_config_dir }}/primary.env"; then
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: Target 'primary' failed" >&2
+if ! execute_target "primary" "{{ restic_backup_config_dir }}/primary.env" restic_password oci_s3_secret_key; then
+  log "Error: Target 'primary' failed" >&2
   FAILED_TARGETS+=("primary")
 fi
 
 {% if restic_backup_secondary_enabled %}
-if ! execute_target "secondary" "{{ restic_backup_config_dir }}/secondary.env"; then
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Error: Target 'secondary' failed" >&2
+if ! execute_target "secondary" "{{ restic_backup_config_dir }}/secondary.env" restic_secondary_password cloudflare_s3_secret_key; then
+  log "Error: Target 'secondary' failed" >&2
   FAILED_TARGETS+=("secondary")
 fi
 {% endif %}
 
 if [ {{ '${#' }}FAILED_TARGETS[@]} -ne 0 ]; then
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Backup finished with failure(s) in: ${FAILED_TARGETS[*]}" >&2
+  log "Backup finished with failure(s) in: ${FAILED_TARGETS[*]}" >&2
   exit 1
 fi
 
-if [ -z "${HEALTHCHECKS_PING_URL:-}" ]; then
-  if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -s "${CREDENTIALS_DIRECTORY}/healthchecks_ping_url" ]; then
-    HEALTHCHECKS_PING_URL="$(cat "${CREDENTIALS_DIRECTORY}/healthchecks_ping_url")"
-  elif [ -s "{{ restic_backup_secrets_dir }}/healthchecks_ping_url" ]; then
-    HEALTHCHECKS_PING_URL="$(cat "{{ restic_backup_secrets_dir }}/healthchecks_ping_url")"
-  fi
-fi
+# Success heartbeat (dead-man's switch). Never fails the backup itself.
+"{{ restic_backup_libexec_dir }}/restic-backup-notify" success restic-backup.service || true
 
-if [ -n "${HEALTHCHECKS_PING_URL:-}" ]; then
-  echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Sending heartbeat ping to Healthchecks.io..."
-  curl -fsS -m 10 --retry 3 "${HEALTHCHECKS_PING_URL}"
-fi
-
-echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Backup procedure completed successfully."
-
+log "Backup procedure completed successfully."

@@ -1,0 +1,33 @@
+---
+# Internal variables for restic_backup role (not user inputs).
+
+# Secrets delivered to restic-backup.service as encrypted systemd credentials
+# (LoadCredentialEncrypted=). "enabled" decides whether the credential is stored
+# in the credstore and loaded by the unit; disabled credentials are removed.
+restic_backup_credentials:
+  - name: restic_password
+    value: "{{ restic_backup_password }}"
+    enabled: true
+  - name: oci_s3_secret_key
+    value: "{{ restic_backup_s3_secret_key }}"
+    enabled: "{{ restic_backup_s3_secret_key | default('') | length > 0 }}"
+  - name: restic_secondary_password
+    value: "{{ restic_backup_secondary_password }}"
+    enabled: "{{ restic_backup_secondary_enabled | bool }}"
+  - name: cloudflare_s3_secret_key
+    value: "{{ restic_backup_secondary_s3_secret_key }}"
+    enabled: "{{ (restic_backup_secondary_enabled | bool) and (restic_backup_secondary_s3_secret_key | default('') | length > 0) }}"
+  - name: healthchecks_ping_url
+    value: "{{ restic_backup_healthchecks_ping_url }}"
+    enabled: "{{ restic_backup_healthchecks_ping_url | default('') | length > 0 }}"
+
+# Files written by earlier releases of this role (plaintext on disk or tmpfs).
+# They are removed on every run so no plaintext copy survives the migration.
+restic_backup_legacy_secret_paths:
+  - /etc/restic/password
+  - /etc/restic/password-secondary
+  - /run/secrets/restic_password
+  - /run/secrets/restic_secondary_password
+  - /run/secrets/oci_s3_secret_key
+  - /run/secrets/cloudflare_s3_secret_key
+  - /run/secrets/healthchecks_ping_url

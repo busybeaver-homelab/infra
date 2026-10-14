@@ -42,15 +42,3 @@ argument_specs:
         type: bool
         default: false
         description: Whether to verify sshd is running.
-      base_ubuntu_server_oci_secrets_fetch_enabled:
-        type: bool
-        default: false
-        description: Whether to enable and start oci-secrets-fetch systemd service on boot.
-      base_ubuntu_server_oci_secrets_dest_dir:
-        type: str
-        default: "/run/secrets"
-        description: In-memory directory path to store fetched secrets (tmpfs).
-      base_ubuntu_server_oci_vault_ocid:
-        type: str
-        default: ""
-        description: OCID of the OCI Vault containing secrets.

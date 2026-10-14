@@ -30,8 +30,8 @@
   ansible.builtin.include_tasks: firewall.yml
   when: base_ubuntu_server_firewall_enabled | bool
 
-- name: Configure OCI secrets fetcher and in-memory delivery
-  ansible.builtin.include_tasks: secrets_fetch.yml
+- name: Remove the retired OCI Vault secrets fetcher
+  ansible.builtin.include_tasks: legacy_secrets_fetch_cleanup.yml
 
 - name: Gather service facts
   ansible.builtin.service_facts:

@@ -380,18 +380,20 @@ setup() {
   [ "$status" -eq 0 ]
   run grep "restic_backup_secondary_repository:" "$defaults"
   [ "$status" -eq 0 ]
-  run grep "restic_backup_secondary_password_file_path:" "$defaults"
+  run grep "restic_backup_secondary_password:" "$defaults"
+  [ "$status" -eq 0 ]
+  run grep "restic_backup_credstore_dir:" "$defaults"
   [ "$status" -eq 0 ]
 }
 
-@test "restic_backup tasks deploy primary.env, secondary.env, and password-secondary" {
+@test "restic_backup tasks deploy primary.env, secondary.env, and encrypted credentials" {
   local tasks="$REPO_ROOT/configuration/roles/restic_backup/tasks/main.yml"
   [ -f "$tasks" ]
   run grep "primary.env" "$tasks"
   [ "$status" -eq 0 ]
   run grep "secondary.env" "$tasks"
   [ "$status" -eq 0 ]
-  run grep "password-secondary" "$tasks"
+  run grep "restic-credential-sync" "$tasks"
   [ "$status" -eq 0 ]
 }
 
