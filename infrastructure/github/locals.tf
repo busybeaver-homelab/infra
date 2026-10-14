@@ -9,18 +9,17 @@ locals {
   # Repositories managed by OpenTofu: map of repository configs from SOPS.
   repositories = nonsensitive(try(local.sops_data.github.config.repositories, {}))
 
-  # CI age private key resolution: explicit variable override > local age keys file > fallback decoy.
-  ci_age_key = coalesce(
-    var.sops_age_key_ci != "" ? var.sops_age_key_ci : null,
-    fileexists(pathexpand(var.sops_age_key_file)) ? trimspace(file(pathexpand(var.sops_age_key_file))) : null,
-    "AGE-SECRET-KEY-SYNTHETIC-DECOY-DUMMY-VALUE-FOR-TESTS"
-  )
+  # The single CI age identity (decrypts only secrets/credentials.ci.sops.yaml).
+  # Source: production SOPS `github.ci_age_key`, or an explicit variable override.
+  # Never read from a local keyring file and never fall back to a decoy: a missing
+  # key fails the plan through the repository module's validation.
+  ci_age_key = var.sops_age_key_ci != "" ? var.sops_age_key_ci : trimspace(try(local.sops_data.github.ci_age_key, ""))
 
-  # Centralized environment secrets injected into repositories
+  # Secrets injected into the `ci` environment. PR jobs can reach this environment,
+  # so it MUST NOT hold production material such as the state passphrase.
   ci_environment_secrets = merge(
     {
-      SOPS_AGE_KEY_CI            = local.ci_age_key
-      TOFU_ENCRYPTION_PASSPHRASE = try(local.sops_data.opentofu.state_encryption_passphrase, "")
+      SOPS_AGE_KEY_CI = local.ci_age_key
     },
     var.ci_secrets
   )

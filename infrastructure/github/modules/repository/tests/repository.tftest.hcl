@@ -85,3 +85,60 @@ run "reject_invalid_visibility" {
   ]
 }
 
+
+run "reject_state_passphrase_in_ci_environment" {
+  command = plan
+
+  variables {
+    ci_secrets = {
+      TOFU_ENCRYPTION_PASSPHRASE = "never-distribute-this-0000000000000000"
+    }
+  }
+
+  expect_failures = [
+    var.ci_secrets,
+  ]
+}
+
+run "reject_state_passphrase_in_backup_environment" {
+  command = plan
+
+  variables {
+    backup_secrets = {
+      STATE_PASSPHRASE = "never-distribute-this-0000000000000000"
+    }
+  }
+
+  expect_failures = [
+    var.backup_secrets,
+  ]
+}
+
+run "reject_keyring_or_decoy_as_ci_age_key" {
+  command = plan
+
+  variables {
+    ci_secrets = {
+      SOPS_AGE_KEY_CI = "AGE-SECRET-KEY-SYNTHETIC-DECOY-DUMMY-VALUE-FOR-TESTS"
+    }
+  }
+
+  expect_failures = [
+    var.ci_secrets,
+  ]
+}
+
+run "accept_single_ci_age_identity" {
+  command = plan
+
+  variables {
+    ci_secrets = {
+      SOPS_AGE_KEY_CI = format("%s%s", "AGE-SECRET-KEY-1", join("", [for _ in range(58) : "Q"]))
+    }
+  }
+
+  assert {
+    condition     = length(github_actions_environment_secret.ci_secrets) == 1
+    error_message = "A single valid CI age identity must be accepted."
+  }
+}

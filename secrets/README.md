@@ -169,9 +169,36 @@ chmod 600 ~/.config/homelab-infra/tofu-passphrase
 unset PASSPHRASE
 ```
 
-### GitHub Actions Setup
+### GitHub Actions and the State Passphrase
 
-In CI workflows, the passphrase can be resolved directly from `secrets/credentials.ci.sops.yaml` using `SOPS_AGE_KEY`, or injected as an explicit repository secret `TOFU_ENCRYPTION_PASSPHRASE`.
+CI **never** receives the production state passphrase. Validate and test jobs only use a fixed throwaway value (`ci-validation-dummy-passphrase-32ch`), because they never touch real state. `infrastructure/github` enforces this with validations that reject passphrase-like secrets in any GitHub environment.
+
+The `ci` environment receives exactly **one** age identity, the CI key that decrypts only `secrets/credentials.ci.sops.yaml`. Its source is production SOPS (`github.ci_age_key`); there is no keyring-file read and no decoy fallback. One-time setup, run in your own terminal (never in an agent session):
+
+```bash
+# Find the identity whose public key matches the CI recipient in .sops.yaml, then
+# store only that identity in production SOPS. Nothing is printed.
+ci_pub="$(yq '.creation_rules[0].key_groups[0].age[0]' .sops.yaml)"
+while read -r key; do
+  if [ "$(printf '%s\n' "$key" | age-keygen -y)" = "$ci_pub" ]; then
+    printf '%s' "$key" | jq -Rs . | sops set --value-stdin secrets/credentials.sops.yaml '["github"]["ci_age_key"]'
+  fi
+done < <(grep '^AGE-SECRET-KEY-1' ~/.config/sops/age/keys.txt)
+# Schema parity: the CI file needs the same key path with a synthetic value.
+age-keygen 2>/dev/null | grep '^AGE-SECRET-KEY-1' | tr -d '\n' | jq -Rs . | \
+  sops set --value-stdin secrets/credentials.ci.sops.yaml '["github"]["ci_age_key"]'
+```
+
+Then `tofu apply` in `infrastructure/github` (owner-confirmed). This deletes the `TOFU_ENCRYPTION_PASSPHRASE` secret from the `ci` environment and replaces `SOPS_AGE_KEY_CI` with the single identity. Check with `gh secret list --env ci --repo <owner>/<repo>`.
+
+### Rotating the State Passphrase
+
+Rotate after any suspected exposure. That includes the period when the passphrase sat in the GitHub `ci` environment. OpenTofu reads old ciphertext through a temporary `fallback` key provider while it writes new ciphertext:
+
+1. Generate a new passphrase (`openssl rand -base64 32`). Store it as `opentofu.state_encryption_passphrase` and the old one as `opentofu.state_encryption_passphrase_previous`, both with `sops set --value-stdin`. Update the CI file with synthetic values for both paths (schema parity).
+2. In each module's `encryption.tf`, temporarily add a `previous` `pbkdf2` key provider with the **same parameters**, a matching `aes_gcm` method, and `fallback { method = method.aes_gcm.previous }` in the `state` block. Add a sensitive `state_encryption_passphrase_previous` variable.
+3. For every module, export both passphrases as `TF_VAR_*` from SOPS (via env, never argv), then run `tofu init` and `tofu apply -refresh-only`. Each apply is owner-confirmed and rewrites the state with the new key.
+4. Remove the fallback, the `previous` provider and variable, and `opentofu.state_encryption_passphrase_previous`. `tofu plan` in every module must now succeed with only the new passphrase.
 
 > **WARNING:** Losing the passphrase makes all encrypted state files permanently
 > unrecoverable. Keep at least one secure backup (e.g., a password manager entry).

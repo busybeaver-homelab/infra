@@ -147,13 +147,13 @@ jobs:
     needs: changes
     if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.tofu == 'true')
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
-    environment: ci
     permissions:
       contents: read
     timeout-minutes: 20
     env:
-      TF_VAR_state_encryption_passphrase: ${{ secrets.TOFU_ENCRYPTION_PASSPHRASE || 'ci-validation-dummy-passphrase-32ch' }}
-      TOFU_STATE_PASSPHRASE: ${{ secrets.TOFU_ENCRYPTION_PASSPHRASE || 'ci-validation-dummy-passphrase-32ch' }}
+      # Validate/test never touch real state: a fixed throwaway value, never the production passphrase.
+      TF_VAR_state_encryption_passphrase: ci-validation-dummy-passphrase-32ch
+      TOFU_STATE_PASSPHRASE: ci-validation-dummy-passphrase-32ch
     steps:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
