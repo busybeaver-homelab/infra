@@ -43,7 +43,7 @@ for file in "${targets[@]}"; do
   fi
 
   # Skip scanning this script and its tests by exact path match
-  if [ "$normalized_file" = "scripts/detect-private-keys.sh" ] || [ "$normalized_file" = "tests/scripts/detect-private-keys.bats" ]; then
+  if [ "$normalized_file" = "scripts/detect-private-keys.sh" ]; then
     continue
   fi
 
