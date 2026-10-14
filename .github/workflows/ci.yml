@@ -107,7 +107,7 @@ jobs:
             echo "Pull request detected. Fetching base branch for comparison..."
             git fetch origin "${BASE_REF}" --depth=1
             echo "Running Lefthook on changed files..."
-            git diff --name-only -z "origin/${BASE_REF}...HEAD" | mise exec -- lefthook run pre-commit --files-from-stdin
+            git diff --name-only --diff-filter=d -z "origin/${BASE_REF}...HEAD" | mise exec -- lefthook run pre-commit --files-from-stdin
           else
             echo "Push or Scheduled run detected. Running Lefthook on all files..."
             mise exec -- lefthook run pre-commit --all-files
