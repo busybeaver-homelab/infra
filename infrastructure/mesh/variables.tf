@@ -57,6 +57,23 @@ variable "bootstrap_key_tags" {
   }
 }
 
+variable "bootstrap_gcp_key_tags" {
+  type        = list(string)
+  description = "Tailscale tags assigned to the GCP bootstrap authentication key."
+  default = [
+    "tag:type-server",
+    "tag:os-linux",
+    "tag:hosting-cloud",
+    "tag:location-us",
+    "tag:env-gcp",
+  ]
+
+  validation {
+    condition     = length(var.bootstrap_gcp_key_tags) > 0 && alltrue([for t in var.bootstrap_gcp_key_tags : can(regex("^tag:[a-z0-9-]+$", t))])
+    error_message = "All GCP bootstrap key tags must start with 'tag:' and contain only lowercase alphanumeric characters and hyphens."
+  }
+}
+
 variable "monitored_device_hostnames" {
   description = "List of device hostnames (without domain suffix) to retrieve via data.tailscale_device."
   type        = list(string)

@@ -92,6 +92,31 @@ run "unit_plan_matches_baseline" {
   }
 
   assert {
+    condition     = tailscale_tailnet_key.bootstrap_gcp.preauthorized == true
+    error_message = "GCP bootstrap key must be preauthorized."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.bootstrap_gcp.reusable == true
+    error_message = "GCP bootstrap key must be reusable."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.bootstrap_gcp.ephemeral == false
+    error_message = "GCP bootstrap key must not be ephemeral."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.bootstrap_gcp.expiry == 7776000
+    error_message = "GCP bootstrap key expiry must be 7776000 (90 days)."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.bootstrap_gcp.tags == toset(["tag:type-server", "tag:os-linux", "tag:hosting-cloud", "tag:location-us", "tag:env-gcp"])
+    error_message = "GCP bootstrap key must carry the expected GCP tags."
+  }
+
+  assert {
     condition     = length(tailscale_acl.homelab.acl) > 0
     error_message = "Tailscale ACL policy file must not be empty."
   }
@@ -118,5 +143,15 @@ run "verify_computed_outputs_on_apply" {
   assert {
     condition     = output.auth_key_bootstrap != ""
     error_message = "Auth key bootstrap output must not be empty."
+  }
+
+  assert {
+    condition     = output.auth_key_bootstrap_gcp != ""
+    error_message = "GCP auth key bootstrap output must not be empty."
+  }
+
+  assert {
+    condition     = output.auth_keys["oci"] != "" && output.auth_keys["gcp"] != ""
+    error_message = "auth_keys map output must include non-empty oci and gcp keys."
   }
 }
