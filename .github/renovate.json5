@@ -19,6 +19,11 @@
   prConcurrentLimit: 10,
   prHourlyLimit: 2,
 
+  // Supply-chain cooldown (R2-REN-01): every update waits 3 days after its release before
+  // a PR is raised. Security updates bypass this by design. internalChecksFilter defaults to
+  // "strict", so no branch (and no CI run with the new dependency code) exists while pending.
+  minimumReleaseAge: "3 days",
+
   // Lockfile maintenance schedule
   lockFileMaintenance: {
     enabled: true,
@@ -265,12 +270,54 @@
       automerge: false,
     },
 
-    // 10. Language Runtimes (Python, Node, Go require explicit review)
+    // ---- Never-automerge gates: keep LAST. Renovate applies packageRules in order and later
+    // rules win, so a gate placed before rule 7 would be overridden by the automerge rule.
+
+    // 10. Language Runtimes (Python, Node, Go require explicit review) in mise AND PEP 621
     {
-      description: "Require human review for language runtime upgrades in mise",
-      matchManagers: ["mise"],
+      description: "Require human review for language runtime upgrades in mise and PEP 621",
+      matchManagers: ["mise", "pep621"],
       matchPackageNames: ["python", "node", "go"],
       automerge: false,
+    },
+
+    // 11. Mise CLI (custom regex manager across mise.toml and the setup-environment action)
+    {
+      description: "Require human review for Mise CLI updates",
+      matchPackageNames: ["jdx/mise"],
+      automerge: false,
+    },
+
+    // 12. AI Agent Skills
+    {
+      description: "Require human review for AI agent skill updates",
+      matchFileNames: ["skills-lock.json"],
+      automerge: false,
+    },
+
+    // 13. Security-boundary files (owner-reviewed; see .github/CODEOWNERS)
+    {
+      description: "Never automerge updates that touch security-boundary files",
+      matchFileNames: [
+        ".sops.yaml",
+        ".gitattributes",
+        "lefthook.yml",
+        "scripts/verify-*",
+        "scripts/detect-*",
+        "scripts/check-*",
+        "scripts/block-*",
+        "scripts/guard-*",
+      ],
+      automerge: false,
+    },
+
+    // 14. OpenTofu core version (R2-REN-02): Renovate resolves required_version against
+    // HashiCorp Terraform releases, which says nothing about OpenTofu compatibility.
+    {
+      description: "Do not manage the OpenTofu required_version constraint via the Terraform datasource",
+      matchManagers: ["terraform"],
+      matchDepTypes: ["required_version"],
+      enabled: false,
     },
   ],
 }
