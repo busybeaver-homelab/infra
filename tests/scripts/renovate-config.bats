@@ -542,3 +542,52 @@ console.log("Mise language runtimes rule correctly configured with automerge fal
 }
 
 
+
+@test ".github/renovate.json5 sets a global minimumReleaseAge of at least 3 days" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const config = eval("(" + require("fs").readFileSync(process.argv[1], "utf8") + ")");
+const m = /^(\d+) days?$/.exec(config.minimumReleaseAge || "");
+if (!m || Number(m[1]) < 3) { console.error("minimumReleaseAge must be >= 3 days"); process.exit(1); }
+console.log("cooldown ok");
+' "$config"
+  [ "$status" -eq 0 ]
+}
+
+@test ".github/renovate.json5 places every never-automerge gate after the automerge rule" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const config = eval("(" + require("fs").readFileSync(process.argv[1], "utf8") + ")");
+const rules = config.packageRules;
+const automergeIdx = rules.findIndex(r => r.automerge === true && r.platformAutomerge === true);
+if (automergeIdx < 0) { console.error("automerge rule missing"); process.exit(1); }
+const has = (r, k, v) => Array.isArray(r[k]) && r[k].includes(v);
+const gates = {
+  "runtime (mise)": r => r.automerge === false && has(r, "matchManagers", "mise") && has(r, "matchPackageNames", "python"),
+  "runtime (pep621)": r => r.automerge === false && has(r, "matchManagers", "pep621") && has(r, "matchPackageNames", "python"),
+  "mise cli": r => r.automerge === false && has(r, "matchPackageNames", "jdx/mise"),
+  "agent skills": r => r.automerge === false && has(r, "matchFileNames", "skills-lock.json"),
+  "security boundary": r => r.automerge === false && has(r, "matchFileNames", ".sops.yaml"),
+  "major": r => r.automerge === false && has(r, "matchUpdateTypes", "major"),
+};
+for (const [name, pred] of Object.entries(gates)) {
+  const last = rules.map((r, i) => pred(r) ? i : -1).filter(i => i >= 0).pop();
+  if (last === undefined || last < automergeIdx) { console.error("gate not after automerge rule: " + name); process.exit(1); }
+}
+console.log("gates ordered after automerge");
+' "$config"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"gates ordered after automerge"* ]]
+}
+
+@test ".github/renovate.json5 disables the terraform required_version depType" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const config = eval("(" + require("fs").readFileSync(process.argv[1], "utf8") + ")");
+const ok = config.packageRules.some(r => r.enabled === false &&
+  (r.matchManagers || []).includes("terraform") && (r.matchDepTypes || []).includes("required_version"));
+if (!ok) { console.error("required_version not disabled"); process.exit(1); }
+console.log("required_version disabled");
+' "$config"
+  [ "$status" -eq 0 ]
+}
