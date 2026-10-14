@@ -1,0 +1,104 @@
+#!/usr/bin/env bats
+# Tests for the engineering standards runbooks referenced from AGENTS.md (§6)
+
+load 'helpers/test_helper'
+
+RUNBOOKS=(opentofu-standards ansible-standards ci-workflows-standards)
+
+setup() {
+  setup_tmpdir
+}
+
+teardown() {
+  teardown_tmpdir
+}
+
+# True when the file is git-crypt ciphertext (checkout without the key).
+is_encrypted() {
+  [ "$(head -c 10 "$1" | tail -c 9)" = "GITCRYPT" ]
+}
+
+@test "AGENTS.md references all three standards runbooks" {
+  local doc="${REPO_ROOT}/AGENTS.md"
+  local rb
+  for rb in "${RUNBOOKS[@]}"; do
+    run grep -F "docs/runbooks/${rb}.md" "$doc"
+    [ "$status" -eq 0 ]
+  done
+}
+
+@test "every runbook and review-plan path referenced in AGENTS.md exists" {
+  local doc="${REPO_ROOT}/AGENTS.md"
+  local path
+  local missing=0
+  # docs/plans examples (e.g. the plan naming example) are illustrative; only
+  # runbooks and the infrastructure review plan are real references.
+  while IFS= read -r path; do
+    if [ ! -e "${REPO_ROOT}/${path}" ]; then
+      echo "missing: ${path}" >&2
+      missing=1
+    fi
+  done < <(grep -oE 'docs/(runbooks/[A-Za-z0-9._-]+|plans/[0-9-]+infrastructure-review[A-Za-z0-9._-]*)\.md' "$doc" | sort -u)
+  [ "$missing" -eq 0 ]
+}
+
+@test "standards runbooks stay under git-crypt encryption" {
+  local rb
+  for rb in "${RUNBOOKS[@]}"; do
+    run git -C "$REPO_ROOT" check-attr filter -- "docs/runbooks/${rb}.md"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *": filter: git-crypt" ]] || false
+  done
+}
+
+@test "AGENTS.md keeps precedence over runbooks and documents the encrypted fallback" {
+  local doc="${REPO_ROOT}/AGENTS.md"
+  run grep -F "never relax or override" "$doc"
+  [ "$status" -eq 0 ]
+  run grep -F "git-crypt encrypted" "$doc"
+  [ "$status" -eq 0 ]
+  run grep -F "Runbooks unavailable (encrypted)" "$doc"
+  [ "$status" -eq 0 ]
+}
+
+@test "runbook rule IDs are unique and every referenced ID is defined" {
+  local rb file prefix defined referenced dupes undefined
+  for rb in "${RUNBOOKS[@]}"; do
+    file="${REPO_ROOT}/docs/runbooks/${rb}.md"
+    if is_encrypted "$file"; then
+      skip "runbooks are git-crypt encrypted in this checkout"
+    fi
+    case "$rb" in
+      opentofu-standards) prefix="STD-OT" ;;
+      ansible-standards) prefix="STD-AN" ;;
+      ci-workflows-standards) prefix="STD-CI" ;;
+    esac
+
+    # A definition is a rule ID at the start of a heading or bold rule line.
+    defined="$(grep -oE "^(#{3,4} |\*\*)${prefix}-[0-9]+" "$file" | grep -oE "${prefix}-[0-9]+")"
+    dupes="$(printf '%s\n' "$defined" | sort | uniq -d)"
+    if [ -n "$dupes" ]; then
+      echo "duplicate rule IDs in ${rb}: ${dupes}" >&2
+      false
+    fi
+
+    referenced="$(grep -oE "${prefix}-[0-9]+" "$file" | sort -u)"
+    undefined="$(printf '%s\n' "$referenced" | grep -vxF -f <(printf '%s\n' "$defined") || true)"
+    if [ -n "$undefined" ]; then
+      echo "undefined rule IDs referenced in ${rb}: ${undefined}" >&2
+      false
+    fi
+  done
+}
+
+@test "runbooks contain no RFC1918 or CGNAT address literals" {
+  local rb file
+  for rb in "${RUNBOOKS[@]}"; do
+    file="${REPO_ROOT}/docs/runbooks/${rb}.md"
+    if is_encrypted "$file"; then
+      skip "runbooks are git-crypt encrypted in this checkout"
+    fi
+    run grep -nE '\b(10\.[0-9]{1,3}|192\.168|172\.(1[6-9]|2[0-9]|3[01])|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7]))\.[0-9]{1,3}\.[0-9]{1,3}\b' "$file"
+    [ "$status" -eq 1 ]
+  done
+}
