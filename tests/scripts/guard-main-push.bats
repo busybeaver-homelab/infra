@@ -39,3 +39,13 @@ SHA_B="2222222222222222222222222222222222222222"
   run yq '.pre-push.commands.guard-main-push.run' "${REPO_ROOT}/lefthook.yml"
   [[ "$output" == *"scripts/guard-main-push.sh"* ]]
 }
+
+@test "AGENTS.md documents the owner local-merge command the guard expects" {
+  local doc="${REPO_ROOT}/AGENTS.md"
+  run grep -F 'git merge --ff-only <branch> && ALLOW_MAIN_PUSH=1 git push origin main' "$doc"
+  [ "$status" -eq 0 ]
+  run grep -F 'ALLOW_MAIN_PUSH' "$GUARD"
+  [ "$status" -eq 0 ]
+  run grep -F 'lefthook install' "$doc"
+  [ "$status" -eq 0 ]
+}
