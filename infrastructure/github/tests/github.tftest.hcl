@@ -25,8 +25,9 @@ mock_provider "sops" {
 }
 
 variables {
-  github_token = "mock-ghp-token-12345"
-  github_owner = "mock-owner"
+  sops_age_key_ci = format("%s%s", "AGE-SECRET-KEY-1", join("", [for _ in range(58) : "Q"])) # synthetic, format-valid test identity
+  github_token    = "mock-ghp-token-12345"
+  github_owner    = "mock-owner"
 }
 
 run "verify_github_root_hardening" {
@@ -121,3 +122,22 @@ run "verify_computed_outputs_on_apply" {
   }
 }
 
+
+run "ci_environment_holds_no_production_material" {
+  command = plan
+
+  assert {
+    condition     = !contains(keys(local.ci_environment_secrets), "TOFU_ENCRYPTION_PASSPHRASE")
+    error_message = "The production state passphrase must not be distributed to the ci environment."
+  }
+
+  assert {
+    condition     = keys(local.ci_environment_secrets) == ["SOPS_AGE_KEY_CI"]
+    error_message = "The ci environment must only receive the CI age identity."
+  }
+
+  assert {
+    condition     = can(regex("^AGE-SECRET-KEY-1[0-9A-Z]{58}$", local.ci_age_key))
+    error_message = "The CI age key must be exactly one identity."
+  }
+}

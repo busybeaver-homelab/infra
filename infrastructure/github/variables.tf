@@ -57,15 +57,14 @@ variable "backup_secrets" {
 
 variable "sops_age_key_ci" {
   type        = string
-  description = "CI Age private key override for GitHub Actions environment secrets."
+  description = "Override for the single CI age identity uploaded to GitHub. Empty (default) reads production SOPS `github.ci_age_key`."
   sensitive   = true
   default     = ""
-}
 
-variable "sops_age_key_file" {
-  type        = string
-  description = "Path to the local Age keys file containing the CI private key."
-  default     = "~/.config/sops/age/keys.txt"
+  validation {
+    condition     = var.sops_age_key_ci == "" || can(regex("^AGE-SECRET-KEY-1[0-9A-Z]{58}$", var.sops_age_key_ci))
+    error_message = "sops_age_key_ci must be empty or exactly one age identity (AGE-SECRET-KEY-1...), not a keyring file."
+  }
 }
 
 variable "deploy_keys" {
