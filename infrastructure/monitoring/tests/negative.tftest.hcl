@@ -1,7 +1,8 @@
 mock_provider "healthchecksio" {}
 
 variables {
-  healthchecksio_api_key = "mock-healthchecksio-api-key"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  healthchecksio_api_key      = "mock-healthchecksio-api-key"
 }
 
 run "reject_excessive_healthcheck_timeout" {
@@ -52,3 +53,26 @@ run "reject_excessive_healthcheck_grace" {
   ]
 }
 
+run "reject_short_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "too-short-test-passphrase"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_placeholder_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "changeme-changeme-changeme-changeme-0001"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}

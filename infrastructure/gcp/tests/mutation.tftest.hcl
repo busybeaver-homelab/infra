@@ -1,8 +1,9 @@
 mock_provider "google" {}
 
 variables {
-  gcp_project_id = "mock-gcp-project-12345"
-  gcp_region     = "us-central1"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  gcp_project_id              = "mock-gcp-project-12345"
+  gcp_region                  = "us-central1"
 }
 
 run "initial_apply" {

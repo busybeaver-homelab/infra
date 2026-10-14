@@ -1,7 +1,8 @@
 mock_provider "healthchecksio" {}
 
 variables {
-  healthchecksio_api_key = "mock-healthchecksio-api-key"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  healthchecksio_api_key      = "mock-healthchecksio-api-key"
 }
 
 run "verify_healthchecks_check" {

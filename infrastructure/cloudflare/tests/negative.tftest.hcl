@@ -61,8 +61,9 @@ mock_provider "sops" {
 }
 
 variables {
-  cloudflare_api_token  = "mock-cf-token-12345"
-  cloudflare_account_id = "mock-account-id-12345"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  cloudflare_api_token        = "mock-cf-token-12345"
+  cloudflare_account_id       = "mock-account-id-12345"
 }
 
 run "reject_invalid_bucket_name" {
@@ -101,3 +102,26 @@ run "reject_bucket_name_missing_prefix" {
   ]
 }
 
+run "reject_short_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "too-short-test-passphrase"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_placeholder_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "changeme-changeme-changeme-changeme-0001"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}

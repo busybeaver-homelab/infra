@@ -148,31 +148,13 @@ fi
 log_info "Syncing Python dependencies from pyproject.toml..."
 uv pip install -e .
 
-# 5b. Generate or retrieve OpenTofu state encryption passphrase
-TOFU_PASSPHRASE_FILE="${HOME}/.config/homelab-infra/tofu-passphrase"
-if [ ! -f "${TOFU_PASSPHRASE_FILE}" ]; then
-  log_info "Generating OpenTofu state encryption passphrase..."
-  mkdir -p "$(dirname "${TOFU_PASSPHRASE_FILE}")"
-  if command -v openssl >/dev/null 2>&1; then
-    openssl rand -base64 32 >"${TOFU_PASSPHRASE_FILE}"
-  else
-    head -c 32 /dev/urandom | base64 >"${TOFU_PASSPHRASE_FILE}"
-  fi
-  chmod 600 "${TOFU_PASSPHRASE_FILE}"
-  log_info "Passphrase written to: ${TOFU_PASSPHRASE_FILE}"
-  log_warn "IMPORTANT: Back up ${TOFU_PASSPHRASE_FILE} securely or store in SOPS."
-  log_warn "If you lose it, the local state files become unrecoverable."
-else
-  log_info "OpenTofu passphrase already exists at: ${TOFU_PASSPHRASE_FILE}"
-fi
-
 log_info "Bootstrap complete!"
 log_info "To enable mise in your shell, add this to your rc file (~/.zshrc, ~/.bashrc, etc.):"
 echo -e "  ${YELLOW}eval \"\$(mise activate zsh)\"${NC}  # or bash, fish, etc."
 log_info "To use the generated age key with SOPS, make sure this environment variable is set:"
 echo -e "  ${YELLOW}export SOPS_AGE_KEY_FILE=\"$AGE_KEY_FILE\"${NC}"
-log_info "OpenTofu state encryption: scripts auto-resolve the passphrase from SOPS or local fallback file."
-echo -e "  ${YELLOW}# (Optional) Store passphrase in production SOPS:${NC}"
-echo -e "  ${YELLOW}mise exec -- sops set secrets/credentials.sops.yaml '[\"opentofu\"][\"state_encryption_passphrase\"]' \"\\\"\$(cat ${TOFU_PASSPHRASE_FILE})\\\"\"${NC}"
-echo -e "  ${YELLOW}# (Optional) Or set explicit environment variable in shell rc:${NC}"
-echo -e "  ${YELLOW}export TF_VAR_state_encryption_passphrase=\"\$(cat ${TOFU_PASSPHRASE_FILE})\"${NC}"
+log_info "OpenTofu state encryption: the passphrase lives only in production SOPS (no default, no local file)."
+echo -e "  ${YELLOW}# First setup only: generate it straight into SOPS (nothing is printed or written to disk):${NC}"
+echo -e "  ${YELLOW}openssl rand -hex 32 | jq -R . | mise exec -- sops set --value-stdin secrets/credentials.sops.yaml '[\"opentofu\"][\"state_encryption_passphrase\"]'${NC}"
+echo -e "  ${YELLOW}# Before running tofu, export it from SOPS into TF_VAR_state_encryption_passphrase:${NC}"
+echo -e "  ${YELLOW}export TF_VAR_state_encryption_passphrase=\"\$(mise exec -- sops -d --extract '[\"opentofu\"][\"state_encryption_passphrase\"]' secrets/credentials.sops.yaml)\"${NC}"

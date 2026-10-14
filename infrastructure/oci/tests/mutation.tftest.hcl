@@ -2,21 +2,22 @@ mock_provider "oci" {}
 mock_provider "sops" {}
 
 variables {
-  tenancy_ocid            = "ocid1.tenancy.oc1..test"
-  user_ocid               = "ocid1.user.oc1..test"
-  fingerprint             = "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff"
-  private_key             = "mock-private-key-test-string"
-  compartment_ocid        = "ocid1.compartment.oc1..test"
-  vcn_cidr                = "198.51.100.0/24"
-  subnet_cidr             = "198.51.100.0/28"
-  admin_cidr              = "203.0.113.0/24"
-  tenancy_name            = "testtenancy"
-  availability_domain     = "test-ad"
-  instance_image_ocid_amd = "ocid1.image.oc1..amd"
-  instance_image_ocid_arm = "ocid1.image.oc1..arm"
-  tailscale_auth_key      = "tskey-auth-test"
-  ssh_public_key          = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey user@test"
-  enable_prevent_destroy  = false
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  tenancy_ocid                = "ocid1.tenancy.oc1..test"
+  user_ocid                   = "ocid1.user.oc1..test"
+  fingerprint                 = "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff"
+  private_key                 = "mock-private-key-test-string"
+  compartment_ocid            = "ocid1.compartment.oc1..test"
+  vcn_cidr                    = "198.51.100.0/24"
+  subnet_cidr                 = "198.51.100.0/28"
+  admin_cidr                  = "203.0.113.0/24"
+  tenancy_name                = "testtenancy"
+  availability_domain         = "test-ad"
+  instance_image_ocid_amd     = "ocid1.image.oc1..amd"
+  instance_image_ocid_arm     = "ocid1.image.oc1..arm"
+  tailscale_auth_key          = "tskey-auth-test"
+  ssh_public_key              = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey user@test"
+  enable_prevent_destroy      = false
 }
 
 run "initial_apply" {

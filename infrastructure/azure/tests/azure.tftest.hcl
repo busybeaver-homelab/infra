@@ -7,8 +7,9 @@ mock_provider "azurerm" {
 }
 
 variables {
-  azure_subscription_id = "00000000-0000-0000-0000-000000000000"
-  budget_contact_emails = ["admin@example.com"]
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  azure_subscription_id       = "00000000-0000-0000-0000-000000000000"
+  budget_contact_emails       = ["admin@example.com"]
 }
 
 run "verify_azure_budget_subscription" {

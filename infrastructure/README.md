@@ -95,10 +95,9 @@ export AWS_ACCESS_KEY_ID="<your-r2-access-key-id>"
 export AWS_SECRET_ACCESS_KEY="<your-r2-secret-access-key>"
 
 # OpenTofu Client-Side State Encryption Passphrase
-# Note: TF_VAR_state_encryption_passphrase is auto-resolved from SOPS
-# (opentofu.state_encryption_passphrase) or local file (~/.config/homelab-infra/tofu-passphrase).
-# Alternatively, it can be explicitly exported in your shell:
-export TF_VAR_state_encryption_passphrase="<your-state-encryption-passphrase>"
+# Required: the modules have no default and fail closed without it. scripts/bootstrap-state-backend.sh
+# resolves it from SOPS (opentofu.state_encryption_passphrase); for manual runs export it from there:
+export TF_VAR_state_encryption_passphrase="$(sops -d --extract '["opentofu"]["state_encryption_passphrase"]' secrets/credentials.sops.yaml)"
 ```
 
 ### 🔑 Cloudflare R2 API Token Setup (Dashboard)

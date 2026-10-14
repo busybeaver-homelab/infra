@@ -334,7 +334,7 @@ EOF
   [[ ! "$output" =~ "Auto-resolved TF_VAR_state_encryption_passphrase from SOPS" ]]
 }
 
-@test "bootstrap-state-backend.sh falls back to local file ~/.config/homelab-infra/tofu-passphrase when SOPS is unavailable" {
+@test "bootstrap-state-backend.sh ignores a local passphrase file and reports the missing passphrase" {
   local mock_home="${BATS_TMPDIR}/mock-home"
   mkdir -p "${mock_home}/.config/homelab-infra"
   echo "mock-local-file-passphrase" > "${mock_home}/.config/homelab-infra/tofu-passphrase"
@@ -349,7 +349,7 @@ EOF
   chmod +x "${mock_bin_dir}/sops"
   prepend_path "${mock_bin_dir}"
 
-  run env \
+  run env -u TF_VAR_state_encryption_passphrase \
     HOME="${mock_home}" \
     CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
     AWS_ACCESS_KEY_ID="mock-key" \
@@ -357,6 +357,25 @@ EOF
     "${SCRIPT}" --dry-run --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
 
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Auto-resolved TF_VAR_state_encryption_passphrase from local file" ]]
+  [[ "$output" != *"from local file"* ]] || false
+  [[ "$output" == *"Missing required environment variable: TF_VAR_state_encryption_passphrase"* ]]
+}
+
+@test "bootstrap-state-backend.sh fails without the state passphrase outside dry-run" {
+  local mock_bin_dir="${BATS_TMPDIR}/bin-no-sops-strict"
+  mkdir -p "${mock_bin_dir}"
+  printf '#!/usr/bin/env bash\nexit 1\n' >"${mock_bin_dir}/sops"
+  chmod +x "${mock_bin_dir}/sops"
+  prepend_path "${mock_bin_dir}"
+
+  run env -u TF_VAR_state_encryption_passphrase \
+    HOME="${BATS_TMPDIR}" \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    AWS_ACCESS_KEY_ID="mock-key" \
+    AWS_SECRET_ACCESS_KEY="mock-secret" \
+    "${SCRIPT}" --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"TF_VAR_state_encryption_passphrase"* ]]
 }
 

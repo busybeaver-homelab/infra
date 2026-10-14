@@ -1,9 +1,10 @@
 mock_provider "proxmox" {}
 
 variables {
-  proxmox_api_endpoint = "https://proxmox.ci.internal:8006"
-  proxmox_api_token    = "ci@pam!token=dummy"
-  proxmox_insecure     = false
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  proxmox_api_endpoint        = "https://proxmox.ci.internal:8006"
+  proxmox_api_token           = "ci@pam!token=dummy"
+  proxmox_insecure            = false
 }
 
 run "verify_homelab_configuration" {

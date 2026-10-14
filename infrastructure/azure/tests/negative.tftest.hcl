@@ -7,7 +7,8 @@ mock_provider "azurerm" {
 }
 
 variables {
-  azure_subscription_id = "00000000-0000-0000-0000-000000000000"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  azure_subscription_id       = "00000000-0000-0000-0000-000000000000"
 }
 
 run "reject_excessive_monthly_budget" {
@@ -46,3 +47,26 @@ run "reject_zero_monthly_budget" {
   ]
 }
 
+run "reject_short_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "too-short-test-passphrase"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_placeholder_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "changeme-changeme-changeme-changeme-0001"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}

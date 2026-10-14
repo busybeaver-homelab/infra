@@ -1,10 +1,3 @@
-variable "state_encryption_passphrase" {
-  type        = string
-  description = "Passphrase for OpenTofu state and plan encryption."
-  sensitive   = true
-  default     = "homelab-state-encryption-passphrase-default"
-}
-
 terraform {
   encryption {
     key_provider "pbkdf2" "state_passphrase" {
