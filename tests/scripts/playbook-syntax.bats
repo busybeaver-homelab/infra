@@ -445,7 +445,7 @@ setup() {
 
   run yq eval '.collections[] | select(.name == "community.docker") | .version' "$req"
   [ "$status" -eq 0 ]
-  [ "$output" = "5.2.1" ]
+  [ "$output" = "5.4.0" ]
 }
 
 @test "all collection references in configuration are declared in requirements.yml or ansible.builtin" {
