@@ -122,7 +122,7 @@
 
     - name: Assert unused S3 credentials are not stored
       ansible.builtin.stat:
-        path: "{{ restic_backup_test_credstore }}/oci_s3_secret_key"
+        path: "{{ restic_backup_test_credstore }}/primary_s3_secret_key"
       register: restic_backup_unused_credential_stat
       failed_when: restic_backup_unused_credential_stat.stat.exists
 

@@ -135,3 +135,55 @@ EOF
   done
 }
 
+@test "dynamic inventory classifies OCI instances into @oci and @cloud groups" {
+  run ansible-inventory -i "${TEST_INV}" --graph
+  [ "$status" -eq 0 ]
+  grep -q "@oci:" <<< "$output"
+  grep -q "@cloud:" <<< "$output"
+}
+
+@test "dynamic inventory parses GCP compute instance from state fixture into @gcp and @cloud groups" {
+  local gcp_fixture="${REPO_ROOT}/configuration/inventories/fixtures/gcp_state.json"
+  local gcp_inv="${REPO_ROOT}/configuration/inventories/gcp.terraform_state.yml"
+  [ -f "${gcp_fixture}" ]
+  [ -f "${gcp_inv}" ]
+  local test_inv="${BATS_TEST_TMPDIR}/gcp.terraform_state.yml"
+  yq eval ".backend_type = \"local\" | .backend_config = {\"path\": \"${gcp_fixture}\"}" "${gcp_inv}" > "${test_inv}"
+
+  run ansible-inventory -i "${test_inv}" --graph
+  [ "$status" -eq 0 ]
+  grep -q "gcp-default-vm" <<< "$output"
+  grep -q "@gcp:" <<< "$output"
+  grep -q "@cloud:" <<< "$output"
+  grep -q "@tag_project_homelab" <<< "$output"
+}
+
+@test "dynamic inventory composes MagicDNS FQDN and tailscale_ip for GCP compute instance" {
+  local gcp_fixture="${REPO_ROOT}/configuration/inventories/fixtures/gcp_state.json"
+  local gcp_inv="${REPO_ROOT}/configuration/inventories/gcp.terraform_state.yml"
+  [ -f "${gcp_fixture}" ]
+  [ -f "${gcp_inv}" ]
+  local test_inv="${BATS_TEST_TMPDIR}/gcp.terraform_state.yml"
+  yq eval ".backend_type = \"local\" | .backend_config = {\"path\": \"${gcp_fixture}\"}" "${gcp_inv}" > "${test_inv}"
+
+  run ansible-inventory -i "${test_inv}" --host gcp-default-vm
+  [ "$status" -eq 0 ]
+  grep -q "gcp-default-vm.homelab.ts.net" <<< "$output"
+  grep -q "198.51.100.40" <<< "$output"
+}
+
+@test "dynamic inventory GCP fixture strictly conforms to OpenTofu google_compute_instance state schema and project=homelab label" {
+  local gcp_fixture="${REPO_ROOT}/configuration/inventories/fixtures/gcp_state.json"
+  [ -f "${gcp_fixture}" ]
+  run jq -e '[.resources[] | select(.type=="google_compute_instance") | .instances[].attributes | (has("name") and has("machine_type") and has("network_interface") and (.labels.project == "homelab"))] | all' "${gcp_fixture}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "configuration/inventories/gcp.terraform_state.yml configures R2 state backend for GCP" {
+  local gcp_inv="${REPO_ROOT}/configuration/inventories/gcp.terraform_state.yml"
+  [ -f "${gcp_inv}" ]
+  run yq eval '.backend_config.key' "${gcp_inv}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "homelab-infra/state/gcp/tofu.tfstate" ]
+}

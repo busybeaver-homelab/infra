@@ -14,7 +14,7 @@ EnvironmentFile={{ restic_backup_config_dir }}/backup.env
 # $CREDENTIALS_DIRECTORY at start. They persist across reboots in the credstore.
 LoadCredentialEncrypted=restic_password:{{ restic_backup_credstore_dir }}/restic_password
 {% if restic_backup_s3_secret_key | default('') | length > 0 %}
-LoadCredentialEncrypted=oci_s3_secret_key:{{ restic_backup_credstore_dir }}/oci_s3_secret_key
+LoadCredentialEncrypted=primary_s3_secret_key:{{ restic_backup_credstore_dir }}/primary_s3_secret_key
 {% endif %}
 {% if restic_backup_secondary_enabled | bool %}
 LoadCredentialEncrypted=restic_secondary_password:{{ restic_backup_credstore_dir }}/restic_secondary_password

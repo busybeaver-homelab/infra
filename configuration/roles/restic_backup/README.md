@@ -1,10 +1,10 @@
 # restic_backup
 
-Ansible role for configuring automated, encrypted, and deduplicated nightly backups using Restic with S3-compatible object storage (e.g., OCI Object Storage and Cloudflare R2) on Ubuntu Server 26.04 LTS.
+Ansible role for configuring automated, encrypted, and deduplicated nightly backups using Restic with S3-compatible object storage (e.g., OCI Object Storage, GCP Cloud Storage via HMAC S3 interoperability, and Cloudflare R2) on Ubuntu Server 26.04 LTS.
 
 ## Features
 
-- **Dual-Target Backups:** Supports concurrent or sequential dual-target backups (Primary OCI Object Storage and Secondary Cloudflare R2 Disaster Recovery).
+- **Dual-Target Backups:** Supports sequential dual-target backups (Primary OCI Object Storage or GCP Cloud Storage, and Secondary Cloudflare R2 Disaster Recovery).
 - **Subshell Environment Isolation:** Target credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `RESTIC_REPOSITORY`, `RESTIC_PASSWORD_FILE`) are loaded within isolated subshells to prevent credential bleed between cloud providers.
 - **Client-Side Encryption:** All backups are encrypted using AES-256 before transmission to object storage, with independent passwords supported per target.
 - **Deduplication & Incremental Backups:** Restic handles deduplication and delta snapshots natively.

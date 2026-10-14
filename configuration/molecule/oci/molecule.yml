@@ -12,6 +12,7 @@ driver:
 platforms:
   - name: oci-ubuntu-server-26
     groups:
+      - cloud
       - oci
     image: geerlingguy/docker-ubuntu2604-ansible:latest@sha256:f588e42eff0a028a431f95d9cbb5a942bc6ccddae6289f494f73fa191700d44f
     pre_build_image: true

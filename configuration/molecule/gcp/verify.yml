@@ -1,0 +1,117 @@
+---
+- name: Verify GCP Instance Configuration
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Verify base packages are installed
+      ansible.builtin.package:
+        name:
+          - curl
+          - wget
+          - jq
+          - unzip
+          - ca-certificates
+        state: present
+      check_mode: true
+      register: pkg_check
+      failed_when: pkg_check.changed
+
+    - name: Verify dedicated docker service user was created
+      ansible.builtin.user:
+        name: dockerapp
+        state: present
+      check_mode: true
+      register: user_check
+      failed_when: user_check.changed
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert OpenSSH service is not active
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['ssh.service']['state'] | default('stopped') != 'running'
+        fail_msg: "OpenSSH service (ssh.service) should not be active"
+
+    - name: Assert OpenSSH socket is not active
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['ssh.socket']['state'] | default('stopped') != 'running'
+        fail_msg: "OpenSSH socket (ssh.socket) should not be active"
+
+    - name: Check /etc/firewall.bash exists
+      ansible.builtin.stat:
+        path: /etc/firewall.bash
+      register: firewall_script
+
+    - name: Assert firewall script exists and is executable
+      ansible.builtin.assert:
+        that:
+          - firewall_script.stat.exists
+          - firewall_script.stat.executable
+        fail_msg: "/etc/firewall.bash does not exist or is not executable"
+
+    - name: Read iptables rules
+      ansible.builtin.command: iptables -S
+      register: iptables_rules
+      changed_when: false
+
+    - name: Assert iptables contains Tailscale UDP 41641 and tailscale0 interface rules
+      ansible.builtin.assert:
+        that:
+          - "'-p udp -m udp --dport 41641 -j ACCEPT' in iptables_rules.stdout"
+          - "'-i tailscale0 -j ACCEPT' in iptables_rules.stdout"
+          - "'--dport 22 -j ACCEPT' not in iptables_rules.stdout"
+        fail_msg: "Firewall rules do not match expected Tailscale and SSH restrictions"
+
+    - name: Load SOPS credentials for verification
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../../../secrets/credentials.ci.sops.yaml"
+      no_log: true
+
+    - name: Read primary restic backup environment file
+      ansible.builtin.slurp:
+        src: /etc/restic/primary.env
+      register: gcp_primary_env
+
+    - name: Assert primary restic backup points to GCP Cloud Storage S3 endpoint
+      ansible.builtin.assert:
+        that:
+          - "'s3:' ~ gcp_restic.s3_endpoint ~ '/' ~ gcp_restic.bucket ~ '/' in (gcp_primary_env.content | b64decode)"
+          - "'https://storage.googleapis.com/' in (gcp_primary_env.content | b64decode)"
+        fail_msg: "Primary restic backup environment does not point to GCP Cloud Storage"
+
+    - name: Stat encrypted primary S3 secret key credential
+      ansible.builtin.stat:
+        path: /etc/credstore.encrypted/primary_s3_secret_key
+      register: gcp_primary_s3_cred
+
+    - name: Assert encrypted primary_s3_secret_key exists in credstore
+      ansible.builtin.assert:
+        that:
+          - gcp_primary_s3_cred.stat.exists
+          - gcp_primary_s3_cred.stat.mode == '0400'
+        fail_msg: "/etc/credstore.encrypted/primary_s3_secret_key does not exist with mode 0400"
+
+    - name: Verify breakglass user exists in passwd database
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ gcp.breakglass_user }}"
+      no_log: true
+
+    - name: Verify breakglass user has shadow entry
+      ansible.builtin.getent:
+        database: shadow
+        key: "{{ gcp.breakglass_user }}"
+      no_log: true
+
+    - name: Assert breakglass user shadow entry is active SHA-512 hash matching SOPS
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.getent_shadow[gcp.breakglass_user][0] is defined
+          - ansible_facts.getent_shadow[gcp.breakglass_user][0].startswith('$6$')
+          - ansible_facts.getent_shadow[gcp.breakglass_user][0] == gcp.breakglass_password_hash
+        fail_msg: "Breakglass user password hash in /etc/shadow does not match expected SHA-512 hash"
+        quiet: true
+      no_log: true
