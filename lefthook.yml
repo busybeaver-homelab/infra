@@ -64,6 +64,11 @@ pre-commit:
       glob: "{infrastructure/cloudflare/**,tests/scripts/cloudflare-guards.bats}"
       run: bats tests/scripts/cloudflare-guards.bats
 
+    # NextDNS module guards: lifecycle protections + identifying-value leak guards
+    dns-guards:
+      glob: "{infrastructure/dns/**,tests/scripts/dns-guards.bats}"
+      run: bats tests/scripts/dns-guards.bats
+
     # Secrets Scanner (Trufflehog)
     trufflehog:
       exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'

@@ -17,7 +17,8 @@ The infrastructure is decomposed into modular, isolated domains to enforce least
 | [`azure`](azure/)           | Microsoft Azure              | Azure resource groups and boundary identities                                                                                                                                                      |
 | [`github`](github/)         | GitHub                       | Repository security settings, branch protection rules, environments, and secrets management                                                                                                        |
 | [`monitoring`](monitoring/) | Healthchecks.io              | Declarative cron job monitoring checks and notification alerting channels                                                                                                                          |
-| [`tailscale`](tailscale/)   | Tailscale                    | Declarative tailnet ACL policy, MagicDNS preferences, tailnet security settings, admin contacts, and bootstrap auth keys                                                                           |
+| [`mesh`](mesh/)             | Tailscale                    | Declarative tailnet ACL policy, MagicDNS preferences, tailnet security settings, admin contacts, and bootstrap auth keys                                                                           |
+| [`dns`](dns/)               | NextDNS                      | Multi-account NextDNS profile settings, security posture, privacy blocklists, parental control, allowlist/denylist, and split-horizon DNS rewrites via `modules/profile`                           |
 
 Each module maintains its own state file in the central remote storage backend:
 `homelab-infra/state/<module>/tofu.tfstate`
@@ -48,7 +49,7 @@ flowchart TD
         D1 --> A2["Restore remote backend<br/>(backend.tf.disabled -> backend.tf)"]
         A2 --> B2["Migrate state to R2 backend<br/>(tofu init -migrate-state -force-copy)"]
         B2 --> C2["Clean up local terraform.tfstate"]
-        C2 --> D2["All 8 modules use remote R2 backend"]
+        C2 --> D2["All 9 modules use remote R2 backend"]
     end
 ```
 
@@ -61,7 +62,7 @@ flowchart TD
    - `tofu init -migrate-state -force-copy` runs against the S3 endpoint (`https://<account_id>.r2.cloudflarestorage.com`), securely migrating the local state into R2.
    - Local state files are safely wiped from disk.
 3. **Subsequent Operations:**
-   - All modules (`cloudflare`, `oci`, `homelab`, `gcp`, `azure`, `github`, `monitoring`, `tailscale`) consume the R2 bucket directly using standard OpenTofu workflows.
+   - All modules (`cloudflare`, `oci`, `homelab`, `gcp`, `azure`, `github`, `monitoring`, `mesh`, `dns`) consume the R2 bucket directly using standard OpenTofu workflows.
 
 ---
 
@@ -178,12 +179,13 @@ Our remote state backend follows industry-standard cloud engineering and data so
       └── state/
           ├── azure/tofu.tfstate
           ├── cloudflare/tofu.tfstate
+          ├── dns/tofu.tfstate
           ├── gcp/tofu.tfstate
           ├── github/tofu.tfstate
           ├── homelab/tofu.tfstate
+          ├── mesh/tofu.tfstate
           ├── monitoring/tofu.tfstate
-          ├── oci/tofu.tfstate
-          └── tailscale/tofu.tfstate
+          └── oci/tofu.tfstate
   ```
 - **Zero Egress Fees:** Cloudflare R2 charges zero data egress fees, making frequent state reads, CI checks, and plan validations cost-effective.
 
