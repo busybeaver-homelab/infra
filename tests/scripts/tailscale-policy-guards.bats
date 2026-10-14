@@ -3,8 +3,8 @@
 
 setup() {
   REPO_ROOT="$(git rev-parse --show-toplevel)"
-  PROD_POLICY="${REPO_ROOT}/infrastructure/tailscale/policy.hujson.tftpl"
-  CI_POLICY="${REPO_ROOT}/infrastructure/tailscale/policy.ci.hujson.tftpl"
+  PROD_POLICY="${REPO_ROOT}/infrastructure/mesh/policy.hujson.tftpl"
+  CI_POLICY="${REPO_ROOT}/infrastructure/mesh/policy.ci.hujson.tftpl"
 }
 
 @test "tailscale production policy template exists and has non-zero size" {
@@ -18,11 +18,11 @@ setup() {
 
 @test "tailscale production policy template is tracked by git-crypt" {
   if command -v git-crypt >/dev/null 2>&1; then
-    run git-crypt status infrastructure/tailscale/policy.hujson.tftpl
+    run git-crypt status infrastructure/mesh/policy.hujson.tftpl
     [ "$status" -eq 0 ]
     [[ "$output" =~ "encrypted" ]]
   else
-    run git check-attr filter infrastructure/tailscale/policy.hujson.tftpl
+    run git check-attr filter infrastructure/mesh/policy.hujson.tftpl
     [ "$status" -eq 0 ]
     [[ "$output" =~ "filter: git-crypt" ]]
   fi
@@ -30,11 +30,11 @@ setup() {
 
 @test "tailscale CI policy template is explicitly exempted from git-crypt" {
   if command -v git-crypt >/dev/null 2>&1; then
-    run git-crypt status infrastructure/tailscale/policy.ci.hujson.tftpl
+    run git-crypt status infrastructure/mesh/policy.ci.hujson.tftpl
     [ "$status" -eq 0 ]
     [[ "$output" =~ "not encrypted" ]]
   else
-    run git check-attr filter infrastructure/tailscale/policy.ci.hujson.tftpl
+    run git check-attr filter infrastructure/mesh/policy.ci.hujson.tftpl
     [ "$status" -eq 0 ]
     [[ "$output" =~ "filter: unspecified" ]]
   fi
