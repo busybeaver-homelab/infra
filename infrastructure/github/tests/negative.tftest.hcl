@@ -25,8 +25,9 @@ mock_provider "sops" {
 }
 
 variables {
-  github_token = "mock-ghp-token-12345"
-  github_owner = "mock-owner"
+  sops_age_key_ci = format("%s%s", "AGE-SECRET-KEY-1", join("", [for _ in range(58) : "Q"])) # synthetic, format-valid test identity
+  github_token    = "mock-ghp-token-12345"
+  github_owner    = "mock-owner"
 }
 
 run "reject_merge_commit_enabled" {
@@ -50,5 +51,17 @@ run "reject_rebase_merge_enabled" {
 
   expect_failures = [
     var.allow_rebase_merge,
+  ]
+}
+
+run "reject_keyring_as_ci_age_key" {
+  command = plan
+
+  variables {
+    sops_age_key_ci = format("%s\n%s", var.sops_age_key_ci, var.sops_age_key_ci)
+  }
+
+  expect_failures = [
+    var.sops_age_key_ci,
   ]
 }
