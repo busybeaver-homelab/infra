@@ -9,7 +9,7 @@ roles:
   - name: geerlingguy.firewall
     version: "2.7.0"
   - name: geerlingguy.swap
-    version: "2.1.0"
+    version: "2.2.0"
   - name: geerlingguy.ntp
     version: "4.0.1"
   - name: geerlingguy.docker
@@ -29,4 +29,4 @@ collections:
   - name: cloud.terraform
     version: "4.0.0"
   - name: community.docker
-    version: "5.2.1"
+    version: "5.4.0"
