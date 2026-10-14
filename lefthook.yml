@@ -123,3 +123,9 @@ commit-msg:
   commands:
     conventional-commits:
       run: bash scripts/verify-commit-msg.sh {1}
+
+pre-push:
+  commands:
+    guard-main-push:
+      use_stdin: true
+      run: bash scripts/guard-main-push.sh

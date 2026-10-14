@@ -50,10 +50,19 @@ resource "github_repository_ruleset" "main_protection" {
     }
   }
 
+  # Owner decision D6: organization owners may push/merge to main directly (small,
+  # local fast-forward merges; the pre-push guard requires ALLOW_MAIN_PUSH=1);
+  # any other repository admin can only bypass through a pull request.
   bypass_actors {
-    actor_id    = 5 # Repository Admin
-    actor_type  = "RepositoryRole"
+    actor_id    = 1 # Organization owners (actor_id is always 1 for OrganizationAdmin)
+    actor_type  = "OrganizationAdmin"
     bypass_mode = "always"
+  }
+
+  bypass_actors {
+    actor_id    = 5 # Repository Admin role
+    actor_type  = "RepositoryRole"
+    bypass_mode = "pull_request"
   }
 
   # NOTE: Dependabot and Renovate are intentionally commented out as bypass actors.
@@ -98,7 +107,8 @@ resource "github_repository_ruleset" "main_protection" {
       strict_required_status_checks_policy = true
 
       required_check {
-        context = "CI Gate"
+        context        = "CI Gate"
+        integration_id = 15368 # GitHub Actions: only Actions can satisfy the required check
       }
     }
   }

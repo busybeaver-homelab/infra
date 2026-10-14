@@ -14,6 +14,7 @@
 /scripts/check-network-masking.sh   @busybeaver
 /scripts/check-secrets-schema-parity.sh @busybeaver
 /scripts/block-ansible-vault.sh     @busybeaver
+/scripts/guard-main-push.sh         @busybeaver
 /infrastructure/github/             @busybeaver
 /AGENTS.md                          @busybeaver
 /LICENSE                            @busybeaver
