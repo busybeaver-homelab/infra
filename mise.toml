@@ -83,7 +83,7 @@ run = "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern apps/"
 
 [tasks."check:security:trivy"]
 description = "Scan repository files and configurations for security vulnerabilities with Trivy"
-run = "trivy fs --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed . && trivy config --exit-code 0 infrastructure/ configuration/"
+run = "trivy fs --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed . && trivy config --exit-code 0 infrastructure/ && trivy config --exit-code 0 configuration/"
 
 [tasks."check:security:checkov"]
 description = "Scan OpenTofu and Ansible configurations with Checkov"

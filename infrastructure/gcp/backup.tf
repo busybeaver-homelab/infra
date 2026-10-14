@@ -1,5 +1,9 @@
 # --- Primary Backup Storage (GCS Regional Standard Bucket & Append-Only IAM) ---
 
+# Cloud KMS (CMEK) is a paid service outside the Always Free Tier; Restic encrypts all
+# backup data client-side with AES-256 before upload (matching OCI CKV_OCI_9 posture).
+#trivy:ignore:AVD-GCP-0066
+#trivy:ignore:AVD-GCP-0078
 resource "google_storage_bucket" "backups" {
   #checkov:skip=CKV_GCP_62:Dedicated access-log buckets consume the 5 GB Always Free storage quota
   #checkov:skip=CKV_GCP_78:Restic manages client-side snapshot versioning and append-only IAM prevents object deletion during backups
@@ -13,6 +17,10 @@ resource "google_storage_bucket" "backups" {
 
   labels = merge(local.default_labels, { role = "backup" }, { project = "homelab" })
 
+  # Restic provides client-side content-addressed snapshot versioning and the VM's custom
+  # IAM role is strictly append-only (no delete permission). Enabling GCS object versioning
+  # would retain pruned pack files as noncurrent versions and exhaust the 5 GB Always Free limit.
+  #trivy:ignore:AVD-GCP-0078
   versioning {
     enabled = false
   }

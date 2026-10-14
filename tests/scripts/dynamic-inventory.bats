@@ -187,3 +187,26 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "homelab-infra/state/gcp/tofu.tfstate" ]
 }
+
+@test "configuration/inventories/test_gcp.terraform_state.yml parses GCP state fixture in CI local mode" {
+  local gcp_fixture="${REPO_ROOT}/configuration/inventories/fixtures/gcp_state.json"
+  local test_gcp_inv_src="${REPO_ROOT}/configuration/inventories/test_gcp.terraform_state.yml"
+  [ -f "${gcp_fixture}" ]
+  [ -f "${test_gcp_inv_src}" ]
+  local tmp_gcp_state="${BATS_TEST_TMPDIR}/gcp_state.json"
+  local test_gcp_inv="${BATS_TEST_TMPDIR}/test_gcp.terraform_state.yml"
+  cp "${gcp_fixture}" "${tmp_gcp_state}"
+  sed "s|/tmp/homelab_test_gcp_state.json|${tmp_gcp_state}|g" "${test_gcp_inv_src}" > "${test_gcp_inv}"
+
+  run ansible-inventory -i "${test_gcp_inv}" --graph
+  [ "$status" -eq 0 ]
+  grep -q "gcp-default-vm" <<< "$output"
+  grep -q "@gcp:" <<< "$output"
+  grep -q "@cloud:" <<< "$output"
+
+  run ansible-inventory -i "${test_gcp_inv}" --host gcp-default-vm
+  [ "$status" -eq 0 ]
+  grep -q "gcp-default-vm.homelab.ts.net" <<< "$output"
+  grep -q "198.51.100.40" <<< "$output"
+}
+

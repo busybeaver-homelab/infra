@@ -70,7 +70,11 @@ jobs:
       - name: Run Checkov IaC & Configuration Scanner
         shell: bash
         run: |
-          mise exec -- uvx checkov -d infrastructure -d configuration --framework terraform,ansible -o sarif --output-file-path .
+          mise exec -- uvx checkov -d infrastructure -d configuration --framework terraform,ansible -o sarif --output-file-path . || true
+          if [ -f results_sarif.sarif ]; then
+            jq '(.runs[].results) |= map(select((.suppressions // []) | length == 0))' results_sarif.sarif > results_sarif.filtered.sarif
+            mv results_sarif.filtered.sarif results_sarif.sarif
+          fi
         continue-on-error: true
 
       - name: Upload Checkov SARIF

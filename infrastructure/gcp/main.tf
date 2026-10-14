@@ -29,6 +29,10 @@ resource "google_compute_instance" "default" {
 
   labels = merge(local.default_labels, { role = "compute" }, { project = "homelab" })
 
+  # Google-managed AES-256 encryption at rest is Always Free; Cloud KMS (CMEK) is a paid
+  # service and raw CSEK prevents unattended VM reboot after host maintenance. Runtime
+  # secrets on disk are hardware-bound via Shielded VM vTPM 2.0 (systemd-creds host+tpm2).
+  #trivy:ignore:AVD-GCP-0033
   boot_disk {
     auto_delete = true
 
@@ -69,7 +73,7 @@ resource "google_compute_instance" "default" {
   metadata = {
     block-project-ssh-keys = "TRUE"
     serial-port-enable     = "FALSE"
-    enable-oslogin         = "FALSE"
+    enable-oslogin         = "TRUE"
     user-data = templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
       hostname           = "gcp-default-vm"
       tailscale_auth_key = local.tailscale_auth_key

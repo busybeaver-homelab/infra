@@ -6,6 +6,10 @@ resource "google_compute_network" "default_vpc" {
   project                 = var.gcp_project_id
 }
 
+# VPC Flow Logs incur billable Cloud Logging / network telemetry charges outside the
+# Always Free Tier and only capture encrypted WireGuard UDP 41641 frames on this single-VM subnet.
+#trivy:ignore:AVD-GCP-0029
+#trivy:ignore:AVD-GCP-0076
 resource "google_compute_subnetwork" "private" {
   #checkov:skip=CKV_GCP_26:VPC Flow Logs incur billable telemetry charges outside the Always Free Tier
   name                     = "homelab-gcp-subnet"
@@ -64,7 +68,8 @@ resource "google_compute_firewall" "allow_breakglass_ssh" {
   }
 }
 
-# Explicit deny-all ingress baseline
+# Explicit deny-all ingress baseline (scanner false positive on protocol = "all" in a deny rule)
+#trivy:ignore:AVD-GCP-0074
 resource "google_compute_firewall" "deny_all_ingress" {
   name          = "homelab-deny-all-ingress"
   network       = google_compute_network.default_vpc.name
@@ -73,6 +78,7 @@ resource "google_compute_firewall" "deny_all_ingress" {
   priority      = 65534
   source_ranges = ["0.0.0.0/0"]
 
+  #trivy:ignore:AVD-GCP-0074
   deny {
     protocol = "all"
   }

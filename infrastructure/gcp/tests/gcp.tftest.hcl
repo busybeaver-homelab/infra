@@ -130,8 +130,8 @@ run "verify_gcp_compute_instance_and_free_tier_posture" {
   }
 
   assert {
-    condition     = google_compute_instance.default.metadata["block-project-ssh-keys"] == "TRUE" && google_compute_instance.default.metadata["serial-port-enable"] == "FALSE" && google_compute_instance.default.metadata["enable-oslogin"] == "FALSE"
-    error_message = "Instance metadata must enforce block-project-ssh-keys=TRUE, serial-port-enable=FALSE, and enable-oslogin=FALSE"
+    condition     = google_compute_instance.default.metadata["block-project-ssh-keys"] == "TRUE" && google_compute_instance.default.metadata["serial-port-enable"] == "FALSE" && google_compute_instance.default.metadata["enable-oslogin"] == "TRUE"
+    error_message = "Instance metadata must enforce block-project-ssh-keys=TRUE, serial-port-enable=FALSE, and enable-oslogin=TRUE"
   }
 
   assert {
