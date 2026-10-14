@@ -279,9 +279,6 @@ setup() {
   [[ "$output" =~ "chmod -R" ]]
 }
 
-
-
-
 @test "no workflow job uses a floating -latest runner label" {
   run grep -rnE '^[[:space:]]*runs-on:[[:space:]]*[^#]*-latest' "${REPO_ROOT}/.github/workflows/"
   [ "$status" -eq 1 ]
@@ -300,4 +297,10 @@ setup() {
   run bash -c "cat '${REPO_ROOT}'/.github/workflows/*.yml | yq -N '.jobs[].runs-on' | sort -u"
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq 1 ]
+}
+
+@test "PR lefthook run excludes deleted files from the changed-file list" {
+  # Deleted paths make file-based hooks (e.g. ansible-lint) fail with load errors.
+  run grep -F -- 'git diff --name-only --diff-filter=d -z "origin/${BASE_REF}...HEAD"' "${REPO_ROOT}/.github/workflows/ci.yml"
+  [ "$status" -eq 0 ]
 }

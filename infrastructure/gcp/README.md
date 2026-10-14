@@ -4,21 +4,21 @@
 
 | Name                                                                     | Version |
 | ------------------------------------------------------------------------ | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.5  |
-| <a name="requirement_google"></a> [google](#requirement_google)          | 8.6.0   |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.6  |
+| <a name="requirement_google"></a> [google](#requirement_google)          | 8.7.0   |
 
 ## Providers
 
 | Name                                                      | Version |
 | --------------------------------------------------------- | ------- |
-| <a name="provider_google"></a> [google](#provider_google) | 8.6.0   |
+| <a name="provider_google"></a> [google](#provider_google) | 8.7.0   |
 
 ## Resources
 
 | Name                                                                                                                                      | Type     |
 | ----------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| [google_billing_budget.monthly_spend_limit](https://registry.terraform.io/providers/hashicorp/google/8.6.0/docs/resources/billing_budget) | resource |
-| [google_compute_network.default_vpc](https://registry.terraform.io/providers/hashicorp/google/8.6.0/docs/resources/compute_network)       | resource |
+| [google_billing_budget.monthly_spend_limit](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/billing_budget) | resource |
+| [google_compute_network.default_vpc](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/compute_network)       | resource |
 
 ## Inputs
 

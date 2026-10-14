@@ -99,67 +99,20 @@
         that:
           - base_ubuntu_server_timezone_stat.stat.exists
 
-    - name: Stat /usr/local/bin/oci-fetch-secrets.sh
+    - name: Stat retired OCI Vault secrets fetcher artifacts
       ansible.builtin.stat:
-        path: /usr/local/bin/oci-fetch-secrets.sh
-      register: base_ubuntu_server_fetch_script_stat
+        path: "{{ item }}"
+      loop:
+        - /usr/local/bin/oci-fetch-secrets.sh
+        - /etc/systemd/system/oci-secrets-fetch.service
+        - /etc/tmpfiles.d/run-secrets.conf
+      register: base_ubuntu_server_retired_fetch_stats
 
-    - name: Assert oci-fetch-secrets.sh is deployed with restricted executable permissions
+    - name: Assert retired secrets fetcher is not installed
       ansible.builtin.assert:
         that:
-          - base_ubuntu_server_fetch_script_stat.stat.exists
-          - base_ubuntu_server_fetch_script_stat.stat.mode == '0750'
-          - base_ubuntu_server_fetch_script_stat.stat.pw_name == 'root'
-          - base_ubuntu_server_fetch_script_stat.stat.gr_name == 'root'
-
-    - name: Stat in-memory /run/secrets directory
-      ansible.builtin.stat:
-        path: /run/secrets
-      register: base_ubuntu_server_run_secrets_stat
-
-    - name: Assert /run/secrets exists with 0700 root permissions
-      ansible.builtin.assert:
-        that:
-          - base_ubuntu_server_run_secrets_stat.stat.exists
-          - base_ubuntu_server_run_secrets_stat.stat.isdir
-          - base_ubuntu_server_run_secrets_stat.stat.mode == '0700'
-          - base_ubuntu_server_run_secrets_stat.stat.pw_name == 'root'
-          - base_ubuntu_server_run_secrets_stat.stat.gr_name == 'root'
-
-    - name: Stat /etc/tmpfiles.d/run-secrets.conf
-      ansible.builtin.stat:
-        path: /etc/tmpfiles.d/run-secrets.conf
-      register: base_ubuntu_server_tmpfiles_stat
-
-    - name: Assert /etc/tmpfiles.d/run-secrets.conf exists
-      ansible.builtin.assert:
-        that:
-          - base_ubuntu_server_tmpfiles_stat.stat.exists
-          - base_ubuntu_server_tmpfiles_stat.stat.mode == '0644'
-
-    - name: Stat /etc/systemd/system/oci-secrets-fetch.service
-      ansible.builtin.stat:
-        path: /etc/systemd/system/oci-secrets-fetch.service
-      register: base_ubuntu_server_service_stat
-
-    - name: Assert oci-secrets-fetch.service exists
-      ansible.builtin.assert:
-        that:
-          - base_ubuntu_server_service_stat.stat.exists
-          - base_ubuntu_server_service_stat.stat.mode == '0644'
-
-    - name: Read oci-secrets-fetch.service contents
-      ansible.builtin.slurp:
-        src: /etc/systemd/system/oci-secrets-fetch.service
-      register: base_ubuntu_server_service_unit
-
-    - name: Assert oci-secrets-fetch.service sandboxing and paths
-      ansible.builtin.assert:
-        that:
-          - "'ProtectSystem=strict' in (base_ubuntu_server_service_unit.content | b64decode)"
-          - "'ExecStart=/usr/local/bin/oci-fetch-secrets.sh' in (base_ubuntu_server_service_unit.content | b64decode)"
-          - "'ReadWritePaths=/run/secrets' in (base_ubuntu_server_service_unit.content | b64decode)"
-
-    - name: Verify systemd unit configuration
-      ansible.builtin.command: systemd-analyze verify /etc/systemd/system/oci-secrets-fetch.service
-      changed_when: false
+          - not item.stat.exists
+        fail_msg: "{{ item.item }} belongs to the retired OCI Vault fetcher and must not exist"
+      loop: "{{ base_ubuntu_server_retired_fetch_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"

@@ -4,7 +4,7 @@ argument_specs:
     short_description: Deploy and schedule restic automated backups on Ubuntu Server
     description:
       - Installs restic package and configures backup directories.
-      - Manages credentials, environment files, exclusion lists, and runner scripts.
+      - Stores secrets as systemd encrypted credentials and manages environment files, exclusion lists, and runner scripts.
       - Deploys and enables systemd service and timer units with failure notifications.
     author: homelab-infra
     options:
@@ -26,10 +26,6 @@ argument_specs:
         required: true
         no_log: true
         description: Encryption password for the primary restic repository.
-      restic_backup_password_file_path:
-        type: str
-        default: "/run/secrets/restic_password"
-        description: Local path where the primary encryption password file is written (in-memory tmpfs).
       restic_backup_healthchecks_ping_url:
         type: str
         default: ""
@@ -56,10 +52,6 @@ argument_specs:
         default: ""
         no_log: true
         description: Encryption password for the secondary restic repository.
-      restic_backup_secondary_password_file_path:
-        type: str
-        default: "/run/secrets/restic_secondary_password"
-        description: Local path where the secondary password file is written (in-memory tmpfs).
       restic_backup_paths:
         type: list
         elements: str
@@ -101,10 +93,19 @@ argument_specs:
         type: str
         default: "/etc/restic"
         description: Directory for restic configuration files.
-      restic_backup_secrets_dir:
+      restic_backup_credstore_dir:
         type: str
-        default: "/run/secrets"
-        description: Directory path for in-memory tmpfs secrets storage.
+        default: "/etc/credstore.encrypted"
+        description: Directory holding the systemd encrypted credentials (LoadCredentialEncrypted=).
+      restic_backup_credential_key:
+        type: str
+        default: "host"
+        choices: ["host", "tpm2", "host+tpm2", "auto"]
+        description: Key the credentials are bound to (systemd-creds --with-key). Use host+tpm2 on hosts with a TPM2 chip.
+      restic_backup_libexec_dir:
+        type: str
+        default: "/usr/local/libexec/restic-backup"
+        description: Directory for the credential-sync and Healthchecks notify helper scripts.
       restic_backup_runner_script_path:
         type: str
         default: "/usr/local/sbin/restic-backup-runner.sh"

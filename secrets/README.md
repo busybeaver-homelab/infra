@@ -222,15 +222,18 @@ Map keys are logical and non-identifying (SOPS does not encrypt keys). CI holds 
 | `cloudflare.config.iam.member.{id,email,resource_group_id}` | Frozen account member                                                                                 |
 | `cloudflare.config.zones.<zone_key>.*`                      | Zone name/ID, DNS records, Email Routing rules and catch-all, WAF custom rules                        |
 
-### OCI Vault Secrets & Zero-Trust Host Delivery
+### Host Secret Delivery (systemd Encrypted Credentials)
 
-To achieve zero-trust cloud secrets delivery without persistent disk storage or long-lived API tokens:
+Service secrets on hosts (restic repository passwords, S3 secret keys, the Healthchecks ping URL) are delivered without plaintext on disk and survive reboots:
 
-1. **Always Free Cloud Vault:** OCI Standard Virtual Vault (`vault_type = "DEFAULT"`) with software AES-256 key (`protection_mode = "SOFTWARE"`). Both standard vaults and software keys are 100% free under OCI Always Free tier (up to 20 secrets per tenancy at $0 cost).
-2. **Instance Principal IAM:** Compute instances authenticate automatically to OCI Vault via IMDSv2 and Instance Principals using dynamic group `homelab-oci-vms` matching `instance.compartment.id = '<compartment_ocid>'`. IAM policy grants `read secret-bundles in compartment` strictly to this dynamic group.
-3. **In-Memory Early Boot Delivery (`/run/secrets`):** Systemd oneshot unit `oci-secrets-fetch.service` executes `/usr/local/sbin/oci-fetch-secrets.sh` on boot, querying secret bundles directly into volatile `tmpfs` `/run/secrets/` (permissions `0700 root:root` directory, `0400 root:root` files). Secrets exist only in RAM and vanish on shutdown.
-4. **Modern systemd `LoadCredential=`:** Host systemd units (such as `restic_backup`) bind secrets into isolated process sandboxes using `LoadCredential=<name>:/run/secrets/<file>`. The unit accesses them securely via `$CREDENTIALS_DIRECTORY` without reading `/run/secrets/` directly or leaking credentials into `/proc`, disk, or environment tables.
-5. **Container Isolation:** Docker and non-systemd workloads consume `/run/secrets/` via read-only volume mounts (`-v /run/secrets:/run/secrets:ro`).
+1. **Source of truth:** values stay in the canonical SOPS files. Ansible decrypts them on the controller (`community.sops`) as before.
+2. **Encrypted at rest on the host:** the `restic_backup` role pipes each secret through stdin into `systemd-creds encrypt --with-key=host`, writing `/etc/credstore.encrypted/<name>` (`0400 root:root`, AES-256-GCM, bound to the root-only host key `/var/lib/systemd/credential.secret`). It only re-encrypts when a value changed.
+3. **Decrypted per service:** units use `LoadCredentialEncrypted=<name>:/etc/credstore.encrypted/<name>`. systemd decrypts into the service's private `$CREDENTIALS_DIRECTORY` at start, and the process reads `$CREDENTIALS_DIRECTORY/<name>`. Nothing goes into `EnvironmentFile=`, argv or `/run/secrets`.
+4. **Backups:** `/etc` is backed up, so backups contain only ciphertext. The host key in `/var/lib/systemd` is excluded, so a leaked backup does not expose the credentials.
+5. **Limits:** root on the running host can decrypt the credentials, as with any host-side delivery. A boot-volume copy contains both the ciphertext and the host key. Binding to a TPM2 chip (`--with-key=host+tpm2`) would close that gap, but Always Free shapes (`VM.Standard.A1.Flex`, `VM.Standard.E2.1.Micro`) do not support Shielded Instances / vTPM.
+6. **Rotation:** change the value in SOPS and re-run Ansible; the next service start uses the new credential.
+
+The earlier OCI Vault boot-fetch design (`docs/plans/2026-10-13-oci-vault-secrets-and-systemd-credentials-design.md`) was retired in favour of this approach; see `docs/plans/2026-10-13-systemd-creds-secret-delivery-design.md`.
 
 ---
 
