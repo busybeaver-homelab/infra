@@ -65,3 +65,14 @@ EOF
   run grep -E '^/infrastructure/github/\*\*/\.terraform\.lock\.hcl[[:space:]]*$' "$CODEOWNERS"
   [ "$status" -eq 0 ]
 }
+
+@test "THIRD_PARTY_NOTICES.md lists no copyleft licence (organisation policy)" {
+  run grep -inE '\|[[:space:]]*(MPL|GPL|LGPL|AGPL|EPL|CDDL|EUPL)[-0-9.a-z+]*[[:space:]]*\|' "${REPO_ROOT}/THIRD_PARTY_NOTICES.md"
+  [ "$status" -ne 0 ]
+}
+
+@test "the MPL-2.0 terraform-style-guide skill stays removed" {
+  run jq -e '.skills | has("terraform-style-guide")' "${REPO_ROOT}/skills-lock.json"
+  [ "$status" -ne 0 ]
+  [ ! -e "${REPO_ROOT}/.agents/skills/terraform-style-guide" ]
+}

@@ -37,12 +37,6 @@
       "skillPath": "skills/opentofu/SKILL.md",
       "computedHash": "e7a65e81641a311498d1fa56165122ee0e6b8bf6a0c1d8f01023d34c014b96ab"
     },
-    "terraform-style-guide": {
-      "source": "hashicorp/agent-skills",
-      "sourceType": "github",
-      "skillPath": "terraform/code-generation/skills/terraform-style-guide/SKILL.md",
-      "computedHash": "fd301fe5bfb41764acac67c25244cc5650b5dd0a5d8d037414449a2d3adecbbf"
-    },
     "uv-package-manager": {
       "source": "wshobson/agents",
       "sourceType": "github",
