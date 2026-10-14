@@ -50,13 +50,27 @@ run "verify_repository_child_module" {
   }
 
   assert {
-    condition     = length(github_repository_ruleset.main_protection.bypass_actors) == 1
-    error_message = "Ruleset must specify exactly 1 bypass actor (Repository Admin only, bots must obey all CI gates)"
+    condition     = length(github_repository_ruleset.main_protection.bypass_actors) == 2
+    error_message = "Ruleset must specify exactly 2 bypass actors (Organization Admin always, Repository Admin via pull request)"
+  }
+
+  assert {
+    condition = alltrue([
+      for a in github_repository_ruleset.main_protection.bypass_actors :
+      (a.actor_type == "OrganizationAdmin" && a.bypass_mode == "always") ||
+      (a.actor_type == "RepositoryRole" && a.bypass_mode == "pull_request")
+    ])
+    error_message = "Only organization owners may bypass always; repository admins may bypass only via pull request."
   }
 
   assert {
     condition     = tolist(github_repository_ruleset.main_protection.rules[0].required_status_checks[0].required_check)[0].context == "CI Gate"
     error_message = "Required status check context must match CI Gate"
+  }
+
+  assert {
+    condition     = tolist(github_repository_ruleset.main_protection.rules[0].required_status_checks[0].required_check)[0].integration_id == 15368
+    error_message = "Required status check must be pinned to GitHub Actions (integration_id 15368)"
   }
 
   assert {
