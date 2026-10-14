@@ -32,7 +32,9 @@ Keep declarative infrastructure well-structured and secure. The hard rules below
 - **Ambiguous Sensitivity:** All variables and outputs that deal with state, domain names, network IDs, or credentials must default to `sensitive = true`.
 - **TFLint & Formats:** Always run `tofu fmt` and `tflint` (after `tflint --init`, with the repository `.tflint.hcl` passed via `--config`) locally before completing a task. Never commit unformatted `.tf` code.
 - **Always Free Tier Hard Gate:** All cloud infrastructure must strictly use the Always Free Tier. If resources will be used/added that are not in the always free tier, this is a hard gate that must be explicitly approved first by the user. Vendors change free-tier limits, so re-verify the limit against vendor documentation whenever a sizing gate is touched.
-  - _Approved exceptions:_ Azure budget ceiling of $165/month (owner decision D4, 2026-10-13).
+  - _Approved exceptions:_
+    - Azure budget ceiling of $165/month (owner decision D4, 2026-10-13).
+    - `STD-OT-49` (`infrastructure/gcp`): GCP Always Free `e2-micro` (`gcp-default-vm`) attaches 1 free `STANDARD`-tier ephemeral external IPv4 for outbound internet and inbound `UDP 41641` Tailscale WireGuard direct peering because GCP Cloud NAT is a paid service (owner decision A2, 2026-10-14).
 - **Mandatory Resource Tagging:** All cloud resources across all providers must be tagged/labeled with `project = "homelab"` (e.g., via `freeform_tags` in OCI, `labels` in GCP, or `tags` in Azure). When merging resource-specific tags, the mandatory map must be merged **last** (e.g., `merge(local.effective_tags, { role = "backup" }, { project = "homelab" })`) so that `project = "homelab"` can never be omitted or overridden.
 
 ---
@@ -75,12 +77,13 @@ Before claiming a task is complete, verify your work:
       - `(cd configuration/roles/base_ubuntu_server && mise exec -- molecule test)`
       - `(cd configuration/roles/restic_backup && mise exec -- molecule test)`
       - `(cd configuration && mise exec -- molecule test -s oci)`
+      - `(cd configuration && mise exec -- molecule test -s gcp)`
       - `(cd configuration && mise exec -- molecule test -s homelab)`
     - **Script changes:** `mise exec -- shellcheck scripts/*.sh tests/scripts/helpers/*` · `mise exec -- bats tests/scripts/`
     - **Workflow / Renovate changes:** `mise exec -- actionlint` · the CI-related bats suites listed in `docs/runbooks/ci-workflows-standards.md` §15
     - **Python changes:** `uv run ruff check` · `uv run ruff format --check`
     - **Pre-commit gate (all changes):** `mise exec lefthook -- lefthook run pre-commit`
-    > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver across the four scenarios above (`base_ubuntu_server`, `restic_backup`, `oci`, and `homelab`).
+    > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver across the five scenarios above (`base_ubuntu_server`, `restic_backup`, `oci`, `gcp`, and `homelab`).
 2.  **Verify exit status** — all commands above must exit 0 before proceeding.
 3.  **Perform a self-review diff** of your modifications to ensure no stray code, unused variables, or comments remain.
 4.  **Update the task tracker** located at `docs/plans/task.md` during execution (this file is ignored by Git to avoid worktree merge conflicts). Upon completing all tasks for a branch or plan, move `docs/plans/task.md` to `docs/plans/archive/task-<YYYY-MM-DD>-<topic>.md` and commit the archived tracker.

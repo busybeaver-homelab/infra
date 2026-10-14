@@ -231,10 +231,23 @@ setup() {
 
   run yq eval '.jobs.molecule.steps[] | select(.name == "Cache Molecule APT Archives") | .with.path' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "configuration/roles/base_ubuntu_server/.cache/apt/archives" ]]
-  [[ "$output" =~ "configuration/roles/restic_backup/.cache/apt/archives" ]]
-  [[ "$output" =~ "configuration/.cache/apt/oci/archives" ]]
-  [[ "$output" =~ "configuration/.cache/apt/homelab/archives" ]]
+  echo "$output" | grep -q "configuration/roles/base_ubuntu_server/.cache/apt/archives"
+  echo "$output" | grep -q "configuration/roles/restic_backup/.cache/apt/archives"
+  echo "$output" | grep -q "configuration/.cache/apt/oci/archives"
+  echo "$output" | grep -q "configuration/.cache/apt/gcp/archives"
+  echo "$output" | grep -q "configuration/.cache/apt/homelab/archives"
+}
+
+@test "ci.yml includes gcp scenario in molecule matrix and ansible-check syntax check" {
+  run yq eval '.jobs.molecule.strategy.matrix.scenario[]' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "^gcp$"
+
+  run grep -F "configuration/playbooks/gcp.yml" "$WORKFLOW"
+  [ "$status" -eq 0 ]
+
+  run grep -F "configuration/inventories/fixtures/gcp_state.json" "$WORKFLOW"
+  [ "$status" -eq 0 ]
 }
 
 @test "ci.yml caches OpenTofu plugins in tofu-validate job" {
@@ -289,7 +302,10 @@ setup() {
   for wf in "${REPO_ROOT}"/.github/workflows/*.yml; do
     jobs="$(yq '.jobs | length' "$wf")"
     pinned="$(yq '[.jobs[] | select(.["runs-on"] | test("^ubuntu-[0-9]{2}\\.[0-9]{2}$"))] | length' "$wf")"
-    [ "$jobs" -eq "$pinned" ] || { echo "unpinned runner in ${wf}" >&2; false; }
+    [ "$jobs" -eq "$pinned" ] || {
+      echo "unpinned runner in ${wf}" >&2
+      false
+    }
   done
 }
 

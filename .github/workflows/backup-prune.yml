@@ -59,6 +59,25 @@ jobs:
             echo "Primary OCI backup repository details not configured; skipping."
           fi
 
+      - name: Prune primary GCP backup repository
+        run: |
+          RESTIC_PASSWORD=$(mise exec -- yq -r '.gcp_restic.password // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          AWS_ACCESS_KEY_ID=$(mise exec -- yq -r '.gcp_restic.s3_access_key_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          AWS_SECRET_ACCESS_KEY=$(mise exec -- yq -r '.gcp_restic.s3_secret_access_key // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          GCP_ENDPOINT=$(mise exec -- yq -r '.gcp_restic.s3_endpoint // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          GCP_BUCKET=$(mise exec -- yq -r '.gcp_restic.bucket // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+
+          if [ -n "${RESTIC_PASSWORD}" ] && [ -n "${GCP_BUCKET}" ]; then
+            echo "::add-mask::${RESTIC_PASSWORD}"
+            echo "::add-mask::${AWS_SECRET_ACCESS_KEY}"
+            RESTIC_REPO="s3:${GCP_ENDPOINT}/${GCP_BUCKET}"
+            export RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+            restic -r "${RESTIC_REPO}" forget --keep-daily 7 --keep-weekly 4 --prune
+            restic -r "${RESTIC_REPO}" check --read-data-subset=1%
+          else
+            echo "Primary GCP backup repository details not configured; skipping."
+          fi
+
       - name: Prune secondary Cloudflare R2 DR backup repository
         run: |
           RESTIC_PASSWORD=$(mise exec -- yq -r '.oci_restic.password // ""' "${RUNNER_TEMP}/credentials.ci.yaml")

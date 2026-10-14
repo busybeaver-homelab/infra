@@ -59,8 +59,8 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   local encrypted_file="${BATS_TMPDIR}/encrypted.md"
   local plain_file="${BATS_TMPDIR}/plain.md"
 
-  printf '\0GITCRYPT\0fake_ciphertext_data' > "${encrypted_file}"
-  echo "# Plaintext Markdown Document" > "${plain_file}"
+  printf '\0GITCRYPT\0fake_ciphertext_data' >"${encrypted_file}"
+  echo "# Plaintext Markdown Document" >"${plain_file}"
 
   run is_git_crypt_encrypted "${encrypted_file}"
   [ "$status" -eq 0 ]
@@ -74,7 +74,7 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
 @test "restic restore drill runbook check skips cleanly when mock runbook is git-crypt encrypted" {
   setup_tmpdir
   local mock_runbook="${BATS_TMPDIR}/restic-restore-drill.md"
-  printf '\0GITCRYPT\0mock_encrypted_payload' > "${mock_runbook}"
+  printf '\0GITCRYPT\0mock_encrypted_payload' >"${mock_runbook}"
 
   run bash -c "
     if head -c 10 '${mock_runbook}' 2>/dev/null | grep -q 'GITCRYPT'; then
@@ -85,4 +85,48 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   [ "$status" -eq 0 ]
 
   teardown_tmpdir
+}
+
+@test "backup-prune workflow prunes and checks primary GCP backup repository" {
+  run grep -F 'Prune primary GCP backup repository' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+
+  run grep -F '.gcp_restic.s3_endpoint' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+
+  run grep -F '.gcp_restic.bucket' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+}
+
+@test "restic restore drill runbook documents both OCI and GCP primary repositories" {
+  [ -f "${RUNBOOK_FILE}" ]
+  if is_git_crypt_encrypted "${RUNBOOK_FILE}"; then
+    skip "restic-restore-drill.md is git-crypt encrypted in CI environment"
+  fi
+  run grep -F "oci_restic" "${RUNBOOK_FILE}"
+  [ "$status" -eq 0 ]
+  run grep -F "gcp_restic" "${RUNBOOK_FILE}"
+  [ "$status" -eq 0 ]
+}
+
+@test "gcp breakglass console runbook exists and documents serial port recovery and disablement" {
+  local gcp_runbook="${REPO_ROOT}/docs/runbooks/gcp-breakglass-console.md"
+  [ -f "${gcp_runbook}" ]
+  if is_git_crypt_encrypted "${gcp_runbook}"; then
+    skip "gcp-breakglass-console.md is git-crypt encrypted in CI environment"
+  fi
+  run grep -F "serial-port-enable" "${gcp_runbook}"
+  [ "$status" -eq 0 ]
+  run grep -F "gcp.breakglass_user" "${gcp_runbook}"
+  [ "$status" -eq 0 ]
+}
+
+@test "opentofu-standards runbook documents STD-OT-49 exception for GCP Always Free ephemeral IPv4" {
+  local ot_runbook="${REPO_ROOT}/docs/runbooks/opentofu-standards.md"
+  [ -f "${ot_runbook}" ]
+  if is_git_crypt_encrypted "${ot_runbook}"; then
+    skip "opentofu-standards.md is git-crypt encrypted in CI environment"
+  fi
+  run grep -E "GCP Always Free.*STANDARD.*ephemeral" "${ot_runbook}"
+  [ "$status" -eq 0 ]
 }

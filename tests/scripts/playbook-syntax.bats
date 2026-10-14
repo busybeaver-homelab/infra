@@ -82,11 +82,11 @@ setup() {
 
   run yq eval '.platforms[0].groups[]' "$mol"
   [ "$status" -eq 0 ]
-  grep -q "^cloud$" <<< "$output"
-  grep -q "^homelab$" <<< "$output"
-  grep -q "^oci$" <<< "$output"
-  grep -q "^gcp$" <<< "$output"
-  grep -q "^unifi$" <<< "$output"
+  grep -q "^cloud$" <<<"$output"
+  grep -q "^homelab$" <<<"$output"
+  grep -q "^oci$" <<<"$output"
+  grep -q "^gcp$" <<<"$output"
+  grep -q "^unifi$" <<<"$output"
 
   run grep "site.yml --syntax-check" "$conv"
   [ "$status" -eq 0 ]
@@ -179,6 +179,8 @@ setup() {
   [ "$status" -eq 0 ]
   run grep -E 'tasks\."test:ansible:oci"' "$mise_config"
   [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:gcp"' "$mise_config"
+  [ "$status" -eq 0 ]
 }
 
 @test "mise.toml configures fast and clean molecule tasks" {
@@ -192,8 +194,11 @@ setup() {
   [ "$status" -eq 0 ]
   run grep -E 'tasks\."test:ansible:clean:base"' "$mise_config"
   [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:fast:gcp"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:clean:gcp"' "$mise_config"
+  [ "$status" -eq 0 ]
 }
-
 
 @test "base_ubuntu_server defines argument_specs validation metadata" {
   local spec="$REPO_ROOT/configuration/roles/base_ubuntu_server/meta/argument_specs.yml"
@@ -259,6 +264,9 @@ setup() {
   run grep -E "molecule test -s oci" "$doc"
   [ "$status" -eq 0 ]
 
+  run grep -E "molecule test -s gcp" "$doc"
+  [ "$status" -eq 0 ]
+
   run grep -E "molecule test -s homelab" "$doc"
   [ "$status" -eq 0 ]
 }
@@ -270,7 +278,7 @@ setup() {
   # Ensure continue-on-error is not set on ansible-check steps
   run yq eval '.jobs.ansible-check.steps[].continue-on-error' "$ci"
   [ "$status" -eq 0 ]
-  run grep -E "true" <<< "$output"
+  run grep -E "true" <<<"$output"
   [ "$status" -ne 0 ]
 
   # Ensure ephemeral target is used for check mode
@@ -282,7 +290,7 @@ setup() {
   # Ensure homelab scenario is in molecule matrix
   run yq eval '.jobs.molecule.strategy.matrix.scenario[]' "$ci"
   [ "$status" -eq 0 ]
-  run grep -E "^homelab$" <<< "$output"
+  run grep -E "^homelab$" <<<"$output"
   [ "$status" -eq 0 ]
 }
 
@@ -549,7 +557,7 @@ if unknown:
 
   local names=()
   for item in "${scenarios[@]}"; do
-    IFS=':' read -r path expected <<< "$item"
+    IFS=':' read -r path expected <<<"$item"
     local full_path="$REPO_ROOT/$path"
     [ -f "$full_path" ]
 
@@ -598,15 +606,15 @@ if unknown:
   )
 
   for item in "${scenarios[@]}"; do
-    IFS=':' read -r path expected_suffix <<< "$item"
+    IFS=':' read -r path expected_suffix <<<"$item"
     local full_path="$REPO_ROOT/$path"
     [ -f "$full_path" ]
 
     run yq eval '.platforms[0].volumes[]' "$full_path"
     [ "$status" -eq 0 ]
-    run grep -F "/var/cache/apt/archives:rw" <<< "$output"
+    run grep -F "/var/cache/apt/archives:rw" <<<"$output"
     [ "$status" -eq 0 ]
-    run grep -F "$expected_suffix" <<< "$output"
+    run grep -F "$expected_suffix" <<<"$output"
     [ "$status" -eq 0 ]
   done
 }
@@ -628,16 +636,16 @@ if unknown:
   # Ensure sequential test:ansible:serial task exists and declares dependencies
   run yq eval '.tasks."test:ansible:serial".depends[]' "$mise_config"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "test:ansible:base" ]]
-  [[ "$output" =~ "test:ansible:restic" ]]
-  [[ "$output" =~ "test:ansible:oci" ]]
-  [[ "$output" =~ "test:ansible:homelab" ]]
+  echo "$output" | grep -q "test:ansible:base"
+  echo "$output" | grep -q "test:ansible:restic"
+  echo "$output" | grep -q "test:ansible:oci"
+  echo "$output" | grep -q "test:ansible:gcp"
+  echo "$output" | grep -q "test:ansible:homelab"
 
   # Ensure test:ansible:fast runs converge and verify concurrently via rush
   run yq eval '.tasks."test:ansible:fast".run' "$mise_config"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "rush" ]]
-  [[ "$output" =~ "molecule converge" ]]
-  [[ "$output" =~ "molecule verify" ]]
+  echo "$output" | grep -q "rush"
+  echo "$output" | grep -q "molecule converge"
+  echo "$output" | grep -q "molecule verify"
 }
-

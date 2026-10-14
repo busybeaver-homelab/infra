@@ -121,6 +121,11 @@ description = "Run Molecule tests for OCI scenario"
 dir = "configuration"
 run = "molecule test -s oci"
 
+[tasks."test:ansible:gcp"]
+description = "Run Molecule tests for GCP scenario"
+dir = "configuration"
+run = "molecule test -s gcp"
+
 [tasks."test:ansible:homelab"]
 description = "Run Molecule tests for homelab scenario"
 dir = "configuration"
@@ -133,13 +138,14 @@ printf "%s\n" \
   "base:configuration/roles/base_ubuntu_server:molecule test" \
   "restic:configuration/roles/restic_backup:molecule test" \
   "oci:configuration:molecule test -s oci" \
+  "gcp:configuration:molecule test -s gcp" \
   "homelab:configuration:molecule test -s homelab" | \
   rush -k -d ':' '(cd "{2}" && eval "{3}")'
 '''
 
 [tasks."test:ansible:serial"]
 description = "Run all Molecule test scenarios sequentially"
-depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:oci", "test:ansible:homelab"]
+depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:oci", "test:ansible:gcp", "test:ansible:homelab"]
 
 [tasks."test:molecule"]
 description = "Run full Molecule test matrix across all Ansible roles and scenarios (alias for test:ansible)"
@@ -160,6 +166,11 @@ description = "Fast iterate on OCI scenario (converge and verify)"
 dir = "configuration"
 run = "molecule converge -s oci && molecule verify -s oci"
 
+[tasks."test:ansible:fast:gcp"]
+description = "Fast iterate on GCP scenario (converge and verify)"
+dir = "configuration"
+run = "molecule converge -s gcp && molecule verify -s gcp"
+
 [tasks."test:ansible:fast:homelab"]
 description = "Fast iterate on homelab scenario (converge and verify)"
 dir = "configuration"
@@ -172,6 +183,7 @@ printf "%s\n" \
   "base:configuration/roles/base_ubuntu_server:molecule converge && molecule verify" \
   "restic:configuration/roles/restic_backup:molecule converge && molecule verify" \
   "oci:configuration:molecule converge -s oci && molecule verify -s oci" \
+  "gcp:configuration:molecule converge -s gcp && molecule verify -s gcp" \
   "homelab:configuration:molecule converge -s homelab && molecule verify -s homelab" | \
   rush -k -d ':' '(cd "{2}" && eval "{3}")'
 '''
@@ -191,6 +203,11 @@ description = "Destroy Molecule test containers for OCI scenario"
 dir = "configuration"
 run = "molecule destroy -s oci"
 
+[tasks."test:ansible:clean:gcp"]
+description = "Destroy Molecule test containers for GCP scenario"
+dir = "configuration"
+run = "molecule destroy -s gcp"
+
 [tasks."test:ansible:clean:homelab"]
 description = "Destroy Molecule test containers for homelab scenario"
 dir = "configuration"
@@ -198,7 +215,7 @@ run = "molecule destroy -s homelab"
 
 [tasks."test:ansible:clean"]
 description = "Destroy all Molecule test containers across all roles and scenarios"
-depends = ["test:ansible:clean:base", "test:ansible:clean:restic", "test:ansible:clean:oci", "test:ansible:clean:homelab"]
+depends = ["test:ansible:clean:base", "test:ansible:clean:restic", "test:ansible:clean:oci", "test:ansible:clean:gcp", "test:ansible:clean:homelab"]
 
 [tasks."test:scripts"]
 description = "Run Bats tests for scripts concurrently via rush"
