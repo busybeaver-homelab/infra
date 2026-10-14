@@ -51,16 +51,36 @@ variable "allow_rebase_merge" {
 
 variable "ci_secrets" {
   type        = map(string)
-  description = "A map of sensitive secrets to inject into the 'ci' environment."
+  description = "A map of sensitive secrets to inject into the 'ci' environment (reachable from PR jobs: synthetic or CI-only material only)."
   sensitive   = true
   default     = {}
+
+  validation {
+    condition     = !anytrue([for k in keys(var.ci_secrets) : can(regex("(?i)(PASSPHRASE|TOFU_ENCRYPTION)", k))])
+    error_message = "The OpenTofu state passphrase must never be distributed to the ci environment (PR jobs can reach it)."
+  }
+
+  validation {
+    condition     = !contains(keys(var.ci_secrets), "SOPS_AGE_KEY_CI") || can(regex("^AGE-SECRET-KEY-1[0-9A-Z]{58}$", var.ci_secrets["SOPS_AGE_KEY_CI"]))
+    error_message = "SOPS_AGE_KEY_CI must be exactly one age identity (no keyring files, no decoys). Add it to production SOPS as github.ci_age_key."
+  }
 }
 
 variable "backup_secrets" {
   type        = map(string)
   description = "A map of sensitive secrets to inject into the 'backup' environment."
   sensitive   = true
-  default     = {}
+
+  validation {
+    condition     = !anytrue([for k in keys(var.backup_secrets) : can(regex("(?i)(PASSPHRASE|TOFU_ENCRYPTION)", k))])
+    error_message = "The OpenTofu state passphrase must never be distributed to GitHub environments."
+  }
+
+  validation {
+    condition     = !contains(keys(var.backup_secrets), "SOPS_AGE_KEY_CI") || can(regex("^AGE-SECRET-KEY-1[0-9A-Z]{58}$", var.backup_secrets["SOPS_AGE_KEY_CI"]))
+    error_message = "SOPS_AGE_KEY_CI must be exactly one age identity (no keyring files, no decoys). Add it to production SOPS as github.ci_age_key."
+  }
+  default = {}
 }
 
 variable "deploy_keys" {

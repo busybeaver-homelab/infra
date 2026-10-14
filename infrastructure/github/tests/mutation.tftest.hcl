@@ -25,6 +25,7 @@ mock_provider "sops" {
 }
 
 variables {
+  sops_age_key_ci        = format("%s%s", "AGE-SECRET-KEY-1", join("", [for _ in range(58) : "Q"])) # synthetic, format-valid test identity
   github_token           = "mock-ghp-token-12345"
   github_owner           = "mock-owner"
   enable_prevent_destroy = false
