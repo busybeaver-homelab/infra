@@ -80,6 +80,9 @@ Options:
   -y, --auto-approve       Skip interactive confirmation during OpenTofu apply
 
 Required Environment Variables:
+  OpenTofu State Encryption:
+    TF_VAR_state_encryption_passphrase  OpenTofu state encryption passphrase (auto-resolved from SOPS if unset)
+
   Stage 1 (Cloudflare API):
     CLOUDFLARE_API_TOKEN   Cloudflare API Token with Account:R2 Storage:Edit permissions
     CLOUDFLARE_ACCOUNT_ID  Cloudflare Account ID (32 hex characters)

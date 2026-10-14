@@ -43,6 +43,7 @@ teardown() {
   [[ "$output" =~ "Pattern A Workflow:" ]]
   [[ "$output" =~ "Stage 1:" ]]
   [[ "$output" =~ "Stage 2:" ]]
+  [[ "$output" =~ "TF_VAR_state_encryption_passphrase" ]]
   [[ "$output" =~ "CLOUDFLARE_API_TOKEN" ]]
   [[ "$output" =~ "AWS_ACCESS_KEY_ID" ]]
 
@@ -150,6 +151,7 @@ EOF
     CLOUDFLARE_ZONE_ID="fedcba0987654321fedcba0987654321" \
     AWS_ACCESS_KEY_ID="mock-r2-access-key" \
     AWS_SECRET_ACCESS_KEY="mock-r2-secret-key" \
+    TF_VAR_state_encryption_passphrase="mock-state-passphrase-32-chars-ok" \
     "${SCRIPT}" --module-dir "${mock_module_dir}" --auto-approve
 
   [ "$status" -eq 0 ]
@@ -203,6 +205,7 @@ EOF
     CLOUDFLARE_ZONE_ID="fedcba0987654321fedcba0987654321" \
     AWS_ACCESS_KEY_ID="mock-r2-access-key" \
     AWS_SECRET_ACCESS_KEY="mock-r2-secret-key" \
+    TF_VAR_state_encryption_passphrase="mock-state-passphrase-32-chars-ok" \
     "${SCRIPT}" --module-dir "${mock_module_dir}" --auto-approve
 
   [ "$status" -ne 0 ]
