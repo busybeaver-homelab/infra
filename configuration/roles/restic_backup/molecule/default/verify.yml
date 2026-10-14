@@ -3,6 +3,10 @@
   hosts: all
   gather_facts: false
   become: true
+  vars:
+    restic_backup_test_primary_password: "test-primary-encryption-password-molecule!"
+    restic_backup_test_credstore: /etc/credstore.encrypted
+    restic_backup_test_stub_log: /tmp/hc-stub/requests.log
   tasks:
     - name: Verify restic package is installed
       ansible.builtin.package:
@@ -30,104 +34,134 @@
           - restic_backup_dir_stat.stat.mode == '0700'
           - restic_backup_dir_stat.stat.pw_name == 'root'
 
-    - name: Stat restic backup.env
+    - name: Stat restic environment files
       ansible.builtin.stat:
-        path: /etc/restic/backup.env
-      register: restic_backup_env_stat
+        path: "/etc/restic/{{ item }}"
+      loop: [backup.env, primary.env, secondary.env]
+      register: restic_backup_env_stats
 
-    - name: Assert backup.env permissions and ownership
+    - name: Assert environment files permissions and ownership
       ansible.builtin.assert:
         that:
-          - restic_backup_env_stat.stat.exists
-          - restic_backup_env_stat.stat.mode == '0600'
-          - restic_backup_env_stat.stat.pw_name == 'root'
-          - restic_backup_env_stat.stat.gr_name == 'root'
+          - item.stat.exists
+          - item.stat.mode == '0600'
+          - item.stat.pw_name == 'root'
+          - item.stat.gr_name == 'root'
+      loop: "{{ restic_backup_env_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
-    - name: Stat restic primary.env
-      ansible.builtin.stat:
-        path: /etc/restic/primary.env
-      register: restic_backup_primary_env_stat
+    - name: Read restic environment files
+      ansible.builtin.slurp:
+        src: "/etc/restic/{{ item }}"
+      loop: [backup.env, primary.env, secondary.env]
+      register: restic_backup_env_contents
 
-    - name: Assert primary.env permissions and ownership
+    - name: Assert environment files carry no secrets or secret paths
       ansible.builtin.assert:
         that:
-          - restic_backup_primary_env_stat.stat.exists
-          - restic_backup_primary_env_stat.stat.mode == '0600'
-          - restic_backup_primary_env_stat.stat.pw_name == 'root'
+          - "'RESTIC_PASSWORD' not in (item.content | b64decode)"
+          - "'HEALTHCHECKS' not in (item.content | b64decode)"
+          - "'molecule-check' not in (item.content | b64decode)"
+      loop: "{{ restic_backup_env_contents.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
-    - name: Stat restic secondary.env
+    # --- Encrypted credential store -------------------------------------------------
+
+    - name: Stat encrypted credential store
       ansible.builtin.stat:
-        path: /etc/restic/secondary.env
-      register: restic_backup_secondary_env_stat
+        path: "{{ restic_backup_test_credstore }}"
+      register: restic_backup_credstore_stat
 
-    - name: Assert secondary.env permissions and ownership
+    - name: Assert credential store permissions
       ansible.builtin.assert:
         that:
-          - restic_backup_secondary_env_stat.stat.exists
-          - restic_backup_secondary_env_stat.stat.mode == '0600'
-          - restic_backup_secondary_env_stat.stat.pw_name == 'root'
+          - restic_backup_credstore_stat.stat.isdir
+          - restic_backup_credstore_stat.stat.mode == '0700'
+          - restic_backup_credstore_stat.stat.pw_name == 'root'
 
-    - name: Stat restic in-memory password file
+    - name: Stat encrypted credentials
       ansible.builtin.stat:
-        path: /run/secrets/restic_password
-      register: restic_backup_password_stat
+        path: "{{ restic_backup_test_credstore }}/{{ item }}"
+      loop: [restic_password, restic_secondary_password, healthchecks_ping_url]
+      register: restic_backup_credential_stats
 
-    - name: Assert in-memory password file permissions and ownership
+    - name: Assert encrypted credentials exist read-only for root
       ansible.builtin.assert:
         that:
-          - restic_backup_password_stat.stat.exists
-          - restic_backup_password_stat.stat.mode == '0400'
-          - restic_backup_password_stat.stat.pw_name == 'root'
-          - restic_backup_password_stat.stat.gr_name == 'root'
+          - item.stat.exists
+          - item.stat.mode == '0400'
+          - item.stat.pw_name == 'root'
+      loop: "{{ restic_backup_credential_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
-    - name: Stat restic in-memory secondary password file
-      ansible.builtin.stat:
-        path: /run/secrets/restic_secondary_password
-      register: restic_backup_secondary_password_stat
+    - name: Read encrypted primary password credential
+      ansible.builtin.slurp:
+        src: "{{ restic_backup_test_credstore }}/restic_password"
+      register: restic_backup_credential_ciphertext
 
-    - name: Assert in-memory secondary password file permissions and ownership
+    - name: Assert primary password is not stored in plaintext
       ansible.builtin.assert:
         that:
-          - restic_backup_secondary_password_stat.stat.exists
-          - restic_backup_secondary_password_stat.stat.mode == '0400'
-          - restic_backup_secondary_password_stat.stat.pw_name == 'root'
+          - restic_backup_test_primary_password not in (restic_backup_credential_ciphertext.content | b64decode)
 
-    - name: Stat legacy restic password file
-      ansible.builtin.stat:
-        path: /etc/restic/password
-      register: restic_backup_legacy_password_stat
+    - name: Decrypt primary password credential with the host key
+      ansible.builtin.command:
+        argv: [systemd-creds, decrypt, "{{ restic_backup_test_credstore }}/restic_password", "-"]
+      register: restic_backup_credential_roundtrip
+      changed_when: false
+      no_log: true
 
-    - name: Assert legacy password file does not exist on disk
+    - name: Assert credential round-trips to the configured password
       ansible.builtin.assert:
         that:
-          - not restic_backup_legacy_password_stat.stat.exists
-        fail_msg: "Legacy password file /etc/restic/password must not exist on persistent disk"
+          - restic_backup_credential_roundtrip.stdout == restic_backup_test_primary_password
+        quiet: true
 
-    - name: Stat restic failure unit
+    - name: Assert unused S3 credentials are not stored
       ansible.builtin.stat:
-        path: /etc/systemd/system/restic-backup-failure@.service
-      register: restic_backup_failure_unit_stat
+        path: "{{ restic_backup_test_credstore }}/oci_s3_secret_key"
+      register: restic_backup_unused_credential_stat
+      failed_when: restic_backup_unused_credential_stat.stat.exists
 
-    - name: Assert failure unit exists and permissions
+    - name: Stat legacy plaintext and tmpfs secret files
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/restic/password
+        - /etc/restic/password-secondary
+        - /run/secrets/restic_password
+        - /run/secrets/healthchecks_ping_url
+      register: restic_backup_legacy_stats
+
+    - name: Assert no plaintext secret files remain
       ansible.builtin.assert:
         that:
-          - restic_backup_failure_unit_stat.stat.exists
-          - restic_backup_failure_unit_stat.stat.mode == '0644'
+          - not item.stat.exists
+      loop: "{{ restic_backup_legacy_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    # --- Unit definitions ----------------------------------------------------------
 
     - name: Slurp restic service unit file
       ansible.builtin.slurp:
         src: /etc/systemd/system/restic-backup.service
       register: restic_backup_service_content
 
-    - name: Assert systemd sandboxing, OnFailure, and LoadCredential directives
+    - name: Assert sandboxing, OnFailure and encrypted credential directives
       ansible.builtin.assert:
         that:
-          - "'CapabilityBoundingSet=' in (restic_backup_service_content.content | b64decode)"
+          - "'CapabilityBoundingSet=CAP_DAC_READ_SEARCH' in (restic_backup_service_content.content | b64decode)"
           - "'SystemCallFilter=@system-service' in (restic_backup_service_content.content | b64decode)"
+          - "'TimeoutStartSec=' in (restic_backup_service_content.content | b64decode)"
           - "'OnFailure=restic-backup-failure@%n.service' in (restic_backup_service_content.content | b64decode)"
-          - "'LoadCredential=restic_password:' in (restic_backup_service_content.content | b64decode)"
-          - "'LoadCredential=restic_secondary_password:' in (restic_backup_service_content.content | b64decode)"
-          - "'LoadCredential=healthchecks_ping_url:' in (restic_backup_service_content.content | b64decode)"
+          - "'LoadCredentialEncrypted=restic_password:' in (restic_backup_service_content.content | b64decode)"
+          - "'LoadCredentialEncrypted=restic_secondary_password:' in (restic_backup_service_content.content | b64decode)"
+          - "'LoadCredentialEncrypted=healthchecks_ping_url:' in (restic_backup_service_content.content | b64decode)"
+          - "'LoadCredential=' not in (restic_backup_service_content.content | b64decode)"
 
     - name: Stat runner script
       ansible.builtin.stat:
@@ -151,19 +185,91 @@
       failed_when: restic_backup_timer_stat.changed
 
     - name: Verify systemd unit configurations
-      ansible.builtin.command: systemd-analyze verify /etc/systemd/system/restic-backup.service /etc/systemd/system/restic-backup.timer
+      ansible.builtin.command: >-
+        systemd-analyze verify /etc/systemd/system/restic-backup.service
+        /etc/systemd/system/restic-backup.timer /etc/systemd/system/restic-backup-failure@.service
       changed_when: false
 
-    - name: Trigger restic backup service via systemd
+    # --- Healthchecks stub ------------------------------------------------------------
+
+    - name: Create Healthchecks stub directory
+      ansible.builtin.file:
+        path: /tmp/hc-stub
+        state: directory
+        mode: "0755"
+
+    - name: Deploy Healthchecks stub listener
+      ansible.builtin.copy:
+        dest: /tmp/hc-stub/server.py
+        mode: "0755"
+        content: |
+          #!/usr/bin/env python3
+          """Accepts any GET/POST on 127.0.0.1:18080 and logs "<METHOD> <path>"."""
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+
+          LOG = "{{ restic_backup_test_stub_log }}"
+
+          class Handler(BaseHTTPRequestHandler):
+              def _ok(self):
+                  length = int(self.headers.get("Content-Length") or 0)
+                  if length:
+                      self.rfile.read(length)
+                  with open(LOG, "a", encoding="utf-8") as log:
+                      log.write(f"{self.command} {self.path}\n")
+                  self.send_response(200)
+                  self.end_headers()
+                  self.wfile.write(b"OK")
+
+              do_GET = _ok
+              do_POST = _ok
+
+              def log_message(self, *args):
+                  pass
+
+          HTTPServer(("127.0.0.1", 18080), Handler).serve_forever()
+
+    - name: Start Healthchecks stub listener
+      ansible.builtin.command:
+        argv: [systemd-run, --unit=hc-stub, --collect, python3, /tmp/hc-stub/server.py]
+        creates: /run/systemd/transient/hc-stub.service
+
+    - name: Wait for Healthchecks stub listener
+      ansible.builtin.wait_for:
+        port: 18080
+        host: 127.0.0.1
+        timeout: 15
+
+    # --- Reboot simulation: nothing under /run may be required ----------------------
+
+    - name: Simulate reboot by clearing runtime secret locations
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /run/secrets
+        - /run/credentials/restic-backup.service
+
+    - name: Run restic backup service via systemd
       ansible.builtin.systemd_service:
         name: restic-backup.service
         state: started
+
+    - name: Read restic backup service result
+      ansible.builtin.command:
+        argv: [systemctl, show, restic-backup.service, --property=Result, --value]
+      register: restic_backup_service_result
+      changed_when: false
+
+    - name: Assert backup succeeded using only the encrypted credential store
+      ansible.builtin.assert:
+        that:
+          - restic_backup_service_result.stdout == 'success'
 
     - name: Verify primary restic snapshot was recorded
       ansible.builtin.command: restic snapshots
       environment:
         RESTIC_REPOSITORY: "/var/cache/restic/primary-repo"
-        RESTIC_PASSWORD_FILE: "/run/secrets/restic_password"
+        RESTIC_PASSWORD_COMMAND: "systemd-creds decrypt {{ restic_backup_test_credstore }}/restic_password -"
       register: restic_backup_primary_snapshots_stat
       changed_when: false
 
@@ -177,7 +283,7 @@
       ansible.builtin.command: restic snapshots
       environment:
         RESTIC_REPOSITORY: "/var/cache/restic/secondary-repo"
-        RESTIC_PASSWORD_FILE: "/run/secrets/restic_secondary_password"
+        RESTIC_PASSWORD_COMMAND: "systemd-creds decrypt {{ restic_backup_test_credstore }}/restic_secondary_password -"
       register: restic_backup_secondary_snapshots_stat
       changed_when: false
 
@@ -186,6 +292,18 @@
         that:
           - "'scheduled' in restic_backup_secondary_snapshots_stat.stdout"
           - "'secondary' in restic_backup_secondary_snapshots_stat.stdout"
+
+    - name: Read Healthchecks stub log after successful run
+      ansible.builtin.slurp:
+        src: "{{ restic_backup_test_stub_log }}"
+      register: restic_backup_stub_log_success
+
+    - name: Assert success heartbeat was delivered
+      ansible.builtin.assert:
+        that:
+          - "'POST /molecule-check\n' in (restic_backup_stub_log_success.content | b64decode)"
+
+    # --- Failure handling ---------------------------------------------------------------
 
     - name: Trigger synthetic restic backup runner failure
       ansible.builtin.command: /usr/local/sbin/restic-backup-runner.sh
@@ -196,23 +314,42 @@
       failed_when: restic_backup_synthetic_failure.rc == 0
       changed_when: false
 
-    - name: Slurp restic failure service unit file
-      ansible.builtin.slurp:
-        src: /etc/systemd/system/restic-backup-failure@.service
-      register: restic_backup_failure_unit_content
+    - name: Run the failure notifier unit
+      ansible.builtin.systemd_service:
+        name: restic-backup-failure@molecule.service
+        state: started
 
-    - name: Assert failure unit notifies and logs failure
+    - name: Read failure notifier result
+      ansible.builtin.command:
+        argv: [systemctl, show, restic-backup-failure@molecule.service, --property=Result, --value]
+      register: restic_backup_failure_result
+      changed_when: false
+
+    - name: Read Healthchecks stub log after failure signal
+      ansible.builtin.slurp:
+        src: "{{ restic_backup_test_stub_log }}"
+      register: restic_backup_stub_log_failure
+
+    - name: Assert failure signal was delivered to /fail
       ansible.builtin.assert:
         that:
-          - "'Restic Backup Failure' in (restic_backup_failure_unit_content.content | b64decode)"
-          - "'/fail' in (restic_backup_failure_unit_content.content | b64decode)"
+          - restic_backup_failure_result.stdout == 'success'
+          - "'POST /molecule-check/fail' in (restic_backup_stub_log_failure.content | b64decode)"
 
-    - name: Verify journal logs do not contain raw password contents
+    - name: Verify journal logs do not contain the repository password
       ansible.builtin.shell: |
         set -o pipefail
-        journalctl -u restic-backup.service --no-pager | grep -F "$(cat /run/secrets/restic_password)"
+        journalctl -u restic-backup.service -u 'restic-backup-failure@*' --no-pager | grep -F -- "${PW}"
       args:
         executable: /bin/bash
+      environment:
+        PW: "{{ restic_backup_test_primary_password }}"
       register: restic_backup_journal_leak_check
       failed_when: restic_backup_journal_leak_check.rc == 0
       changed_when: false
+      no_log: true
+
+    - name: Stop Healthchecks stub listener
+      ansible.builtin.systemd_service:
+        name: hc-stub.service
+        state: stopped

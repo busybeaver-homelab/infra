@@ -6,20 +6,25 @@ OnFailure=restic-backup-failure@%n.service
 
 [Service]
 Type=oneshot
+# restic retries locks for up to 2h; bound the whole run so a hang cannot block later runs
+TimeoutStartSec=6h
 EnvironmentFile={{ restic_backup_config_dir }}/backup.env
 
-# Load in-memory credentials into ephemeral CREDENTIALS_DIRECTORY
-LoadCredential=restic_password:{{ restic_backup_password_file_path }}
+# Secrets: systemd encrypted credentials, decrypted only into this unit's private
+# $CREDENTIALS_DIRECTORY at start. They persist across reboots in the credstore.
+LoadCredentialEncrypted=restic_password:{{ restic_backup_credstore_dir }}/restic_password
 {% if restic_backup_s3_secret_key | default('') | length > 0 %}
-LoadCredential=oci_s3_secret_key:{{ restic_backup_secrets_dir }}/oci_s3_secret_key
+LoadCredentialEncrypted=oci_s3_secret_key:{{ restic_backup_credstore_dir }}/oci_s3_secret_key
 {% endif %}
 {% if restic_backup_secondary_enabled | bool %}
-LoadCredential=restic_secondary_password:{{ restic_backup_secondary_password_file_path }}
+LoadCredentialEncrypted=restic_secondary_password:{{ restic_backup_credstore_dir }}/restic_secondary_password
 {% if restic_backup_secondary_s3_secret_key | default('') | length > 0 %}
-LoadCredential=cloudflare_s3_secret_key:{{ restic_backup_secrets_dir }}/cloudflare_s3_secret_key
+LoadCredentialEncrypted=cloudflare_s3_secret_key:{{ restic_backup_credstore_dir }}/cloudflare_s3_secret_key
 {% endif %}
 {% endif %}
-LoadCredential=healthchecks_ping_url:{{ restic_backup_secrets_dir }}/healthchecks_ping_url
+{% if restic_backup_healthchecks_ping_url | default('') | length > 0 %}
+LoadCredentialEncrypted=healthchecks_ping_url:{{ restic_backup_credstore_dir }}/healthchecks_ping_url
+{% endif %}
 
 ExecStart={{ restic_backup_runner_script_path }}
 
@@ -38,7 +43,8 @@ LockPersonality=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-CapabilityBoundingSet=
+# Root may read (not modify) data owned by other UIDs, e.g. 0700 container volumes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 SystemCallFilter=@system-service
 
 # Explicit read-write filesystem paths
