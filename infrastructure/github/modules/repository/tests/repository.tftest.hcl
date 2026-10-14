@@ -142,3 +142,34 @@ run "accept_single_ci_age_identity" {
     error_message = "A single valid CI age identity must be accepted."
   }
 }
+
+run "ruleset_bypass_and_required_check_follow_owner_decision" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for a in github_repository_ruleset.main_protection.bypass_actors :
+      (a.actor_type == "OrganizationAdmin" && a.bypass_mode == "always") ||
+      (a.actor_type == "RepositoryRole" && a.bypass_mode == "pull_request")
+    ])
+    error_message = "Only organization owners may bypass always; repository admins may bypass only via pull request."
+  }
+
+  assert {
+    condition     = length(github_repository_ruleset.main_protection.bypass_actors) == 2
+    error_message = "Exactly two bypass actors (organization owners, repository admins) are allowed; no bots."
+  }
+
+  assert {
+    condition = alltrue([
+      for c in github_repository_ruleset.main_protection.rules[0].required_status_checks[0].required_check :
+      c.integration_id == 15368
+    ])
+    error_message = "Required checks must be pinned to the GitHub Actions app (integration_id 15368)."
+  }
+
+  assert {
+    condition     = github_repository_ruleset.main_protection.rules[0].required_linear_history == true
+    error_message = "main must keep linear history (no merge commits, also for owner local merges)."
+  }
+}
