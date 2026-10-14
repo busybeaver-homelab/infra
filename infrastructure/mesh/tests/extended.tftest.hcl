@@ -19,7 +19,8 @@ mock_provider "sops" {
 }
 
 variables {
-  policy_file_path = "policy.ci.hujson.tftpl"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  policy_file_path            = "policy.ci.hujson.tftpl"
 }
 
 run "extended_default_plan" {

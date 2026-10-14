@@ -60,8 +60,9 @@ mock_provider "sops" {
 }
 
 variables {
-  cloudflare_api_token  = "mock-cf-token-12345"
-  cloudflare_account_id = "mock-account-id-12345"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  cloudflare_api_token        = "mock-cf-token-12345"
+  cloudflare_account_id       = "mock-account-id-12345"
 }
 
 run "verify_r2_state_bucket" {

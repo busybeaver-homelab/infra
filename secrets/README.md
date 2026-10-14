@@ -141,32 +141,29 @@ SOPS files through `sops --decrypt` via mise before displaying the diff.
 OpenTofu state files are encrypted at rest using AES-GCM-256 with a PBKDF2-derived key.
 The passphrase is **never committed in plaintext** — it is encrypted within SOPS (`secrets/credentials.sops.yaml` for production, `secrets/credentials.ci.sops.yaml` for CI) or resolved via the hierarchy below.
 
-### Resolution Hierarchy
+### Where the Passphrase Comes From
 
-When running `scripts/bootstrap-state-backend.sh` or automated workflows, the passphrase is resolved using the following 4-tier precedence:
+Every root module declares `state_encryption_passphrase` in `variables.tf` with **no default**. It must be at least 32 characters and must not look like a placeholder. A missing or weak value fails `init`, `plan` and `apply` instead of silently encrypting state with a key published in this repository (R2-TF-01).
 
-1. **Tier 1 (Explicit Environment Variable):** `TF_VAR_state_encryption_passphrase` (if already set in your shell environment, it is preserved without modification).
-2. **Tier 2 (Canonical SOPS Secret - Recommended):** Auto-resolved from `secrets/credentials.sops.yaml` (key: `opentofu.state_encryption_passphrase`).
-3. **Tier 3 (Local File Fallback):** Read from `~/.config/homelab-infra/tofu-passphrase` (created during initial setup).
-4. **Tier 4 (Module Default):** Built-in fallback defined in `infrastructure/modules/cloud_dns/encryption.tf` (`homelab-state-encryption-passphrase-default`).
+There are exactly two sources:
 
-### Generating a Secure Passphrase for Production
+1. `TF_VAR_state_encryption_passphrase`, if it is already set in your shell. It is preserved unchanged.
+2. Production SOPS, `secrets/credentials.sops.yaml`, key `opentofu.state_encryption_passphrase`. `scripts/bootstrap-state-backend.sh` and the local drift scripts resolve it from there.
 
-To generate a cryptographically strong 32-character passphrase and save it to your production SOPS vault:
+There is no local passphrase file and no module default. Tests set a synthetic value in their `variables {}` block, and CI validation uses a fixed throwaway value (see below).
+
+### Generating the Passphrase (First Setup Only)
+
+Generate it straight into SOPS, so it is never printed or written to disk:
 
 ```bash
-# 1. Generate a secure 32-character alphanumeric passphrase
-PASSPHRASE=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 32)
+openssl rand -hex 32 | jq -R . | sops set --value-stdin secrets/credentials.sops.yaml '["opentofu"]["state_encryption_passphrase"]'
+```
 
-# 2. Store it in canonical production SOPS secrets via mise
-mise run secret:prod:set "opentofu.state_encryption_passphrase"
-# (Paste or enter the generated passphrase when prompted)
+Export it before running `tofu` by hand:
 
-# 3. (Optional) Mirror to local fallback file for offline access:
-mkdir -p ~/.config/homelab-infra
-printf "%s" "$PASSPHRASE" > ~/.config/homelab-infra/tofu-passphrase
-chmod 600 ~/.config/homelab-infra/tofu-passphrase
-unset PASSPHRASE
+```bash
+export TF_VAR_state_encryption_passphrase="$(sops -d --extract '["opentofu"]["state_encryption_passphrase"]' secrets/credentials.sops.yaml)"
 ```
 
 ### GitHub Actions and the State Passphrase
@@ -193,12 +190,52 @@ Then `tofu apply` in `infrastructure/github` (owner-confirmed). This deletes the
 
 ### Rotating the State Passphrase
 
-Rotate after any suspected exposure. That includes the period when the passphrase sat in the GitHub `ci` environment. OpenTofu reads old ciphertext through a temporary `fallback` key provider while it writes new ciphertext:
+Rotate after any suspected exposure. That includes the period when the passphrase sat in the GitHub `ci` environment.
 
-1. Generate a new passphrase (`openssl rand -base64 32`). Store it as `opentofu.state_encryption_passphrase` and the old one as `opentofu.state_encryption_passphrase_previous`, both with `sops set --value-stdin`. Update the CI file with synthetic values for both paths (schema parity).
-2. In each module's `encryption.tf`, temporarily add a `previous` `pbkdf2` key provider with the **same parameters**, a matching `aes_gcm` method, and `fallback { method = method.aes_gcm.previous }` in the `state` block. Add a sensitive `state_encryption_passphrase_previous` variable.
-3. For every module, export both passphrases as `TF_VAR_*` from SOPS (via env, never argv), then run `tofu init` and `tofu apply -refresh-only`. Each apply is owner-confirmed and rewrites the state with the new key.
-4. Remove the fallback, the `previous` provider and variable, and `opentofu.state_encryption_passphrase_previous`. `tofu plan` in every module must now succeed with only the new passphrase.
+**How it works.** OpenTofu stores the pbkdf2 salt in the state metadata under the key provider's **name** (`key_provider.pbkdf2.<name>`). A `fallback` can only decrypt state under the name that wrote it, so the old passphrase keeps the old name and the new passphrase needs a new name. Renaming a provider without this two-step is itself a rotation and locks you out.
+
+`scripts/rotate-state-passphrase.sh` does the whole module-level procedure. For each module, it:
+
+1. reads the state through the old name (fallback);
+2. pushes it back encrypted under the next name (`state_passphrase` → `state_passphrase_v2` → `state_passphrase_v3` …) with `state pull | state push -`. This needs only the R2 backend credentials: no provider credentials, no refresh, and serial and lineage stay unchanged. The plaintext state stays in memory;
+3. proves that the new passphrase alone can read the state;
+4. renames the provider in `infrastructure/<module>/encryption.tf`.
+
+A wrong passphrase fails closed: nothing is pushed and nothing is renamed.
+
+Run the procedure yourself, in your own terminal (never in an agent session), on a branch such as `chore/opentofu/rotate-state-passphrase`:
+
+```bash
+# 1. Keep the current passphrase as "previous", then generate the new one. Nothing is printed.
+#    Add a synthetic _previous key to the CI file too (schema parity).
+sops -d --extract '["opentofu"]["state_encryption_passphrase"]' secrets/credentials.sops.yaml | jq -Rs 'rtrimstr("\n")' |
+  sops set --value-stdin secrets/credentials.sops.yaml '["opentofu"]["state_encryption_passphrase_previous"]'
+openssl rand -hex 32 | jq -R . |
+  sops set --value-stdin secrets/credentials.sops.yaml '["opentofu"]["state_encryption_passphrase"]'
+openssl rand -hex 32 | jq -R . |
+  sops set --value-stdin secrets/credentials.ci.sops.yaml '["opentofu"]["state_encryption_passphrase_previous"]'
+
+# 2. Export both passphrases and the R2 backend access from SOPS (environment only, never argv).
+s() { sops -d --extract "$1" secrets/credentials.sops.yaml; }
+export TF_VAR_state_encryption_passphrase="$(s '["opentofu"]["state_encryption_passphrase"]')"
+export TF_VAR_state_encryption_passphrase_previous="$(s '["opentofu"]["state_encryption_passphrase_previous"]')"
+export AWS_ACCESS_KEY_ID="$(s '["opentofu"]["cloudflare_r2_access_key_id"]')"
+export AWS_SECRET_ACCESS_KEY="$(s '["opentofu"]["cloudflare_r2_secret_access_key"]')"
+export TOFU_BACKEND_ENDPOINT="https://$(s '["cloudflare"]["account_id"]').r2.cloudflarestorage.com"
+
+# 3. Re-encrypt every module's remote state and rename its key provider (asks for confirmation).
+mise exec -- scripts/rotate-state-passphrase.sh --all
+
+# 4. Every module must now plan with the new passphrase alone.
+unset TF_VAR_state_encryption_passphrase_previous
+```
+
+Then:
+
+5. Commit the renamed `encryption.tf` files immediately and merge them, since `main` can no longer read the state under the old name. A local fast-forward merge by the owner is fine.
+6. Remove `opentofu.state_encryption_passphrase_previous` from both SOPS files (`sops unset`).
+
+If the script stops partway, the modules it already rotated have the new provider name in `encryption.tf`. The others are unchanged. Re-run it for the remaining modules only.
 
 > **WARNING:** Losing the passphrase makes all encrypted state files permanently
 > unrecoverable. Keep at least one secure backup (e.g., a password manager entry).
@@ -211,11 +248,11 @@ All sensitive configuration parameters are strictly encapsulated in the two cano
 
 ### OpenTofu State & Cloudflare Backend Credentials
 
-| Secret Key                                 | Description                                                           | Sourced By                                                                    |
-| ------------------------------------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `opentofu.cloudflare_r2_access_key_id`     | Cloudflare R2 API Token Access Key ID for S3 remote state backend     | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml` |
-| `opentofu.cloudflare_r2_secret_access_key` | Cloudflare R2 API Token Secret Access Key for S3 remote state backend | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml` |
-| `opentofu.state_encryption_passphrase`     | OpenTofu client-side AES-GCM-256 state encryption passphrase          | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml` |
+| Secret Key                                 | Description                                                                      | Sourced By                                                                                                          |
+| ------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `opentofu.cloudflare_r2_access_key_id`     | Cloudflare R2 API Token Access Key ID for S3 remote state backend                | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml`                                       |
+| `opentofu.cloudflare_r2_secret_access_key` | Cloudflare R2 API Token Secret Access Key for S3 remote state backend            | `scripts/bootstrap-state-backend.sh`, `.github/workflows/drift-detection.yml`                                       |
+| `opentofu.state_encryption_passphrase`     | OpenTofu client-side AES-GCM-256 state encryption passphrase (no module default) | `scripts/bootstrap-state-backend.sh`, `scripts/rotate-state-passphrase.sh`, `.github/workflows/drift-detection.yml` |
 
 To set or update production credentials:
 

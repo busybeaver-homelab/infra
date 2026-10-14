@@ -1,9 +1,10 @@
 mock_provider "proxmox" {}
 
 variables {
-  proxmox_api_endpoint = "https://proxmox.internal:8006/api2/json"
-  proxmox_api_token    = "mock-user@pam!mocktoken=mock-secret"
-  proxmox_insecure     = false
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  proxmox_api_endpoint        = "https://proxmox.internal:8006/api2/json"
+  proxmox_api_token           = "mock-user@pam!mocktoken=mock-secret"
+  proxmox_insecure            = false
 }
 
 run "reject_insecure_proxmox_tls_bypass" {
@@ -27,5 +28,29 @@ run "reject_insecure_http_api_endpoint" {
 
   expect_failures = [
     var.proxmox_api_endpoint,
+  ]
+}
+
+run "reject_short_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "too-short-test-passphrase"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_placeholder_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "changeme-changeme-changeme-changeme-0001"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
   ]
 }

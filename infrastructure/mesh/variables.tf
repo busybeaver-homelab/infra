@@ -238,3 +238,20 @@ variable "acls_external_link" {
     error_message = "ACL external link must be a valid HTTP or HTTPS URL or empty string."
   }
 }
+
+variable "state_encryption_passphrase" {
+  type        = string
+  description = "State and plan encryption passphrase. Source: production SOPS opentofu.state_encryption_passphrase. No default, so a missing value fails closed."
+  sensitive   = true
+  nullable    = false
+
+  validation {
+    condition     = length(var.state_encryption_passphrase) >= 32
+    error_message = "Set TF_VAR_state_encryption_passphrase from SOPS (opentofu.state_encryption_passphrase); it must be at least 32 characters."
+  }
+
+  validation {
+    condition     = !can(regex("(?i)(default|changeme|placeholder|example)", var.state_encryption_passphrase))
+    error_message = "state_encryption_passphrase looks like a placeholder; supply the real value from SOPS."
+  }
+}

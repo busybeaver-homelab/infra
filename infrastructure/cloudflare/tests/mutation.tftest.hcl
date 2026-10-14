@@ -59,9 +59,10 @@ mock_provider "sops" {
 }
 
 variables {
-  cloudflare_api_token   = "mock-cf-token-12345"
-  cloudflare_account_id  = "mock-account-id-12345"
-  enable_prevent_destroy = false
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  cloudflare_api_token        = "mock-cf-token-12345"
+  cloudflare_account_id       = "mock-account-id-12345"
+  enable_prevent_destroy      = false
 }
 
 run "initial_apply" {

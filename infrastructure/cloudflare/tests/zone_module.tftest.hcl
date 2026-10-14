@@ -8,7 +8,8 @@ mock_provider "cloudflare" {
 }
 
 variables {
-  account_id = "mock-account"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  account_id                  = "mock-account"
   zone = {
     name = "example.test"
     id   = "mock-zone"

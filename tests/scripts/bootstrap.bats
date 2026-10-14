@@ -53,8 +53,13 @@ teardown() {
   [ "$status" -eq 0 ]
   run grep -F "state_encryption_passphrase" "${BOOTSTRAP_SCRIPT}"
   [ "$status" -eq 0 ]
-  run grep -F "sops set secrets/credentials.sops.yaml" "${BOOTSTRAP_SCRIPT}"
+  run grep -F "sops set --value-stdin secrets/credentials.sops.yaml" "${BOOTSTRAP_SCRIPT}"
   [ "$status" -eq 0 ]
+}
+
+@test "bootstrap.sh never writes the state passphrase to a local file (R2-TF-01)" {
+  run grep -F "tofu-passphrase" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -ne 0 ]
 }
 
 @test "bootstrap.sh checks for git-crypt installation" {

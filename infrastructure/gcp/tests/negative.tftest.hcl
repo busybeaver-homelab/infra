@@ -1,8 +1,9 @@
 mock_provider "google" {}
 
 variables {
-  gcp_project_id = "mock-gcp-project-12345"
-  gcp_region     = "us-central1"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  gcp_project_id              = "mock-gcp-project-12345"
+  gcp_region                  = "us-central1"
 }
 
 run "reject_non_free_tier_region" {
@@ -102,5 +103,29 @@ run "reject_malformed_billing_account_id" {
 
   expect_failures = [
     var.gcp_billing_account_id,
+  ]
+}
+
+run "reject_short_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "too-short-test-passphrase"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_placeholder_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "changeme-changeme-changeme-changeme-0001"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
   ]
 }

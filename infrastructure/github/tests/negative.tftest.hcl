@@ -25,9 +25,10 @@ mock_provider "sops" {
 }
 
 variables {
-  sops_age_key_ci = format("%s%s", "AGE-SECRET-KEY-1", join("", [for _ in range(58) : "Q"])) # synthetic, format-valid test identity
-  github_token    = "mock-ghp-token-12345"
-  github_owner    = "mock-owner"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  sops_age_key_ci             = format("%s%s", "AGE-SECRET-KEY-1", join("", [for _ in range(58) : "Q"])) # synthetic, format-valid test identity
+  github_token                = "mock-ghp-token-12345"
+  github_owner                = "mock-owner"
 }
 
 run "reject_merge_commit_enabled" {
@@ -63,5 +64,29 @@ run "reject_keyring_as_ci_age_key" {
 
   expect_failures = [
     var.sops_age_key_ci,
+  ]
+}
+
+run "reject_short_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "too-short-test-passphrase"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_placeholder_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "changeme-changeme-changeme-changeme-0001"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
   ]
 }

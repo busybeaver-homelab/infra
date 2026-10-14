@@ -19,7 +19,8 @@ mock_provider "sops" {
 }
 
 variables {
-  policy_file_path = "policy.ci.hujson.tftpl"
+  state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
+  policy_file_path            = "policy.ci.hujson.tftpl"
 }
 
 run "reject_invalid_policy_file_extension" {
@@ -67,5 +68,29 @@ run "reject_invalid_secrets_file_extension" {
 
   expect_failures = [
     var.secrets_file_path,
+  ]
+}
+
+run "reject_short_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "too-short-test-passphrase"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_placeholder_state_encryption_passphrase" {
+  command = plan
+
+  variables {
+    state_encryption_passphrase = "changeme-changeme-changeme-changeme-0001"
+  }
+
+  expect_failures = [
+    var.state_encryption_passphrase,
   ]
 }

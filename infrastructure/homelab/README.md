@@ -44,12 +44,12 @@ From the Proxmox VE host, retrieve the cluster CA certificate located at `/etc/p
 
 ## Inputs
 
-| Name                                                                                                                 | Description                                                                                                  | Type     | Default                                         | Required |
-| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------- | ----------------------------------------------- | :------: |
-| <a name="input_proxmox_api_endpoint"></a> [proxmox\_api\_endpoint](#input_proxmox_api_endpoint)                      | The HTTPS API endpoint of the Proxmox VE server.                                                             | `string` | n/a                                             |   yes    |
-| <a name="input_proxmox_api_token"></a> [proxmox\_api\_token](#input_proxmox_api_token)                               | The Proxmox API token (username@realm!tokenid=secret).                                                       | `string` | n/a                                             |   yes    |
-| <a name="input_proxmox_insecure"></a> [proxmox\_insecure](#input_proxmox_insecure)                                   | Whether to bypass TLS certificate verification when connecting to the Proxmox VE API. Must default to false. | `bool`   | `false`                                         |    no    |
-| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | Passphrase for OpenTofu state and plan encryption.                                                           | `string` | `"homelab-state-encryption-passphrase-default"` |    no    |
+| Name                                                                                                                 | Description                                                                                                                                        | Type     | Default | Required |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- | :------: |
+| <a name="input_proxmox_api_endpoint"></a> [proxmox\_api\_endpoint](#input_proxmox_api_endpoint)                      | The HTTPS API endpoint of the Proxmox VE server.                                                                                                   | `string` | n/a     |   yes    |
+| <a name="input_proxmox_api_token"></a> [proxmox\_api\_token](#input_proxmox_api_token)                               | The Proxmox API token (username@realm!tokenid=secret).                                                                                             | `string` | n/a     |   yes    |
+| <a name="input_proxmox_insecure"></a> [proxmox\_insecure](#input_proxmox_insecure)                                   | Whether to bypass TLS certificate verification when connecting to the Proxmox VE API. Must default to false.                                       | `bool`   | `false` |    no    |
+| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | State and plan encryption passphrase. Source: production SOPS opentofu.state\_encryption\_passphrase. No default, so a missing value fails closed. | `string` | n/a     |   yes    |
 
 ## Outputs
 

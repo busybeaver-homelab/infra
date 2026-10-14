@@ -57,10 +57,12 @@ Temporary Items
 **/.terraform/*
 **/.tofu/*
 
-# State files — encrypted state IS committed (OpenTofu AES-GCM, enforced=true).
-# Plaintext state is blocked by OpenTofu when enforced=true.
-# Backup files (.tfstate.backup) are never committed — they are unencrypted snapshots.
-*.tfstate.backup
+# State and plan files are never committed (STD-OT-22). Remote state lives encrypted in R2;
+# a stray local state or saved plan in this public repository would be a full disclosure.
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.tfstate.lock.info
 
 # Crash log files
 crash.log

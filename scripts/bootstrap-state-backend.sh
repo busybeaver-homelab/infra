@@ -80,6 +80,9 @@ Options:
   -y, --auto-approve       Skip interactive confirmation during OpenTofu apply
 
 Required Environment Variables:
+  OpenTofu State Encryption:
+    TF_VAR_state_encryption_passphrase  OpenTofu state encryption passphrase (auto-resolved from SOPS if unset)
+
   Stage 1 (Cloudflare API):
     CLOUDFLARE_API_TOKEN   Cloudflare API Token with Account:R2 Storage:Edit permissions
     CLOUDFLARE_ACCOUNT_ID  Cloudflare Account ID (32 hex characters)
@@ -233,16 +236,6 @@ resolve_sops_credentials() {
       fi
     fi
   fi
-
-  # Fallback to local passphrase file if still unset
-  if [[ -z "${TF_VAR_state_encryption_passphrase:-}" && -f "${HOME}/.config/homelab-infra/tofu-passphrase" ]]; then
-    local local_pass
-    local_pass="$(cat "${HOME}/.config/homelab-infra/tofu-passphrase" 2>/dev/null || true)"
-    if [[ -n "${local_pass}" ]]; then
-      export TF_VAR_state_encryption_passphrase="${local_pass}"
-      log_info "Auto-resolved TF_VAR_state_encryption_passphrase from local file (${HOME}/.config/homelab-infra/tofu-passphrase)."
-    fi
-  fi
 }
 
 # Validate credentials
@@ -250,6 +243,12 @@ validate_credentials() {
   local missing=0
 
   resolve_sops_credentials
+
+  # Both stages run tofu, and the modules have no passphrase default (fail closed).
+  if [[ -z "${TF_VAR_state_encryption_passphrase:-}" ]]; then
+    log_error "Missing required environment variable: TF_VAR_state_encryption_passphrase (SOPS opentofu.state_encryption_passphrase)"
+    missing=$((missing + 1))
+  fi
 
   if [[ "${STAGE}" == "1" || "${STAGE}" == "all" ]]; then
     if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
