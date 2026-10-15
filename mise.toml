@@ -355,7 +355,7 @@ description = "Run unit tests on isolated child modules concurrently"
 run = '''
 mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
 printf "%s\n" cloudflare/modules/zone github/modules/repository dns/modules/profile | \
-  rush -k 'tofu -chdir="infrastructure/{}" test'
+  rush -k 'tofu -chdir="infrastructure/{}" init -backend=false >/dev/null && tofu -chdir="infrastructure/{}" test'
 '''
 
 [tasks."test:tofu:mutations"]

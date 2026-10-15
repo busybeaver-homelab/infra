@@ -56,6 +56,8 @@ setup() {
   children_task=$(sed -n '/\[tasks\."test:tofu:children"\]/,/\[tasks\./p' "$mise_config")
   run grep -E "rush -k" <<<"$children_task"
   [ "$status" -eq 0 ]
+  run grep -E "init -backend=false" <<<"$children_task"
+  [ "$status" -eq 0 ]
 
   local mutations_task
   mutations_task=$(sed -n '/\[tasks\."test:tofu:mutations"\]/,/\[tasks\./p' "$mise_config")
