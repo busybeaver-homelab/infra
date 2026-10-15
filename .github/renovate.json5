@@ -19,10 +19,17 @@
   prConcurrentLimit: 10,
   prHourlyLimit: 2,
 
-  // Supply-chain cooldown (R2-REN-01): every update waits 3 days after its release before
-  // a PR is raised. Security updates bypass this by design. internalChecksFilter defaults to
-  // "strict", so no branch (and no CI run with the new dependency code) exists while pending.
+  // Supply-chain cooldown (R2-REN-01, STD-CI-62): every update waits 3 days after its release
+  // before a PR is raised. With "strict" internal checks no branch (and no CI run with the new
+  // dependency code) exists while the age is pending. Set explicitly so a preset cannot relax it.
   minimumReleaseAge: "3 days",
+  internalChecksFilter: "strict",
+
+  // Security updates bypass the release-age gate by design, so they always get a human review
+  // instead of automerging (STD-CI-62). Applied after packageRules for vulnerability PRs.
+  vulnerabilityAlerts: {
+    automerge: false,
+  },
 
   // Lockfile maintenance schedule
   lockFileMaintenance: {
