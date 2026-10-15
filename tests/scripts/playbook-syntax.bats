@@ -122,8 +122,8 @@ setup() {
     [ -f "$full_path" ]
     run yq eval '.scenario.test_sequence[]' "$full_path"
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "idempotence" ]]
-    [[ "$output" =~ "converge" ]]
+    [[ "$output" =~ "idempotence" ]] || false
+    [[ "$output" =~ "converge" ]] || false
   done
 }
 
@@ -648,7 +648,7 @@ if unknown:
   # Ensure concurrent test:ansible task exists and uses rush
   run yq eval '.tasks."test:ansible".run' "$mise_config"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "rush" ]]
+  [[ "$output" =~ "rush" ]] || false
 
   # Ensure sequential test:ansible:serial task exists and declares dependencies
   run yq eval '.tasks."test:ansible:serial".depends[]' "$mise_config"

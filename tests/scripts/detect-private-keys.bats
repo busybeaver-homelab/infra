@@ -131,7 +131,7 @@ teardown() {
 
   run bash "${DETECT_SCRIPT}" file_clean.txt file_age.env file_ssh.key
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "Age private key detected in file_age.env" ]]
+  [[ "$output" =~ "Age private key detected in file_age.env" ]] || false
   [[ "$output" =~ "Private key header detected in file_ssh.key" ]]
 }
 

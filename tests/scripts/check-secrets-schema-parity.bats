@@ -61,7 +61,7 @@ EOF
 
   run bash "${PARITY_SCRIPT}" "${file_a}" "${file_b}"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "Schema parity violation" ]]
+  [[ "$output" =~ "Schema parity violation" ]] || false
   [[ "$output" =~ "private_key" ]]
 }
 
@@ -84,7 +84,7 @@ EOF
 
   run bash "${PARITY_SCRIPT}" "${file_a}" "${file_b}"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "Schema parity violation" ]]
+  [[ "$output" =~ "Schema parity violation" ]] || false
   [[ "$output" =~ "new_key" ]]
 }
 

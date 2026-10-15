@@ -213,9 +213,9 @@ EOF
 
   run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "app.port" ]]
-  [[ "$output" =~ "app.enabled" ]]
-  [[ "$output" =~ "app.ratio" ]]
+  [[ "$output" =~ "app.port" ]] || false
+  [[ "$output" =~ "app.enabled" ]] || false
+  [[ "$output" =~ "app.ratio" ]] || false
   [[ ! "$output" =~ "app.empty_val" ]]
 }
 

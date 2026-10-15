@@ -223,11 +223,11 @@ setup() {
 
   run yq eval '.jobs.molecule.steps[] | select(.name == "Cache Molecule APT Archives") | .uses' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "actions/cache@" ]]
+  [[ "$output" =~ "actions/cache@" ]] || false
 
   run yq eval '.jobs.molecule.steps[] | select(.name == "Cache Molecule APT Archives") | .with.key' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "molecule-apt-\${{ matrix.scenario }}-" ]]
+  [[ "$output" =~ "molecule-apt-\${{ matrix.scenario }}-" ]] || false
 
   run yq eval '.jobs.molecule.steps[] | select(.name == "Cache Molecule APT Archives") | .with.path' "$WORKFLOW"
   [ "$status" -eq 0 ]
@@ -257,7 +257,7 @@ setup() {
 
   run yq eval '.jobs.tofu-validate.steps[] | select(.name == "Cache OpenTofu Plugins") | .uses' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "actions/cache@" ]]
+  [[ "$output" =~ "actions/cache@" ]] || false
 
   run yq eval '.jobs.tofu-validate.steps[] | select(.name == "Cache OpenTofu Plugins") | .with.path' "$WORKFLOW"
   [ "$status" -eq 0 ]
@@ -265,7 +265,7 @@ setup() {
 
   run yq eval '.jobs.tofu-validate.steps[] | select(.name == "Cache OpenTofu Plugins") | .with.key' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "tofu-plugins-" ]]
+  [[ "$output" =~ "tofu-plugins-" ]] || false
   [[ "$output" =~ "hashFiles('infrastructure/**/.terraform.lock.hcl')" ]]
 }
 
@@ -286,9 +286,9 @@ setup() {
 
   run yq eval '.jobs.molecule.steps[] | select(.name == "Prepare Molecule APT Cache for Saving") | .run' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "name lock" ]]
-  [[ "$output" =~ "name partial" ]]
-  [[ "$output" =~ "chown -R" ]]
+  [[ "$output" =~ "name lock" ]] || false
+  [[ "$output" =~ "name partial" ]] || false
+  [[ "$output" =~ "chown -R" ]] || false
   [[ "$output" =~ "chmod -R" ]]
 }
 

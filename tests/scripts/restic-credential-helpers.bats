@@ -129,7 +129,7 @@ notify() {
 @test "notify skips cleanly when no ping URL credential is configured" {
   notify fail restic-backup.service
   [ "$status" -eq 0 ]
-  [[ "$output" == *"skipping fail signal"* ]]
+  [[ "$output" == *"skipping fail signal"* ]] || false
   [ ! -f "${BATS_TMPDIR}/curl-argv.log" ]
 }
 

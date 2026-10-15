@@ -39,13 +39,13 @@ teardown() {
 @test "bootstrap-state-backend.sh displays usage on --help and -h" {
   run "${SCRIPT}" --help
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Usage:" ]]
-  [[ "$output" =~ "Pattern A Workflow:" ]]
-  [[ "$output" =~ "Stage 1:" ]]
-  [[ "$output" =~ "Stage 2:" ]]
-  [[ "$output" =~ "TF_VAR_state_encryption_passphrase" ]]
-  [[ "$output" =~ "CLOUDFLARE_API_TOKEN" ]]
-  [[ "$output" =~ "AWS_ACCESS_KEY_ID" ]]
+  [[ "$output" =~ "Usage:" ]] || false
+  [[ "$output" =~ "Pattern A Workflow:" ]] || false
+  [[ "$output" =~ "Stage 1:" ]] || false
+  [[ "$output" =~ "Stage 2:" ]] || false
+  [[ "$output" =~ "TF_VAR_state_encryption_passphrase" ]] || false
+  [[ "$output" =~ "CLOUDFLARE_API_TOKEN" ]] || false
+  [[ "$output" =~ "AWS_ACCESS_KEY_ID" ]] || false
 
   run "${SCRIPT}" -h
   [ "$status" -eq 0 ]
@@ -80,22 +80,22 @@ teardown() {
 @test "bootstrap-state-backend.sh succeeds in --dry-run mode even without credentials" {
   run env -i PATH="${PATH}" HOME="${HOME}" "${SCRIPT}" --dry-run --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "DRY-RUN MODE" ]]
-  [[ "$output" =~ "Stage 1: Local state bootstrap" ]]
+  [[ "$output" =~ "DRY-RUN MODE" ]] || false
+  [[ "$output" =~ "Stage 1: Local state bootstrap" ]] || false
   [[ "$output" =~ "Stage 2: Migrating state to Cloudflare R2" ]]
 }
 
 @test "bootstrap-state-backend.sh dry-run respects --stage 1 filter" {
   run "${SCRIPT}" --dry-run --stage 1 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Stage 1: Local state bootstrap" ]]
+  [[ "$output" =~ "Stage 1: Local state bootstrap" ]] || false
   [[ ! "$output" =~ "Stage 2: Migrating state" ]]
 }
 
 @test "bootstrap-state-backend.sh dry-run respects --stage 2 filter" {
   run "${SCRIPT}" --dry-run --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
   [ "$status" -eq 0 ]
-  [[ ! "$output" =~ "Stage 1: Local state bootstrap" ]]
+  [[ ! "$output" =~ "Stage 1: Local state bootstrap" ]] || false
   [[ "$output" =~ "Stage 2: Migrating state" ]]
 }
 
@@ -155,7 +155,7 @@ EOF
     "${SCRIPT}" --module-dir "${mock_module_dir}" --auto-approve
 
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Pattern A state backend bootstrap process completed successfully!" ]]
+  [[ "$output" =~ "Pattern A state backend bootstrap process completed successfully!" ]] || false
 
   # Verify backend.tf exists and is not left disabled
   [ -f "${mock_module_dir}/backend.tf" ]
@@ -167,8 +167,8 @@ EOF
   # Verify tofu call sequence from log
   run cat "${call_log}"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "init -input=false" ]]
-  [[ "$output" =~ "apply -target=cloudflare_r2_bucket.tfstate -input=false -auto-approve" ]]
+  [[ "$output" =~ "init -input=false" ]] || false
+  [[ "$output" =~ "apply -target=cloudflare_r2_bucket.tfstate -input=false -auto-approve" ]] || false
   [[ "$output" =~ "init -migrate-state -force-copy -input=false -backend-config=endpoint=https://1234567890abcdef1234567890abcdef.r2.cloudflarestorage.com -backend-config=bucket=homelab-infra-tfstate" ]]
 }
 
@@ -237,7 +237,7 @@ EOF
     "${SCRIPT}" --dry-run --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
 
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Auto-resolved AWS_ACCESS_KEY_ID from SOPS" ]]
+  [[ "$output" =~ "Auto-resolved AWS_ACCESS_KEY_ID from SOPS" ]] || false
   [[ "$output" =~ "Auto-resolved AWS_SECRET_ACCESS_KEY from SOPS" ]]
 }
 

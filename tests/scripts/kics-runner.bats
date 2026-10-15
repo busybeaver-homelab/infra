@@ -14,7 +14,7 @@ setup() {
 @test "run-kics.sh --help displays usage information" {
   run "$RUNNER" --help
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Usage:" ]]
+  [[ "$output" =~ "Usage:" ]] || false
   [[ "$output" =~ "checkmarx/kics" ]]
 }
 
@@ -28,10 +28,10 @@ setup() {
   run "$RUNNER" --check-docker
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Docker is available" ]]
+    [[ "$output" =~ "Docker is available" ]] || false
   else
     [ "$status" -eq 1 ]
-    [[ "$output" =~ "Docker daemon is not running" ]]
+    [[ "$output" =~ "Docker daemon is not running" ]] || false
   fi
 }
 
