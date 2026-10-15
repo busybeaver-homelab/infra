@@ -8,6 +8,22 @@ variable "default_tags" {
   type        = list(string)
   description = "Default tags applied to healthchecks."
   default     = ["homelab", "backup", "restic"]
+
+  validation {
+    condition     = contains(var.default_tags, "homelab")
+    error_message = "default_tags must include the mandatory 'homelab' project tag."
+  }
+}
+
+variable "check_tags" {
+  type        = list(string)
+  description = "Additional project tags applied across all healthchecks (must include 'homelab')."
+  default     = ["homelab", "backup", "restic"]
+
+  validation {
+    condition     = contains(var.check_tags, "homelab")
+    error_message = "check_tags must include the mandatory 'homelab' project tag."
+  }
 }
 
 variable "healthcheck_timeout" {

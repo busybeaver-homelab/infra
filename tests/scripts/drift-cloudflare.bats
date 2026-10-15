@@ -73,3 +73,23 @@ STUB
   run grep -E '^\[tasks\."drift:cloudflare"\]' "$REPO_ROOT/mise.toml"
   [ "$status" -eq 0 ]
 }
+
+@test "scripts/drift.sh masks 6-hex NextDNS profile IDs for dns module and pings Healthchecks" {
+  local curl_log="$BATS_TEST_TMPDIR/curl.log"
+  cat >"$STUB_BIN/curl" <<STUB
+#!/usr/bin/env bash
+echo "\$*" >>"$curl_log"
+STUB
+  chmod +x "$STUB_BIN/curl"
+
+  STUB_PLAN_RC=0 HEALTHCHECKS_DRIFT_PING_URL="https://hc-ping.example.com/00000000-0000-0000-0000-000000000000" \
+    run "$REPO_ROOT/scripts/drift.sh" --module dns --module-dir "$BATS_TEST_TMPDIR/module"
+  [ "$status" -eq 0 ]
+  grep -q "https://hc-ping.example.com/00000000-0000-0000-0000-000000000000$" "$curl_log"
+
+  : >"$curl_log"
+  STUB_PLAN_RC=2 HEALTHCHECKS_DRIFT_PING_URL="https://hc-ping.example.com/00000000-0000-0000-0000-000000000000" \
+    run "$REPO_ROOT/scripts/drift.sh" --module dns --module-dir "$BATS_TEST_TMPDIR/module"
+  [ "$status" -eq 2 ]
+  grep -q "https://hc-ping.example.com/00000000-0000-0000-0000-000000000000/fail$" "$curl_log"
+}

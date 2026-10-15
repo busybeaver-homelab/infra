@@ -3,6 +3,7 @@
 
 ### Ansible ###
 *.retry
+configuration/inventories/hosts.generated.yml
 
 ### Linux ###
 *~

@@ -156,12 +156,30 @@
         that:
           - "'CapabilityBoundingSet=CAP_DAC_READ_SEARCH' in (restic_backup_service_content.content | b64decode)"
           - "'SystemCallFilter=@system-service' in (restic_backup_service_content.content | b64decode)"
-          - "'TimeoutStartSec=' in (restic_backup_service_content.content | b64decode)"
+          - "'TimeoutStartSec=4h' in (restic_backup_service_content.content | b64decode)"
           - "'OnFailure=restic-backup-failure@%n.service' in (restic_backup_service_content.content | b64decode)"
           - "'LoadCredentialEncrypted=restic_password:' in (restic_backup_service_content.content | b64decode)"
           - "'LoadCredentialEncrypted=restic_secondary_password:' in (restic_backup_service_content.content | b64decode)"
           - "'LoadCredentialEncrypted=healthchecks_ping_url:' in (restic_backup_service_content.content | b64decode)"
           - "'LoadCredential=' not in (restic_backup_service_content.content | b64decode)"
+
+    - name: Stat pre-backup container database dump hook
+      ansible.builtin.stat:
+        path: /etc/restic/hooks.d/pre.d/10-container-db-dumps.sh
+      register: restic_backup_pre_hook_stat
+
+    - name: Stat container backup dump directory
+      ansible.builtin.stat:
+        path: /var/backups/containers
+      register: restic_backup_dump_dir_stat
+
+    - name: Assert pre-backup hook and dump directory permissions
+      ansible.builtin.assert:
+        that:
+          - restic_backup_pre_hook_stat.stat.exists
+          - restic_backup_pre_hook_stat.stat.mode == '0750'
+          - restic_backup_dump_dir_stat.stat.isdir
+          - restic_backup_dump_dir_stat.stat.mode == '0700'
 
     - name: Stat runner script
       ansible.builtin.stat:

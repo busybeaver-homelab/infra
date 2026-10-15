@@ -141,6 +141,16 @@ run "unit_plan_matches_baseline" {
     condition     = strcontains(tailscale_acl.homelab.acl, "tag:decoy-client")
     error_message = "Tailscale ACL policy must include decoy client target in nodeAttrs."
   }
+
+  assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "\"networkFlowLogs\"") && strcontains(tailscale_acl.homelab.acl, "\"enabled\": true")
+    error_message = "Tailscale ACL policy must enable networkFlowLogs."
+  }
+
+  assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "\"checkPeriod\": \"12h\"")
+    error_message = "Tailscale ACL SSH check rules must enforce a 12h checkPeriod."
+  }
 }
 
 run "verify_computed_outputs_on_apply" {

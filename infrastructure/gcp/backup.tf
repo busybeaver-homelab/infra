@@ -27,7 +27,7 @@ resource "google_storage_bucket" "backups" {
 
   lifecycle_rule {
     condition {
-      days_since_noncurrent_time = 1
+      days_since_noncurrent_time = 30
     }
     action {
       type = "Delete"
@@ -36,7 +36,7 @@ resource "google_storage_bucket" "backups" {
 
   lifecycle_rule {
     condition {
-      age = 1
+      age = 7
     }
     action {
       type = "AbortIncompleteMultipartUpload"

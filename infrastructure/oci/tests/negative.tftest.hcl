@@ -238,3 +238,17 @@ run "reject_placeholder_state_encryption_passphrase" {
     var.state_encryption_passphrase,
   ]
 }
+
+run "reject_combined_boot_volume_exceeding_always_free_cap" {
+  command = plan
+
+  variables {
+    amd_boot_volume_size_gb = 60
+    arm_boot_volume_size_gb = 100
+  }
+
+  expect_failures = [
+    oci_core_instance.amd,
+    oci_core_instance.ampere,
+  ]
+}

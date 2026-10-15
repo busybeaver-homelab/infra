@@ -112,6 +112,26 @@ run "verify_r2_backup_bucket" {
     condition     = cloudflare_r2_bucket.backups_dr.location == "weur"
     error_message = "R2 disaster recovery backup bucket location hint must be weur for EU data residency"
   }
+
+  assert {
+    condition = (
+      cloudflare_r2_bucket_lifecycle.backups_dr.bucket_name == "homelab-backups-dr" &&
+      cloudflare_r2_bucket_lifecycle.backups_dr.rules[0].enabled == true &&
+      cloudflare_r2_bucket_lifecycle.backups_dr.rules[0].abort_multipart_uploads_transition.condition.max_age == 604800
+    )
+    error_message = "R2 backup bucket lifecycle must abort incomplete multipart uploads after 7 days (604800 seconds)"
+  }
+
+  assert {
+    condition = (
+      cloudflare_api_token.r2_restic_prune.name == "homelab-r2-restic-prune-token" &&
+      length(cloudflare_api_token.r2_restic_prune.policies) == 1 &&
+      cloudflare_api_token.r2_restic_prune.policies[0].effect == "allow" &&
+      length(cloudflare_api_token.r2_restic_prune.policies[0].permission_groups) == 2 &&
+      strcontains(cloudflare_api_token.r2_restic_prune.policies[0].resources, "com.cloudflare.edge.r2.bucket.mock-account-id-12345_default_homelab-backups-dr")
+    )
+    error_message = "R2 restic prune API token must be scoped exclusively to the backups_dr R2 bucket with item read/write permissions"
+  }
 }
 
 run "verify_config_plumbing" {
@@ -294,5 +314,10 @@ run "verify_computed_outputs_on_apply" {
   assert {
     condition     = contains(keys(output.zone_ids), "primary")
     error_message = "Zone IDs map must contain primary on apply"
+  }
+
+  assert {
+    condition     = output.r2_restic_prune_s3_access_key_id != "" && output.r2_restic_prune_s3_secret_access_key != ""
+    error_message = "R2 restic prune S3 credentials outputs must be computed on apply"
   }
 }

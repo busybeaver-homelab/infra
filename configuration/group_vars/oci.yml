@@ -6,3 +6,4 @@ restic_backup_repository: "s3:{{ oci_restic.s3_endpoint }}/{{ oci_restic.bucket 
 restic_backup_s3_access_key: "{{ oci_restic.s3_access_key_id }}"
 restic_backup_s3_secret_key: "{{ oci_restic.s3_secret_access_key }}"
 restic_backup_password: "{{ oci_restic.password }}"
+restic_backup_healthchecks_ping_url: "{{ oci_restic.healthchecks_ping_url | default('') }}"

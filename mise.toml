@@ -23,6 +23,7 @@ node           = "lts"
 actionlint     = "1.7"
 trivy          = "0.75"
 gh             = "2.102"
+restic         = "0.18"
 "aqua:shenwei356/rush" = "0.11.0"
 
 
@@ -233,6 +234,18 @@ run = "bash scripts/drift-cloudflare.sh"
 [tasks."drift:dns"]
 description = "Detect drift in infrastructure/dns locally (needs production SOPS; summary-only output)"
 run = "bash scripts/drift-dns.sh"
+
+[tasks."drift:all"]
+description = "Detect drift across all OpenTofu modules locally (needs production SOPS; summary-only output)"
+run = "bash scripts/drift.sh --all"
+
+[tasks."state:snapshot"]
+description = "Snapshot OpenTofu remote state from R2 to homelab-infra/snapshots/<module>/<timestamp>.tfstate"
+run = "bash scripts/snapshot-state.sh"
+
+[tasks."ansible:inventory"]
+description = "Generate static Ansible YAML inventory from OpenTofu ansible_inventory outputs"
+run = "bash scripts/generate-inventory.sh"
 
 [tasks."docs:generate"]
 description = "Generate OpenTofu module documentation"

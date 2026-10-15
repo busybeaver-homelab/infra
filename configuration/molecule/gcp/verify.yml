@@ -40,6 +40,32 @@
           - ansible_facts.services['ssh.socket']['state'] | default('stopped') != 'running'
         fail_msg: "OpenSSH socket (ssh.socket) should not be active"
 
+    - name: Check systemd enabled state of ssh.socket and ssh.service # noqa: command-instead-of-module
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-enabled
+          - "{{ item }}"
+      loop:
+        - ssh.socket
+        - ssh.service
+      register: ssh_unit_enabled
+      changed_when: false
+      failed_when: false
+
+    - name: Assert ssh.socket and ssh.service are masked
+      ansible.builtin.assert:
+        that:
+          - item.stdout | trim == 'masked'
+        fail_msg: "Expected {{ item.item }} to be masked, got '{{ item.stdout | trim }}'"
+      loop: "{{ ssh_unit_enabled.results }}"
+
+    - name: Verify port 22 is not listening
+      ansible.builtin.wait_for:
+        port: 22
+        state: stopped
+        timeout: 5
+
     - name: Check /etc/firewall.bash exists
       ansible.builtin.stat:
         path: /etc/firewall.bash

@@ -19,6 +19,10 @@ resource "oci_objectstorage_bucket" "backups" {
     "Environment" = "Production"
     "Role"        = "Backup"
   })
+
+  lifecycle {
+    prevent_destroy = var.enable_prevent_destroy
+  }
 }
 
 # --- Object Storage Lifecycle Policy (Purge Incomplete Multipart Uploads) ---

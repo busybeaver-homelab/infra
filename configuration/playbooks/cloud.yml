@@ -1,4 +1,20 @@
 ---
+- name: Preflight — assert non-empty target inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Assert inventory contains at least one target host
+      ansible.builtin.assert:
+        that:
+          - groups['all'] | default([]) | length > 0
+        fail_msg: >-
+          Inventory resolved zero target hosts. Populate Tailscale MagicDNS
+          hostnames in SOPS or pass -e allow_empty_inventory=true for syntax/dry checks.
+      when:
+        - not ansible_check_mode
+        - not (allow_empty_inventory | default(false) | bool)
+
 - name: Configure Cloud Instances (OCI and GCP)
   hosts: "{{ cloud_target_hosts | default('cloud:oci:gcp') }}"
   become: true
@@ -63,22 +79,19 @@
     - restic_backup
 
   post_tasks:
-    - name: Gather service facts
-      ansible.builtin.service_facts:
-
-    - name: Ensure OpenSSH server service and socket are stopped and disabled
+    - name: Stop, disable, and mask OpenSSH socket and service
       ansible.builtin.systemd_service:
         name: "{{ item }}"
         state: stopped
         enabled: false
+        masked: true
+        daemon_reload: true
       loop:
-        - ssh.service
         - ssh.socket
-      when:
-        - not (ssh_server_enabled | default(true) | bool)
-        - ansible_facts.services[item] is defined
+        - ssh.service
+      when: not (ssh_server_enabled | default(true) | bool)
 
-    - name: Refresh service facts after stopping OpenSSH
+    - name: Gather service facts after masking OpenSSH
       ansible.builtin.service_facts:
       when: not (ssh_server_enabled | default(true) | bool)
 
@@ -88,4 +101,11 @@
           - ansible_facts.services['ssh.service']['state'] | default('stopped') != 'running'
           - ansible_facts.services['ssh.socket']['state'] | default('stopped') != 'running'
         fail_msg: "OpenSSH service or socket is unexpectedly still running"
+      when: not (ssh_server_enabled | default(true) | bool)
+
+    - name: Verify port 22 is closed when OpenSSH is disabled
+      ansible.builtin.wait_for:
+        port: 22
+        state: stopped
+        timeout: 5
       when: not (ssh_server_enabled | default(true) | bool)

@@ -18,14 +18,18 @@ variable "monthly_budget_amount" {
 
 variable "budget_contact_emails" {
   type        = list(string)
-  description = "List of email addresses to notify when budget thresholds are exceeded."
-  default     = []
+  description = "List of email addresses to notify when budget thresholds are exceeded (at least one required)."
+  sensitive   = true
+  nullable    = false
 
   validation {
-    condition = alltrue([
-      for email in var.budget_contact_emails : can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", email))
-    ])
-    error_message = "All contact emails must be valid email addresses."
+    condition = (
+      length(var.budget_contact_emails) >= 1 &&
+      alltrue([
+        for email in var.budget_contact_emails : can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", email))
+      ])
+    )
+    error_message = "At least one valid budget contact email address must be provided."
   }
 }
 

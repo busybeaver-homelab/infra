@@ -10,8 +10,13 @@ base_ubuntu_server_firewall_enabled: true
 base_ubuntu_server_firewall_default_incoming: "deny"
 base_ubuntu_server_firewall_default_outgoing: "allow"
 base_ubuntu_server_firewall_allow_tailscale: true
+base_ubuntu_server_firewall_tailscale_interface: "tailscale0"
+base_ubuntu_server_firewall_external_interface: ""
 base_ubuntu_server_firewall_allow_openssh: false
 base_ubuntu_server_firewall_docker_isolation: true
+
+# Optional host-alive and disk-space Healthchecks.io ping URL
+base_ubuntu_server_healthchecks_ping_url: ""
 
 # SSH daemon state verification
 base_ubuntu_server_verify_ssh_running: false

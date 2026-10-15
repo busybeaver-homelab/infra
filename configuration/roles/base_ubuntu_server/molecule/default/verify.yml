@@ -36,8 +36,10 @@
     - name: Verify DOCKER-USER chain isolates external traffic
       ansible.builtin.assert:
         that:
+          - "'169.254.169.254' in base_ubuntu_server_iptables_docker_user.stdout"
           - "'tailscale0' in base_ubuntu_server_iptables_docker_user.stdout"
           - "'DROP' in base_ubuntu_server_iptables_docker_user.stdout"
+          - "'RETURN' in base_ubuntu_server_iptables_docker_user.stdout"
 
     - name: Verify SSH service is inactive and disabled # noqa: command-instead-of-module
       ansible.builtin.command: systemctl is-active ssh
@@ -74,8 +76,10 @@
     - name: Assert DROP rule persists on DOCKER-USER chain
       ansible.builtin.assert:
         that:
+          - "'169.254.169.254' in base_ubuntu_server_iptables_after_reload.stdout"
           - "'tailscale0' in base_ubuntu_server_iptables_after_reload.stdout"
           - "'DROP' in base_ubuntu_server_iptables_after_reload.stdout"
+          - "'RETURN' in base_ubuntu_server_iptables_after_reload.stdout"
 
     - name: Stat /etc/ufw/after.rules configuration file
       ansible.builtin.stat:
@@ -116,3 +120,20 @@
       loop: "{{ base_ubuntu_server_retired_fetch_stats.results }}"
       loop_control:
         label: "{{ item.item }}"
+
+    - name: Check homelab-healthcheck.timer is active # noqa: command-instead-of-module
+      ansible.builtin.command: systemctl is-active homelab-healthcheck.timer
+      register: base_ubuntu_server_hc_timer_active
+      changed_when: false
+      failed_when: base_ubuntu_server_hc_timer_active.rc != 0
+
+    - name: Stat homelab-healthcheck environment file
+      ansible.builtin.stat:
+        path: /etc/default/homelab-healthcheck
+      register: base_ubuntu_server_hc_env_stat
+
+    - name: Assert homelab-healthcheck environment file has 0600 permissions
+      ansible.builtin.assert:
+        that:
+          - base_ubuntu_server_hc_env_stat.stat.exists
+          - base_ubuntu_server_hc_env_stat.stat.mode == '0600'

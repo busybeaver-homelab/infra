@@ -213,6 +213,28 @@ variable "ampere_memory_in_gbs" {
   }
 }
 
+variable "amd_boot_volume_size_gb" {
+  type        = number
+  description = "Boot volume size in GBs for each AMD E2.1.Micro compute instance (min 50 GB; combined tenancy boot volumes <= 200 GB Always Free)."
+  default     = 50
+
+  validation {
+    condition     = var.amd_boot_volume_size_gb >= 50 && var.amd_boot_volume_size_gb <= 100
+    error_message = "amd_boot_volume_size_gb must be between 50 and 100 GB."
+  }
+}
+
+variable "arm_boot_volume_size_gb" {
+  type        = number
+  description = "Boot volume size in GBs for the Ampere A1 compute instance (min 50 GB; combined tenancy boot volumes <= 200 GB Always Free)."
+  default     = 100
+
+  validation {
+    condition     = var.arm_boot_volume_size_gb >= 50 && var.arm_boot_volume_size_gb <= 200
+    error_message = "arm_boot_volume_size_gb must be between 50 and 200 GB."
+  }
+}
+
 variable "secrets_file_path" {
   type        = string
   description = "Path to the canonical SOPS credentials file (defaults to production credentials)."

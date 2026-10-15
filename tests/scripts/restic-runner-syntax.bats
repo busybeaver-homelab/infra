@@ -17,6 +17,7 @@ teardown() {
 
 # Renders the runner template into $BATS_TMPDIR/runner.sh with test paths.
 render_runner() {
+  local auto_init="${1:-false}"
   python3 -c 'import jinja2' 2>/dev/null || skip "python3 with jinja2 is required (run via mise exec)"
   mkdir -p "${BATS_TMPDIR}/etc" "${BATS_TMPDIR}/data" "${BATS_TMPDIR}/libexec" \
     "${BATS_TMPDIR}/bin" "${BATS_TMPDIR}/creds"
@@ -25,11 +26,12 @@ render_runner() {
   : > "${BATS_TMPDIR}/etc/excludes.txt"
   printf 'test-password' > "${BATS_TMPDIR}/creds/restic_password"
 
-  python3 - "${RUNNER_TEMPLATE}" "${BATS_TMPDIR}" <<'PY'
+  python3 - "${RUNNER_TEMPLATE}" "${BATS_TMPDIR}" "${auto_init}" <<'PY'
 import sys
 import jinja2
 
-template_path, tmp = sys.argv[1], sys.argv[2]
+template_path, tmp, auto_init_arg = sys.argv[1], sys.argv[2], sys.argv[3]
+auto_init = auto_init_arg.lower() == "true"
 with open(template_path, encoding="utf-8") as handle:
     template = jinja2.Template(handle.read(), keep_trailing_newline=True)
 rendered = template.render(
@@ -37,17 +39,19 @@ rendered = template.render(
     restic_backup_paths=[f"{tmp}/data"],
     restic_backup_secondary_enabled=False,
     restic_backup_libexec_dir=f"{tmp}/libexec",
+    restic_backup_auto_init=auto_init,
 )
 with open(f"{tmp}/runner.sh", "w", encoding="utf-8") as handle:
     handle.write(rendered)
 PY
   chmod +x "${BATS_TMPDIR}/runner.sh"
 
-  # Stub restic: logs the subcommand, fails with exit 3 on $STUB_FAIL_ON.
+  # Stub restic: logs the subcommand, fails with exit 3 on $STUB_FAIL_ON or $STUB_CAT_RC on cat.
   cat > "${BATS_TMPDIR}/bin/restic" <<'SH'
 #!/usr/bin/env bash
 sub="$3"
 echo "${sub}" >> "${STUB_LOG}"
+if [ "${sub}" = "cat" ] && [ -n "${STUB_CAT_RC:-}" ]; then exit "${STUB_CAT_RC}"; fi
 if [ "${sub}" = "${STUB_FAIL_ON:-}" ]; then exit 3; fi
 exit 0
 SH
@@ -66,6 +70,7 @@ run_runner() {
     STUB_LOG="${BATS_TMPDIR}/restic.log" \
     NOTIFY_LOG="${BATS_TMPDIR}/notify.log" \
     STUB_FAIL_ON="${1:-}" \
+    STUB_CAT_RC="${STUB_CAT_RC:-}" \
     bash "${BATS_TMPDIR}/runner.sh"
 }
 
@@ -122,9 +127,41 @@ run_runner() {
   [ "$status" -eq 1 ]
 }
 
-@test "restic runner isolates targets by sourcing environment files inside subshells" {
-  run grep -F '. "${env_file}"' "${RUNNER_TEMPLATE}"
+@test "restic runner isolates targets by loading environment files inside subshells" {
+  run grep -F 'load_env_file "${env_file}"' "${RUNNER_TEMPLATE}"
   [ "$status" -eq 0 ]
+}
+
+@test "restic init is not called when restic cat config fails with generic error (exit 1)" {
+  render_runner true
+  STUB_CAT_RC=1 run_runner
+  [ "$status" -eq 1 ]
+  run grep -x init "${BATS_TMPDIR}/restic.log"
+  [ "$status" -eq 1 ]
+}
+
+@test "restic init is not called when restic cat config fails with exit 10 and restic_backup_auto_init=false" {
+  render_runner false
+  STUB_CAT_RC=10 run_runner
+  [ "$status" -eq 1 ]
+  run grep -x init "${BATS_TMPDIR}/restic.log"
+  [ "$status" -eq 1 ]
+}
+
+@test "restic init is called when restic cat config fails with exit 10 and restic_backup_auto_init=true" {
+  render_runner true
+  STUB_CAT_RC=10 run_runner
+  [ "$status" -eq 0 ]
+  run grep -x init "${BATS_TMPDIR}/restic.log"
+  [ "$status" -eq 0 ]
+}
+
+@test "load_env_file loads KEY=VALUE without executing command substitutions" {
+  render_runner
+  printf 'RESTIC_REPOSITORY=%s/repo\nSAFE_VAR="$(touch %s/pwned)"\n' "${BATS_TMPDIR}" "${BATS_TMPDIR}" > "${BATS_TMPDIR}/etc/primary.env"
+  run_runner
+  [ "$status" -eq 0 ]
+  [ ! -e "${BATS_TMPDIR}/pwned" ]
 }
 
 @test "restic runner executes backup with retry-lock and target labels" {

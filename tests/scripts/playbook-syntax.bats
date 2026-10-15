@@ -46,28 +46,28 @@ setup() {
 }
 
 @test "ansible playbooks pass syntax check" {
-  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/base.yml"
+  run mise exec -- ansible-playbook -i "localhost," --syntax-check "$REPO_ROOT/configuration/playbooks/base.yml"
   [ "$status" -eq 0 ]
 
-  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/common.yml"
+  run mise exec -- ansible-playbook -i "localhost," --syntax-check "$REPO_ROOT/configuration/playbooks/common.yml"
   [ "$status" -eq 0 ]
 
-  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/homelab.yml"
+  run mise exec -- ansible-playbook -i "localhost," --syntax-check "$REPO_ROOT/configuration/playbooks/homelab.yml"
   [ "$status" -eq 0 ]
 
-  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/site.yml"
+  run mise exec -- ansible-playbook -i "localhost," --syntax-check "$REPO_ROOT/configuration/playbooks/site.yml"
   [ "$status" -eq 0 ]
 
-  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/cloud.yml"
+  run mise exec -- ansible-playbook -i "localhost," --syntax-check "$REPO_ROOT/configuration/playbooks/cloud.yml"
   [ "$status" -eq 0 ]
 
-  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/oci.yml"
+  run mise exec -- ansible-playbook -i "localhost," --syntax-check "$REPO_ROOT/configuration/playbooks/oci.yml"
   [ "$status" -eq 0 ]
 
-  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/gcp.yml"
+  run mise exec -- ansible-playbook -i "localhost," --syntax-check "$REPO_ROOT/configuration/playbooks/gcp.yml"
   [ "$status" -eq 0 ]
 
-  run mise exec -- ansible-playbook --syntax-check "$REPO_ROOT/configuration/playbooks/unifi.yml"
+  run mise exec -- ansible-playbook -i "localhost," --syntax-check "$REPO_ROOT/configuration/playbooks/unifi.yml"
   [ "$status" -eq 0 ]
 }
 
@@ -321,7 +321,7 @@ setup() {
   fi
 
   # Ensure password clipboard extraction is documented
-  run grep -E "mise exec -- sops -d --extract '\\[\"breakglass_password\"\\]'.*\\| pbcopy" "$doc"
+  run grep -E "mise exec -- sops -d --extract '\\[\"oci\"\\]\\[\"breakglass_password\"\\]'.*\\| pbcopy" "$doc"
   [ "$status" -eq 0 ]
 
   # Ensure no raw password printing via grep
@@ -329,7 +329,7 @@ setup() {
   [ "$status" -ne 0 ]
 
   # Ensure file-based authkey for tailscale up
-  run grep -E "tailscale up --ssh --auth-key=\"file:/tmp/ts.key\"" "$doc"
+  run grep -E "tailscale up --ssh --authkey=\"file:/tmp/ts.key\"" "$doc"
   [ "$status" -eq 0 ]
 }
 
@@ -666,3 +666,57 @@ if unknown:
   echo "$output" | grep -q "molecule converge"
   echo "$output" | grep -q "molecule verify"
 }
+
+@test "DR and break-glass runbooks reference existing configuration paths, canonical SOPS keys, and valid CLI flags" {
+  local runbooks=(
+    "$REPO_ROOT/docs/runbooks/oci-breakglass-console.md"
+    "$REPO_ROOT/docs/runbooks/gcp-breakglass-console.md"
+    "$REPO_ROOT/docs/runbooks/restic-restore-drill.md"
+  )
+
+  for doc in "${runbooks[@]}"; do
+    [ -f "$doc" ]
+    if is_git_crypt_encrypted "$doc"; then
+      skip "$(basename "$doc") is git-crypt encrypted in CI environment"
+    fi
+
+    # Must not reference deprecated ad-hoc SOPS files or legacy playbook paths
+    run grep -F "secrets.oci.sops.yaml" "$doc"
+    [ "$status" -ne 0 ]
+    run grep -F "configuration/playbooks/site.yml" "$doc"
+    [ "$status" -ne 0 ]
+
+    # Must not use deprecated --auth-key= flag
+    run grep -F -- "--auth-key=" "$doc"
+    [ "$status" -ne 0 ]
+
+    # Every configuration/... path referenced in the runbook must exist in the repo
+    local cfg_paths
+    cfg_paths=$(grep -Eo 'configuration/[A-Za-z0-9_./-]+\.yml' "$doc" | sort -u || true)
+    for rel_path in $cfg_paths; do
+      [ -f "$REPO_ROOT/$rel_path" ]
+    done
+
+    # Every sops --extract key path referenced in the runbook must exist in secrets/credentials.ci.sops.yaml
+    local extract_exprs
+    extract_exprs=$(grep -Eo "\-\-extract '[^']+'" "$doc" | sed -E "s/--extract '([^']+)'/\1/" | sort -u || true)
+    while IFS= read -r expr; do
+      [ -z "$expr" ] && continue
+      local yq_path
+      yq_path=$(echo "$expr" | sed -E 's/\["([^"]+)"\]/.\1/g')
+      run yq eval "${yq_path} != null" "$REPO_ROOT/secrets/credentials.ci.sops.yaml"
+      [ "$status" -eq 0 ]
+      [ "$output" = "true" ]
+    done <<<"$extract_exprs"
+  done
+
+  # Verify restic-restore-drill.md documents per-host paths and updated retention flags
+  local drill_doc="$REPO_ROOT/docs/runbooks/restic-restore-drill.md"
+  run grep -F '/oci-amd-1' "$drill_doc"
+  [ "$status" -eq 0 ]
+  run grep -F '/gcp-default-vm' "$drill_doc"
+  [ "$status" -eq 0 ]
+  run grep -F -- '--max-unused 10%' "$drill_doc"
+  [ "$status" -eq 0 ]
+}
+

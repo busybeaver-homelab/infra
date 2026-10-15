@@ -1,0 +1,10 @@
+# Managed by Ansible - do not edit manually
+[Unit]
+Description=Periodic homelab host-alive and disk-space healthcheck timer
+
+[Timer]
+OnCalendar=*:0/15
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target

@@ -33,6 +33,10 @@
 - name: Remove the retired OCI Vault secrets fetcher
   ansible.builtin.include_tasks: legacy_secrets_fetch_cleanup.yml
 
+- name: Configure host-alive and disk-space healthcheck timer
+  ansible.builtin.include_tasks: healthcheck.yml
+  when: (base_ubuntu_server_healthchecks_ping_url | default('') | length) > 0
+
 - name: Gather service facts
   ansible.builtin.service_facts:
 

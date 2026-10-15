@@ -5,6 +5,7 @@
 # Disable base_ubuntu_server UFW firewall because geerlingguy.firewall manages iptables directly on cloud instances
 base_ubuntu_server_firewall_enabled: false
 firewall_enabled: true
+firewall_flush_rules_and_chains: false
 firewall_allowed_tcp_ports: []
 firewall_allowed_udp_ports:
   # Tailscale WireGuard direct peer-to-peer port

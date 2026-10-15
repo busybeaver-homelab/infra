@@ -21,10 +21,10 @@
     default: "{{ base_ubuntu_server_firewall_default_outgoing }}"
   become: true
 
-- name: Allow all incoming traffic on tailscale0 interface in UFW
+- name: Allow all incoming traffic on Tailscale interface in UFW
   community.general.ufw:
     rule: allow
-    interface: tailscale0
+    interface: "{{ base_ubuntu_server_firewall_tailscale_interface }}"
     direction: in
   when: base_ubuntu_server_firewall_allow_tailscale | bool
   become: true
@@ -36,6 +36,20 @@
   when: base_ubuntu_server_firewall_allow_openssh | bool
   become: true
 
+- name: Resolve effective external interface for DOCKER-USER chain
+  ansible.builtin.set_fact:
+    _base_ubuntu_server_ext_iface: >-
+      {{
+        base_ubuntu_server_firewall_external_interface
+        | default(
+            (ansible_facts.default_ipv4.interface | default('eth0', true))
+            if (ansible_facts.default_ipv4 is defined)
+            else 'eth0',
+            true
+          )
+      }}
+  when: base_ubuntu_server_firewall_docker_isolation | bool
+
 - name: Configure DOCKER-USER chain in /etc/ufw/after.rules
   ansible.builtin.blockinfile:
     path: /etc/ufw/after.rules
@@ -43,10 +57,13 @@
     marker: "# {mark} ANSIBLE MANAGED DOCKER-USER ISOLATION"
     block: |
       :DOCKER-USER - [0:0]
-      -A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-      -A DOCKER-USER -i lo -j ACCEPT
-      -A DOCKER-USER -i tailscale0 -j ACCEPT
-      -A DOCKER-USER -j DROP
+      -A DOCKER-USER -d 169.254.169.254/32 -j DROP
+      -A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+      -A DOCKER-USER -i lo -j RETURN
+      -A DOCKER-USER -i {{ base_ubuntu_server_firewall_tailscale_interface }} -j RETURN
+      -A DOCKER-USER -i {{ _base_ubuntu_server_ext_iface | trim }} -m conntrack --ctstate NEW -j DROP
+      -A DOCKER-USER -j RETURN
+  register: base_ubuntu_server_ufw_after_rules
   when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
   notify: Reload ufw
@@ -65,39 +82,68 @@
   when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
 
-- name: Allow related and established connections in DOCKER-USER chain
+- name: Flush DOCKER-USER chain when UFW after.rules block is updated # noqa: no-handler
+  ansible.builtin.iptables:
+    chain: DOCKER-USER
+    flush: true
+  when:
+    - base_ubuntu_server_firewall_docker_isolation | bool
+    - base_ubuntu_server_ufw_after_rules.changed
+  become: true
+
+- name: Drop traffic to cloud metadata endpoint in DOCKER-USER chain
+  ansible.builtin.iptables:
+    chain: DOCKER-USER
+    destination: 169.254.169.254/32
+    jump: DROP
+    action: append
+  when: base_ubuntu_server_firewall_docker_isolation | bool
+  become: true
+
+- name: Return related and established connections in DOCKER-USER chain
   ansible.builtin.iptables:
     chain: DOCKER-USER
     ctstate:
       - RELATED
       - ESTABLISHED
-    jump: ACCEPT
+    jump: RETURN
     action: append
   when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
 
-- name: Allow loopback in DOCKER-USER chain
+- name: Return loopback in DOCKER-USER chain
   ansible.builtin.iptables:
     chain: DOCKER-USER
     in_interface: lo
-    jump: ACCEPT
+    jump: RETURN
     action: append
   when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
 
-- name: Allow tailscale0 in DOCKER-USER chain
+- name: Return tailscale0 in DOCKER-USER chain
   ansible.builtin.iptables:
     chain: DOCKER-USER
-    in_interface: tailscale0
-    jump: ACCEPT
+    in_interface: "{{ base_ubuntu_server_firewall_tailscale_interface }}"
+    jump: RETURN
     action: append
   when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true
 
-- name: Drop non-tailscale inbound traffic in DOCKER-USER chain
+- name: Drop unsolicited inbound NEW connections on external interface in DOCKER-USER chain
   ansible.builtin.iptables:
     chain: DOCKER-USER
+    in_interface: "{{ _base_ubuntu_server_ext_iface | trim }}"
+    ctstate:
+      - NEW
     jump: DROP
+    action: append
+  when: base_ubuntu_server_firewall_docker_isolation | bool
+  become: true
+
+- name: Return remaining traffic in DOCKER-USER chain
+  ansible.builtin.iptables:
+    chain: DOCKER-USER
+    jump: RETURN
     action: append
   when: base_ubuntu_server_firewall_docker_isolation | bool
   become: true

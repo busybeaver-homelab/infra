@@ -6,6 +6,10 @@ resource "oci_core_vcn" "main" {
   display_name   = "homelab-vcn"
   dns_label      = "homelab"
   freeform_tags  = local.effective_tags
+
+  lifecycle {
+    prevent_destroy = var.enable_prevent_destroy
+  }
 }
 
 resource "oci_core_nat_gateway" "main" {
@@ -65,4 +69,8 @@ resource "oci_core_subnet" "private" {
   route_table_id             = oci_core_route_table.private.id
   security_list_ids          = [oci_core_security_list.private.id]
   freeform_tags              = local.effective_tags
+
+  lifecycle {
+    prevent_destroy = var.enable_prevent_destroy
+  }
 }

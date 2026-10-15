@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Managed by Ansible - do not edit manually
+set -euo pipefail
+
+usage="$(df --output=pcent / | tail -n 1 | tr -dc '0-9')"
+if [ -z "${usage}" ] || [ "${usage}" -ge 85 ]; then
+  if [ -n "${HEALTHCHECKS_PING_URL:-}" ]; then
+    curl -fsS --max-time 10 --retry 3 "${HEALTHCHECKS_PING_URL%/}/fail" >/dev/null || true
+  fi
+  echo "Root filesystem usage (${usage:-unknown}%) exceeds 85% threshold" >&2
+  exit 1
+fi
+
+if [ -n "${HEALTHCHECKS_PING_URL:-}" ]; then
+  curl -fsS --max-time 10 --retry 3 "${HEALTHCHECKS_PING_URL}" >/dev/null
+fi

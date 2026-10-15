@@ -437,6 +437,21 @@ checksum = "sha256:10e5705e44938ee78de35c62b30fdfe2945b53438343d04c0f53548cdd8e9
 url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.14.8+20261003-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
+[[tools.restic]]
+version = "0.18.1"
+backend = "aqua:restic/restic"
+specifiers = ["0.18"]
+
+[tools.restic."platforms.linux-x64"]
+checksum = "sha256:680838f19d67151adba227e1570cdd8af12c19cf1735783ed1ba928bc41f363d"
+url = "https://github.com/restic/restic/releases/download/v0.18.1/restic_0.18.1_linux_amd64.bz2"
+url_api = "https://api.github.com/repos/restic/restic/releases/assets/295705029"
+
+[tools.restic."platforms.macos-arm64"]
+checksum = "sha256:193fccc8bb4567b498923bc70261e104ff22be88016f0f108b035dad372ab711"
+url = "https://github.com/restic/restic/releases/download/v0.18.1/restic_0.18.1_darwin_arm64.bz2"
+url_api = "https://api.github.com/repos/restic/restic/releases/assets/295704737"
+
 [[tools.ruff]]
 version = "0.16.10"
 backend = "aqua:astral-sh/ruff"

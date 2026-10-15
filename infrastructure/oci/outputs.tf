@@ -81,3 +81,31 @@ output "backup_uploaders_policy_id" {
   description = "OCID of the append-only IAM policy for backup uploads."
   sensitive   = true
 }
+
+output "ansible_inventory" {
+  description = "Structured Ansible inventory map for OCI compute instances consumed by scripts/generate-inventory.sh."
+  sensitive   = true
+  value = merge(
+    {
+      for idx, inst in oci_core_instance.amd :
+      inst.display_name => {
+        name         = inst.display_name
+        ip           = inst.private_ip
+        private_ip   = inst.private_ip
+        ansible_host = inst.display_name
+        group        = "oci"
+        role         = "amd_worker"
+      }
+    },
+    {
+      (oci_core_instance.ampere.display_name) = {
+        name         = oci_core_instance.ampere.display_name
+        ip           = oci_core_instance.ampere.private_ip
+        private_ip   = oci_core_instance.ampere.private_ip
+        ansible_host = oci_core_instance.ampere.display_name
+        group        = "oci"
+        role         = "arm_worker"
+      }
+    }
+  )
+}

@@ -30,6 +30,16 @@ argument_specs:
         type: bool
         default: true
         description: Whether to allow Tailscale interface and WireGuard UDP port.
+      base_ubuntu_server_firewall_tailscale_interface:
+        type: str
+        default: "tailscale0"
+        description: Name of the Tailscale WireGuard network interface.
+      base_ubuntu_server_firewall_external_interface:
+        type: str
+        default: ""
+        description: >-
+          External/WAN network interface on which unsolicited inbound NEW connections
+          to Docker containers are dropped in DOCKER-USER. Defaults to ansible_facts.default_ipv4.interface.
       base_ubuntu_server_firewall_allow_openssh:
         type: bool
         default: false
@@ -38,6 +48,10 @@ argument_specs:
         type: bool
         default: true
         description: Whether to inject DOCKER-USER iptables isolation chain rules.
+      base_ubuntu_server_healthchecks_ping_url:
+        type: str
+        default: ""
+        description: Optional Healthchecks.io ping URL for periodic host-alive and disk-space monitoring.
       base_ubuntu_server_verify_ssh_running:
         type: bool
         default: false

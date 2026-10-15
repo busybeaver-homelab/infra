@@ -51,6 +51,31 @@ credential_path() {
   fi
 }
 
+load_env_file() {
+  local file="$1"
+  [ -f "${file}" ] || { log "Error: Environment file ${file} not found." >&2; return 1; }
+  local line key val
+  while IFS= read -r line || [ -n "${line}" ]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    case "${line}" in
+      ''|'#'*) continue ;;
+    esac
+    if [[ "${line}" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"
+      val="${BASH_REMATCH[2]}"
+      if [[ "${val}" =~ ^\"(.*)\"$ ]]; then
+        val="${BASH_REMATCH[1]}"
+      elif [[ "${val}" =~ ^\'(.*)\'$ ]]; then
+        val="${BASH_REMATCH[1]}"
+      fi
+      export "${key}=${val}"
+    else
+      log "Error: Invalid line in ${file}" >&2
+      return 1
+    fi
+  done < "${file}"
+}
+
 # NOTE: execute_target is called from an `if !` condition, where bash ignores
 # `set -e` for the whole call tree. Every command therefore propagates its own
 # failure explicitly (`|| exit $?`), otherwise a failed backup would be masked by
@@ -70,10 +95,7 @@ execute_target() {
   (
     CALLER_RESTIC_PASSWORD_FILE="${RESTIC_PASSWORD_FILE:-}"
     CALLER_RESTIC_REPOSITORY="${RESTIC_REPOSITORY:-}"
-    set -a
-    # shellcheck disable=SC1090
-    . "${env_file}" || exit $?
-    set +a
+    load_env_file "${env_file}" || exit $?
 
     if [ -n "${CALLER_RESTIC_PASSWORD_FILE}" ]; then
       RESTIC_PASSWORD_FILE="${CALLER_RESTIC_PASSWORD_FILE}"
@@ -99,9 +121,19 @@ execute_target() {
       export RESTIC_REPOSITORY
     fi
 
-    if ! restic --retry-lock 2h cat config >/dev/null 2>&1; then
-      log "Initializing repository for ${label}..."
+    cat_rc=0
+    restic --retry-lock 2h cat config >/dev/null 2>&1 || cat_rc=$?
+    if [ "${cat_rc}" -eq 10 ]; then
+{% if restic_backup_auto_init | default(false) %}
+      log "Repository for ${label} does not exist (exit 10); auto-initializing..."
       restic --retry-lock 2h init || exit $?
+{% else %}
+      log "Error: Repository for ${label} is not initialized (exit 10) and restic_backup_auto_init is false." >&2
+      exit 10
+{% endif %}
+    elif [ "${cat_rc}" -ne 0 ]; then
+      log "Error: Failed to read repository config for ${label} (exit ${cat_rc}); refusing to run init." >&2
+      exit "${cat_rc}"
     fi
 
     log "Running backup snapshot to ${label}..."

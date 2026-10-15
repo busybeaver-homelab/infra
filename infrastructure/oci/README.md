@@ -5,7 +5,7 @@
 | Name                                                                     | Version |
 | ------------------------------------------------------------------------ | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.6  |
-| <a name="requirement_external"></a> [external](#requirement_external)    | 2.3.5   |
+| <a name="requirement_external"></a> [external](#requirement_external)    | 2.4.2   |
 | <a name="requirement_oci"></a> [oci](#requirement_oci)                   | 9.9.0   |
 | <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1   |
 
@@ -13,7 +13,7 @@
 
 | Name                                                            | Version |
 | --------------------------------------------------------------- | ------- |
-| <a name="provider_external"></a> [external](#provider_external) | 2.3.5   |
+| <a name="provider_external"></a> [external](#provider_external) | 2.4.2   |
 | <a name="provider_oci"></a> [oci](#provider_oci)                | 9.9.0   |
 
 ## Resources
@@ -43,7 +43,7 @@
 | [oci_objectstorage_object_lifecycle_policy.backups](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/objectstorage_object_lifecycle_policy)                             | resource    |
 | [oci_ons_notification_topic.budget_alerts](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_notification_topic)                                                     | resource    |
 | [oci_ons_subscription.budget_alerts_email](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_subscription)                                                           | resource    |
-| [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.3.5/docs/data-sources/external)                                                                   | data source |
+| [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                                                                   | data source |
 | [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/data-sources/objectstorage_namespace)                                                         | data source |
 
 ## Inputs
@@ -51,8 +51,10 @@
 | Name                                                                                                                              | Description                                                                                                                                        | Type           | Default                                                                                  | Required |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------- | :------: |
 | <a name="input_admin_cidr"></a> [admin\_cidr](#input_admin_cidr)                                                                  | IPv4 CIDR block authorized for emergency SSH access (e.g. bastion, management subnet, or CGNAT).                                                   | `string`       | `""`                                                                                     |    no    |
+| <a name="input_amd_boot_volume_size_gb"></a> [amd\_boot\_volume\_size\_gb](#input_amd_boot_volume_size_gb)                        | Boot volume size in GBs for each AMD E2.1.Micro compute instance (min 50 GB; combined tenancy boot volumes <= 200 GB Always Free).                 | `number`       | `50`                                                                                     |    no    |
 | <a name="input_ampere_memory_in_gbs"></a> [ampere\_memory\_in\_gbs](#input_ampere_memory_in_gbs)                                  | Memory in GBs for the Ampere ARM compute instance (Always Free: max 12, i.e. 9,000 GB-hours/month).                                                | `number`       | `12`                                                                                     |    no    |
 | <a name="input_ampere_ocpus"></a> [ampere\_ocpus](#input_ampere_ocpus)                                                            | Number of OCPUs for the Ampere ARM compute instance (Always Free: max 2, i.e. 1,500 OCPU-hours/month).                                             | `number`       | `2`                                                                                      |    no    |
+| <a name="input_arm_boot_volume_size_gb"></a> [arm\_boot\_volume\_size\_gb](#input_arm_boot_volume_size_gb)                        | Boot volume size in GBs for the Ampere A1 compute instance (min 50 GB; combined tenancy boot volumes <= 200 GB Always Free).                       | `number`       | `100`                                                                                    |    no    |
 | <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input_assign_public_ip)                                               | Whether to assign a public IP to compute instance VNICs (must be false in Always Free homelab architecture).                                       | `bool`         | `false`                                                                                  |    no    |
 | <a name="input_availability_domain"></a> [availability\_domain](#input_availability_domain)                                       | Availability domain for compute instances.                                                                                                         | `string`       | `""`                                                                                     |    no    |
 | <a name="input_budget_alert_recipients"></a> [budget\_alert\_recipients](#input_budget_alert_recipients)                          | Email address(es) to receive budget alert notifications (comma-separated).                                                                         | `string`       | `"admin@example.com"`                                                                    |    no    |
@@ -81,21 +83,22 @@
 
 ## Outputs
 
-| Name                                                                                                                       | Description                                                 |
-| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| <a name="output_amd_instance_ids"></a> [amd\_instance\_ids](#output_amd_instance_ids)                                      | OCIDs of the AMD compute instances.                         |
-| <a name="output_amd_private_ips"></a> [amd\_private\_ips](#output_amd_private_ips)                                         | Private IP addresses of the AMD compute instances.          |
-| <a name="output_arm_instance_id"></a> [arm\_instance\_id](#output_arm_instance_id)                                         | OCID of the Ampere A1 compute instance.                     |
-| <a name="output_arm_private_ip"></a> [arm\_private\_ip](#output_arm_private_ip)                                            | Private IP address of the Ampere A1 compute instance.       |
-| <a name="output_backup_bucket_name"></a> [backup\_bucket\_name](#output_backup_bucket_name)                                | Name of the OCI Object Storage bucket for instance backups. |
-| <a name="output_backup_s3_endpoint"></a> [backup\_s3\_endpoint](#output_backup_s3_endpoint)                                | S3 compatibility endpoint URL for Restic backups.           |
-| <a name="output_backup_uploaders_group_name"></a> [backup\_uploaders\_group\_name](#output_backup_uploaders_group_name)    | Name of the append-only IAM group for backup uploads.       |
-| <a name="output_backup_uploaders_policy_id"></a> [backup\_uploaders\_policy\_id](#output_backup_uploaders_policy_id)       | OCID of the append-only IAM policy for backup uploads.      |
-| <a name="output_budget_id"></a> [budget\_id](#output_budget_id)                                                            | OCID of the zero-spend monthly budget.                      |
-| <a name="output_budget_notification_topic_id"></a> [budget\_notification\_topic\_id](#output_budget_notification_topic_id) | OCID of the budget alerts notification topic.               |
-| <a name="output_forecast_budget_alert_id"></a> [forecast\_budget\_alert\_id](#output_forecast_budget_alert_id)             | OCID of the forecasted spend budget alert rule.             |
-| <a name="output_nat_gateway_id"></a> [nat\_gateway\_id](#output_nat_gateway_id)                                            | OCID of the NAT gateway.                                    |
-| <a name="output_subnet_id"></a> [subnet\_id](#output_subnet_id)                                                            | OCID of the private compute subnet.                         |
-| <a name="output_vcn_id"></a> [vcn\_id](#output_vcn_id)                                                                     | OCID of the homelab VCN.                                    |
+| Name                                                                                                                       | Description                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| <a name="output_amd_instance_ids"></a> [amd\_instance\_ids](#output_amd_instance_ids)                                      | OCIDs of the AMD compute instances.                                                                   |
+| <a name="output_amd_private_ips"></a> [amd\_private\_ips](#output_amd_private_ips)                                         | Private IP addresses of the AMD compute instances.                                                    |
+| <a name="output_ansible_inventory"></a> [ansible\_inventory](#output_ansible_inventory)                                    | Structured Ansible inventory map for OCI compute instances consumed by scripts/generate-inventory.sh. |
+| <a name="output_arm_instance_id"></a> [arm\_instance\_id](#output_arm_instance_id)                                         | OCID of the Ampere A1 compute instance.                                                               |
+| <a name="output_arm_private_ip"></a> [arm\_private\_ip](#output_arm_private_ip)                                            | Private IP address of the Ampere A1 compute instance.                                                 |
+| <a name="output_backup_bucket_name"></a> [backup\_bucket\_name](#output_backup_bucket_name)                                | Name of the OCI Object Storage bucket for instance backups.                                           |
+| <a name="output_backup_s3_endpoint"></a> [backup\_s3\_endpoint](#output_backup_s3_endpoint)                                | S3 compatibility endpoint URL for Restic backups.                                                     |
+| <a name="output_backup_uploaders_group_name"></a> [backup\_uploaders\_group\_name](#output_backup_uploaders_group_name)    | Name of the append-only IAM group for backup uploads.                                                 |
+| <a name="output_backup_uploaders_policy_id"></a> [backup\_uploaders\_policy\_id](#output_backup_uploaders_policy_id)       | OCID of the append-only IAM policy for backup uploads.                                                |
+| <a name="output_budget_id"></a> [budget\_id](#output_budget_id)                                                            | OCID of the zero-spend monthly budget.                                                                |
+| <a name="output_budget_notification_topic_id"></a> [budget\_notification\_topic\_id](#output_budget_notification_topic_id) | OCID of the budget alerts notification topic.                                                         |
+| <a name="output_forecast_budget_alert_id"></a> [forecast\_budget\_alert\_id](#output_forecast_budget_alert_id)             | OCID of the forecasted spend budget alert rule.                                                       |
+| <a name="output_nat_gateway_id"></a> [nat\_gateway\_id](#output_nat_gateway_id)                                            | OCID of the NAT gateway.                                                                              |
+| <a name="output_subnet_id"></a> [subnet\_id](#output_subnet_id)                                                            | OCID of the private compute subnet.                                                                   |
+| <a name="output_vcn_id"></a> [vcn\_id](#output_vcn_id)                                                                     | OCID of the homelab VCN.                                                                              |
 
 <!-- END_TF_DOCS -->

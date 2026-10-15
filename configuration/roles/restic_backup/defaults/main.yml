@@ -15,12 +15,19 @@ restic_backup_secondary_s3_access_key: ""
 restic_backup_secondary_s3_secret_key: ""
 restic_backup_secondary_password: ""
 
+# Whether to automatically initialize an uninitialized repository (exit code 10)
+restic_backup_auto_init: false
+
 # Directories and paths to include in the backup
 restic_backup_paths:
   - "/etc"
+  - "/home"
   - "/root"
+  - "/var/spool/cron"
   - "/usr/local/etc"
   - "/opt/containers"
+  - "/var/lib/docker/volumes"
+  - "/var/backups/containers"
 
 # Exclusion patterns
 restic_backup_excludes:
@@ -37,11 +44,6 @@ restic_backup_excludes:
   - "lost+found/"
   - "/var/run/docker.sock"
   - "*.pid"
-
-# Retention policy
-restic_backup_keep_daily: 3
-restic_backup_keep_weekly: 1
-restic_backup_keep_monthly: 0
 
 # Systemd timer schedule
 restic_backup_schedule_calendar: "*-*-* 03:00:00 UTC"

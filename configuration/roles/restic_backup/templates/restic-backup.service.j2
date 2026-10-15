@@ -6,8 +6,8 @@ OnFailure=restic-backup-failure@%n.service
 
 [Service]
 Type=oneshot
-# restic retries locks for up to 2h; bound the whole run so a hang cannot block later runs
-TimeoutStartSec=6h
+# restic retries locks for up to 2h per target; bound the whole run so a hang cannot block later runs
+TimeoutStartSec=4h
 EnvironmentFile={{ restic_backup_config_dir }}/backup.env
 
 # Secrets: systemd encrypted credentials, decrypted only into this unit's private
@@ -48,9 +48,9 @@ CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 SystemCallFilter=@system-service
 
 # Explicit read-write filesystem paths
-ReadWritePaths={{ restic_backup_cache_dir }} {{ restic_backup_log_dir }} /tmp
+ReadWritePaths={{ restic_backup_cache_dir }} {{ restic_backup_log_dir }} /tmp -/var/backups/containers
 # Read-only filesystem paths
-ReadOnlyPaths={% for p in restic_backup_paths %}-{{ p }} {% endfor %}
+ReadOnlyPaths={% for p in restic_backup_paths if p != '/var/backups/containers' %}-{{ p }} {% endfor %}
 
 # Resource Priority
 Nice=19

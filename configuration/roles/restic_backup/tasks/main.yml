@@ -31,6 +31,16 @@
     - { path: "{{ restic_backup_credstore_dir }}", mode: "0700" }
     - { path: "{{ restic_backup_libexec_dir }}", mode: "0755" }
     - { path: "/opt/containers", mode: "0755" }
+    - { path: "/var/backups/containers", mode: "0700" }
+  become: true
+
+- name: Deploy restic pre-backup container database dump hook
+  ansible.builtin.copy:
+    src: 10-container-db-dumps.sh
+    dest: "{{ restic_backup_config_dir }}/hooks.d/pre.d/10-container-db-dumps.sh"
+    owner: root
+    group: root
+    mode: "0750"
   become: true
 
 - name: Deploy restic helper scripts
@@ -91,6 +101,7 @@
     owner: root
     group: root
     mode: "0600"
+  no_log: true
   become: true
 
 - name: Deploy primary restic backup environment file
@@ -100,6 +111,7 @@
     owner: root
     group: root
     mode: "0600"
+  no_log: true
   become: true
 
 - name: Deploy secondary restic backup environment file
@@ -110,6 +122,7 @@
     group: root
     mode: "0600"
   when: restic_backup_secondary_enabled | bool
+  no_log: true
   become: true
 
 - name: Remove secondary restic backup environment file when disabled
