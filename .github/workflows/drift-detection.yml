@@ -1,8 +1,9 @@
 name: Infrastructure Drift Detection
 
+# Manual only (REV2-P0-7). Scheduled drift moves to a local `mise run drift:all` with a
+# Healthchecks heartbeat (REV2-P2-7, owner decision D5): the CI SOPS file is synthetic, so
+# scheduled CI plans cannot read the real state and only produced failures.
 on:
-  schedule:
-    - cron: "0 6 * * *" # Daily at 06:00 UTC
   workflow_dispatch:
 
 concurrency:
@@ -74,32 +75,47 @@ jobs:
           fi
 
       - name: Initialize OpenTofu Module
+        env:
+          MODULE: ${{ matrix.module }}
         run: |
-          cd "infrastructure/${{ matrix.module }}"
-          mise exec -- tofu init -lockfile=readonly
+          cd "infrastructure/${MODULE}"
+          mise exec -- tofu init -input=false -lockfile=readonly > /dev/null
 
       - name: Check Infrastructure Drift
         id: drift
+        env:
+          MODULE: ${{ matrix.module }}
         run: |
-          cd "infrastructure/${{ matrix.module }}"
+          # Public-log hygiene (R2-CI-02): plan text, resource addresses and tool output never reach
+          # the log or the step summary. Only action counts and error headlines are reported;
+          # inspect details locally with `mise run drift:<module>`.
+          cd "infrastructure/${MODULE}"
+          PLAN="${RUNNER_TEMP}/drift.tfplan"
+          LOG="${RUNNER_TEMP}/drift_plan.log"
           set +e
-          mise exec -- tofu plan -detailed-exitcode -lockfile=readonly -no-color > "${RUNNER_TEMP}/drift_plan.txt" 2>&1
+          mise exec -- tofu plan -input=false -lock=false -no-color -detailed-exitcode -out="$PLAN" > "$LOG" 2>&1
           EXIT_CODE=$?
           set -e
 
-          if [ $EXIT_CODE -eq 0 ]; then
-            echo "✅ No drift detected for ${{ matrix.module }}." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          elif [ $EXIT_CODE -eq 2 ]; then
-            {
-              echo "⚠️ DRIFT DETECTED in ${{ matrix.module }}! Infrastructure has diverged from declarative code."
-              echo '```text'
-              cat "${RUNNER_TEMP}/drift_plan.txt"
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 2
-          else
-            echo "❌ Error evaluating drift for ${{ matrix.module }} (Exit code $EXIT_CODE)." >> "$GITHUB_STEP_SUMMARY"
-            cat "${RUNNER_TEMP}/drift_plan.txt"
-            exit $EXIT_CODE
-          fi
+          case "$EXIT_CODE" in
+            0)
+              echo "✅ No drift detected for ${MODULE}." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              {
+                echo "⚠️ Drift detected in ${MODULE} (counts only; inspect locally):"
+                mise exec -- tofu show -json "$PLAN" | jq -r '
+                  [.resource_changes[] | .change.actions | join("+")]
+                  | "- \(map(select(. == "create")) | length) to add, \(map(select(. == "update")) | length) to change, \(map(select(. == "delete+create" or . == "create+delete")) | length) to replace, \(map(select(. == "delete")) | length) to destroy"'
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              {
+                echo "❌ Error evaluating drift for ${MODULE} (exit ${EXIT_CODE}):"
+                # Headlines only: the detail lines below an error can quote configuration values.
+                grep -E '^Error: ' "$LOG" | sort -u | head -5 | sed 's/^/- /'
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+          rm -f "$PLAN" "$LOG"
+          exit "$EXIT_CODE"
