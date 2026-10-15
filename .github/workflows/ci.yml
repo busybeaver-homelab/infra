@@ -6,6 +6,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
+    types: [checks_requested]
+    branches: [main]
   schedule:
     - cron: "0 3 * * 1" # Every Monday at 03:00 UTC
 
@@ -32,6 +35,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: ${{ github.event_name == 'merge_group' && 0 || 1 }}
           persist-credentials: false
 
       - name: Detect Changed Paths
@@ -78,7 +82,7 @@ jobs:
   lint-format:
     name: Code Quality and Lint Checks
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.lint == 'true'
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     environment: ci # synthetic-only CI age key for the SOPS leak backstop (STD-CI-23)
     permissions:
@@ -88,7 +92,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 0 || 1 }}
           persist-credentials: false
 
       - name: Setup Environment
@@ -104,14 +108,19 @@ jobs:
       # key never reaches the other hooks' tools (STD-CI-28).
       - name: Run Lefthook Linters
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
           LEFTHOOK_EXCLUDE: sops-secret-leaks,sops-disjointness
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
             echo "Pull request detected. Fetching base branch for comparison..."
             git fetch origin "${BASE_REF}" --depth=1
             echo "Running Lefthook on changed files..."
             git diff --name-only --diff-filter=d -z "origin/${BASE_REF}...HEAD" | mise exec -- lefthook run pre-commit --files-from-stdin
+          elif [ "${EVENT_NAME}" = "merge_group" ]; then
+            echo "Merge group detected. Running Lefthook on changed files..."
+            git diff --name-only --diff-filter=d -z "${MERGE_GROUP_BASE_SHA}...HEAD" | mise exec -- lefthook run pre-commit --files-from-stdin
           else
             echo "Push or Scheduled run detected. Running Lefthook on all files..."
             mise exec -- lefthook run pre-commit --all-files
@@ -134,7 +143,7 @@ jobs:
   shell-bats:
     name: Script Tests (Bats-core)
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.shell == 'true'
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.shell == 'true'
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     permissions:
       contents: read
@@ -157,7 +166,7 @@ jobs:
   tofu-validate:
     name: OpenTofu Validation & Tests
     needs: changes
-    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.tofu == 'true')
+    if: always() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.tofu == 'true')
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     permissions:
       contents: read
@@ -207,7 +216,7 @@ jobs:
   ansible-check:
     name: Ansible Lint & Syntax Check
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.ansible == 'true'
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.ansible == 'true'
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     environment: ci
     permissions:
@@ -270,7 +279,7 @@ jobs:
   molecule:
     name: Molecule (${{ matrix.scenario }})
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.molecule == 'true'
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.molecule == 'true'
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     environment: ci
     permissions:
