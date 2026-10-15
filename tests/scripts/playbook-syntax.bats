@@ -464,6 +464,20 @@ setup() {
   [[ "$output" =~ "SOPS" || "$output" =~ "Failed" || "$output" =~ "error" || "$output" =~ "Could not" || "$output" =~ "unreachable" || "$output" =~ "credentials" ]]
 }
 
+@test "AGENTS.md documents git-crypt worktree setup with --no-checkout and symlink" {
+  local doc="$REPO_ROOT/AGENTS.md"
+  [ -f "$doc" ]
+
+  run grep -F -- "--no-checkout" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -F ".git/worktrees/" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -F '\0GITCRYPT' "$doc"
+  [ "$status" -eq 0 ]
+}
+
 @test "AGENTS.md mandates automated pull request creation when separate branch is pushed" {
   local doc="$REPO_ROOT/AGENTS.md"
   [ -f "$doc" ]
@@ -472,6 +486,9 @@ setup() {
   [ "$status" -eq 0 ]
 
   run grep -E "Conventional Commits" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "never contain sensitive information or secrets" "$doc"
   [ "$status" -eq 0 ]
 }
 
