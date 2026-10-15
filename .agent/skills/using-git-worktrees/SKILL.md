@@ -94,8 +94,14 @@ case $LOCATION in
     ;;
 esac
 
-# Create worktree with new branch
-git worktree add "$path" -b "$BRANCH_NAME"
+# Create worktree with new branch (preserving git-crypt smudge keys when unlocked)
+if [ -d "$(git rev-parse --git-common-dir)/git-crypt" ]; then
+  git worktree add --no-checkout "$path" -b "$BRANCH_NAME"
+  ln -s ../../git-crypt "$(git -C "$path" rev-parse --git-dir)/git-crypt"
+  git -C "$path" checkout
+else
+  git worktree add "$path" -b "$BRANCH_NAME"
+fi
 cd "$path"
 ```
 
