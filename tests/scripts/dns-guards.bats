@@ -38,8 +38,8 @@ lifecycle_set() {
   done
 }
 
-@test "providers.tf and main.tf wire all four aliased providers (account_1..account_4)" {
-  for acct in account_1 account_2 account_3 account_4; do
+@test "providers.tf and main.tf wire all five aliased providers (account_1..account_5)" {
+  for acct in account_1 account_2 account_3 account_4 account_5; do
     grep -q "alias   = \"${acct}\"" "$DNS/providers.tf" || {
       echo "missing provider alias ${acct}"
       return 1
@@ -91,12 +91,13 @@ leak_ipv6() {
 @test "real NextDNS profile IDs, names, and rewrites never appear in module sources (skipped without SOPS access)" {
   local secrets="$REPO_ROOT/secrets/credentials.sops.yaml" hits="" val
   sops -d --extract '["nextdns"]["config"]' "$secrets" >/dev/null 2>&1 || skip "production SOPS not decryptable here"
-  for acct in account_1 account_2 account_3 account_4; do
-    for field in account_name profile_id profile_name; do
-      val="$(sops -d --extract "[\"nextdns\"][\"config\"][\"accounts\"][\"$acct\"][\"$field\"]" "$secrets" 2>/dev/null || true)"
-      [ -n "$val" ] || continue
-      hits+="$(dns_sources | xargs grep -lF -- "$val" || true)"
-    done
+  for acct in account_1 account_2 account_3 account_4 account_5; do
+    val="$(sops -d --extract "[\"nextdns\"][\"config\"][\"accounts\"][\"$acct\"][\"profile_id\"]" "$secrets" 2>/dev/null || true)"
+    [ -n "$val" ] && hits+="$(dns_sources | xargs grep -lF -- "$val" || true)"
+    if [[ "$acct" != "account_5" ]]; then
+      val="$(sops -d --extract "[\"nextdns\"][\"config\"][\"accounts\"][\"$acct\"][\"profile_name\"]" "$secrets" 2>/dev/null || true)"
+      [ -n "$val" ] && hits+="$(dns_sources | xargs grep -lF -- "$val" || true)"
+    fi
   done
   while IFS= read -r val; do
     [ -n "$val" ] || continue

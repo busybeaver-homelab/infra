@@ -62,11 +62,11 @@ SECRETS=(
   "$TF_VAR_state_encryption_passphrase"
 )
 
-for acct in account_1 account_2 account_3 account_4; do
+for acct in account_1 account_2 account_3 account_4 account_5; do
   api_key="$(secret "[\"nextdns\"][\"accounts\"][\"${acct}\"][\"api_key\"]" 2>/dev/null || true)"
+  account_name="$(secret "[\"nextdns\"][\"accounts\"][\"${acct}\"][\"account_name\"]" 2>/dev/null || true)"
   profile_id="$(secret "[\"nextdns\"][\"config\"][\"accounts\"][\"${acct}\"][\"profile_id\"]" 2>/dev/null || true)"
   profile_name="$(secret "[\"nextdns\"][\"config\"][\"accounts\"][\"${acct}\"][\"profile_name\"]" 2>/dev/null || true)"
-  account_name="$(secret "[\"nextdns\"][\"config\"][\"accounts\"][\"${acct}\"][\"account_name\"]" 2>/dev/null || true)"
   SECRETS+=("$api_key" "$profile_id" "$profile_name" "$account_name")
 done
 

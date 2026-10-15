@@ -6,7 +6,7 @@ check "enforce_nextdns_account_posture" {
       length(trimspace(local.effective_accounts[k].profile_id)) > 0 &&
       length(trimspace(local.effective_accounts[k].profile_name)) > 0
     ])
-    error_message = "All four NextDNS accounts (account_1..account_4) must have non-empty api_key, profile_id, and profile_name values in SOPS."
+    error_message = "All five NextDNS accounts (account_1..account_5) must have non-empty api_key, profile_id, and profile_name values in SOPS."
   }
 
   assert {

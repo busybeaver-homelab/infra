@@ -19,3 +19,8 @@ provider "nextdns" {
   alias   = "account_4"
   api_key = local.account_api_keys["account_4"]
 }
+
+provider "nextdns" {
+  alias   = "account_5"
+  api_key = local.account_api_keys["account_5"]
+}

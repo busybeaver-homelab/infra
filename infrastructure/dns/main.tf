@@ -69,3 +69,20 @@ module "account_4" {
   allowlist              = local.effective_accounts["account_4"].allowlist
   denylist               = local.effective_accounts["account_4"].denylist
 }
+
+module "account_5" {
+  source = "./modules/profile"
+  providers = {
+    nextdns = nextdns.account_5
+  }
+
+  profile_name           = local.effective_accounts["account_5"].profile_name
+  enable_prevent_destroy = var.enable_prevent_destroy
+  security               = local.effective_accounts["account_5"].security
+  privacy                = local.effective_accounts["account_5"].privacy
+  parental_control       = local.effective_accounts["account_5"].parental_control
+  settings               = local.effective_accounts["account_5"].settings
+  rewrites               = local.effective_accounts["account_5"].rewrites
+  allowlist              = local.effective_accounts["account_5"].allowlist
+  denylist               = local.effective_accounts["account_5"].denylist
+}

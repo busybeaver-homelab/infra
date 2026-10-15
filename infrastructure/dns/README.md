@@ -30,6 +30,7 @@ Manages four NextDNS accounts (`account_1`..`account_4`, 1 profile per account) 
 | <a name="module_account_2"></a> [account\_2](#module_account_2) | ./modules/profile | n/a     |
 | <a name="module_account_3"></a> [account\_3](#module_account_3) | ./modules/profile | n/a     |
 | <a name="module_account_4"></a> [account\_4](#module_account_4) | ./modules/profile | n/a     |
+| <a name="module_account_5"></a> [account\_5](#module_account_5) | ./modules/profile | n/a     |
 
 ## Resources
 
@@ -49,8 +50,8 @@ Manages four NextDNS accounts (`account_1`..`account_4`, 1 profile per account) 
 
 | Name                                                                           | Description                                                                                      |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| <a name="output_account_names"></a> [account\_names](#output_account_names)    | Map of generic account keys (account\_1..account\_4) to encrypted human-readable account labels. |
+| <a name="output_account_names"></a> [account\_names](#output_account_names)    | Map of generic account keys (account\_1..account\_5) to encrypted human-readable account labels. |
 | <a name="output_effective_tags"></a> [effective\_tags](#output_effective_tags) | Mandatory homelab governance tags associated with the dns root module.                           |
-| <a name="output_profile_ids"></a> [profile\_ids](#output_profile_ids)          | Map of generic account keys (account\_1..account\_4) to managed NextDNS profile IDs.             |
+| <a name="output_profile_ids"></a> [profile\_ids](#output_profile_ids)          | Map of generic account keys (account\_1..account\_5) to managed NextDNS profile IDs.             |
 
 <!-- END_TF_DOCS -->

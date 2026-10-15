@@ -1,7 +1,7 @@
 locals {
   raw_secrets = yamldecode(data.sops_file.secrets.raw)
   nextdns     = local.raw_secrets.nextdns
-  account_ids = ["account_1", "account_2", "account_3", "account_4"]
+  account_ids = ["account_1", "account_2", "account_3", "account_4", "account_5"]
 
   # Mandatory repository tagging map (AGENTS.md §2 / STD-OT-35).
   # NextDNS resources do not expose cloud provider tag attributes, so we expose
@@ -17,46 +17,63 @@ locals {
     k => nonsensitive(local.nextdns.accounts[k].api_key)
   }
 
-  # Non-sensitive baseline posture shared across account_1..account_3, and used
-  # as the base for account_4 before applying per-account overrides.
+  # Non-sensitive baseline posture shared across account_1..account_4, and used
+  # as the base for account_5 before applying per-account overrides.
   baseline_posture = {
     security = {
       threat_intelligence_feeds = true
-      ai_threat_detection       = true
+      ai_threat_detection       = false
       google_safe_browsing      = true
       cryptojacking             = true
       dns_rebinding             = true
       idn_homographs            = true
       typosquatting             = true
       dga                       = true
-      nrd                       = true
+      nrd                       = false
       ddns                      = false
-      parking                   = true
+      parking                   = false
       csam                      = true
       tlds                      = []
     }
     privacy = {
       disguised_trackers = true
       allow_affiliate    = false
-      blocklists         = ["nextdns-recommended"]
-      natives            = []
+      blocklists = [
+        "nextdns-recommended",
+        "adguard-dns-filter",
+        "easylist-germany",
+        "fanboy-enhanced-tracking",
+        "fanboy-annoyance",
+      ]
+      natives = [
+        "apple",
+        "sonos",
+        "windows",
+        "xiaomi",
+      ]
     }
     parental_control = {
       safe_search             = false
       youtube_restricted_mode = false
       block_bypass            = false
       categories              = []
-      services                = []
+      services = [
+        {
+          id         = "vk"
+          active     = true
+          recreation = false
+        },
+      ]
     }
     settings = {
-      bav  = true
+      bav  = false
       web3 = false
       logs = {
         enabled     = true
-        drop_ip     = false
+        drop_ip     = true
         drop_domain = false
-        retention   = "3 months"
-        location    = "ch"
+        retention   = "1 day"
+        location    = "eu"
       }
       block_page = {
         enabled = false
@@ -75,7 +92,7 @@ locals {
 
   effective_accounts = {
     for k in local.account_ids : k => {
-      account_name = local.nextdns.config.accounts[k].account_name
+      account_name = local.nextdns.accounts[k].account_name
       profile_id   = local.nextdns.config.accounts[k].profile_id
       profile_name = local.nextdns.config.accounts[k].profile_name
 

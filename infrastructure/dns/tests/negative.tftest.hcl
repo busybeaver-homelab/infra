@@ -10,6 +10,9 @@ mock_provider "nextdns" {
 mock_provider "nextdns" {
   alias = "account_4"
 }
+mock_provider "nextdns" {
+  alias = "account_5"
+}
 
 mock_provider "sops" {
   override_data {
@@ -18,16 +21,18 @@ mock_provider "sops" {
       raw = <<-EOT
         nextdns:
           accounts:
-            account_1: { api_key: "k1" }
-            account_2: { api_key: "k2" }
-            account_3: { api_key: "k3" }
-            account_4: { api_key: "k4" }
+            account_1: { account_name: "A1", api_key: "k1" }
+            account_2: { account_name: "A2", api_key: "k2" }
+            account_3: { account_name: "A3", api_key: "k3" }
+            account_4: { account_name: "A4", api_key: "k4" }
+            account_5: { account_name: "A5", api_key: "k5" }
           config:
             accounts:
-              account_1: { account_name: "A1", profile_id: "dec001", profile_name: "p1" }
-              account_2: { account_name: "A2", profile_id: "dec002", profile_name: "p2" }
-              account_3: { account_name: "A3", profile_id: "dec003", profile_name: "p3" }
-              account_4: { account_name: "A4", profile_id: "dec004", profile_name: "p4" }
+              account_1: { profile_id: "dec001", profile_name: "p1" }
+              account_2: { profile_id: "dec002", profile_name: "p2" }
+              account_3: { profile_id: "dec003", profile_name: "p3" }
+              account_4: { profile_id: "dec004", profile_name: "p4" }
+              account_5: { profile_id: "dec005", profile_name: "p5" }
             shared:
               rewrites: []
               allowlist: []
