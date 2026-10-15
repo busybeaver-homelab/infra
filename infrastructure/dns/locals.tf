@@ -47,6 +47,7 @@ locals {
       ]
       natives = [
         "apple",
+        "samsung",
         "sonos",
         "windows",
         "xiaomi",

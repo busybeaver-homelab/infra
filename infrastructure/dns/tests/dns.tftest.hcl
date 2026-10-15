@@ -131,6 +131,11 @@ run "baseline_and_override_merging_plan" {
     condition     = length(nonsensitive(local.effective_accounts["account_5"].allowlist)) == 2
     error_message = "Account 5 must merge shared allowlist (1) + extra_allowlist (1) = 2 entries."
   }
+
+  assert {
+    condition     = contains(nonsensitive(local.effective_accounts["account_1"].privacy.natives), "samsung") && length(nonsensitive(local.effective_accounts["account_1"].privacy.natives)) == 5
+    error_message = "Baseline privacy natives must include apple, samsung, sonos, windows, and xiaomi."
+  }
 }
 
 run "apply_all_five_accounts" {
