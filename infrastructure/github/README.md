@@ -22,10 +22,12 @@ The repository configuration implements defense-in-depth across multiple layers:
 
 - **Linear History:** Enforces squash merges only; merge commits and rebase commits are prohibited.
 - **Head Branch Auto-Deletion:** Automatically deletes branches upon PR merge.
+- **GitHub Merge Queue (`STD-CI-68`):** Enabled on public repositories (`merge_method = "SQUASH"`, `grouping_strategy = "ALLGREEN"`, `min_entries_to_merge = 1`, `min_entries_to_merge_wait_minutes = 0`, `max_entries_to_merge = 5`, `max_entries_to_build = 5`, `check_response_timeout_minutes = 60`), allowing concurrent PRs and Renovate batches to be speculatively validated and merged atomically without manual rebasing.
+- **CI vs. Operational Environments (`STD-CI-23`):** The `ci` environment (synthetic-only `SOPS_AGE_KEY_CI`) has no `deployment_branch_policy` so `pull_request` and `gh-readonly-queue/main/*` (`merge_group`) jobs can deploy, whereas `backup` and `code-quality` enforce `protected_branches = true`.
 - **Ruleset Bypass Actors** (owner decision D6):
   - **Organization owners** (`actor_type = "OrganizationAdmin"`, `bypass_mode = "always"`, no `actor_id`, because GitHub stores `null` for this actor type) — allows the owner's local fast-forward merges, guarded by the `pre-push` hook (`ALLOW_MAIN_PUSH=1`).
   - **Repository Administrator** (`actor_id = 5`, `actor_type = "RepositoryRole"`, `bypass_mode = "pull_request"`) — may bypass only through a pull request.
-  - Automated bots (Dependabot and Renovate) are **not** bypass actors; they auto-merge natively via repository `allow_auto_merge = true` only after all required CI checks (`CI Gate`) pass green, preventing any bypass of CI gates or direct pushes to `main`.
+  - Automated bots (Dependabot and Renovate) are **not** bypass actors; they auto-merge natively via repository `allow_auto_merge = true` and the `main` Merge Queue only after all required CI checks (`CI Gate`) pass green, preventing any bypass of CI gates or direct pushes to `main`.
 
 ### 2. GitHub Actions Permissions & SHA Pinning
 
