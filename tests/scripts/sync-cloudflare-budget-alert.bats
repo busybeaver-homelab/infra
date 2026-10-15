@@ -68,19 +68,19 @@ STUB
 @test "sync-cloudflare-budget-alert: --help displays usage" {
   run "$SCRIPT" --help
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Usage:" ]]
-  [[ "$output" =~ "--dry-run" ]]
+  [[ "$output" =~ "Usage:" ]] || false
+  [[ "$output" =~ "--dry-run" ]] || false
   [[ "$output" =~ "--threshold" ]]
 }
 
 @test "sync-cloudflare-budget-alert: errors when threshold is invalid" {
   run "$SCRIPT" --threshold "0" --token "test" --account-id "test" --email "test@example.test"
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "Invalid threshold" ]]
+  [[ "$output" =~ "Invalid threshold" ]] || false
 
   run "$SCRIPT" --threshold "-5" --token "test" --account-id "test" --email "test@example.test"
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "Invalid threshold" ]]
+  [[ "$output" =~ "Invalid threshold" ]] || false
 
   run "$SCRIPT" --threshold "abc" --token "test" --account-id "test" --email "test@example.test"
   [ "$status" -ne 0 ]
@@ -90,9 +90,9 @@ STUB
 @test "sync-cloudflare-budget-alert: --dry-run prints planned updates without modifying" {
   run "$SCRIPT" --dry-run --token "super-secret-cf-token-xyz" --account-id "test-acc-id" --email "admin@example.test"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "DRY RUN" ]]
+  [[ "$output" =~ "DRY RUN" ]] || false
   # Ensure raw secret token is masked
-  [[ ! "$output" =~ "super-secret-cf-token-xyz" ]]
+  [[ ! "$output" =~ "super-secret-cf-token-xyz" ]] || false
   # In dry-run, only GET should be called, never POST or PUT
   if [ -f "$BATS_TEST_TMPDIR/curl.calls" ]; then
     run grep -E '\-X (POST|PUT)' "$BATS_TEST_TMPDIR/curl.calls"
@@ -127,7 +127,7 @@ STUB
 
   run "$SCRIPT" --threshold "1" --token "test" --account-id "test" --email "alerts@example.test"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "already set to \$1 USD" ]]
+  [[ "$output" =~ "already set to \$1 USD" ]] || false
 
   # Ensure no PUT or POST was executed
   run grep -E '\-X (POST|PUT)' "$BATS_TEST_TMPDIR/curl.calls"
@@ -168,7 +168,7 @@ STUB
 
   run "$SCRIPT" --threshold "1" --token "test" --account-id "test" --email "alerts@example.test"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Updated" || "$output" =~ "updated" ]]
+  [[ "$output" =~ "Updated" || "$output" =~ "updated" ]] || false
 
   # Verify PUT call with policy ID
   run grep -E 'PUT.*/policies/policy-12345' "$BATS_TEST_TMPDIR/curl.calls"
@@ -199,7 +199,7 @@ STUB
 
   run "$SCRIPT" --threshold "1" --token "test" --account-id "test" --email "alerts@example.test"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Created" || "$output" =~ "created" ]]
+  [[ "$output" =~ "Created" || "$output" =~ "created" ]] || false
 
   # Verify POST call to create policy
   run grep -E 'POST.*/alerting/v3/policies' "$BATS_TEST_TMPDIR/curl.calls"

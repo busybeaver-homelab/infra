@@ -180,8 +180,8 @@ teardown() {
 
   run bash "${MASK_SCRIPT}" clean.tf leak1.tf leak2.tf
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "leak1.tf" ]]
-  [[ "$output" =~ "leak2.tf" ]]
+  [[ "$output" =~ "leak1.tf" ]] || false
+  [[ "$output" =~ "leak2.tf" ]] || false
   [[ "$output" =~ "Network masking violation" ]]
 }
 

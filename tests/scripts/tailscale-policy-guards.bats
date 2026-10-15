@@ -20,11 +20,11 @@ setup() {
   if command -v git-crypt >/dev/null 2>&1; then
     run git-crypt status infrastructure/mesh/policy.hujson.tftpl
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "encrypted" ]]
+    [[ "$output" =~ "encrypted" ]] || false
   else
     run git check-attr filter infrastructure/mesh/policy.hujson.tftpl
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "filter: git-crypt" ]]
+    [[ "$output" =~ "filter: git-crypt" ]] || false
   fi
 }
 
@@ -32,11 +32,11 @@ setup() {
   if command -v git-crypt >/dev/null 2>&1; then
     run git-crypt status infrastructure/mesh/policy.ci.hujson.tftpl
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "not encrypted" ]]
+    [[ "$output" =~ "not encrypted" ]] || false
   else
     run git check-attr filter infrastructure/mesh/policy.ci.hujson.tftpl
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "filter: unspecified" ]]
+    [[ "$output" =~ "filter: unspecified" ]] || false
   fi
 }
 

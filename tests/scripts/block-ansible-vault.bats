@@ -111,8 +111,8 @@ teardown() {
 
   run bash "${BLOCK_SCRIPT}" file_clean.yaml vault1.yaml vault2.yaml
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "vault1.yaml" ]]
-  [[ "$output" =~ "vault2.yaml" ]]
+  [[ "$output" =~ "vault1.yaml" ]] || false
+  [[ "$output" =~ "vault2.yaml" ]] || false
   [[ "$output" =~ "Ansible Vault file detected" ]]
 }
 

@@ -107,7 +107,7 @@ assert "shellcheck" in categories
 @test "codeql.yml filters inline-suppressed Checkov findings from SARIF before upload" {
   run yq eval '.jobs.analyze-iac-and-scripts.steps[] | select(.name == "Run Checkov IaC & Configuration Scanner") | .run' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ ".suppressions" ]]
+  [[ "$output" =~ ".suppressions" ]] || false
   [[ "$output" =~ "results_sarif.sarif" ]]
 }
 

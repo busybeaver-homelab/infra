@@ -60,8 +60,8 @@ STUB
 @test "sync-github-repo-settings: --help displays usage" {
   run "$SCRIPT" --help
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "Usage:" ]]
-  [[ "$output" =~ "--dry-run" ]]
+  [[ "$output" =~ "Usage:" ]] || false
+  [[ "$output" =~ "--dry-run" ]] || false
   [[ "$output" =~ "--repo" ]]
 }
 
@@ -74,10 +74,10 @@ STUB
 @test "sync-github-repo-settings: --dry-run prints planned updates without modifying" {
   run "$SCRIPT" --dry-run --repo "test-owner/test-repo" --token "super-secret-token-xyz"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "DRY RUN" ]]
-  [[ "$output" =~ "test-owner/test-repo" ]]
+  [[ "$output" =~ "DRY RUN" ]] || false
+  [[ "$output" =~ "test-owner/test-repo" ]] || false
   # Ensure raw secret token is masked
-  [[ ! "$output" =~ "super-secret-token-xyz" ]]
+  [[ ! "$output" =~ "super-secret-token-xyz" ]] || false
   # Ensure curl was NOT invoked in dry run
   [ ! -f "$BATS_TEST_TMPDIR/curl.calls" ]
 }

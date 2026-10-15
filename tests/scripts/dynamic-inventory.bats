@@ -22,25 +22,25 @@ teardown() {
   rm -f "/tmp/homelab_test_oci_state.json"
   run ansible-inventory -i "${TEST_INV}" --graph
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "oci-amd-1" ]]
+  [[ "$output" =~ "oci-amd-1" ]] || false
   [ ! -f "/tmp/homelab_test_oci_state.json" ]
 }
 
 @test "dynamic inventory parses test state fixture and outputs expected hosts and groups" {
   run ansible-inventory -i "${TEST_INV}" --graph
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "oci-amd-1" ]]
-  [[ "$output" =~ "oci-amd-2" ]]
-  [[ "$output" =~ "oci-arm-1" ]]
-  [[ "$output" =~ "@tag_project_homelab" ]]
-  [[ "$output" =~ "@tag_role_compute" ]]
+  [[ "$output" =~ "oci-amd-1" ]] || false
+  [[ "$output" =~ "oci-amd-2" ]] || false
+  [[ "$output" =~ "oci-arm-1" ]] || false
+  [[ "$output" =~ "@tag_project_homelab" ]] || false
+  [[ "$output" =~ "@tag_role_compute" ]] || false
   [[ "$output" =~ "@tag_role_server" ]]
 }
 
 @test "dynamic inventory composes MagicDNS FQDN for ansible_host and maps tailscale_ip" {
   run ansible-inventory -i "${TEST_INV}" --host oci-amd-1
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "oci-amd-1.homelab.ts.net" ]]
+  [[ "$output" =~ "oci-amd-1.homelab.ts.net" ]] || false
   [[ "$output" =~ "198.51.100.10" ]]
 }
 
@@ -98,12 +98,12 @@ EOF
 
   run ansible-inventory -i "${test_inv}" --graph
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "bastion-1" ]]
-  [[ "$output" =~ "worker-1" ]]
-  [[ "$output" =~ "storage-1" ]]
-  [[ "$output" =~ "edge-1" ]]
-  [[ "$output" =~ "@tag_role_bastion" ]]
-  [[ "$output" =~ "@tag_role_storage" ]]
+  [[ "$output" =~ "bastion-1" ]] || false
+  [[ "$output" =~ "worker-1" ]] || false
+  [[ "$output" =~ "storage-1" ]] || false
+  [[ "$output" =~ "edge-1" ]] || false
+  [[ "$output" =~ "@tag_role_bastion" ]] || false
+  [[ "$output" =~ "@tag_role_storage" ]] || false
   [[ "$output" =~ "@tag_role_edge" ]]
 }
 
@@ -114,7 +114,7 @@ EOF
 
   run ansible-inventory -i "${test_inv}" --host storage-1
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "storage-1.homelab.ts.net" ]]
+  [[ "$output" =~ "storage-1.homelab.ts.net" ]] || false
   [[ "$output" =~ "198.51.100.50" ]]
 }
 

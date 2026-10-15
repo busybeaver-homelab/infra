@@ -37,13 +37,13 @@ teardown() {
 @test "generate-tf-docs.sh finds all infrastructure module directories" {
   run bash -c "cd '${REPO_ROOT}' && find infrastructure -type f -name '*.tf' -not -path '*/.*' -exec dirname {} \; | sort -u"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "infrastructure/azure" ]]
-  [[ "$output" =~ "infrastructure/cloudflare" ]]
-  [[ "$output" =~ "infrastructure/gcp" ]]
-  [[ "$output" =~ "infrastructure/github" ]]
-  [[ "$output" =~ "infrastructure/homelab" ]]
-  [[ "$output" =~ "infrastructure/monitoring" ]]
-  [[ "$output" =~ "infrastructure/oci" ]]
+  [[ "$output" =~ "infrastructure/azure" ]] || false
+  [[ "$output" =~ "infrastructure/cloudflare" ]] || false
+  [[ "$output" =~ "infrastructure/gcp" ]] || false
+  [[ "$output" =~ "infrastructure/github" ]] || false
+  [[ "$output" =~ "infrastructure/homelab" ]] || false
+  [[ "$output" =~ "infrastructure/monitoring" ]] || false
+  [[ "$output" =~ "infrastructure/oci" ]] || false
   [[ "$output" =~ "infrastructure/mesh" ]]
 }
 
