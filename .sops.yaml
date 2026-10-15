@@ -5,7 +5,6 @@ creation_rules:
     key_groups:
       - age:
           - age1e0pws4km4hd9ecasjlscn9d5kzsz69fuxdn5udf57wgktjz3jcnsjz8gvr # CI Decoy Public Key
-          - age136vdv2svv5lm53um9yvgw2f6uq87ce2cgcr2n54s32mpwlseh4cqsjsdlv # Offline Disaster Recovery Key
 
   # 2. Rules for Admin/Production secrets (evaluated second)
   - path_regex: ^secrets/credentials\.sops\.ya?ml$

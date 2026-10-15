@@ -265,9 +265,48 @@ EOF
   assert_output_not_contains "${PROD_PEM_LINE}"
 }
 
-@test "check-sops-secret-leaks.sh ignores allowlisted structural values like gcp.region, dns record type, and nextdns.accounts.*.account_name" {
+@test "check-sops-secret-leaks.sh ignores allowlisted structural values like gcp.region, dns record type, nextdns.accounts.*.account_name, and github.config.deploy_keys.*.title" {
   cd "${MOCK_REPO}"
   git init -q
+  cat <<'EOF' | write_sops credentials.sops.yaml
+is_production: true
+gcp:
+  region: "us-central1"
+github:
+  config:
+    deploy_keys:
+      homelab_server:
+        title: "Homelab Server"
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIProdKeyMaterialForTestingOnly998877"
+        read_only: true
+nextdns:
+  accounts:
+    account_1:
+      account_name: "synthetic-account-label"
+  config:
+    accounts:
+      account_5:
+        profile_name: "synthetic-tailscale-profile"
+cloudflare:
+  config:
+    zones:
+      primary:
+        dns_records:
+          a_1:
+            type: "A"
+EOF
+  cat <<'EOF' | write_sops credentials.ci.sops.yaml
+is_production: false
+gcp:
+  region: "us-central1"
+github:
+  config:
+    deploy_keys:
+      homelab_server:
+        title: "Homelab Server"
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICIDecoyKeyMaterialForTesting112233"
+        read_only: true
+EOF
   cat <<'EOF' >main.tf
 variable "region" {
   default = "us-central1"
@@ -281,10 +320,16 @@ variable "nextdns_account_name" {
 variable "nextdns_tailscale_profile_name" {
   default = "synthetic-tailscale-profile"
 }
+variable "deploy_key_title" {
+  default = "Homelab Server"
+}
 EOF
   git add main.tf
 
   run bash "${LEAK_SCRIPT}" --check-files main.tf
+  [ "$status" -eq 0 ]
+
+  run bash "${LEAK_SCRIPT}" --check-disjointness
   [ "$status" -eq 0 ]
 }
 
