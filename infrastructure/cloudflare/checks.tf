@@ -9,8 +9,9 @@ check "enforce_r2_bucket_posture" {
     error_message = "OpenTofu state R2 bucket jurisdiction must be default"
   }
 
+  # The API returns location hints upper-case ("WEUR") while the config uses lower-case (REV2-X-4).
   assert {
-    condition     = cloudflare_r2_bucket.backups_dr.location == "weur"
+    condition     = lower(cloudflare_r2_bucket.backups_dr.location) == "weur"
     error_message = "Disaster recovery R2 bucket must be located in weur for EU data residency"
   }
 }

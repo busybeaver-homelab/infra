@@ -124,3 +124,13 @@ run "reject_placeholder_state_encryption_passphrase" {
     var.state_encryption_passphrase,
   ]
 }
+
+run "reject_dr_bucket_outside_weur" {
+  command = plan
+
+  variables {
+    r2_backup_location = "eeur"
+  }
+
+  expect_failures = [check.enforce_r2_bucket_posture]
+}

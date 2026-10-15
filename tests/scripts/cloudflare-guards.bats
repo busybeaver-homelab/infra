@@ -43,6 +43,11 @@ lifecycle_set() {
   [ "$output" -eq 0 ]
 }
 
+@test "the DR bucket location check is case-insensitive (REV2-X-4)" {
+  run grep -F 'lower(cloudflare_r2_bucket.backups_dr.location) == "weur"' "$CF/checks.tf"
+  [ "$status" -eq 0 ]
+}
+
 @test "frozen token permissions are sourced from SOPS, not plaintext" {
   [ ! -f "$CF/iam_frozen_permissions.tf" ]
   run grep -c 'local.cf.iam.tokens\[each.key\].policies' "$CF/iam_frozen.tf"
