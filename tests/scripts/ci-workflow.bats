@@ -391,11 +391,10 @@ setup() {
   done
 }
 
-@test "lint-format checkout fetches full history on pull_request and merge_group" {
+@test "lint-format checkout fetches full history on every event so base diffs resolve" {
   run yq '.jobs.lint-format.steps[0].with["fetch-depth"]' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"github.event_name == 'pull_request'"* ]]
-  [[ "$output" == *"github.event_name == 'merge_group'"* ]]
+  [ "$output" = "0" ]
 }
 
 @test "lint-format passes EVENT_NAME and MERGE_GROUP_BASE_SHA via env and diffs merge_group safely (STD-CI-36)" {
@@ -409,3 +408,8 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "ci.yml cancels in-progress runs only for pull_request, never merge_group (STD-CI-44)" {
+  run yq '.concurrency["cancel-in-progress"]' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "\${{ github.event_name == 'pull_request' }}" ]
+}

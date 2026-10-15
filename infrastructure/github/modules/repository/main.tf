@@ -114,7 +114,7 @@ resource "github_repository_ruleset" "main_protection" {
     }
 
     dynamic "merge_queue" {
-      for_each = coalesce(var.enable_merge_queue, var.visibility == "public") ? [1] : []
+      for_each = local.enable_merge_queue ? [1] : []
       content {
         check_response_timeout_minutes    = 60
         grouping_strategy                 = "ALLGREEN"
@@ -131,6 +131,18 @@ resource "github_repository_ruleset" "main_protection" {
 resource "github_repository_environment" "ci" {
   environment = "ci"
   repository  = github_repository.repo.name
+
+  deployment_branch_policy {
+    protected_branches     = false
+    custom_branch_policies = true
+  }
+}
+
+resource "github_repository_environment_deployment_policy" "ci" {
+  for_each       = local.ci_deployment_branch_patterns
+  repository     = github_repository.repo.name
+  environment    = github_repository_environment.ci.environment
+  branch_pattern = each.value
 }
 
 resource "github_actions_environment_secret" "ci_secrets" {

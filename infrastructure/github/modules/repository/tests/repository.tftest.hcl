@@ -76,8 +76,18 @@ run "verify_repository_module_plan" {
   }
 
   assert {
-    condition     = length(github_repository_environment.ci.deployment_branch_policy) == 0
-    error_message = "ci environment must not restrict deployment_branch_policy so merge_group temporary branches can deploy (STD-CI-23)"
+    condition     = github_repository_environment.ci.deployment_branch_policy[0].protected_branches == false && github_repository_environment.ci.deployment_branch_policy[0].custom_branch_policies == true
+    error_message = "ci environment must use an explicit ref allowlist; protected_branches lets every branch deploy when main is protected only by a ruleset (STD-CI-23)"
+  }
+
+  assert {
+    condition     = toset(keys(github_repository_environment_deployment_policy.ci)) == toset(["main", "refs/pull/*/merge", "gh-readonly-queue/main/*"])
+    error_message = "ci environment must allow exactly main, pull_request merge refs and merge queue groups (STD-CI-23)"
+  }
+
+  assert {
+    condition     = alltrue([for policy in github_repository_environment_deployment_policy.ci : policy.environment == "ci" && policy.tag_pattern == null])
+    error_message = "ci deployment policies must target the ci environment with branch patterns only"
   }
 }
 
@@ -105,6 +115,11 @@ run "verify_repository_module_apply" {
   }
 
   assert {
+    condition     = output.ci_deployment_branch_patterns == tolist(["gh-readonly-queue/main/*", "main", "refs/pull/*/merge"])
+    error_message = "ci_deployment_branch_patterns output must list the sorted ci allowlist"
+  }
+
+  assert {
     condition     = output.actions_permissions.allowed_actions == "selected"
     error_message = "Actions permissions must restrict allowed actions to selected"
   }
@@ -125,6 +140,48 @@ run "verify_repository_private_visibility" {
   assert {
     condition     = length(github_repository_ruleset.main_protection.rules[0].merge_queue) == 0
     error_message = "Private repository on Free org plan must default merge_queue to disabled unless explicitly enabled"
+  }
+
+  assert {
+    condition     = toset(keys(github_repository_environment_deployment_policy.ci)) == toset(["main", "refs/pull/*/merge"])
+    error_message = "ci environment must not allow merge queue refs when the merge queue is disabled"
+  }
+}
+
+run "verify_merge_queue_explicit_disable" {
+  command = plan
+
+  variables {
+    enable_merge_queue = false
+  }
+
+  assert {
+    condition     = length(github_repository_ruleset.main_protection.rules[0].merge_queue) == 0
+    error_message = "enable_merge_queue = false must disable the merge queue on a public repository"
+  }
+
+  assert {
+    condition     = !contains(keys(github_repository_environment_deployment_policy.ci), "gh-readonly-queue/main/*")
+    error_message = "ci environment must not allow merge queue refs when the merge queue is disabled"
+  }
+}
+
+run "verify_merge_queue_explicit_enable_on_private" {
+  command = plan
+
+  variables {
+    visibility         = "private"
+    enable_merge_queue = true
+  }
+
+  assert {
+    condition     = length(github_repository_ruleset.main_protection.rules[0].merge_queue) == 1
+    error_message = "enable_merge_queue = true must override the private-visibility default"
+  }
+
+  assert {
+    condition     = contains(keys(github_repository_environment_deployment_policy.ci), "gh-readonly-queue/main/*")
+    error_message = "ci environment must allow merge queue refs whenever the merge queue is enabled"
   }
 }
 

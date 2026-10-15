@@ -58,6 +58,11 @@ output "merge_queue_enabled" {
   description = "Whether GitHub Merge Queue is enabled on the main branch ruleset."
 }
 
+output "ci_deployment_branch_patterns" {
+  value       = sort([for policy in github_repository_environment_deployment_policy.ci : policy.branch_pattern])
+  description = "Ref patterns allowed to deploy to the synthetic-only 'ci' environment."
+}
+
 output "environments" {
   value = {
     ci           = github_repository_environment.ci.environment

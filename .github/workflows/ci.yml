@@ -12,6 +12,9 @@ on:
   schedule:
     - cron: "0 3 * * 1" # Every Monday at 03:00 UTC
 
+# Each merge queue entry gets a unique gh-readonly-queue/main/pr-<N>-<sha> ref, so
+# merge_group runs never share a group; runs for invalidated entries are not
+# cancelled here and run to completion (STD-CI-44).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -92,7 +95,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 0 || 1 }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Environment

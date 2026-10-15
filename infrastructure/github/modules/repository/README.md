@@ -15,20 +15,21 @@
 
 ## Resources
 
-| Name                                                                                                                                                                           | Type     |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| [github_actions_environment_secret.backup_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)               | resource |
-| [github_actions_environment_secret.ci_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                   | resource |
-| [github_actions_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_repository_permissions)                 | resource |
-| [github_repository.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository)                                                         | resource |
-| [github_repository_dependabot_security_updates.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_dependabot_security_updates) | resource |
-| [github_repository_deploy_key.deploy_keys](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_deploy_key)                            | resource |
-| [github_repository_environment.backup](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                               | resource |
-| [github_repository_environment.ci](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                   | resource |
-| [github_repository_environment.code_quality](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                         | resource |
-| [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_ruleset)                              | resource |
-| [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_vulnerability_alerts)               | resource |
-| [github_workflow_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/workflow_repository_permissions)               | resource |
+| Name                                                                                                                                                                             | Type     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| [github_actions_environment_secret.backup_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                 | resource |
+| [github_actions_environment_secret.ci_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                     | resource |
+| [github_actions_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_repository_permissions)                   | resource |
+| [github_repository.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository)                                                           | resource |
+| [github_repository_dependabot_security_updates.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_dependabot_security_updates)   | resource |
+| [github_repository_deploy_key.deploy_keys](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_deploy_key)                              | resource |
+| [github_repository_environment.backup](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                 | resource |
+| [github_repository_environment.ci](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                     | resource |
+| [github_repository_environment.code_quality](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                           | resource |
+| [github_repository_environment_deployment_policy.ci](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment_deployment_policy) | resource |
+| [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_ruleset)                                | resource |
+| [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_vulnerability_alerts)                 | resource |
+| [github_workflow_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/workflow_repository_permissions)                 | resource |
 
 ## Inputs
 
@@ -48,22 +49,23 @@
 
 ## Outputs
 
-| Name                                                                                                           | Description                                                       |
-| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| <a name="output_actions_permissions"></a> [actions\_permissions](#output_actions_permissions)                  | Actions repository permissions.                                   |
-| <a name="output_allow_merge_commit"></a> [allow\_merge\_commit](#output_allow_merge_commit)                    | Whether merge commits are enabled.                                |
-| <a name="output_allow_rebase_merge"></a> [allow\_rebase\_merge](#output_allow_rebase_merge)                    | Whether rebase merge is enabled.                                  |
-| <a name="output_allow_squash_merge"></a> [allow\_squash\_merge](#output_allow_squash_merge)                    | Whether squash merge is enabled.                                  |
-| <a name="output_delete_branch_on_merge"></a> [delete\_branch\_on\_merge](#output_delete_branch_on_merge)       | Whether head branches are automatically deleted upon merge.       |
-| <a name="output_deploy_keys"></a> [deploy\_keys](#output_deploy_keys)                                          | Managed deploy keys.                                              |
-| <a name="output_environments"></a> [environments](#output_environments)                                        | Managed GitHub Actions environments.                              |
-| <a name="output_merge_queue_enabled"></a> [merge\_queue\_enabled](#output_merge_queue_enabled)                 | Whether GitHub Merge Queue is enabled on the main branch ruleset. |
-| <a name="output_repository_git_clone_url"></a> [repository\_git\_clone\_url](#output_repository_git_clone_url) | The URL that can be provided to git clone over HTTPS.             |
-| <a name="output_repository_html_url"></a> [repository\_html\_url](#output_repository_html_url)                 | The HTML URL of the managed GitHub repository.                    |
-| <a name="output_repository_name"></a> [repository\_name](#output_repository_name)                              | The name of the managed GitHub repository.                        |
-| <a name="output_repository_node_id"></a> [repository\_node\_id](#output_repository_node_id)                    | The GraphQL Node ID of the managed GitHub repository.             |
-| <a name="output_repository_ssh_clone_url"></a> [repository\_ssh\_clone\_url](#output_repository_ssh_clone_url) | The URL that can be provided to git clone over SSH.               |
-| <a name="output_ruleset_enforcement"></a> [ruleset\_enforcement](#output_ruleset_enforcement)                  | Enforcement level of the main branch ruleset.                     |
-| <a name="output_visibility"></a> [visibility](#output_visibility)                                              | The visibility of the managed repository.                         |
+| Name                                                                                                                          | Description                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| <a name="output_actions_permissions"></a> [actions\_permissions](#output_actions_permissions)                                 | Actions repository permissions.                                        |
+| <a name="output_allow_merge_commit"></a> [allow\_merge\_commit](#output_allow_merge_commit)                                   | Whether merge commits are enabled.                                     |
+| <a name="output_allow_rebase_merge"></a> [allow\_rebase\_merge](#output_allow_rebase_merge)                                   | Whether rebase merge is enabled.                                       |
+| <a name="output_allow_squash_merge"></a> [allow\_squash\_merge](#output_allow_squash_merge)                                   | Whether squash merge is enabled.                                       |
+| <a name="output_ci_deployment_branch_patterns"></a> [ci\_deployment\_branch\_patterns](#output_ci_deployment_branch_patterns) | Ref patterns allowed to deploy to the synthetic-only 'ci' environment. |
+| <a name="output_delete_branch_on_merge"></a> [delete\_branch\_on\_merge](#output_delete_branch_on_merge)                      | Whether head branches are automatically deleted upon merge.            |
+| <a name="output_deploy_keys"></a> [deploy\_keys](#output_deploy_keys)                                                         | Managed deploy keys.                                                   |
+| <a name="output_environments"></a> [environments](#output_environments)                                                       | Managed GitHub Actions environments.                                   |
+| <a name="output_merge_queue_enabled"></a> [merge\_queue\_enabled](#output_merge_queue_enabled)                                | Whether GitHub Merge Queue is enabled on the main branch ruleset.      |
+| <a name="output_repository_git_clone_url"></a> [repository\_git\_clone\_url](#output_repository_git_clone_url)                | The URL that can be provided to git clone over HTTPS.                  |
+| <a name="output_repository_html_url"></a> [repository\_html\_url](#output_repository_html_url)                                | The HTML URL of the managed GitHub repository.                         |
+| <a name="output_repository_name"></a> [repository\_name](#output_repository_name)                                             | The name of the managed GitHub repository.                             |
+| <a name="output_repository_node_id"></a> [repository\_node\_id](#output_repository_node_id)                                   | The GraphQL Node ID of the managed GitHub repository.                  |
+| <a name="output_repository_ssh_clone_url"></a> [repository\_ssh\_clone\_url](#output_repository_ssh_clone_url)                | The URL that can be provided to git clone over SSH.                    |
+| <a name="output_ruleset_enforcement"></a> [ruleset\_enforcement](#output_ruleset_enforcement)                                 | Enforcement level of the main branch ruleset.                          |
+| <a name="output_visibility"></a> [visibility](#output_visibility)                                                             | The visibility of the managed repository.                              |
 
 <!-- END_TF_DOCS -->

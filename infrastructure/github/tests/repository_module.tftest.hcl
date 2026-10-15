@@ -124,8 +124,13 @@ run "verify_repository_child_module" {
   }
 
   assert {
-    condition     = length(github_repository_environment.ci.deployment_branch_policy) == 0
-    error_message = "CI environment must not restrict deployment_branch_policy so merge_group branches can deploy (STD-CI-23)"
+    condition     = github_repository_environment.ci.deployment_branch_policy[0].custom_branch_policies == true
+    error_message = "CI environment must restrict deployments to an explicit ref allowlist (STD-CI-23)"
+  }
+
+  assert {
+    condition     = toset(keys(github_repository_environment_deployment_policy.ci)) == toset(["main", "refs/pull/*/merge", "gh-readonly-queue/main/*"])
+    error_message = "CI environment must allow exactly main, pull_request merge refs and merge queue groups (STD-CI-23)"
   }
 
   assert {
