@@ -27,6 +27,14 @@ fi
 
 ping_url="$(cat "${url_file}")"
 
+# Sentinel from the failure unit's SetCredential= fallback: the encrypted credential exists in the
+# unit but could not be loaded from the credential store.
+if [ "${ping_url}" = "missing" ]; then
+  echo "Healthchecks ping URL credential could not be loaded from the credential store; ${event} signal not sent" >&2
+  [ "${event}" = "fail" ] && exit 1
+  exit 0
+fi
+
 if printf 'url = "%s%s"\n' "${ping_url}" "${suffix}" |
   curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "${event}: ${unit} on $(hostname)" --config -; then
   echo "Healthchecks ${event} signal sent"

@@ -141,6 +141,16 @@ notify() {
   [ "$status" -eq 0 ]
 }
 
+@test "notify reports the failure unit's missing-credential sentinel instead of pinging" {
+  printf 'missing' > "${BATS_TMPDIR}/creds/healthchecks_ping_url"
+  notify fail restic-backup.service
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"could not be loaded from the credential store"* ]] || false
+  [ ! -f "${BATS_TMPDIR}/curl-argv.log" ]
+  notify success restic-backup.service
+  [ "$status" -eq 0 ]
+}
+
 @test "notify rejects unknown events" {
   notify bogus
   [ "$status" -eq 2 ]

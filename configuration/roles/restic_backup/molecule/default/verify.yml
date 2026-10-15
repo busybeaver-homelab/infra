@@ -293,6 +293,20 @@
           - "'scheduled' in restic_backup_secondary_snapshots_stat.stdout"
           - "'secondary' in restic_backup_secondary_snapshots_stat.stdout"
 
+    - name: List non-root container data in the latest primary snapshot
+      ansible.builtin.command:
+        argv: [restic, ls, latest, /opt/containers/db/data]
+      environment:
+        RESTIC_REPOSITORY: "/var/cache/restic/primary-repo"
+        RESTIC_PASSWORD_COMMAND: "systemd-creds decrypt {{ restic_backup_test_credstore }}/restic_password -"
+      register: restic_backup_nonroot_ls
+      changed_when: false
+
+    - name: Assert 999:999 0700 data was backed up (CAP_DAC_READ_SEARCH, R2-ANS-06)
+      ansible.builtin.assert:
+        that:
+          - "'/opt/containers/db/data/PG_VERSION' in restic_backup_nonroot_ls.stdout_lines"
+
     - name: Read Healthchecks stub log after successful run
       ansible.builtin.slurp:
         src: "{{ restic_backup_test_stub_log }}"
@@ -335,6 +349,54 @@
         that:
           - restic_backup_failure_result.stdout == 'success'
           - "'POST /molecule-check/fail' in (restic_backup_stub_log_failure.content | b64decode)"
+
+    # --- Failure alert must still run when its credential cannot be loaded ----------
+
+    - name: Slurp failure notifier unit
+      ansible.builtin.slurp:
+        src: /etc/systemd/system/restic-backup-failure@.service
+      register: restic_backup_failure_unit
+
+    - name: Assert failure notifier declares a credential fallback
+      ansible.builtin.assert:
+        that:
+          - "'SetCredential=healthchecks_ping_url:missing' in (restic_backup_failure_unit.content | b64decode)"
+
+    - name: Move the encrypted ping URL credential away
+      ansible.builtin.command:
+        argv:
+          - mv
+          - "{{ restic_backup_test_credstore }}/healthchecks_ping_url"
+          - "{{ restic_backup_test_credstore }}/healthchecks_ping_url.molecule-hidden"
+      changed_when: true
+
+    - name: Run the failure notifier without its credential (fails by design; checked below)
+      ansible.builtin.command:
+        argv: [systemctl, start, restic-backup-failure@fallback.service]
+      register: restic_backup_failure_fallback_start
+      failed_when: false
+      changed_when: true
+
+    - name: Read failure notifier journal without credential
+      ansible.builtin.command:
+        argv: [journalctl, -u, restic-backup-failure@fallback.service, --no-pager, -o, cat]
+      register: restic_backup_failure_fallback_journal
+      changed_when: false
+
+    - name: Restore the encrypted ping URL credential
+      ansible.builtin.command:
+        argv:
+          - mv
+          - "{{ restic_backup_test_credstore }}/healthchecks_ping_url.molecule-hidden"
+          - "{{ restic_backup_test_credstore }}/healthchecks_ping_url"
+      changed_when: true
+
+    - name: Assert the notifier ran and reported the missing credential (not a CREDENTIALS-step failure)
+      ansible.builtin.assert:
+        that:
+          - "'could not be loaded from the credential store' in restic_backup_failure_fallback_journal.stdout"
+          - "'Failed to set up credentials' not in restic_backup_failure_fallback_journal.stdout"
+          - "'Invalid syntax' not in restic_backup_failure_fallback_journal.stdout"
 
     - name: Verify journal logs do not contain the repository password
       ansible.builtin.shell: |

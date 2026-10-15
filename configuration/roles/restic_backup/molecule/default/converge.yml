@@ -17,6 +17,22 @@
         group: root
         mode: "0755"
 
+    - name: Ensure non-root container data directory exists (database-style 999:999, 0700)
+      ansible.builtin.file:
+        path: /opt/containers/db/data
+        state: directory
+        owner: "999"
+        group: "999"
+        mode: "0700"
+
+    - name: Create non-root container data file readable only by its owner
+      ansible.builtin.copy:
+        content: "16\n"
+        dest: /opt/containers/db/data/PG_VERSION
+        owner: "999"
+        group: "999"
+        mode: "0600"
+
     - name: Create test file for backup verification
       ansible.builtin.copy:
         content: "test file for encrypted restic backup\n"
