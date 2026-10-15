@@ -5,6 +5,7 @@
 # (owner decision D7, docs/runbooks/ci-workflows-standards.md STD-CI-69).
 
 /.sops.yaml                         @busybeaver
+/.sops-recipients.allowlist        @busybeaver
 /.gitattributes                     @busybeaver
 /secrets/                           @busybeaver
 /lefthook.yml                       @busybeaver
