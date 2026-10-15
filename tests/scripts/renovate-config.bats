@@ -70,7 +70,7 @@ EOF
 }
 
 @test "renovate-config-validator validates .github/renovate.json5" {
-  run npx --prefer-offline --yes --package renovate renovate-config-validator "${REPO_ROOT}/.github/renovate.json5"
+  run npx --prefer-offline --yes --package renovate renovate-config-validator --strict "${REPO_ROOT}/.github/renovate.json5"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Config validated successfully" ]]
 }
@@ -590,4 +590,18 @@ if (!ok) { console.error("required_version not disabled"); process.exit(1); }
 console.log("required_version disabled");
 ' "$config"
   [ "$status" -eq 0 ]
+}
+
+@test ".github/renovate.json5 sets strict internal checks and never automerges security updates" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const config = eval("(" + require("fs").readFileSync(process.argv[1], "utf8") + ")");
+if (config.internalChecksFilter !== "strict") { console.error("internalChecksFilter must be strict"); process.exit(1); }
+const v = config.vulnerabilityAlerts || {};
+if (v.automerge !== false) { console.error("vulnerabilityAlerts.automerge must be false"); process.exit(1); }
+if (v.minimumReleaseAge !== undefined && v.minimumReleaseAge !== null) { console.error("security updates must bypass the age gate"); process.exit(1); }
+console.log("security gates ok");
+' "$config"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"security gates ok"* ]] || false
 }
