@@ -53,8 +53,9 @@ resource "github_repository_ruleset" "main_protection" {
   # Owner decision D6: organization owners may push/merge to main directly (small,
   # local fast-forward merges; the pre-push guard requires ALLOW_MAIN_PUSH=1);
   # any other repository admin can only bypass through a pull request.
+  # No actor_id: GitHub stores null for OrganizationAdmin and the provider reads it back as 0,
+  # so a configured 1 is a perpetual diff (integrations/terraform-provider-github#2536, REV2-X-3).
   bypass_actors {
-    actor_id    = 1 # Organization owners (actor_id is always 1 for OrganizationAdmin)
     actor_type  = "OrganizationAdmin"
     bypass_mode = "always"
   }
