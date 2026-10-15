@@ -35,9 +35,12 @@ lifecycle_set() {
   lifecycle_set cloudflare_account_member frozen 'ignore_changes = all'
 }
 
-@test "frozen tokens cover exactly grafana, r2_state and terraform" {
-  run grep -cE '^\s+(grafana|r2_state|terraform)\s+= "' "$CF/iam_frozen.tf"
-  [ "$output" -eq 3 ]
+@test "frozen tokens cover exactly r2_state and terraform" {
+  run grep -cE '^\s+(r2_state|terraform)\s+= "' "$CF/iam_frozen.tf"
+  [ "$output" -eq 2 ]
+  # The grafana token was deleted in Cloudflare and removed from state (REV2-X-2).
+  run grep -cE '^\s+grafana\s+=' "$CF/iam_frozen.tf"
+  [ "$output" -eq 0 ]
 }
 
 @test "frozen token permissions are sourced from SOPS, not plaintext" {

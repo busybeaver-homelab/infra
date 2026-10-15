@@ -35,7 +35,6 @@ mock_provider "sops" {
                 - { host: "decoy.example.test", description: "decoy" }
             iam:
               tokens:
-                grafana:   { id: "00000000000000000000000000000009", policies: [{ effect: "allow", resources: "{\"com.cloudflare.api.account.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }, { effect: "allow", resources: "{\"com.cloudflare.api.account.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }] }
                 r2_state:  { id: "0000000000000000000000000000000a", policies: [{ effect: "allow", resources: "{\"com.cloudflare.edge.r2.bucket.0_default_x\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }] }
                 terraform: { id: "0000000000000000000000000000000b", policies: [{ effect: "allow", resources: "{\"com.cloudflare.api.account.zone.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }, { effect: "allow", resources: "{\"com.cloudflare.api.account.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }] }
               member: { id: "0000000000000000000000000000000c", email: "user@example.test", resource_group_id: "00000000000000000000000000000012" }
