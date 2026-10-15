@@ -418,3 +418,52 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "\${{ github.event_name == 'pull_request' }}" ]
 }
+
+@test "molecule job passes SOPS_AGE_KEY via step env and never writes keys.txt to disk (R2-CI-01, STD-CI-28)" {
+  run grep -F "keys.txt" "$WORKFLOW"
+  [ "$status" -ne 0 ]
+
+  run yq '.jobs.molecule.env // {} | length' "$WORKFLOW"
+  [ "$output" = "0" ]
+
+  run yq '[.jobs.molecule.steps[] | select(.name == "Run Molecule test (*)")] | length' "$WORKFLOW"
+  [ "$output" = "5" ]
+
+  run yq '[.jobs.molecule.steps[] | select(.env.SOPS_AGE_KEY != null)] | length' "$WORKFLOW"
+  [ "$output" = "5" ]
+
+  run yq '[.jobs.molecule.steps[] | select(.name == "Run Molecule test (*)" and .env.SOPS_AGE_KEY == "${{ secrets.SOPS_AGE_KEY_CI }}")] | length' "$WORKFLOW"
+  [ "$output" = "5" ]
+}
+
+@test "lint-format job runs verify-git-crypt.sh --all (R2-CI-01)" {
+  run yq '.jobs.lint-format.steps[] | select(.name == "Verify git-crypt Encryption") | .run' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "mise exec -- bash scripts/verify-git-crypt.sh --all" ]
+}
+
+@test "lefthook.yml passes --no-update to trufflehog and wires verify-git-crypt (R2-GATE-01, R2-GATE-02)" {
+  local lefthook="${REPO_ROOT}/lefthook.yml"
+  run yq '.pre-commit.commands.trufflehog.run' "$lefthook"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--no-update"* ]] || false
+
+  run yq '.pre-commit.commands["verify-git-crypt"].run' "$lefthook"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"scripts/verify-git-crypt.sh"* ]]
+}
+
+@test "lefthook.yml removes exclude from all security guards and uses glob lists on linters/formatters (R2-GATE-07, R2-GOV-04)" {
+  local lefthook="${REPO_ROOT}/lefthook.yml"
+  local guard
+  for guard in trufflehog verify-sops-encryption verify-git-crypt block-ansible-vault detect-private-keys network-masking secrets-schema-parity sops-secret-leaks sops-recipients sops-disjointness; do
+    run yq ".pre-commit.commands[\"${guard}\"].exclude // \"none\"" "$lefthook"
+    [ "$status" -eq 0 ]
+    [ "$output" = "none" ]
+  done
+
+  # Every command that still defines exclude must use a YAML sequence (glob list), not a regex string
+  run yq '[.pre-commit.commands[] | select(.exclude != null) | (.exclude | tag)] | unique | .[]' "$lefthook"
+  [ "$status" -eq 0 ]
+  [ "$output" = "!!seq" ]
+}

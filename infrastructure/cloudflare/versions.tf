@@ -6,6 +6,10 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "5.28.0"
     }
+    external = {
+      source  = "hashicorp/external"
+      version = "2.3.5"
+    }
     sops = {
       source  = "carlpett/sops"
       version = "1.4.1"

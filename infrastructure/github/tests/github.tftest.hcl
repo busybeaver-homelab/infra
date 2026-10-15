@@ -1,24 +1,31 @@
 mock_provider "github" {}
+mock_provider "sops" {}
+mock_provider "external" {}
 
-mock_provider "sops" {
-  override_data {
-    target = data.sops_file.secrets
-    values = {
-      raw = <<-EOT
-        github:
-          owner: "mock-owner"
-          token: "mock-ghp-token-12345"
-          config:
-            repositories:
-              infra:
-                name: "infra"
-                description: "Infrastructure as Code for my homelab environment"
-                topics:
-                  - "homelab"
-                  - "infrastructure-as-code"
-                  - "iac"
-        opentofu:
-          state_encryption_passphrase: "mock-passphrase"
+override_data {
+  target = data.external.sops_github
+  values = {
+    result = {
+      json = <<-EOT
+        {
+          "owner": "mock-owner",
+          "config": {
+            "repositories": {
+              "infra": {
+                "name": "infra",
+                "description": "Infrastructure as Code for my homelab environment",
+                "topics": ["homelab", "infrastructure-as-code", "iac"]
+              }
+            },
+            "deploy_keys": {
+              "work-laptop": {
+                "title": "work-laptop",
+                "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
+                "read_only": true
+              }
+            }
+          }
+        }
       EOT
     }
   }
@@ -90,6 +97,21 @@ run "verify_github_root_hardening" {
   }
 
   assert {
+    condition     = module.repository["infra"].environments.ops == "ops" && module.repository["infra"].ops_environment_name == "ops"
+    error_message = "Ops environment must be defined"
+  }
+
+  assert {
+    condition     = module.repository["infra"].backup_deployment_branch_pattern == "main"
+    error_message = "Backup environment must restrict deployments to main"
+  }
+
+  assert {
+    condition     = module.repository["infra"].ops_deployment_branch_pattern == "main"
+    error_message = "Ops environment must restrict deployments to main"
+  }
+
+  assert {
     condition     = module.repository["infra"].environments.code_quality == "code_quality"
     error_message = "Code quality environment must be defined in outputs"
   }
@@ -105,8 +127,23 @@ run "verify_github_root_hardening" {
   }
 
   assert {
-    condition     = contains(keys(module.repository["infra"].deploy_keys), "work-laptop")
-    error_message = "Deploy key work-laptop must be registered"
+    condition     = module.repository["infra"].actions_permissions.github_owned_allowed == true
+    error_message = "Actions permissions must allow GitHub-owned actions"
+  }
+
+  assert {
+    condition     = module.repository["infra"].actions_permissions.verified_allowed == false
+    error_message = "Actions permissions must not blanket-allow all Marketplace verified actions"
+  }
+
+  assert {
+    condition     = contains(module.repository["infra"].actions_permissions.patterns_allowed, "step-security/harden-runner@*")
+    error_message = "Actions permissions must explicitly allow step-security/harden-runner@*"
+  }
+
+  assert {
+    condition     = contains(keys(module.repository["infra"].deploy_keys), "work-laptop") && module.repository["infra"].deploy_keys["work-laptop"].read_only == true
+    error_message = "Deploy key work-laptop must be registered from SOPS and strictly read_only"
   }
 }
 
@@ -163,6 +200,16 @@ run "ci_environment_holds_no_production_material" {
   assert {
     condition     = keys(local.ci_environment_secrets) == ["SOPS_AGE_KEY_CI"]
     error_message = "The ci environment must only receive the CI age identity."
+  }
+
+  assert {
+    condition     = !contains(keys(local.backup_environment_secrets), "SOPS_AGE_KEY_CI")
+    error_message = "SOPS_AGE_KEY_CI must not be injected into the backup environment (R2-CI-01)."
+  }
+
+  assert {
+    condition     = !contains(keys(local.ops_environment_secrets), "SOPS_AGE_KEY_CI")
+    error_message = "SOPS_AGE_KEY_CI must not be injected into the ops environment (R2-CI-01)."
   }
 
   assert {

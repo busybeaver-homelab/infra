@@ -1,17 +1,17 @@
 resource "tailscale_tailnet_key" "bootstrap_oci" {
-  reusable      = true
+  reusable      = false
   ephemeral     = false
   preauthorized = true
-  expiry        = 7776000 # 90 days in seconds
+  expiry        = var.bootstrap_key_expiry
   description   = "Homelab OCI automation bootstrap key"
   tags          = var.bootstrap_key_tags
 }
 
 resource "tailscale_tailnet_key" "bootstrap_gcp" {
-  reusable      = true
+  reusable      = false
   ephemeral     = false
   preauthorized = true
-  expiry        = 7776000 # 90 days in seconds
+  expiry        = var.bootstrap_key_expiry
   description   = "Homelab GCP automation bootstrap key"
   tags          = var.bootstrap_gcp_key_tags
 }

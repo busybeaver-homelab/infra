@@ -1,7 +1,7 @@
 locals {
-  raw_secrets = yamldecode(data.sops_file.secrets.raw)
-  nextdns     = local.raw_secrets.nextdns
-  account_ids = ["account_1", "account_2", "account_3", "account_4", "account_5"]
+  ephemeral_accounts = try(yamldecode(ephemeral.sops_file.secrets.raw).nextdns.accounts, {})
+  config             = sensitive(jsondecode(data.external.sops_config.result.json))
+  account_ids        = ["account_1", "account_2", "account_3", "account_4", "account_5"]
 
   # Mandatory repository tagging map (AGENTS.md §2 / STD-OT-35).
   # NextDNS resources do not expose cloud provider tag attributes, so we expose
@@ -14,7 +14,7 @@ locals {
 
   account_api_keys = {
     for k in local.account_ids :
-    k => nonsensitive(local.nextdns.accounts[k].api_key)
+    k => nonsensitive(try(local.ephemeral_accounts[k].api_key, "mock-api-key"))
   }
 
   # Non-sensitive baseline posture shared across account_1..account_4, and used
@@ -86,43 +86,43 @@ locals {
     }
   }
 
-  shared_rewrites  = try(local.nextdns.config.shared.rewrites, [])
-  shared_allowlist = try(local.nextdns.config.shared.allowlist, [])
-  shared_denylist  = try(local.nextdns.config.shared.denylist, [])
+  shared_rewrites  = try(local.config.shared.rewrites, [])
+  shared_allowlist = try(local.config.shared.allowlist, [])
+  shared_denylist  = try(local.config.shared.denylist, [])
 
   effective_accounts = {
     for k in local.account_ids : k => {
-      account_name = local.nextdns.accounts[k].account_name
-      profile_id   = local.nextdns.config.accounts[k].profile_id
-      profile_name = local.nextdns.config.accounts[k].profile_name
+      account_name = try(local.config.accounts[k].account_name, local.config.accounts[k].profile_name)
+      profile_id   = local.config.accounts[k].profile_id
+      profile_name = local.config.accounts[k].profile_name
 
-      security         = merge(local.baseline_posture.security, try(local.nextdns.config.accounts[k].overrides.security, {}))
-      privacy          = try(local.nextdns.config.accounts[k].overrides.privacy, local.baseline_posture.privacy)
-      parental_control = try(local.nextdns.config.accounts[k].overrides.parental_control, local.baseline_posture.parental_control)
-      settings         = try(local.nextdns.config.accounts[k].overrides.settings, local.baseline_posture.settings)
+      security         = merge(local.baseline_posture.security, try(local.config.accounts[k].overrides.security, {}))
+      privacy          = try(local.config.accounts[k].overrides.privacy, local.baseline_posture.privacy)
+      parental_control = try(local.config.accounts[k].overrides.parental_control, local.baseline_posture.parental_control)
+      settings         = try(local.config.accounts[k].overrides.settings, local.baseline_posture.settings)
 
       rewrites = concat(
         [
-          for r in(try(local.nextdns.config.accounts[k].overrides.inherit_shared_rewrites, true) ? local.shared_rewrites : []) :
-          r if !contains(try(local.nextdns.config.accounts[k].overrides.excluded_rewrite_names, []), r.name)
+          for r in(try(local.config.accounts[k].overrides.inherit_shared_rewrites, true) ? local.shared_rewrites : []) :
+          r if !contains(try(local.config.accounts[k].overrides.excluded_rewrite_names, []), r.name)
         ],
-        try(local.nextdns.config.accounts[k].overrides.extra_rewrites, [])
+        try(local.config.accounts[k].overrides.extra_rewrites, [])
       )
 
       allowlist = concat(
         [
-          for d in(try(local.nextdns.config.accounts[k].overrides.inherit_shared_allowlist, true) ? local.shared_allowlist : []) :
-          d if !contains(try(local.nextdns.config.accounts[k].overrides.excluded_allowlist_ids, []), d.id)
+          for d in(try(local.config.accounts[k].overrides.inherit_shared_allowlist, true) ? local.shared_allowlist : []) :
+          d if !contains(try(local.config.accounts[k].overrides.excluded_allowlist_ids, []), d.id)
         ],
-        try(local.nextdns.config.accounts[k].overrides.extra_allowlist, [])
+        try(local.config.accounts[k].overrides.extra_allowlist, [])
       )
 
       denylist = concat(
         [
-          for d in(try(local.nextdns.config.accounts[k].overrides.inherit_shared_denylist, true) ? local.shared_denylist : []) :
-          d if !contains(try(local.nextdns.config.accounts[k].overrides.excluded_denylist_ids, []), d.id)
+          for d in(try(local.config.accounts[k].overrides.inherit_shared_denylist, true) ? local.shared_denylist : []) :
+          d if !contains(try(local.config.accounts[k].overrides.excluded_denylist_ids, []), d.id)
         ],
-        try(local.nextdns.config.accounts[k].overrides.extra_denylist, [])
+        try(local.config.accounts[k].overrides.extra_denylist, [])
       )
     }
   }

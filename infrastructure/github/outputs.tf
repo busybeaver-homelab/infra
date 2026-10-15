@@ -27,5 +27,6 @@ output "repository_node_id" {
 output "deploy_keys" {
   value       = try(module.repository["infra"].deploy_keys, {})
   description = "Deploy keys registered on the infra repository."
+  sensitive   = true
 }
 

@@ -20,13 +20,27 @@ pre-commit:
     # Auto-generate OpenTofu documentation
     terraform-docs:
       glob: "*.tf"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: bash scripts/generate-tf-docs.sh {staged_files} && git add "infrastructure/**/README.md"
 
     # Oxc Formatter (JSON, YAML, Markdown, JS)
     oxfmt:
       glob: "*.{js,json,md,yml,yaml}"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: bash scripts/run-oxfmt.sh {staged_files}
       stage_fixed: true
 
@@ -38,25 +52,53 @@ pre-commit:
     # Shell Script Formatter (shfmt)
     shfmt:
       glob: "*.sh"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: shfmt -w -i 2 -ci {staged_files}
       stage_fixed: true
 
     # Python Linter and Formatter (Ruff)
     ruff-format:
       glob: "*.py"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: ruff format --check {staged_files}
       stage_fixed: true
     ruff-lint:
       glob: "*.py"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: ruff check {staged_files}
 
     # Shell Linter (Shellcheck)
     shellcheck:
       glob: "*.sh"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: shellcheck {staged_files}
 
     # Cloudflare module guards: lifecycle protections + identifying-value leak guards
@@ -71,57 +113,69 @@ pre-commit:
 
     # Secrets Scanner (Trufflehog)
     trufflehog:
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
-      run: trufflehog filesystem {staged_files} --results=verified,unknown --fail
+      run: trufflehog filesystem {staged_files} --results=verified,unknown --fail --no-update
 
     # GitHub Actions Workflow Linter (actionlint)
     actionlint:
       glob: ".github/workflows/*.{yml,yaml}"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: actionlint {staged_files}
 
     # Ansible Linter
     ansible-lint:
       glob: "configuration/**/*.{yml,yaml}"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: ansible-lint {staged_files}
 
     # Custom SOPS Metadata Verification (P2-4)
-    # Checks that all committed *.sops.yaml files and YAML/JSON files under secrets/ are actually encrypted
+    # Checks that all committed *.sops.yaml files and files under secrets/ are actually encrypted
     verify-sops-encryption:
-      glob: "{*.sops.{yml,yaml,json},secrets/**/*.{yml,yaml,json}}"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      glob: "{*.sops.{yml,yaml,json},*.sops.*,secrets/**/*.{yml,yaml,json},secrets/**}"
       run: bash scripts/verify-sops-encryption.sh {staged_files}
+
+    # git-crypt Magic-Byte Verification (R2-GATE-01)
+    # Blocks any commit whose index blob for a filter=git-crypt path lacks the \0GITCRYPT\0 header
+    verify-git-crypt:
+      run: mise exec -- bash scripts/verify-git-crypt.sh
 
     # Custom Ansible Vault Prevention (P2-5)
     # Blocks any commits containing files with $ANSIBLE_VAULT to enforce SOPS usage
     block-ansible-vault:
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/block-ansible-vault.sh {staged_files}
 
     # Custom Private Key Detector (P0-TASK-5)
-    # Scans staged files for raw Age keys and PEM/SSH private key headers
+    # Scans staged files for raw Age keys, PEM/SSH private key headers, and binary key containers
     detect-private-keys:
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/detect-private-keys.sh {staged_files}
 
     # Custom Network Masking Guard (P2-7)
     # Scans staged files for unencrypted RFC1918 and CGNAT IPv4 addresses
     network-masking:
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-network-masking.sh {staged_files}
 
     # Secrets Schema Parity Check (P2-8)
     # Verifies key hierarchy parity between production and CI SOPS credentials files
     secrets-schema-parity:
       glob: "secrets/credentials*.sops.{yml,yaml}"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-secrets-schema-parity.sh secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml
 
     # SOPS Secret Leak Detector
     # Scans staged plaintext files (including .bats, .tftest.hcl, Molecule) for decrypted SOPS secret values
     sops-secret-leaks:
-      exclude: '(^|/)(\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-sops-secret-leaks.sh --check-files {staged_files}
 
     # SOPS recipient allowlist: the canonical files and .sops.yaml may only use active
@@ -134,13 +188,19 @@ pre-commit:
     # and scans all tracked repo files against the updated SOPS files in a single pass
     sops-disjointness:
       glob: "secrets/credentials*.sops.{yml,yaml}"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-sops-secret-leaks.sh --check-disjointness --all-files
 
     # Mise Lockfile Synchronization Check
     mise-lock-check:
       glob: "mise.{toml,lock}"
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: mise lock --dry-run
 
 commit-msg:

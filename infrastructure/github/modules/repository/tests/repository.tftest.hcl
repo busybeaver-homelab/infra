@@ -89,6 +89,46 @@ run "verify_repository_module_plan" {
     condition     = alltrue([for policy in github_repository_environment_deployment_policy.ci : policy.environment == "ci" && policy.tag_pattern == null])
     error_message = "ci deployment policies must target the ci environment with branch patterns only"
   }
+
+  assert {
+    condition     = github_repository_environment.backup.deployment_branch_policy[0].protected_branches == false && github_repository_environment.backup.deployment_branch_policy[0].custom_branch_policies == true
+    error_message = "backup environment must use custom_branch_policies (R2-CI-01)"
+  }
+
+  assert {
+    condition     = github_repository_environment_deployment_policy.backup_main.branch_pattern == "main"
+    error_message = "backup environment must restrict deployments to main (R2-CI-01)"
+  }
+
+  assert {
+    condition     = github_repository_environment.ops.environment == "ops"
+    error_message = "ops environment must be defined (R2-CI-01)"
+  }
+
+  assert {
+    condition     = github_repository_environment.ops.deployment_branch_policy[0].protected_branches == false && github_repository_environment.ops.deployment_branch_policy[0].custom_branch_policies == true
+    error_message = "ops environment must use custom_branch_policies (R2-CI-01)"
+  }
+
+  assert {
+    condition     = github_repository_environment_deployment_policy.ops_main.branch_pattern == "main"
+    error_message = "ops environment must restrict deployments to main (R2-CI-01)"
+  }
+
+  assert {
+    condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed == true
+    error_message = "Actions permissions must allow GitHub-owned actions (R2-GOV-01)"
+  }
+
+  assert {
+    condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].verified_allowed == false
+    error_message = "Actions permissions must disable verified_allowed (R2-GOV-01)"
+  }
+
+  assert {
+    condition     = contains(github_actions_repository_permissions.repo.allowed_actions_config[0].patterns_allowed, "step-security/harden-runner@*")
+    error_message = "Actions permissions must allow step-security/harden-runner@* (R2-GOV-01)"
+  }
 }
 
 run "verify_repository_module_apply" {
@@ -122,6 +162,11 @@ run "verify_repository_module_apply" {
   assert {
     condition     = output.actions_permissions.allowed_actions == "selected"
     error_message = "Actions permissions must restrict allowed actions to selected"
+  }
+
+  assert {
+    condition     = output.ops_environment_name == "ops" && output.environments.ops == "ops"
+    error_message = "ops environment outputs must be populated"
   }
 }
 
@@ -223,6 +268,84 @@ run "reject_state_passphrase_in_backup_environment" {
 
   expect_failures = [
     var.backup_secrets,
+  ]
+}
+
+run "reject_state_passphrase_in_ops_environment" {
+  command = plan
+
+  variables {
+    ops_secrets = {
+      STATE_PASSPHRASE = "never-distribute-this-0000000000000000"
+    }
+  }
+
+  expect_failures = [
+    var.ops_secrets,
+  ]
+}
+
+run "reject_sops_age_key_ci_in_backup_environment" {
+  command = plan
+
+  variables {
+    backup_secrets = {
+      SOPS_AGE_KEY_CI = format("%s%s", "AGE-SECRET-KEY-1", join("", [for _ in range(58) : "Q"]))
+    }
+  }
+
+  expect_failures = [
+    var.backup_secrets,
+  ]
+}
+
+run "reject_sops_age_key_ci_in_ops_environment" {
+  command = plan
+
+  variables {
+    ops_secrets = {
+      SOPS_AGE_KEY_CI = format("%s%s", "AGE-SECRET-KEY-1", join("", [for _ in range(58) : "Q"]))
+    }
+  }
+
+  expect_failures = [
+    var.ops_secrets,
+  ]
+}
+
+run "reject_writable_deploy_key" {
+  command = plan
+
+  variables {
+    deploy_keys = {
+      "writable" = {
+        title     = "writable"
+        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000"
+        read_only = false
+      }
+    }
+  }
+
+  expect_failures = [
+    var.deploy_keys,
+  ]
+}
+
+run "reject_deploy_key_with_email_comment" {
+  command = plan
+
+  variables {
+    deploy_keys = {
+      "email" = {
+        title     = "email"
+        key       = format("%s %s%s%s", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000", "user", "\u0040", "example.test")
+        read_only = true
+      }
+    }
+  }
+
+  expect_failures = [
+    var.deploy_keys,
   ]
 }
 

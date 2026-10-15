@@ -33,75 +33,88 @@ mock_provider "nextdns" {
   }
 }
 
-mock_provider "sops" {
+mock_provider "sops" {}
+
+mock_provider "external" {
   override_data {
-    target = data.sops_file.secrets
+    target = data.external.sops_config
     values = {
-      raw = <<-EOT
-        nextdns:
-          accounts:
-            account_1:
-              account_name: "Decoy Account 1"
-              api_key: "decoy-api-key-1"
-            account_2:
-              account_name: "Decoy Account 2"
-              api_key: "decoy-api-key-2"
-            account_3:
-              account_name: "Decoy Account 3"
-              api_key: "decoy-api-key-3"
-            account_4:
-              account_name: "Decoy Account 4"
-              api_key: "decoy-api-key-4"
-            account_5:
-              account_name: "Decoy Account 5"
-              api_key: "decoy-api-key-5"
-          config:
-            accounts:
-              account_1:
-                profile_id: "dec001"
-                profile_name: "decoy-profile-1"
-              account_2:
-                profile_id: "dec002"
-                profile_name: "decoy-profile-2"
-              account_3:
-                profile_id: "dec003"
-                profile_name: "decoy-profile-3"
-              account_4:
-                profile_id: "dec004"
-                profile_name: "decoy-profile-4"
-              account_5:
-                profile_id: "dec005"
-                profile_name: "decoy-profile-5"
-                overrides:
-                  inherit_shared_rewrites: true
-                  excluded_rewrite_names:
-                    - "svc-b.example.test"
-                  extra_rewrites:
-                    - name: "svc-extra.example.test"
-                      content: "192.0.2.99"
-                  inherit_shared_allowlist: true
-                  excluded_allowlist_ids: []
-                  extra_allowlist:
-                    - id: "allow-extra.example.test"
-                      active: true
-                  inherit_shared_denylist: true
-                  excluded_denylist_ids: []
-                  extra_denylist: []
-                  security:
-                    dns_rebinding: false
-            shared:
-              rewrites:
-                - name: "svc-a.example.test"
-                  content: "192.0.2.10"
-                - name: "svc-b.example.test"
-                  content: "192.0.2.20"
-              allowlist:
-                - id: "allow-a.example.test"
-                  active: true
-              denylist:
-                - id: "deny-a.example.test"
-                  active: true
-      EOT
+      result = {
+        json = <<-EOT
+          {
+            "accounts": {
+              "account_1": {
+                "profile_id": "dec001",
+                "profile_name": "decoy-profile-1"
+              },
+              "account_2": {
+                "profile_id": "dec002",
+                "profile_name": "decoy-profile-2"
+              },
+              "account_3": {
+                "profile_id": "dec003",
+                "profile_name": "decoy-profile-3"
+              },
+              "account_4": {
+                "profile_id": "dec004",
+                "profile_name": "decoy-profile-4"
+              },
+              "account_5": {
+                "profile_id": "dec005",
+                "profile_name": "decoy-profile-5",
+                "overrides": {
+                  "inherit_shared_rewrites": true,
+                  "excluded_rewrite_names": ["svc-b.example.test"],
+                  "extra_rewrites": [
+                    {
+                      "name": "svc-extra.example.test",
+                      "content": "192.0.2.99"
+                    }
+                  ],
+                  "inherit_shared_allowlist": true,
+                  "excluded_allowlist_ids": [],
+                  "extra_allowlist": [
+                    {
+                      "id": "allow-extra.example.test",
+                      "active": true
+                    }
+                  ],
+                  "inherit_shared_denylist": true,
+                  "excluded_denylist_ids": [],
+                  "extra_denylist": [],
+                  "security": {
+                    "dns_rebinding": false
+                  }
+                }
+              }
+            },
+            "shared": {
+              "rewrites": [
+                {
+                  "name": "svc-a.example.test",
+                  "content": "192.0.2.10"
+                },
+                {
+                  "name": "svc-b.example.test",
+                  "content": "192.0.2.20"
+                }
+              ],
+              "allowlist": [
+                {
+                  "id": "allow-a.example.test",
+                  "active": true
+                }
+              ],
+              "denylist": [
+                {
+                  "id": "deny-a.example.test",
+                  "active": true
+                }
+              ]
+            }
+          }
+        EOT
+      }
     }
   }
 }

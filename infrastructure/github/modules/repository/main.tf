@@ -154,13 +154,20 @@ resource "github_actions_environment_secret" "ci_secrets" {
 }
 
 resource "github_repository_environment" "backup" {
-  environment = "backup"
-  repository  = github_repository.repo.name
+  environment         = "backup"
+  repository          = github_repository.repo.name
+  prevent_self_review = false
 
   deployment_branch_policy {
-    protected_branches     = true
-    custom_branch_policies = false
+    protected_branches     = false
+    custom_branch_policies = true
   }
+}
+
+resource "github_repository_environment_deployment_policy" "backup_main" {
+  repository     = github_repository.repo.name
+  environment    = github_repository_environment.backup.environment
+  branch_pattern = "main"
 }
 
 resource "github_actions_environment_secret" "backup_secrets" {
@@ -171,18 +178,47 @@ resource "github_actions_environment_secret" "backup_secrets" {
   value       = var.backup_secrets[each.key]
 }
 
+resource "github_repository_environment" "ops" {
+  environment         = "ops"
+  repository          = github_repository.repo.name
+  prevent_self_review = false
+
+  deployment_branch_policy {
+    protected_branches     = false
+    custom_branch_policies = true
+  }
+}
+
+resource "github_repository_environment_deployment_policy" "ops_main" {
+  repository     = github_repository.repo.name
+  environment    = github_repository_environment.ops.environment
+  branch_pattern = "main"
+}
+
+resource "github_actions_environment_secret" "ops_secrets" {
+  for_each    = nonsensitive(toset(keys(var.ops_secrets)))
+  repository  = github_repository.repo.name
+  environment = github_repository_environment.ops.environment
+  secret_name = each.key
+  value       = var.ops_secrets[each.key]
+}
+
 resource "github_repository_environment" "code_quality" {
   environment = "code_quality"
   repository  = github_repository.repo.name
 }
 
 resource "github_actions_repository_permissions" "repo" {
-  repository = github_repository.repo.name
-  enabled    = true
-
-  allowed_actions = "selected"
-
+  repository           = github_repository.repo.name
+  enabled              = true
+  allowed_actions      = "selected"
   sha_pinning_required = true
+
+  allowed_actions_config {
+    github_owned_allowed = true
+    verified_allowed     = false
+    patterns_allowed     = var.allowed_action_patterns
+  }
 }
 
 resource "github_workflow_repository_permissions" "repo" {
@@ -197,10 +233,10 @@ resource "github_repository_dependabot_security_updates" "repo" {
 }
 
 resource "github_repository_deploy_key" "deploy_keys" {
-  for_each   = var.deploy_keys
+  for_each   = nonsensitive(toset(keys(var.deploy_keys)))
   repository = github_repository.repo.name
-  title      = each.value.title
-  key        = each.value.key
-  read_only  = each.value.read_only
+  title      = var.deploy_keys[each.key].title
+  key        = var.deploy_keys[each.key].key
+  read_only  = var.deploy_keys[each.key].read_only
 }
 

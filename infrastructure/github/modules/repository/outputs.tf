@@ -67,9 +67,25 @@ output "environments" {
   value = {
     ci           = github_repository_environment.ci.environment
     backup       = github_repository_environment.backup.environment
+    ops          = github_repository_environment.ops.environment
     code_quality = github_repository_environment.code_quality.environment
   }
   description = "Managed GitHub Actions environments."
+}
+
+output "ops_environment_name" {
+  value       = github_repository_environment.ops.environment
+  description = "The name of the ops GitHub Actions environment."
+}
+
+output "backup_deployment_branch_pattern" {
+  value       = github_repository_environment_deployment_policy.backup_main.branch_pattern
+  description = "Branch pattern allowed to deploy to the 'backup' environment."
+}
+
+output "ops_deployment_branch_pattern" {
+  value       = github_repository_environment_deployment_policy.ops_main.branch_pattern
+  description = "Branch pattern allowed to deploy to the 'ops' environment."
 }
 
 output "deploy_keys" {
@@ -81,12 +97,16 @@ output "deploy_keys" {
     }
   }
   description = "Managed deploy keys."
+  sensitive   = true
 }
 
 output "actions_permissions" {
   value = {
     allowed_actions      = github_actions_repository_permissions.repo.allowed_actions
     sha_pinning_required = github_actions_repository_permissions.repo.sha_pinning_required
+    github_owned_allowed = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed
+    verified_allowed     = github_actions_repository_permissions.repo.allowed_actions_config[0].verified_allowed
+    patterns_allowed     = tolist(github_actions_repository_permissions.repo.allowed_actions_config[0].patterns_allowed)
   }
   description = "Actions repository permissions."
 }

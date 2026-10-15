@@ -50,9 +50,36 @@ variable "ci_secrets" {
 
 variable "backup_secrets" {
   type        = map(string)
-  description = "A map of sensitive secrets to inject into the 'backup' environment."
+  description = "A map of sensitive secrets to inject into the 'backup' environment (restricted to main)."
   sensitive   = true
   default     = {}
+
+  validation {
+    condition     = !contains(keys(var.backup_secrets), "SOPS_AGE_KEY_CI")
+    error_message = "SOPS_AGE_KEY_CI belongs exclusively to the 'ci' environment and must not be injected into 'backup' (R2-CI-01)."
+  }
+
+  validation {
+    condition     = length(var.backup_secrets) == 0 || length(setintersection(values(local.ci_environment_secrets), values(var.backup_secrets))) == 0
+    error_message = "backup_secrets must not share any secret values with the PR-reachable 'ci' environment (R2-CI-01)."
+  }
+}
+
+variable "ops_secrets" {
+  type        = map(string)
+  description = "A map of sensitive secrets to inject into the 'ops' environment (restricted to main)."
+  sensitive   = true
+  default     = {}
+
+  validation {
+    condition     = !contains(keys(var.ops_secrets), "SOPS_AGE_KEY_CI")
+    error_message = "SOPS_AGE_KEY_CI belongs exclusively to the 'ci' environment and must not be injected into 'ops' (R2-CI-01)."
+  }
+
+  validation {
+    condition     = length(var.ops_secrets) == 0 || length(setintersection(values(local.ci_environment_secrets), values(var.ops_secrets))) == 0
+    error_message = "ops_secrets must not share any secret values with the PR-reachable 'ci' environment (R2-CI-01)."
+  }
 }
 
 variable "sops_age_key_ci" {
@@ -73,13 +100,34 @@ variable "deploy_keys" {
     key       = string
     read_only = bool
   }))
-  description = "Deploy keys to register on the primary infra repository."
-  default = {
-    "work-laptop" = {
-      title     = "work-laptop"
-      key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhE5DoHICY85bnMIzXRGkggJ97ekZaJtzpQ6I7JgfF0 jmollner@liveperson.com"
-      read_only = false
-    }
+  description = "Deploy keys to register on the primary infra repository (overrides SOPS github.config.deploy_keys when non-empty)."
+  sensitive   = true
+  default     = {}
+
+  validation {
+    condition     = alltrue([for k, v in var.deploy_keys : v.read_only == true])
+    error_message = "All deploy keys must enforce read_only = true (R2-TF-08)."
+  }
+
+  validation {
+    condition     = alltrue([for k, v in var.deploy_keys : !can(regex("@", v.key))])
+    error_message = "Deploy key public keys must not contain email comments ('@') to prevent PII leakage (R2-TF-08)."
+  }
+}
+
+variable "allowed_action_patterns" {
+  type        = list(string)
+  description = "Explicit allowlist of third-party GitHub Action patterns permitted to run in managed repositories (R2-GOV-01)."
+  default = [
+    "cloudflare/wrangler-action@*",
+    "gitleaks/gitleaks-action@*",
+    "jdx/mise-action@*",
+    "step-security/harden-runner@*",
+  ]
+
+  validation {
+    condition     = length(var.allowed_action_patterns) > 0 && !contains(var.allowed_action_patterns, "*")
+    error_message = "allowed_action_patterns must be non-empty and must not contain a wildcard '*'."
   }
 }
 

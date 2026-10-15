@@ -68,8 +68,9 @@ variable "ci_secrets" {
 
 variable "backup_secrets" {
   type        = map(string)
-  description = "A map of sensitive secrets to inject into the 'backup' environment."
+  description = "A map of sensitive secrets to inject into the 'backup' environment (restricted to main)."
   sensitive   = true
+  default     = {}
 
   validation {
     condition     = !anytrue([for k in keys(var.backup_secrets) : can(regex("(?i)(PASSPHRASE|TOFU_ENCRYPTION)", k))])
@@ -77,10 +78,26 @@ variable "backup_secrets" {
   }
 
   validation {
-    condition     = !contains(keys(var.backup_secrets), "SOPS_AGE_KEY_CI") || can(regex("^AGE-SECRET-KEY-1[0-9A-Z]{58}$", var.backup_secrets["SOPS_AGE_KEY_CI"]))
-    error_message = "SOPS_AGE_KEY_CI must be exactly one age identity (no keyring files, no decoys). Add it to production SOPS as github.ci_age_key."
+    condition     = !contains(keys(var.backup_secrets), "SOPS_AGE_KEY_CI")
+    error_message = "SOPS_AGE_KEY_CI belongs exclusively to the 'ci' environment and must not be injected into 'backup' (R2-CI-01)."
   }
-  default = {}
+}
+
+variable "ops_secrets" {
+  type        = map(string)
+  description = "A map of sensitive secrets to inject into the 'ops' environment (restricted to main)."
+  sensitive   = true
+  default     = {}
+
+  validation {
+    condition     = !anytrue([for k in keys(var.ops_secrets) : can(regex("(?i)(PASSPHRASE|TOFU_ENCRYPTION)", k))])
+    error_message = "The OpenTofu state passphrase must never be distributed to GitHub environments."
+  }
+
+  validation {
+    condition     = !contains(keys(var.ops_secrets), "SOPS_AGE_KEY_CI")
+    error_message = "SOPS_AGE_KEY_CI belongs exclusively to the 'ci' environment and must not be injected into 'ops' (R2-CI-01)."
+  }
 }
 
 variable "deploy_keys" {
@@ -90,7 +107,34 @@ variable "deploy_keys" {
     read_only = bool
   }))
   description = "A map of deploy keys to register on the repository."
+  sensitive   = true
   default     = {}
+
+  validation {
+    condition     = alltrue([for k, v in var.deploy_keys : v.read_only == true])
+    error_message = "All deploy keys must enforce read_only = true (R2-TF-08)."
+  }
+
+  validation {
+    condition     = alltrue([for k, v in var.deploy_keys : !can(regex("@", v.key))])
+    error_message = "Deploy key public keys must not contain email comments ('@') to prevent PII leakage (R2-TF-08)."
+  }
+}
+
+variable "allowed_action_patterns" {
+  type        = list(string)
+  description = "Explicit allowlist of third-party GitHub Action patterns permitted to run in the repository (R2-GOV-01)."
+  default = [
+    "cloudflare/wrangler-action@*",
+    "gitleaks/gitleaks-action@*",
+    "jdx/mise-action@*",
+    "step-security/harden-runner@*",
+  ]
+
+  validation {
+    condition     = length(var.allowed_action_patterns) > 0 && !contains(var.allowed_action_patterns, "*")
+    error_message = "allowed_action_patterns must be non-empty and must not contain a wildcard '*'."
+  }
 }
 
 variable "enable_prevent_destroy" {

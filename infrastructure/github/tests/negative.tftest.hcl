@@ -1,24 +1,24 @@
 mock_provider "github" {}
+mock_provider "sops" {}
+mock_provider "external" {}
 
-mock_provider "sops" {
-  override_data {
-    target = data.sops_file.secrets
-    values = {
-      raw = <<-EOT
-        github:
-          owner: "mock-owner"
-          token: "mock-ghp-token-12345"
-          config:
-            repositories:
-              infra:
-                name: "infra"
-                description: "Infrastructure as Code for my homelab environment"
-                topics:
-                  - "homelab"
-                  - "infrastructure-as-code"
-                  - "iac"
-        opentofu:
-          state_encryption_passphrase: "mock-passphrase"
+override_data {
+  target = data.external.sops_github
+  values = {
+    result = {
+      json = <<-EOT
+        {
+          "owner": "mock-owner",
+          "config": {
+            "repositories": {
+              "infra": {
+                "name": "infra",
+                "description": "Infrastructure as Code for my homelab environment",
+                "topics": ["homelab", "infrastructure-as-code", "iac"]
+              }
+            }
+          }
+        }
       EOT
     }
   }
@@ -88,5 +88,103 @@ run "reject_placeholder_state_encryption_passphrase" {
 
   expect_failures = [
     var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_sops_age_key_ci_in_backup_secrets" {
+  command = plan
+
+  variables {
+    backup_secrets = {
+      SOPS_AGE_KEY_CI = "synthetic-backup-value-0001"
+    }
+  }
+
+  expect_failures = [
+    var.backup_secrets,
+  ]
+}
+
+run "reject_sops_age_key_ci_in_ops_secrets" {
+  command = plan
+
+  variables {
+    ops_secrets = {
+      SOPS_AGE_KEY_CI = "synthetic-ops-value-0001"
+    }
+  }
+
+  expect_failures = [
+    var.ops_secrets,
+  ]
+}
+
+run "reject_shared_ci_secret_value_in_backup_secrets" {
+  command = plan
+
+  variables {
+    ci_secrets = {
+      CI_ONLY_TOKEN = "shared-secret-value-0001"
+    }
+    backup_secrets = {
+      BACKUP_TOKEN = "shared-secret-value-0001"
+    }
+  }
+
+  expect_failures = [
+    var.backup_secrets,
+  ]
+}
+
+run "reject_shared_ci_secret_value_in_ops_secrets" {
+  command = plan
+
+  variables {
+    ci_secrets = {
+      CI_ONLY_TOKEN = "shared-secret-value-0002"
+    }
+    ops_secrets = {
+      OPS_TOKEN = "shared-secret-value-0002"
+    }
+  }
+
+  expect_failures = [
+    var.ops_secrets,
+  ]
+}
+
+run "reject_writable_deploy_key" {
+  command = plan
+
+  variables {
+    deploy_keys = {
+      "writable-key" = {
+        title     = "writable-key"
+        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000"
+        read_only = false
+      }
+    }
+  }
+
+  expect_failures = [
+    var.deploy_keys,
+  ]
+}
+
+run "reject_deploy_key_with_email_comment" {
+  command = plan
+
+  variables {
+    deploy_keys = {
+      "email-key" = {
+        title     = "email-key"
+        key       = format("%s %s%s%s", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000", "user", "\u0040", "example.test")
+        read_only = true
+      }
+    }
+  }
+
+  expect_failures = [
+    var.deploy_keys,
   ]
 }

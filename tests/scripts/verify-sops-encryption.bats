@@ -65,12 +65,12 @@ EOF
   cd "${mock_repo}"
   git init -q
   cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
-encrypted_field: ENC[AES256_GCM,data:12345,iv:abc,tag:def,type:str]
+encrypted_field: ENC[AES256_GCM,data:MTIzNDU=,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
 plaintext_leak: dangerous_plain_value
 sops:
-  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
   age:
-    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
 EOF
 
   run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
@@ -135,7 +135,7 @@ foo: bar
 sops:
   mac: "   "
   age:
-    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
 EOF
   git add secrets/credentials.ci.sops.yaml
 
@@ -157,16 +157,16 @@ EOF
   cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
 leak: unencrypted_secret
 sops:
-  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
   age:
-    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
 EOF
   cat <<'EOF' > "${mock_repo}/secrets/credentials.sops.yaml"
-safe: ENC[AES256_GCM,data:abc,iv:abc,tag:def,type:str]
+safe: ENC[AES256_GCM,data:YWJj,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
 sops:
-  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
   pgp:
-    - fp: 123456
+    - fp: 1234567890ABCDEF1234567890ABCDEF12345678
 EOF
 
   run bash "${VERIFY_SCRIPT}"
@@ -182,11 +182,11 @@ EOF
   cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
 nested:
   leak: dangerous_plain_value
-  safe: ENC[AES256_GCM,data:12345,iv:abc,tag:def,type:str]
+  safe: ENC[AES256_GCM,data:MTIzNDU=,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
 sops:
-  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
   age:
-    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
 EOF
 
   run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
@@ -206,9 +206,9 @@ app:
   ratio: 3.14
   empty_val: null
 sops:
-  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
   age:
-    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
 EOF
 
   run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
@@ -226,16 +226,157 @@ EOF
   git init -q
   cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
 app:
-  port: ENC[AES256_GCM,data:k1s=,iv:abc,tag:def,type:int]
-  enabled: ENC[AES256_GCM,data:2g==,iv:abc,tag:def,type:bool]
-  ratio: ENC[AES256_GCM,data:3.14,iv:abc,tag:def,type:float]
+  port: ENC[AES256_GCM,data:azFzPQ==,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:int]
+  enabled: ENC[AES256_GCM,data:Mmc9PQ==,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:bool]
+  ratio: ENC[AES256_GCM,data:M18xNA==,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:float]
 sops:
-  mac: ENC[AES256_GCM,data:mac123,iv:abc,tag:def,type:str]
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
   age:
-    - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
 EOF
 
   run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
   [ "$status" -eq 0 ]
+}
+
+@test "verify-sops-encryption.sh rejects plaintext comments in SOPS file (R2-SEC-04 bypass 1)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+# password: leaked_in_comment
+token: ENC[AES256_GCM,data:YWJj,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+sops:
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+  age:
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Plaintext comment found" ]]
+}
+
+@test "verify-sops-encryption.sh rejects forged ENC prefix with invalid base64 or short iv/tag (R2-SEC-04 bypass 2)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+forged: ENC[AES256_GCM,data:notbase64!,iv:x,tag:y,type:str]
+sops:
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+  age:
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "forged" ]]
+}
+
+@test "verify-sops-encryption.sh rejects unauthorized key under .sops metadata (R2-SEC-04 bypass 3)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+token: ENC[AES256_GCM,data:YWJj,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+sops:
+  leaked: secret_smuggled_in_sops
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+  age:
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ ".sops.leaked" ]]
+}
+
+@test "verify-sops-encryption.sh rejects recipient mismatch against .sops.yaml creation rule (R2-SEC-04 bypass 4)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/.sops.yaml"
+creation_rules:
+  - path_regex: ^secrets/credentials\.ci\.sops\.ya?ml$
+    key_groups:
+      - age:
+          - age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+          - age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+EOF
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+token: ENC[AES256_GCM,data:YWJj,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+sops:
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+  age:
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Recipient set" ]]
+}
+
+@test "verify-sops-encryption.sh rejects empty string and unencrypted array item outside .sops (R2-SEC-04 bypass 5)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+empty_str: ""
+items:
+  - ENC[AES256_GCM,data:YWJj,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+  - plain_item
+sops:
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+  age:
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "empty_str" ]] || false
+  [[ "$output" =~ "items.1" ]]
+}
+
+@test "verify-sops-encryption.sh rejects custom and explicit YAML tags outside .sops (R2-SEC-04 bypass 6)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/secrets"
+  cd "${mock_repo}"
+  git init -q
+  cat <<'EOF' > "${mock_repo}/secrets/credentials.ci.sops.yaml"
+tagged_val: !custom secret_value
+tagged_null: !!null secret_in_null
+sops:
+  mac: ENC[AES256_GCM,data:bWFjMTIz,iv:AAAAAAAAAAAAAAAAAAAAAA==,tag:BBBBBBBBBBBBBBBBBBBBBB==,type:str]
+  age:
+    - recipient: age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v
+EOF
+
+  run bash "${VERIFY_SCRIPT}" "secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Custom or explicit YAML tag found" ]] || false
+  [[ "$output" =~ "tagged_val" ]] || false
+  [[ "$output" =~ "tagged_null" ]]
+}
+
+@test ".sops.yaml enforces disjoint CI recipient and exact prod rule structure (R2-SEC-04)" {
+  local prod_pgp_count prod_age_count ci_only_in_prod
+  prod_pgp_count=$(mise exec -- yq eval '.creation_rules[] | select(.path_regex == "^secrets/credentials\.sops\.ya?ml$") | .key_groups[0].pgp | length' "${REPO_ROOT}/.sops.yaml")
+  prod_age_count=$(mise exec -- yq eval '.creation_rules[] | select(.path_regex == "^secrets/credentials\.sops\.ya?ml$") | .key_groups[0].age | length' "${REPO_ROOT}/.sops.yaml")
+  [ "$prod_pgp_count" -eq 1 ]
+  [ "$prod_age_count" -eq 1 ]
+
+  # The recovery age key is shared, but the CI-only age key must never appear in the prod rule
+  ci_only_in_prod=$(mise exec -- yq eval -r '
+    (.creation_rules[] | select(.path_regex == "^secrets/credentials\\.sops\\.ya?ml$") | .key_groups[0].age[]) as $prod_age
+    | [.creation_rules[] | select(.path_regex == "^secrets/credentials\\.ci\\.sops\\.ya?ml$") | .key_groups[0].age[] | select(. != $prod_age)]
+    | length
+  ' "${REPO_ROOT}/.sops.yaml")
+  [ "$ci_only_in_prod" -eq 1 ]
 }
 

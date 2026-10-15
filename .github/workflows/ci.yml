@@ -141,6 +141,9 @@ jobs:
       - name: Verify SOPS secrets schema parity
         run: mise exec -- bash scripts/check-secrets-schema-parity.sh secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml
 
+      - name: Verify git-crypt Encryption
+        run: mise exec -- bash scripts/verify-git-crypt.sh --all
+
       - name: Verify zero uncommitted formatting diff
         run: git diff --no-textconv --exit-code
 
@@ -324,13 +327,6 @@ jobs:
           restore-keys: |
             molecule-apt-${{ matrix.scenario }}-
 
-      - name: Setup SOPS Age Key for Molecule
-        env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
-        run: |
-          mkdir -p "${HOME}/.config/sops/age"
-          (umask 077 && echo "${SOPS_AGE_KEY}" > "${HOME}/.config/sops/age/keys.txt")
-
       - name: Run Molecule test (base_ubuntu_server)
         if: matrix.scenario == 'base_ubuntu_server'
         run: |
@@ -339,6 +335,7 @@ jobs:
         env:
           PY_COLORS: "1"
           ANSIBLE_FORCE_COLOR: "1"
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
 
       - name: Run Molecule test (restic_backup)
         if: matrix.scenario == 'restic_backup'
@@ -348,6 +345,7 @@ jobs:
         env:
           PY_COLORS: "1"
           ANSIBLE_FORCE_COLOR: "1"
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
 
       - name: Run Molecule test (oci)
         if: matrix.scenario == 'oci'
@@ -357,6 +355,7 @@ jobs:
         env:
           PY_COLORS: "1"
           ANSIBLE_FORCE_COLOR: "1"
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
 
       - name: Run Molecule test (gcp)
         if: matrix.scenario == 'gcp'
@@ -366,6 +365,7 @@ jobs:
         env:
           PY_COLORS: "1"
           ANSIBLE_FORCE_COLOR: "1"
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
 
       - name: Run Molecule test (homelab)
         if: matrix.scenario == 'homelab'
@@ -375,10 +375,7 @@ jobs:
         env:
           PY_COLORS: "1"
           ANSIBLE_FORCE_COLOR: "1"
-
-      - name: Cleanup SOPS Age Key
-        if: always()
-        run: rm -f "${HOME}/.config/sops/age/keys.txt"
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
 
       - name: Prepare Molecule APT Cache for Saving
         if: always()

@@ -16,15 +16,20 @@ NC='\033[0m' # No Color
 
 exit_code=0
 
-# Locate yq command
+ENC_RE='^ENC\[AES256_GCM,data:[A-Za-z0-9+/=]*,iv:[A-Za-z0-9+/=]{16,},tag:[A-Za-z0-9+/=]{16,},type:(str|int|float|bool|bytes|comment)\]$'
+
+# Locate yq command (fail-closed if unavailable)
 if command -v yq >/dev/null 2>&1; then
-  YQ_CMD="yq"
+  YQ_CMD=(yq)
+elif command -v mise >/dev/null 2>&1 && mise exec -- which yq >/dev/null 2>&1; then
+  YQ_CMD=(mise exec -- yq)
 else
-  YQ_CMD="mise exec -- yq"
+  echo -e "${RED}[ERROR] Required tool 'yq' is not installed or not in PATH.${NC}" >&2
+  exit 2
 fi
 
 run_yq() {
-  $YQ_CMD "$@"
+  "${YQ_CMD[@]}" "$@"
 }
 
 get_content() {
@@ -32,8 +37,12 @@ get_content() {
   local norm_path="$2"
 
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git cat-file -e ":$norm_path" 2>/dev/null; then
-    git show ":$norm_path"
-  elif [ -f "$target_path" ]; then
+    if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff --no-textconv --cached --quiet -- "$norm_path" 2>/dev/null || git diff --no-textconv --quiet -- "$norm_path" 2>/dev/null; then
+      git show ":$norm_path"
+      return 0
+    fi
+  fi
+  if [ -f "$target_path" ]; then
     cat "$target_path"
   else
     return 1
@@ -60,9 +69,16 @@ for file in "$@"; do
   # Determine normalized relative path to repository root if inside git
   if git rev-parse --show-toplevel >/dev/null 2>&1; then
     repo_root=$(git rev-parse --show-toplevel)
-    normalized_file=$(python3 -c "import os, sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))" "$file" "$repo_root" 2>/dev/null || echo "$file")
+    normalized_file=$(python3 -c "import os, sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))" "$file" "$repo_root")
+    sops_config="$repo_root/.sops.yaml"
   else
     normalized_file="${file#./}"
+    sops_config=".sops.yaml"
+  fi
+
+  # Skip documented non-secret files under secrets/
+  if [ "$normalized_file" = "secrets/README.md" ] || [ "$normalized_file" = "secrets/gpg-production.pub" ]; then
+    continue
   fi
 
   # 1. Canonical Allowlist Enforcement
@@ -80,31 +96,56 @@ for file in "$@"; do
   fi
 
   # Verify valid YAML syntax
-  if ! echo "$content" | run_yq eval '.' - >/dev/null 2>&1; then
+  if ! printf '%s\n' "$content" | run_yq eval '.' - >/dev/null 2>&1; then
     echo -e "${RED}[ERROR] Security leak detected! File $file is not valid YAML.${NC}" >&2
     exit_code=1
     continue
   fi
 
-  # 2. Verify .sops.mac exists and is non-empty
-  sops_mac=$(echo "$content" | run_yq eval '(.sops.mac // "")' - 2>/dev/null | tr -d '[:space:]' || echo "")
+  # 2. Verify .sops.mac exists, is non-empty, and matches strict ENC_RE
+  sops_mac=$(printf '%s\n' "$content" | run_yq eval -r '(.sops.mac // "")' - | tr -d '[:space:]')
   if [ -z "$sops_mac" ] || [ "$sops_mac" = "null" ]; then
     echo -e "${RED}[ERROR] Security leak detected! Missing or empty .sops.mac in $file.${NC}" >&2
     echo -e "File has a SOPS extension but lacks SOPS encryption metadata." >&2
     exit_code=1
     continue
   fi
+  if ! printf '%s\n' "$sops_mac" | grep -Eq "$ENC_RE"; then
+    echo -e "${RED}[ERROR] Security leak detected! Invalid .sops.mac format in $file.${NC}" >&2
+    exit_code=1
+    continue
+  fi
 
-  # 3. Verify appropriate recipient
+  # 3. Verify .sops metadata key allowlist (reject smuggled keys under .sops)
+  unknown_sops_keys=$(printf '%s\n' "$content" | run_yq eval -r '
+    (.sops | keys // []) | .[]
+    | select(
+        . != "kms" and . != "gcp_kms" and . != "azure_kv" and . != "hc_vault"
+        and . != "age" and . != "pgp" and . != "lastmodified" and . != "mac"
+        and . != "version" and . != "unencrypted_suffix" and . != "encrypted_suffix"
+        and . != "unencrypted_regex" and . != "encrypted_regex"
+        and . != "key_groups" and . != "shamir_threshold"
+      )
+  ' -)
+  if [ -n "$unknown_sops_keys" ]; then
+    echo -e "${RED}[ERROR] Security violation: Unauthorized keys under .sops metadata in $file:${NC}" >&2
+    while IFS= read -r line; do
+      [ -n "$line" ] && echo -e "  - .sops.${line}" >&2
+    done <<<"$unknown_sops_keys"
+    exit_code=1
+    continue
+  fi
+
+  # 4. Verify appropriate recipient and match against .sops.yaml when present
   if [ "$normalized_file" = "secrets/credentials.ci.sops.yaml" ]; then
-    age_count=$(echo "$content" | run_yq eval '(.sops.age // []) | length' - 2>/dev/null || echo 0)
+    age_count=$(printf '%s\n' "$content" | run_yq eval '(.sops.age // []) | length' -)
     if [ "$age_count" -lt 1 ]; then
       echo -e "${RED}[ERROR] Security violation: $file must be encrypted with an Age recipient in .sops.age!${NC}" >&2
       exit_code=1
       continue
     fi
   elif [ "$normalized_file" = "secrets/credentials.sops.yaml" ]; then
-    pgp_count=$(echo "$content" | run_yq eval '(.sops.pgp // []) | length' - 2>/dev/null || echo 0)
+    pgp_count=$(printf '%s\n' "$content" | run_yq eval '(.sops.pgp // []) | length' -)
     if [ "$pgp_count" -lt 1 ]; then
       echo -e "${RED}[ERROR] Security violation: $file must be encrypted with a PGP recipient in .sops.pgp!${NC}" >&2
       exit_code=1
@@ -112,13 +153,75 @@ for file in "$@"; do
     fi
   fi
 
-  # 4. Check all scalar leaves outside of .sops for encryption pattern
-  unencrypted_paths=$(echo "$content" | run_yq eval 'del(.sops) | [.. | select((tag == "!!str" and (test("^ENC\[AES256_GCM,data:") | not)) or tag == "!!int" or tag == "!!bool" or tag == "!!float") | (path | join("."))] | .[]' - 2>/dev/null || true)
+  if [ -n "${sops_config:-}" ] && [ -f "$sops_config" ]; then
+    # shellcheck disable=SC2016
+    expected_recipients=$(NORM_PATH="$normalized_file" run_yq eval -r '
+      [.creation_rules[] | .path_regex as $re | select(strenv(NORM_PATH) | test($re))][0]
+      | [(.key_groups[]?.age[]? // .age), (.key_groups[]?.pgp[]? // .pgp), (.key_groups[]?.kms[]?.arn // .kms), (.key_groups[]?.gcp_kms[]?.resource_id // .gcp_kms), (.key_groups[]?.azure_kv[]?.vault_url // .azure_kv), (.key_groups[]?.hc_vault[]?.vault_address // .hc_vault)]
+      | flatten
+      | map(select(. != null))
+      | .[]
+      | split(",")
+      | .[]
+      | sub("^\s+|\s+$"; "")
+      | select(length > 0)
+    ' "$sops_config" | sort -u)
+    actual_recipients=$(printf '%s\n' "$content" | run_yq eval -r '
+      [.sops.age[]?.recipient, .sops.pgp[]?.fp, .sops.kms[]?.arn, .sops.gcp_kms[]?.resource_id, .sops.azure_kv[]?.vault_url, .sops.hc_vault[]?.vault_address, .sops.key_groups[]?.age[]?.recipient, .sops.key_groups[]?.pgp[]?.fp, .sops.key_groups[]?.kms[]?.arn, .sops.key_groups[]?.gcp_kms[]?.resource_id, .sops.key_groups[]?.azure_kv[]?.vault_url, .sops.key_groups[]?.hc_vault[]?.vault_address]
+      | flatten
+      | map(select(. != null))
+      | .[]
+      | sub("^\s+|\s+$"; "")
+      | select(length > 0)
+    ' - | sort -u)
+    if [ -z "$expected_recipients" ] || [ "$expected_recipients" != "$actual_recipients" ]; then
+      echo -e "${RED}[ERROR] Security violation: Recipient set in $file does not match .sops.yaml creation rule!${NC}" >&2
+      diff -u <(printf '%s\n' "$expected_recipients") <(printf '%s\n' "$actual_recipients") >&2 || true
+      exit_code=1
+      continue
+    fi
+  fi
+
+  # 5. Reject custom or explicit YAML tags outside of .sops
+  tagged_paths=$(printf '%s\n' "$content" | run_yq eval -r '
+    del(.sops)
+    | [.. | select(style == "tagged" or (tag != "!!map" and tag != "!!seq" and tag != "!!str" and tag != "!!null" and tag != "!!int" and tag != "!!bool" and tag != "!!float")) | (path | join("."))]
+    | .[]
+  ' -)
+  if [ -n "$tagged_paths" ]; then
+    echo -e "${RED}[ERROR] Security leak detected! Custom or explicit YAML tag found in $file:${NC}" >&2
+    while IFS= read -r line; do
+      [ -n "$line" ] && echo -e "  - ${line}" >&2
+    done <<<"$tagged_paths"
+    exit_code=1
+    continue
+  fi
+
+  # 6. Check all scalar leaves and map keys outside of .sops for strict encryption grammar
+  unencrypted_paths=$(printf '%s\n' "$content" | ENC_REGEX="$ENC_RE" run_yq eval -r '
+    del(.sops)
+    | [
+        (.. | select((tag == "!!str" and (test(strenv(ENC_REGEX)) | not)) or tag == "!!int" or tag == "!!bool" or tag == "!!float") | (path | join("."))),
+        (.. | select(kind == "map") | keys | .[] | select(. == "" or test("^ENC\\[")))
+      ]
+    | .[]
+  ' -)
   if [ -n "$unencrypted_paths" ]; then
     echo -e "${RED}[ERROR] Security leak detected! Unencrypted scalar data found in $file:${NC}" >&2
     while IFS= read -r line; do
       [ -n "$line" ] && echo -e "  - ${line}" >&2
     done <<<"$unencrypted_paths"
+    exit_code=1
+    continue
+  fi
+
+  # 7. Reject plaintext YAML comments (any # comment not matching #ENC[AES256_GCM,...])
+  comment_leaks=$(printf '%s\n' "$content" | grep -En '(^[[:space:]]*#|[[:space:]]+#)' | grep -Ev "(^[[:space:]]*|[[:space:]]+)#${ENC_RE#^}" || true)
+  if [ -n "$comment_leaks" ]; then
+    echo -e "${RED}[ERROR] Security leak detected! Plaintext comment found in $file:${NC}" >&2
+    while IFS= read -r line; do
+      [ -n "$line" ] && echo -e "  - ${line}" >&2
+    done <<<"$comment_leaks"
     exit_code=1
     continue
   fi

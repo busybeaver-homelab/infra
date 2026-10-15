@@ -65,5 +65,14 @@ packages:
   - ca-certificates
   - tailscale
 
+%{ if tailscale_auth_key != "" ~}
+write_files:
+  - path: /run/ts.key
+    owner: root:root
+    permissions: '0600'
+    content: "${tailscale_auth_key}"
+
+%{ endif ~}
 runcmd:
-  - tailscale up --authkey="${tailscale_auth_key}" --ssh --hostname="${hostname}" --advertise-tags="${tailscale_tags}"
+  - tailscale up --auth-key=file:/run/ts.key --ssh --hostname="${hostname}" --advertise-tags="${tailscale_tags}"
+  - shred -u /run/ts.key

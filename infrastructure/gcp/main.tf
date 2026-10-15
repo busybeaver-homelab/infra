@@ -1,7 +1,15 @@
 # --- Data Sources & Compute (Always Free e2-micro Instance) ---
 
-data "sops_file" "secrets" {
+ephemeral "sops_file" "secrets" {
   source_file = var.secrets_file_path
+}
+
+data "external" "sops_config" {
+  program = ["bash", "${path.module}/../../scripts/sops-subtree.sh"]
+  query = {
+    file    = var.secrets_file_path
+    extract = "[\"gcp\"]"
+  }
 }
 
 data "google_compute_image" "ubuntu_2604" {
