@@ -126,6 +126,7 @@ variables {
 run "initial_apply" {
   command = apply
   providers = {
+    sops              = sops
     external          = external.initial
     nextdns.account_1 = nextdns.account_1
     nextdns.account_2 = nextdns.account_2
@@ -138,6 +139,7 @@ run "initial_apply" {
 run "mutate_account_5_override_without_affecting_accounts_1_to_4" {
   command = plan
   providers = {
+    sops              = sops
     external          = external.mutated
     nextdns.account_1 = nextdns.account_1
     nextdns.account_2 = nextdns.account_2
