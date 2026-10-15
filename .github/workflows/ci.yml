@@ -80,6 +80,7 @@ jobs:
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
+    environment: ci # synthetic-only CI age key for the SOPS leak backstop (STD-CI-23)
     permissions:
       contents: read
     timeout-minutes: 10
@@ -99,9 +100,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The SOPS hooks need the CI age key; they run in their own step below so the
+      # key never reaches the other hooks' tools (STD-CI-28).
       - name: Run Lefthook Linters
         env:
           BASE_REF: ${{ github.base_ref }}
+          LEFTHOOK_EXCLUDE: sops-secret-leaks,sops-disjointness
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "Pull request detected. Fetching base branch for comparison..."
@@ -112,6 +116,14 @@ jobs:
             echo "Push or Scheduled run detected. Running Lefthook on all files..."
             mise exec -- lefthook run pre-commit --all-files
           fi
+
+      # Backstop for the sops-secret-leaks / sops-disjointness hooks (STD-CI-48).
+      # Only CI values can be checked here; production values and prod/CI
+      # disjointness are enforced by the local hook (the GPG key never reaches CI).
+      - name: Scan for SOPS secret leaks
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
+        run: mise exec -- bash scripts/check-sops-secret-leaks.sh --check-disjointness --all-files
 
       - name: Verify SOPS secrets schema parity
         run: mise exec -- bash scripts/check-secrets-schema-parity.sh secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml

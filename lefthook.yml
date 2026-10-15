@@ -116,7 +116,7 @@ pre-commit:
     # SOPS Secret Leak Detector
     # Scans staged plaintext files (including .bats, .tftest.hcl, Molecule) for decrypted SOPS secret values
     sops-secret-leaks:
-      exclude: '(^|/)(\.agent|\.agents|\.ruff_cache|\.venv|\.worktrees)(/|$)'
+      exclude: '(^|/)(\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-sops-secret-leaks.sh --check-files {staged_files}
 
     # SOPS Prod-vs-CI Value Disjointness & Full-Repo Leak Check
