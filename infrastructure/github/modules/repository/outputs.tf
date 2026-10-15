@@ -53,6 +53,11 @@ output "ruleset_enforcement" {
   description = "Enforcement level of the main branch ruleset."
 }
 
+output "merge_queue_enabled" {
+  value       = length(github_repository_ruleset.main_protection.rules[0].merge_queue) > 0
+  description = "Whether GitHub Merge Queue is enabled on the main branch ruleset."
+}
+
 output "environments" {
   value = {
     ci           = github_repository_environment.ci.environment

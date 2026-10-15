@@ -124,6 +124,21 @@ run "verify_repository_child_module" {
   }
 
   assert {
+    condition     = length(github_repository_environment.ci.deployment_branch_policy) == 0
+    error_message = "CI environment must not restrict deployment_branch_policy so merge_group branches can deploy (STD-CI-23)"
+  }
+
+  assert {
+    condition     = github_repository_ruleset.main_protection.rules[0].merge_queue[0].merge_method == "SQUASH"
+    error_message = "Main branch ruleset merge_queue must enforce SQUASH merge method"
+  }
+
+  assert {
+    condition     = github_repository_ruleset.main_protection.rules[0].merge_queue[0].grouping_strategy == "ALLGREEN"
+    error_message = "Main branch ruleset merge_queue must use ALLGREEN grouping strategy"
+  }
+
+  assert {
     condition     = github_repository_environment.backup.environment == "backup"
     error_message = "Backup environment must be defined"
   }

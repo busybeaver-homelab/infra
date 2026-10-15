@@ -9,6 +9,7 @@ module "repository" {
   allow_merge_commit     = var.allow_merge_commit
   allow_rebase_merge     = var.allow_rebase_merge
   enable_prevent_destroy = var.enable_prevent_destroy
+  enable_merge_queue     = try(each.value.enable_merge_queue, null)
   ci_secrets             = local.ci_environment_secrets
   backup_secrets         = local.backup_environment_secrets
   deploy_keys            = each.key == "infra" ? var.deploy_keys : {}

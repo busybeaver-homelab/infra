@@ -70,6 +70,11 @@ run "verify_github_root_hardening" {
   }
 
   assert {
+    condition     = module.repository["infra"].merge_queue_enabled == true
+    error_message = "Main branch ruleset must enable merge queue for infra repository"
+  }
+
+  assert {
     condition     = module.repository["infra"].environments.ci == "ci"
     error_message = "CI environment must be defined"
   }

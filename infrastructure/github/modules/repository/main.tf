@@ -112,17 +112,25 @@ resource "github_repository_ruleset" "main_protection" {
         integration_id = 15368 # GitHub Actions: only Actions can satisfy the required check
       }
     }
+
+    dynamic "merge_queue" {
+      for_each = coalesce(var.enable_merge_queue, var.visibility == "public") ? [1] : []
+      content {
+        check_response_timeout_minutes    = 60
+        grouping_strategy                 = "ALLGREEN"
+        max_entries_to_build              = 5
+        max_entries_to_merge              = 5
+        merge_method                      = "SQUASH"
+        min_entries_to_merge              = 1
+        min_entries_to_merge_wait_minutes = 0
+      }
+    }
   }
 }
 
 resource "github_repository_environment" "ci" {
   environment = "ci"
   repository  = github_repository.repo.name
-
-  deployment_branch_policy {
-    protected_branches     = true
-    custom_branch_policies = false
-  }
 }
 
 resource "github_actions_environment_secret" "ci_secrets" {
