@@ -119,7 +119,7 @@ teardown() {
 
   run bash "${MASK_SCRIPT}" "tests/fixtures/state.json"
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "Network masking violation" ]]
+  [[ "$output" =~ "Network masking violation" ]] || false
 
   run bash "${MASK_SCRIPT}" "tests/scripts/check-network-masking.bats"
   [ "$status" -ne 0 ]

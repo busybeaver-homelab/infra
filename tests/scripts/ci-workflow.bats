@@ -334,3 +334,28 @@ setup() {
   run yq '.jobs["tofu-validate"].environment // "none"' "${REPO_ROOT}/.github/workflows/ci.yml"
   [ "$output" = "none" ]
 }
+
+@test "lint-format job binds the synthetic-only ci environment for the SOPS leak backstop" {
+  run yq '.jobs.lint-format.environment // "none"' "$WORKFLOW"
+  [ "$output" = "ci" ]
+}
+
+@test "lint-format scopes SOPS_AGE_KEY to a dedicated SOPS leak scanner step only (STD-CI-28)" {
+  run yq '[.jobs.lint-format.steps[] | select(.env.SOPS_AGE_KEY != null)] | length' "$WORKFLOW"
+  [ "$output" = "1" ]
+
+  run yq '.jobs.lint-format.steps[] | select(.env.SOPS_AGE_KEY != null) | .env.SOPS_AGE_KEY' "$WORKFLOW"
+  [ "$output" = '${{ secrets.SOPS_AGE_KEY_CI }}' ]
+
+  run yq '.jobs.lint-format.steps[] | select(.env.SOPS_AGE_KEY != null) | .run' "$WORKFLOW"
+  [[ "$output" == *"scripts/check-sops-secret-leaks.sh --check-disjointness --all-files"* ]] || false
+  [[ "$output" != *"lefthook"* ]]
+}
+
+@test "lint-format lefthook backstop excludes only the SOPS hooks that run in their own step" {
+  run yq '.jobs.lint-format.steps[] | select(.name == "Run Lefthook Linters") | .env.LEFTHOOK_EXCLUDE' "$WORKFLOW"
+  [ "$output" = "sops-secret-leaks,sops-disjointness" ]
+
+  run yq '.jobs.lint-format.env // {} | length' "$WORKFLOW"
+  [ "$output" = "0" ]
+}
