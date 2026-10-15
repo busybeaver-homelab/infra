@@ -119,6 +119,11 @@ pre-commit:
       exclude: '(^|/)(\.ruff_cache|\.venv|\.worktrees)(/|$)'
       run: bash scripts/check-sops-secret-leaks.sh --check-files {staged_files}
 
+    # SOPS recipient allowlist: the canonical files and .sops.yaml may only use active
+    # recipients from .sops-recipients.allowlist (R2-SEC-01). History: bats test.
+    sops-recipients:
+      run: bash scripts/check-sops-recipients.sh
+
     # SOPS Prod-vs-CI Value Disjointness & Full-Repo Leak Check
     # Ensures secrets/credentials.ci.sops.yaml never shares secret values with secrets/credentials.sops.yaml
     # and scans all tracked repo files against the updated SOPS files in a single pass
