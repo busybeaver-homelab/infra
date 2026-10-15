@@ -44,7 +44,8 @@ teardown() {
   [[ "$output" =~ "infrastructure/homelab" ]] || false
   [[ "$output" =~ "infrastructure/monitoring" ]] || false
   [[ "$output" =~ "infrastructure/oci" ]] || false
-  [[ "$output" =~ "infrastructure/mesh" ]]
+  [[ "$output" =~ "infrastructure/mesh" ]] || false
+  [[ "$output" =~ "infrastructure/dns" ]]
 }
 
 @test "generate-tf-docs.sh invokes terraform-docs with config in dry-run/mock mode" {
@@ -52,7 +53,7 @@ teardown() {
   mkdir -p "$mock_bin_dir"
   local mock_log="${BATS_TMPDIR}/terraform-docs.log"
 
-  cat <<EOF > "${mock_bin_dir}/terraform-docs"
+  cat <<EOF >"${mock_bin_dir}/terraform-docs"
 #!/usr/bin/env bash
 echo "\$@" >> "${mock_log}"
 exit 0

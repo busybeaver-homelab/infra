@@ -286,6 +286,26 @@ Map keys are logical and non-identifying (SOPS does not encrypt keys). CI holds 
 | `cloudflare.config.iam.member.{id,email,resource_group_id}` | Frozen account member                                                                                 |
 | `cloudflare.config.zones.<zone_key>.*`                      | Zone name/ID, DNS records, Email Routing rules and catch-all, WAF custom rules                        |
 
+### NextDNS Credentials & Configuration Data (`nextdns`)
+
+Multi-account NextDNS credentials and profile configuration consumed by `infrastructure/dns` via `data.sops_file`.
+Map keys (`account_1`..`account_5`) are generic and non-identifying (SOPS does not encrypt YAML keys). CI holds decoy leaves with identical key paths.
+
+| Key                                                                                            | Description                                                                           |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `nextdns.accounts.<account_key>.api_key`                                                       | Per-account NextDNS API key (`account_1`..`account_5`)                                |
+| `nextdns.accounts.<account_key>.account_name`                                                  | Encrypted human-readable account label                                                |
+| `nextdns.config.accounts.<account_key>.profile_id`                                             | Encrypted 6-character NextDNS profile ID                                              |
+| `nextdns.config.accounts.<account_key>.profile_name`                                           | Encrypted human-readable NextDNS profile name                                         |
+| `nextdns.config.shared.rewrites[].{name,content}`                                              | Shared split-horizon DNS rewrites (`name` -> `content`) applied across all 5 accounts |
+| `nextdns.config.shared.allowlist[].{id,active}`                                                | Shared allowlist entries applied across all 5 accounts                                |
+| `nextdns.config.shared.denylist[].{id,active}`                                                 | Shared denylist entries applied across all 5 accounts                                 |
+| `nextdns.config.accounts.<account_key>.overrides.extra_rewrites[]`                             | Per-account additive split-horizon DNS rewrites                                       |
+| `nextdns.config.accounts.<account_key>.overrides.excluded_rewrite_names`                       | Per-account list of shared rewrite `name` values to omit                              |
+| `nextdns.config.accounts.<account_key>.overrides.extra_{allowlist,denylist}`                   | Per-account additive allowlist/denylist entries                                       |
+| `nextdns.config.accounts.<account_key>.overrides.excluded_{allowlist,denylist}_ids`            | Per-account excluded shared allowlist/denylist domain IDs                             |
+| `nextdns.config.accounts.<account_key>.overrides.{security,privacy,parental_control,settings}` | Per-account posture overrides (`null`/omitted inherits baseline)                      |
+
 ### Host Secret Delivery (systemd Encrypted Credentials)
 
 Service secrets on hosts (restic repository passwords, S3 secret keys, the Healthchecks ping URL) are delivered without plaintext on disk and survive reboots:

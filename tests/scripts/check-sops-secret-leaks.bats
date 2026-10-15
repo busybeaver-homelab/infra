@@ -62,6 +62,10 @@ nextdns:
     account_1:
       account_name: "synthetic-account-label"
       api_key: "prod-nextdns-api-key-998877"
+  config:
+    accounts:
+      account_5:
+        profile_name: "synthetic-tailscale-profile"
 cloudflare:
   api_token: "${PROD_TOKEN_VAL}"
   config:
@@ -88,6 +92,10 @@ nextdns:
     account_1:
       account_name: "synthetic-account-label"
       api_key: "ci-nextdns-api-key-112233"
+  config:
+    accounts:
+      account_5:
+        profile_name: "decoy-profile-5"
 cloudflare:
   api_token: "${CI_TOKEN_VAL}"
   config:
@@ -115,6 +123,10 @@ nextdns:
     account_1:
       account_name: "synthetic-account-label"
       api_key: "ci-nextdns-api-key-112233"
+  config:
+    accounts:
+      account_5:
+        profile_name: "decoy-profile-5"
 cloudflare:
   api_token: "${PROD_TOKEN_VAL}"
   config:
@@ -265,6 +277,9 @@ variable "record_type" {
 }
 variable "nextdns_account_name" {
   default = "synthetic-account-label"
+}
+variable "nextdns_tailscale_profile_name" {
+  default = "synthetic-tailscale-profile"
 }
 EOF
   git add main.tf

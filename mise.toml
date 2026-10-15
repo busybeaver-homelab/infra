@@ -230,6 +230,10 @@ run = "act -W .github/workflows/"
 description = "Detect drift in infrastructure/cloudflare locally (needs production SOPS; summary-only output)"
 run = "bash scripts/drift-cloudflare.sh"
 
+[tasks."drift:dns"]
+description = "Detect drift in infrastructure/dns locally (needs production SOPS; summary-only output)"
+run = "bash scripts/drift-dns.sh"
+
 [tasks."docs:generate"]
 description = "Generate OpenTofu module documentation"
 run = "terraform-docs markdown table --output-file README.md --output-mode inject infrastructure/"
@@ -342,7 +346,7 @@ run = "npx skills update -p -y"
 description = "Run native OpenTofu tests concurrently across all infrastructure modules"
 run = '''
 mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
-printf "%s\n" oci cloudflare gcp azure github homelab monitoring mesh | \
+printf "%s\n" oci cloudflare gcp azure github homelab monitoring mesh dns | \
   rush -k 'tofu -chdir="infrastructure/{}" test -test-directory=tests'
 '''
 
@@ -350,15 +354,15 @@ printf "%s\n" oci cloudflare gcp azure github homelab monitoring mesh | \
 description = "Run unit tests on isolated child modules concurrently"
 run = '''
 mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
-printf "%s\n" cloudflare/modules/zone github/modules/repository | \
-  rush -k 'tofu -chdir="infrastructure/{}" test'
+printf "%s\n" cloudflare/modules/zone github/modules/repository dns/modules/profile | \
+  rush -k 'tofu -chdir="infrastructure/{}" init -backend=false >/dev/null && tofu -chdir="infrastructure/{}" test'
 '''
 
 [tasks."test:tofu:mutations"]
 description = "Run OpenTofu lifecycle mutation tests across all modules concurrently"
 run = '''
 mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
-printf "%s\n" cloudflare gcp github oci mesh | \
+printf "%s\n" cloudflare gcp github oci mesh dns | \
   rush -k 'tofu -chdir="infrastructure/{}" test -filter=tests/mutation.tftest.hcl'
 '''
 
