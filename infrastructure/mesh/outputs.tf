@@ -6,7 +6,7 @@ output "devices" {
 
 output "auth_key_bootstrap" {
   description = "Bootstrap authentication key for node provisioning."
-  value       = tailscale_tailnet_key.bootstrap.key
+  value       = tailscale_tailnet_key.bootstrap_oci.key
   sensitive   = true
 }
 
@@ -19,7 +19,7 @@ output "auth_key_bootstrap_gcp" {
 output "auth_keys" {
   description = "Map of cloud provider bootstrap authentication keys."
   value = {
-    oci = tailscale_tailnet_key.bootstrap.key
+    oci = tailscale_tailnet_key.bootstrap_oci.key
     gcp = tailscale_tailnet_key.bootstrap_gcp.key
   }
   sensitive = true

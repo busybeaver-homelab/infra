@@ -32,7 +32,7 @@ run "initial_apply" {
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap.tags == toset(["tag:type-server", "tag:os-linux", "tag:hosting-cloud", "tag:location-ger", "tag:env-oci"])
+    condition     = tailscale_tailnet_key.bootstrap_oci.tags == toset(["tag:type-server", "tag:os-linux", "tag:hosting-cloud", "tag:location-ger", "tag:env-oci"])
     error_message = "Initial apply must retain default bootstrap key tags."
   }
 
@@ -56,12 +56,12 @@ run "mutate_bootstrap_tags" {
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap.tags == toset(["tag:type-server", "tag:env-ci"])
+    condition     = tailscale_tailnet_key.bootstrap_oci.tags == toset(["tag:type-server", "tag:env-ci"])
     error_message = "Mutated bootstrap tags must reflect in plan."
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap.reusable == true
+    condition     = tailscale_tailnet_key.bootstrap_oci.reusable == true
     error_message = "Bootstrap key must remain reusable after tag mutation."
   }
 
