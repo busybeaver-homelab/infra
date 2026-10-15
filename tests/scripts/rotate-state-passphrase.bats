@@ -13,7 +13,8 @@ PASS_C="test-only-rotation-passphrase-cccccccccccc"
 make_module() {
   local dir="${INFRA}/$1"
   mkdir -p "$dir"
-  cp "${REPO_ROOT}/infrastructure/github/encryption.tf" "$dir/encryption.tf"
+  sed -E 's/state_passphrase_v[0-9]+/state_passphrase/g' \
+    "${REPO_ROOT}/infrastructure/github/encryption.tf" >"$dir/encryption.tf"
   cat >"$dir/backend.tf" <<EOF
 terraform {
   backend "local" {
@@ -190,4 +191,45 @@ requires_tofu() {
   [[ "$output" == *"one: renamed"* ]] || false
   [[ "$output" == *"two: renamed"* ]] || false
   [[ "$output" != *"tests:"* ]] || false
+}
+
+@test "re-encrypts state with multiple check_results entries without serial conflict" {
+  requires_tofu
+  make_module checked
+  cat >>"${INFRA}/checked/variables.tf" <<'EOF'
+variable "check_a" {
+  type    = string
+  default = "ok"
+  validation {
+    condition     = var.check_a == "ok"
+    error_message = "check_a must be ok"
+  }
+}
+variable "check_b" {
+  type    = string
+  default = "ok"
+  validation {
+    condition     = var.check_b == "ok"
+    error_message = "check_b must be ok"
+  }
+}
+variable "check_c" {
+  type    = string
+  default = "ok"
+  validation {
+    condition     = var.check_c == "ok"
+    error_message = "check_c must be ok"
+  }
+}
+EOF
+  tofu_in checked "$PASS_A" init -input=false >/dev/null
+  tofu_in checked "$PASS_A" apply -auto-approve -input=false >/dev/null
+
+  run env TF_VAR_state_encryption_passphrase="$PASS_B" TF_VAR_state_encryption_passphrase_previous="$PASS_A" \
+    bash "$ROTATE" --yes checked
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"checked: state re-encrypted (key_provider.pbkdf2.state_passphrase -> state_passphrase_v2)"* ]] || false
+  run tofu_in checked "$PASS_B" state list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"terraform_data.marker"* ]] || false
 }

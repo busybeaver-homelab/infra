@@ -1,6 +1,6 @@
 terraform {
   encryption {
-    key_provider "pbkdf2" "state_passphrase" {
+    key_provider "pbkdf2" "state_passphrase_v2" {
       passphrase    = var.state_encryption_passphrase
       key_length    = 32
       iterations    = 600000
@@ -8,7 +8,7 @@ terraform {
     }
 
     method "aes_gcm" "state_method" {
-      keys = key_provider.pbkdf2.state_passphrase
+      keys = key_provider.pbkdf2.state_passphrase_v2
     }
 
     state {

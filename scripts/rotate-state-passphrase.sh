@@ -170,10 +170,12 @@ rotate_module() (
     return 1
   fi
 
-  if [[ -z "$state_json" ]]; then
+  if [[ -z "$state_json" ]] || [[ "$(jq -r '(.serial == 0) and ((.resources | length) == 0) and ((.outputs | length) == 0)' <<<"$state_json")" == "true" ]]; then
     echo "$module: no remote state yet; nothing to re-encrypt"
   else
-    printf '%s' "$state_json" | tofu -chdir="$work" state push - >/dev/null 2>"$work/push.err" || {
+    # -force is required because OpenTofu stores check_results in a Go map whose iteration
+    # order varies across process invocations, making StatesMarshalEqual false at the same serial.
+    printf '%s' "$state_json" | tofu -chdir="$work" state push -force - >/dev/null 2>"$work/push.err" || {
       echo "ERROR: $module: state push failed; the state is unchanged" >&2
       grep -E 'Error' -A3 "$work/push.err" >&2 || true
       return 1
