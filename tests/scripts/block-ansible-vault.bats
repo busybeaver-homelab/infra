@@ -116,3 +116,54 @@ teardown() {
   [[ "$output" =~ "Ansible Vault file detected" ]]
 }
 
+@test "block-ansible-vault.sh blocks vault header in staged file containing NUL byte (R2-GATE-03)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  printf 'prefix\0byte\n%s%s\n' '$ANSIBLE' '_VAULT;1.1;AES256' > nul_vault.bin
+  git add nul_vault.bin
+
+  run bash "${BLOCK_SCRIPT}" "nul_vault.bin"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Ansible Vault file detected" ]]
+}
+
+@test "block-ansible-vault.sh blocks vault header in staged file marked -diff in .gitattributes (R2-GATE-03)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo "*.nodiff -diff" > .gitattributes
+  printf '%s%s\n' '$ANSIBLE' '_VAULT;1.1;AES256' > vault.nodiff
+  git add .gitattributes vault.nodiff
+
+  run bash "${BLOCK_SCRIPT}" "vault.nodiff"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Ansible Vault file detected" ]]
+}
+
+@test "block-ansible-vault.sh skips git-crypt encrypted staged blobs cleanly (R2-GATE-03)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  printf '\0GITCRYPT\0%s%s\n' '$ANSIBLE' '_VAULT;1.1;AES256' > encrypted_vault.md
+  git add encrypted_vault.md
+
+  run bash "${BLOCK_SCRIPT}" "encrypted_vault.md"
+  [ "$status" -eq 0 ]
+}
+
+@test "block-ansible-vault.sh fails closed with exit 2 on broken GIT_DIR or invalid pathspec (R2-GATE-03)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+
+  GIT_DIR="${mock_repo}/broken-git-dir" run bash "${BLOCK_SCRIPT}"
+  [ "$status" -eq 2 ]
+
+  git init -q
+  run bash "${BLOCK_SCRIPT}" ":(invalid-magic)foo"
+  [ "$status" -eq 2 ]
+}

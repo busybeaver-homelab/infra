@@ -1,24 +1,31 @@
 mock_provider "github" {}
+mock_provider "sops" {}
+mock_provider "external" {}
 
-mock_provider "sops" {
-  override_data {
-    target = data.sops_file.secrets
-    values = {
-      raw = <<-EOT
-        github:
-          owner: "mock-owner"
-          token: "mock-ghp-token-12345"
-          config:
-            repositories:
-              infra:
-                name: "infra"
-                description: "Infrastructure as Code for my homelab environment"
-                topics:
-                  - "homelab"
-                  - "infrastructure-as-code"
-                  - "iac"
-        opentofu:
-          state_encryption_passphrase: "mock-passphrase"
+override_data {
+  target = data.external.sops_github
+  values = {
+    result = {
+      json = <<-EOT
+        {
+          "owner": "mock-owner",
+          "config": {
+            "repositories": {
+              "infra": {
+                "name": "infra",
+                "description": "Infrastructure as Code for my homelab environment",
+                "topics": ["homelab", "infrastructure-as-code", "iac"]
+              }
+            },
+            "deploy_keys": {
+              "work-laptop": {
+                "title": "work-laptop",
+                "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
+                "read_only": true
+              }
+            }
+          }
+        }
       EOT
     }
   }
@@ -53,12 +60,12 @@ run "mutate_deploy_keys" {
     deploy_keys = {
       "work-laptop" = {
         title     = "work-laptop"
-        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhE5DoHICY85bnMIzXRGkggJ97ekZaJtzpQ6I7JgfF0 jmollner@liveperson.com"
-        read_only = false
+        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000"
+        read_only = true
       }
       "backup-runner" = {
         title     = "backup-runner"
-        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockBackupKeyForMutationTestingUser user@test"
+        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockBackupKeyForMutationTestingUser00000000"
         read_only = true
       }
     }

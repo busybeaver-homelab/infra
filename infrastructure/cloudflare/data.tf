@@ -1,7 +1,17 @@
-# Decrypts the canonical credentials file at plan time; all identifying Cloudflare
-# configuration lives under cloudflare.config (see secrets/README.md).
-data "sops_file" "secrets" {
+# Decrypts the canonical credentials file ephemerally at plan/apply time so the
+# full SOPS payload is never persisted in the OpenTofu state file.
+ephemeral "sops_file" "secrets" {
   source_file = var.secrets_file_path
+}
+
+# Extracts only the non-secret cloudflare.config subtree at plan time; all identifying
+# Cloudflare configuration lives under cloudflare.config (see secrets/README.md).
+data "external" "sops_config" {
+  program = ["bash", "${path.module}/../../scripts/sops-subtree.sh"]
+  query = {
+    file    = var.secrets_file_path
+    extract = "[\"cloudflare\"][\"config\"]"
+  }
 }
 
 # Public permission-group catalog, used to resolve the frozen tokens' permission names to IDs.

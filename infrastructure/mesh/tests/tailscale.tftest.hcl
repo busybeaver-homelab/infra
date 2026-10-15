@@ -1,19 +1,20 @@
 mock_provider "tailscale" {}
+mock_provider "sops" {}
 
-mock_provider "sops" {
+mock_provider "external" {
   override_data {
-    target = data.sops_file.secrets
+    target = data.external.sops_config
     values = {
-      raw = <<-EOT
-        tailscale:
-          client_id: "ts-client-id-decoy"
-          client_secret: "ts-client-secret-decoy"
-          config:
-            tailnet_name: "example.ts.net"
-            contact_account_email: "account@example.test"
-            contact_support_email: "support@example.test"
-            contact_security_email: "security@example.test"
-      EOT
+      result = {
+        json = <<-EOT
+          {
+            "tailnet_name": "example.ts.net",
+            "contact_account_email": "account@example.test",
+            "contact_support_email": "support@example.test",
+            "contact_security_email": "security@example.test"
+          }
+        EOT
+      }
     }
   }
 }
@@ -82,8 +83,8 @@ run "unit_plan_matches_baseline" {
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap_oci.reusable == true
-    error_message = "Bootstrap key must be reusable."
+    condition     = tailscale_tailnet_key.bootstrap_oci.reusable == false
+    error_message = "Bootstrap key must be single-use (reusable = false)."
   }
 
   assert {
@@ -92,13 +93,18 @@ run "unit_plan_matches_baseline" {
   }
 
   assert {
+    condition     = tailscale_tailnet_key.bootstrap_oci.expiry == 3600
+    error_message = "OCI bootstrap key expiry must default to 3600 (1 hour)."
+  }
+
+  assert {
     condition     = tailscale_tailnet_key.bootstrap_gcp.preauthorized == true
     error_message = "GCP bootstrap key must be preauthorized."
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap_gcp.reusable == true
-    error_message = "GCP bootstrap key must be reusable."
+    condition     = tailscale_tailnet_key.bootstrap_gcp.reusable == false
+    error_message = "GCP bootstrap key must be single-use (reusable = false)."
   }
 
   assert {
@@ -107,13 +113,18 @@ run "unit_plan_matches_baseline" {
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap_gcp.expiry == 7776000
-    error_message = "GCP bootstrap key expiry must be 7776000 (90 days)."
+    condition     = tailscale_tailnet_key.bootstrap_gcp.expiry == 3600
+    error_message = "GCP bootstrap key expiry must default to 3600 (1 hour)."
   }
 
   assert {
     condition     = tailscale_tailnet_key.bootstrap_gcp.tags == toset(["tag:type-server", "tag:os-linux", "tag:hosting-cloud", "tag:location-us", "tag:env-gcp"])
     error_message = "GCP bootstrap key must carry the expected GCP tags."
+  }
+
+  assert {
+    condition     = alltrue([for owners in values(local.tag_owners) : owners == ["autogroup:owner"]])
+    error_message = "Every tag in local.tag_owners must be owned exclusively by autogroup:owner."
   }
 
   assert {

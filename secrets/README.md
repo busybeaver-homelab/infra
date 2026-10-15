@@ -29,11 +29,11 @@ To decrypt and manage production files locally, you must have the production GPG
    mise exec -- gpg --import /path/to/production-private-key.asc
    ```
 
-2. **Import the production backup public key:**
+2. **Import the production public key:**
    This allows you to encrypt new secrets to the production key:
 
    ```bash
-   mise exec -- gpg --import secrets/gpg-production-backup.pub
+   mise exec -- gpg --import secrets/gpg-production.pub
    ```
 
 3. **Verify the key is available:**
@@ -45,7 +45,7 @@ To decrypt and manage production files locally, you must have the production GPG
 
 ## 🛟 Disaster Recovery & Emergency Decryption
 
-Production secrets (`secrets/credentials.sops.yaml`) are multi-recipient encrypted to both the primary admin GPG key and a **secondary Age recovery key**.
+Both production secrets (`secrets/credentials.sops.yaml`) and CI secrets (`secrets/credentials.ci.sops.yaml`) are multi-recipient encrypted to include the **secondary Age recovery key**.
 
 - **Public Key:** `age136vdv2svv5lm53um9yvgw2f6uq87ce2cgcr2n54s32mpwlseh4cqsjsdlv`
 - **Key Storage:** The corresponding private key is stored **offline, encrypted only**. It is **never** committed to version control.
@@ -63,14 +63,36 @@ mise exec -- age-keygen -o /tmp/recovery-age-key.txt
 shred -u /tmp/recovery-age-key.txt
 ```
 
-### Break-Glass Disaster Recovery Procedure
+### Offline `git-crypt` Key Escrow
 
-If the primary GPG key is lost, corrupted, or inaccessible during an emergency:
+Because `git-crypt` is keyed only to the primary GPG key (`5EE1590FF82DC2A3829D224FAA73ACF495CC009D`), export and encrypt the symmetric `git-crypt` key to the offline Age recovery recipient and store the resulting `.age` blob alongside the offline recovery key:
+
+```bash
+git-crypt export-key - | age -r age136vdv2svv5lm53um9yvgw2f6uq87ce2cgcr2n54s32mpwlseh4cqsjsdlv \
+  -o ~/offline-escrow/homelab-infra-git-crypt.key.age
+```
+
+### Offline DR Card (Plaintext Outside Repo)
+
+Maintain a 1-page plaintext disaster-recovery card stored **outside** the repository alongside the offline Age recovery key containing:
+
+1. Repository clone URL (`https://github.com/entire/homelab-infra.git`)
+2. SOPS decryption command using `SOPS_AGE_KEY`
+3. `git-crypt` unlock command:
+   ```bash
+   age -d -i /path/to/recovery-age-key.txt ~/offline-escrow/homelab-infra-git-crypt.key.age | git-crypt unlock -
+   ```
+4. Cloudflare R2 state bucket name, endpoint URL format, and key paths (`opentofu.cloudflare_r2_access_key_id`, `opentofu.cloudflare_r2_secret_access_key`, `opentofu.state_encryption_passphrase`)
+
+### Break-Glass Disaster Recovery Procedure & Annual Drill
+
+If the primary GPG key is lost, corrupted, or inaccessible during an emergency (or during the annual clean-container recovery drill):
 
 1. Retrieve the physical paper backup or hardware security token from the safe.
-2. Export the recovery key into a strictly ephemeral, restricted subshell:
+2. Unlock `git-crypt` and decrypt `secrets/credentials.sops.yaml` into a strictly ephemeral, restricted subshell:
    ```bash
    read -rs RECOVERY_KEY # type or paste private key safely
+   age -d -i <(printf '%s\n' "$RECOVERY_KEY") ~/offline-escrow/homelab-infra-git-crypt.key.age | git-crypt unlock -
    SOPS_AGE_KEY="$RECOVERY_KEY" mise exec -- sops -d secrets/credentials.sops.yaml > /tmp/recovered-credentials.yaml
    unset RECOVERY_KEY
    ```

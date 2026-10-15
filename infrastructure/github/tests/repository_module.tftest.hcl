@@ -13,8 +13,8 @@ run "verify_repository_child_module" {
     deploy_keys = {
       "work-laptop" = {
         title     = "work-laptop"
-        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhE5DoHICY85bnMIzXRGkggJ97ekZaJtzpQ6I7JgfF0 jmollner@liveperson.com"
-        read_only = false
+        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000"
+        read_only = true
       }
     }
   }
@@ -99,6 +99,21 @@ run "verify_repository_child_module" {
   }
 
   assert {
+    condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed == true
+    error_message = "Actions permissions must allow GitHub-owned actions"
+  }
+
+  assert {
+    condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].verified_allowed == false
+    error_message = "Actions permissions must not blanket-allow all Marketplace verified actions"
+  }
+
+  assert {
+    condition     = contains(github_actions_repository_permissions.repo.allowed_actions_config[0].patterns_allowed, "step-security/harden-runner@*")
+    error_message = "Actions permissions must explicitly allow step-security/harden-runner@*"
+  }
+
+  assert {
     condition     = github_workflow_repository_permissions.repo.default_workflow_permissions == "read"
     error_message = "Default workflow permissions must be read"
   }
@@ -114,8 +129,8 @@ run "verify_repository_child_module" {
   }
 
   assert {
-    condition     = github_repository_deploy_key.deploy_keys["work-laptop"].read_only == false
-    error_message = "Deploy key work-laptop must have write access (read_only = false)"
+    condition     = github_repository_deploy_key.deploy_keys["work-laptop"].read_only == true
+    error_message = "Deploy key work-laptop must enforce read_only = true (R2-TF-08)"
   }
 
   assert {
@@ -146,6 +161,21 @@ run "verify_repository_child_module" {
   assert {
     condition     = github_repository_environment.backup.environment == "backup"
     error_message = "Backup environment must be defined"
+  }
+
+  assert {
+    condition     = github_repository_environment.backup.deployment_branch_policy[0].custom_branch_policies == true && github_repository_environment_deployment_policy.backup_main.branch_pattern == "main"
+    error_message = "Backup environment must restrict deployments to main via custom_branch_policies (R2-CI-01)"
+  }
+
+  assert {
+    condition     = github_repository_environment.ops.environment == "ops"
+    error_message = "Ops environment must be defined"
+  }
+
+  assert {
+    condition     = github_repository_environment.ops.deployment_branch_policy[0].custom_branch_policies == true && github_repository_environment_deployment_policy.ops_main.branch_pattern == "main"
+    error_message = "Ops environment must restrict deployments to main via custom_branch_policies (R2-CI-01)"
   }
 
   assert {

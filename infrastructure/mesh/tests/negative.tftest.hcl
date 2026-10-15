@@ -1,19 +1,20 @@
 mock_provider "tailscale" {}
+mock_provider "sops" {}
 
-mock_provider "sops" {
+mock_provider "external" {
   override_data {
-    target = data.sops_file.secrets
+    target = data.external.sops_config
     values = {
-      raw = <<-EOT
-        tailscale:
-          client_id: "ts-client-id-decoy"
-          client_secret: "ts-client-secret-decoy"
-          config:
-            tailnet_name: "example.ts.net"
-            contact_account_email: "account@example.test"
-            contact_support_email: "support@example.test"
-            contact_security_email: "security@example.test"
-      EOT
+      result = {
+        json = <<-EOT
+          {
+            "tailnet_name": "example.ts.net",
+            "contact_account_email": "account@example.test",
+            "contact_support_email": "support@example.test",
+            "contact_security_email": "security@example.test"
+          }
+        EOT
+      }
     }
   }
 }
@@ -116,5 +117,29 @@ run "reject_placeholder_state_encryption_passphrase" {
 
   expect_failures = [
     var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_too_short_bootstrap_key_expiry" {
+  command = plan
+
+  variables {
+    bootstrap_key_expiry = 30
+  }
+
+  expect_failures = [
+    var.bootstrap_key_expiry,
+  ]
+}
+
+run "reject_too_long_bootstrap_key_expiry" {
+  command = plan
+
+  variables {
+    bootstrap_key_expiry = 172800
+  }
+
+  expect_failures = [
+    var.bootstrap_key_expiry,
   ]
 }

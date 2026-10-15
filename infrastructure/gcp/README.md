@@ -5,15 +5,16 @@
 | Name                                                                     | Version |
 | ------------------------------------------------------------------------ | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.6  |
+| <a name="requirement_external"></a> [external](#requirement_external)    | 2.3.5   |
 | <a name="requirement_google"></a> [google](#requirement_google)          | 8.7.0   |
 | <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1   |
 
 ## Providers
 
-| Name                                                      | Version |
-| --------------------------------------------------------- | ------- |
-| <a name="provider_google"></a> [google](#provider_google) | 8.7.0   |
-| <a name="provider_sops"></a> [sops](#provider_sops)       | 1.4.1   |
+| Name                                                            | Version |
+| --------------------------------------------------------------- | ------- |
+| <a name="provider_external"></a> [external](#provider_external) | 2.3.5   |
+| <a name="provider_google"></a> [google](#provider_google)       | 8.7.0   |
 
 ## Resources
 
@@ -34,8 +35,8 @@
 | [google_storage_bucket.backups](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_bucket)                                         | resource    |
 | [google_storage_bucket_iam_member.backup_writer_append_only](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_bucket_iam_member) | resource    |
 | [google_storage_hmac_key.backup_writer](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_hmac_key)                               | resource    |
+| [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.3.5/docs/data-sources/external)                                          | data source |
 | [google_compute_image.ubuntu_2604](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/data-sources/compute_image)                                    | data source |
-| [sops_file.secrets](https://registry.terraform.io/providers/carlpett/sops/1.4.1/docs/data-sources/file)                                                               | data source |
 
 ## Inputs
 

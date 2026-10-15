@@ -133,6 +133,17 @@ leak_ipv6() {
       echo "missing sops mock: ${f##*/}"
       return 1
     }
+    awk '
+      /^[[:space:]]*providers[[:space:]]*=[[:space:]]*\{/ { in_prov=1; has_sops=0; next }
+      in_prov && /^[[:space:]]*sops[[:space:]]*=[[:space:]]*sops([[:space:]]|$)/ { has_sops=1 }
+      in_prov && /^[[:space:]]*\}/ {
+        if (!has_sops) { exit 1 }
+        in_prov=0
+      }
+    ' "$f" || {
+      echo "run.providers block missing sops = sops: ${f##*/}"
+      return 1
+    }
   done
 }
 

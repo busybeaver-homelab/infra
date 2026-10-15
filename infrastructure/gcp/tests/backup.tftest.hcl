@@ -7,14 +7,20 @@ mock_provider "google" {
   }
 }
 
-mock_provider "sops" {
+mock_provider "sops" {}
+
+mock_provider "external" {
   override_data {
-    target = data.sops_file.secrets
+    target = data.external.sops_config
     values = {
-      data = {
-        "gcp.subnet_cidr"             = "198.51.100.0/24"
-        "gcp.tailscale_auth_key"      = "tskey-auth-gcp-decoy"
-        "gcp.budget_alert_recipients" = "ci-alerts@example.test"
+      result = {
+        json = <<-EOT
+          {
+            "subnet_cidr": "198.51.100.0/24",
+            "tailscale_auth_key": "tskey-auth-gcp-decoy",
+            "budget_alert_recipients": "ci-alerts@example.test"
+          }
+        EOT
       }
     }
   }

@@ -226,3 +226,55 @@ teardown() {
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Network masking violation" ]]
 }
+
+@test "check-network-masking.sh rejects staged file containing NUL byte and RFC1918 IP" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  local ip10="10"".0.0.42"
+  printf '\x00\ncidr = "%s"\n' "${ip10}" > binary-config.bin
+  git add binary-config.bin
+
+  run bash "${MASK_SCRIPT}" "binary-config.bin"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Network masking violation" ]]
+}
+
+@test "check-network-masking.sh rejects staged file marked -diff in .gitattributes containing RFC1918 IP" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo "*.dat -diff" > .gitattributes
+  local ip192="192.168"".10.50"
+  echo "host_ip = ${ip192}" > inventory.dat
+  git add .gitattributes inventory.dat
+
+  run bash "${MASK_SCRIPT}" "inventory.dat"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Network masking violation" ]]
+}
+
+@test "check-network-masking.sh rejects staged file under .agent/ containing RFC1918 IP (R2-GOV-04)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}/.agent"
+  cd "${mock_repo}"
+  git init -q
+  local ip10="10"".10.10.1"
+  echo "Internal server IP: ${ip10}" > .agent/notes.md
+  git add .agent/notes.md
+
+  run bash "${MASK_SCRIPT}" ".agent/notes.md"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Network masking violation" ]]
+}
+
+@test "check-network-masking.sh fails closed (exit 2) on broken GIT_DIR" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+
+  GIT_DIR="${BATS_TMPDIR}/nonexistent-git-dir" run bash "${MASK_SCRIPT}"
+  [ "$status" -eq 2 ]
+}

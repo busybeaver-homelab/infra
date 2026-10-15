@@ -1,6 +1,17 @@
 mock_provider "oci" {}
 mock_provider "sops" {}
 
+mock_provider "external" {
+  override_data {
+    target = data.external.sops_config
+    values = {
+      result = {
+        json = "{}"
+      }
+    }
+  }
+}
+
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
   tenancy_ocid                = "ocid1.tenancy.oc1..test"

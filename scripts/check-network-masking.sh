@@ -16,6 +16,11 @@ NC='\033[0m' # No Color
 
 exit_code=0
 
+if [ -n "${GIT_DIR:-}" ] && ! git rev-parse --git-dir >/dev/null 2>&1; then
+  echo -e "${RED}[ERROR] Scanner error: invalid GIT_DIR (${GIT_DIR})${NC}" >&2
+  exit 2
+fi
+
 is_git=false
 repo_root=""
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -30,9 +35,15 @@ NETWORK_REGEX='(\b(10\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
   if [ "$is_git" = true ]; then
+    diff_rc=0
+    diff_out=$(git diff --no-textconv --cached --name-only --diff-filter=ACM) || diff_rc=$?
+    if [ "$diff_rc" -ne 0 ]; then
+      echo -e "${RED}[ERROR] Scanner error: git diff --cached failed (rc=$diff_rc)${NC}" >&2
+      exit 2
+    fi
     while IFS= read -r f; do
       [ -n "$f" ] && targets+=("$f")
-    done < <(git diff --cached --name-only --diff-filter=ACM)
+    done <<<"$diff_out"
     if [ ${#targets[@]} -eq 0 ]; then
       exit 0
     fi
@@ -56,10 +67,8 @@ for file in "${targets[@]}"; do
     continue
   fi
 
-  # Skip agent skills/documentation, git-crypt plans/docs, and git-crypt encrypted backups
-  if [[ "$normalized_file" == .agents/* ]] || [[ "$normalized_file" == */.agents/* ]] ||
-    [[ "$normalized_file" == .agent/* ]] || [[ "$normalized_file" == */.agent/* ]] ||
-    [[ "$normalized_file" == docs/* ]] || [[ "$normalized_file" == */docs/* ]] ||
+  # Skip git-crypt plans/docs and git-crypt encrypted backups
+  if [[ "$normalized_file" == docs/* ]] || [[ "$normalized_file" == */docs/* ]] ||
     [[ "$normalized_file" == backups/* ]] || [[ "$normalized_file" == */backups/* ]]; then
     continue
   fi
@@ -79,9 +88,15 @@ done
 staged_targets=()
 if [ "$is_git" = true ] && [ ${#in_repo_targets[@]} -gt 0 ]; then
   # Determine which targets exist in git index
+  ls_rc=0
+  ls_out=$(git ls-files --cached -- "${in_repo_targets[@]}") || ls_rc=$?
+  if [ "$ls_rc" -ne 0 ]; then
+    echo -e "${RED}[ERROR] Scanner error: git ls-files failed (rc=$ls_rc)${NC}" >&2
+    exit 2
+  fi
   while IFS= read -r f; do
     [ -n "$f" ] && staged_targets+=("$f")
-  done < <(git ls-files --cached -- "${in_repo_targets[@]}")
+  done <<<"$ls_out"
 
   # Any targets in in_repo_targets not in index go to disk_targets (e.g. untracked files on disk)
   if [ ${#staged_targets[@]} -lt ${#in_repo_targets[@]} ]; then
@@ -106,9 +121,29 @@ if [ "$is_git" = true ] && [ ${#in_repo_targets[@]} -gt 0 ]; then
   fi
 fi
 
-# 1. Batch scan staged targets via git grep --cached
+scannable_staged_targets=()
 if [ ${#staged_targets[@]} -gt 0 ]; then
-  network_matches=$(git grep --cached -n -I -P -e "$NETWORK_REGEX" -- "${staged_targets[@]}" 2>/dev/null || true)
+  for s in "${staged_targets[@]}"; do
+    if ! git cat-file -e ":$s" 2>/dev/null; then
+      continue
+    fi
+    magic_hex=$({ git cat-file -p ":$s" 2>/dev/null || true; } | head -c 10 | LC_ALL=C od -An -tx1 | tr -d ' \n')
+    # Skip git-crypt encrypted blobs (\0GITCRYPT\0)
+    if [ "$magic_hex" = "00474954435259505400" ]; then
+      continue
+    fi
+    scannable_staged_targets+=("$s")
+  done
+fi
+
+# 1. Batch scan staged targets via git grep --cached -a
+if [ ${#scannable_staged_targets[@]} -gt 0 ]; then
+  rc=0
+  network_matches=$(git grep --cached -a -n -P -e "$NETWORK_REGEX" -- "${scannable_staged_targets[@]}") || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    echo -e "${RED}[ERROR] Scanner error: git grep failed (rc=$rc)${NC}" >&2
+    exit 2
+  fi
   if [ -n "$network_matches" ]; then
     current_file=""
     while IFS= read -r line; do
@@ -137,11 +172,12 @@ fi
 if [ ${#disk_targets[@]} -gt 0 ]; then
   for file in "${disk_targets[@]}"; do
     [ -f "$file" ] || continue
-    if head -c 10 "$file" 2>/dev/null | grep -q "GITCRYPT"; then
+    magic_hex=$(head -c 10 "$file" 2>/dev/null | LC_ALL=C od -An -tx1 | tr -d ' \n')
+    if [ "$magic_hex" = "00474954435259505400" ]; then
       continue
     fi
 
-    disk_matches=$(grep -n -E -e "$NETWORK_REGEX" "$file" 2>/dev/null || true)
+    disk_matches=$(grep -a -n -E -e "$NETWORK_REGEX" "$file" 2>/dev/null || true)
     if [ -n "$disk_matches" ]; then
       echo -e "${RED}[ERROR] Network masking violation: RFC1918 or CGNAT private IP detected in $file!${NC}" >&2
       echo -e "All internal IPs, subnets, and CIDRs must be treated as sensitive and encrypted via SOPS." >&2

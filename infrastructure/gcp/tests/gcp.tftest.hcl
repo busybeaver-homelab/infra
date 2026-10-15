@@ -7,14 +7,20 @@ mock_provider "google" {
   }
 }
 
-mock_provider "sops" {
+mock_provider "sops" {}
+
+mock_provider "external" {
   override_data {
-    target = data.sops_file.secrets
+    target = data.external.sops_config
     values = {
-      data = {
-        "gcp.subnet_cidr"             = "198.51.100.0/24"
-        "gcp.tailscale_auth_key"      = "tskey-auth-gcp-decoy"
-        "gcp.budget_alert_recipients" = "ci-alerts@example.test"
+      result = {
+        json = <<-EOT
+          {
+            "subnet_cidr": "198.51.100.0/24",
+            "tailscale_auth_key": "tskey-auth-gcp-decoy",
+            "budget_alert_recipients": "ci-alerts@example.test"
+          }
+        EOT
       }
     }
   }
@@ -137,6 +143,11 @@ run "verify_gcp_compute_instance_and_free_tier_posture" {
   assert {
     condition     = strcontains(google_compute_instance.default.metadata["user-data"], "--hostname=\"gcp-default-vm\"") && strcontains(google_compute_instance.default.metadata["user-data"], "tag:env-gcp")
     error_message = "Instance user-data must render shared cloud-init template for gcp-default-vm with tag:env-gcp"
+  }
+
+  assert {
+    condition     = strcontains(google_compute_instance.default.metadata["user-data"], "--auth-key=file:/run/ts.key") && strcontains(google_compute_instance.default.metadata["user-data"], "shred -u /run/ts.key") && !strcontains(google_compute_instance.default.metadata["user-data"], "--authkey=")
+    error_message = "Instance user-data must deliver Tailscale auth key via /run/ts.key and shred it after use"
   }
 
   assert {

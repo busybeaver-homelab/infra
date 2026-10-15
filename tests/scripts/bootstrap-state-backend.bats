@@ -382,3 +382,161 @@ EOF
   [[ "$output" == *"TF_VAR_state_encryption_passphrase"* ]]
 }
 
+@test "bootstrap-state-backend.sh fails on invalid --env value" {
+  run "${SCRIPT}" --env staging
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Invalid environment 'staging'" ]]
+}
+
+@test "bootstrap-state-backend.sh --env prod fails when gpg is unavailable without reading credentials.ci.sops.yaml (R2-SEC-05)" {
+  local no_gpg_bin="${BATS_TMPDIR}/no-gpg-bin"
+  mkdir -p "${no_gpg_bin}"
+  local sops_log="${BATS_TMPDIR}/sops_invocations.log"
+
+  # Symlink required tools except gpg
+  for tool in bash env dirname basename cd pwd cat printf tr sed sort rm mv head tofu yq; do
+    if command -v "$tool" >/dev/null 2>&1; then
+      ln -sf "$(command -v "$tool")" "${no_gpg_bin}/${tool}"
+    fi
+  done
+
+  cat <<EOF >"${no_gpg_bin}/sops"
+#!/usr/bin/env bash
+echo "\$*" >> "${sops_log}"
+exit 0
+EOF
+  chmod +x "${no_gpg_bin}/sops"
+
+  run env -i \
+    PATH="${no_gpg_bin}" \
+    HOME="${BATS_TMPDIR}" \
+    SOPS_AGE_KEY="AGE-SECRET-KEY-SYNTHETIC" \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    "${SCRIPT}" --env prod --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "requires 'gpg' on PATH" ]] || false
+  [ ! -f "${sops_log}" ]
+}
+
+@test "bootstrap-state-backend.sh --env ci explicitly reads secrets/credentials.ci.sops.yaml (R2-SEC-05)" {
+  local mock_bin_dir="${BATS_TMPDIR}/bin-env-ci"
+  mkdir -p "${mock_bin_dir}"
+  local sops_log="${BATS_TMPDIR}/sops_ci.log"
+
+  cat <<EOF >"${mock_bin_dir}/sops"
+#!/usr/bin/env bash
+echo "\$*" >> "${sops_log}"
+echo 'cloudflare_r2_access_key_id: mock-ci-key-id'
+echo 'cloudflare_r2_secret_access_key: mock-ci-secret-key'
+echo 'state_encryption_passphrase: mock-ci-passphrase'
+exit 0
+EOF
+  chmod +x "${mock_bin_dir}/sops"
+  prepend_path "${mock_bin_dir}"
+
+  run env -u SOPS_SECRETS_FILE -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u TF_VAR_state_encryption_passphrase \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    "${SCRIPT}" --env ci --dry-run --stage 2 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "credentials.ci.sops.yaml" ]] || false
+  run cat "${sops_log}"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "secrets/credentials.ci.sops.yaml" ]]
+}
+
+@test "bootstrap-state-backend.sh aborts when sops fails even if stage 1 variables are provided (R2-SEC-05)" {
+  local mock_bin_dir="${BATS_TMPDIR}/bin-sops-abort"
+  mkdir -p "${mock_bin_dir}"
+
+  cat <<'EOF' >"${mock_bin_dir}/sops"
+#!/usr/bin/env bash
+echo "sops decryption failure: MAC mismatch" >&2
+exit 1
+EOF
+  chmod +x "${mock_bin_dir}/sops"
+  prepend_path "${mock_bin_dir}"
+
+  # Stage 1 variables + passphrase are set, but AWS_ACCESS_KEY_ID is unset so resolve_sops_credentials runs
+  run env -u AWS_ACCESS_KEY_ID \
+    CLOUDFLARE_API_TOKEN="mock-cf-token" \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    CLOUDFLARE_ZONE_ID="fedcba0987654321fedcba0987654321" \
+    TF_VAR_state_encryption_passphrase="mock-state-passphrase-32-chars-ok" \
+    "${SCRIPT}" --env ci --stage 1 --module-dir "${REPO_ROOT}/infrastructure/cloudflare"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "sops decryption failure: MAC mismatch" ]] || false
+  [[ "$output" =~ "Failed to decrypt SOPS credentials" ]]
+}
+
+@test "bootstrap-state-backend.sh verifies tofu state list matches local state before deleting terraform.tfstate (R2-SEC-05)" {
+  local mock_module_dir="${BATS_TMPDIR}/mock-cloudflare-verify"
+  mkdir -p "${mock_module_dir}"
+
+  cat <<'EOF' >"${mock_module_dir}/backend.tf"
+terraform {
+  backend "s3" {}
+}
+EOF
+
+  cat <<'EOF' >"${mock_module_dir}/terraform.tfstate"
+{
+  "version": 4,
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "cloudflare_r2_bucket",
+      "name": "tfstate",
+      "instances": [{"schema_version": 0}]
+    }
+  ]
+}
+EOF
+
+  local mock_bin_dir="${BATS_TMPDIR}/bin-verify"
+  mkdir -p "${mock_bin_dir}"
+
+  # First: simulate remote state list mismatch (empty remote state) -> must abort and preserve local terraform.tfstate
+  cat <<'EOF' >"${mock_bin_dir}/tofu"
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "${mock_bin_dir}/tofu"
+  prepend_path "${mock_bin_dir}"
+
+  run env \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    AWS_ACCESS_KEY_ID="mock-r2-access-key" \
+    AWS_SECRET_ACCESS_KEY="mock-r2-secret-key" \
+    TF_VAR_state_encryption_passphrase="mock-state-passphrase-32-chars-ok" \
+    "${SCRIPT}" --stage 2 --module-dir "${mock_module_dir}"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Remote state resource list does not match local terraform.tfstate" ]] || false
+  [ -f "${mock_module_dir}/terraform.tfstate" ]
+
+  # Second: simulate remote state list matching local state -> must succeed and delete local terraform.tfstate
+  cat <<'EOF' >"${mock_bin_dir}/tofu"
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [ "$arg" = "list" ]; then
+    echo "cloudflare_r2_bucket.tfstate"
+  fi
+done
+exit 0
+EOF
+  chmod +x "${mock_bin_dir}/tofu"
+
+  run env \
+    CLOUDFLARE_ACCOUNT_ID="1234567890abcdef1234567890abcdef" \
+    AWS_ACCESS_KEY_ID="mock-r2-access-key" \
+    AWS_SECRET_ACCESS_KEY="mock-r2-secret-key" \
+    TF_VAR_state_encryption_passphrase="mock-state-passphrase-32-chars-ok" \
+    "${SCRIPT}" --stage 2 --module-dir "${mock_module_dir}"
+
+  [ "$status" -eq 0 ]
+  [ ! -f "${mock_module_dir}/terraform.tfstate" ]
+}
+

@@ -42,6 +42,7 @@ DEFAULT_MODULE_DIR="${REPO_ROOT}/infrastructure/cloudflare"
 MODULE_DIR="${DEFAULT_MODULE_DIR}"
 BUCKET_NAME="homelab-infra-tfstate"
 STAGE="all"
+ENV_TARGET="prod"
 DRY_RUN=false
 AUTO_APPROVE=false
 
@@ -77,6 +78,7 @@ Options:
   -m, --module-dir DIR     Path to Cloudflare module directory (default: infrastructure/cloudflare)
   -b, --bucket NAME        Name of R2 bucket (default: homelab-infra-tfstate)
   -s, --stage STAGE        Stage to execute: 1 (local apply), 2 (remote migration), or all (default: all)
+  -e, --env ENV            Target SOPS credentials environment: prod or ci (default: prod)
   -y, --auto-approve       Skip interactive confirmation during OpenTofu apply
 
 Required Environment Variables:
@@ -133,6 +135,14 @@ while [[ $# -gt 0 ]]; do
       STAGE="$2"
       shift 2
       ;;
+    -e | --env)
+      if [[ -z "${2:-}" ]]; then
+        log_error "Option --env requires an argument (prod or ci)."
+        exit 1
+      fi
+      ENV_TARGET="$2"
+      shift 2
+      ;;
     -y | --auto-approve)
       AUTO_APPROVE=true
       shift
@@ -148,6 +158,12 @@ done
 # Validate stage argument
 if [[ "${STAGE}" != "1" && "${STAGE}" != "2" && "${STAGE}" != "all" ]]; then
   log_error "Invalid stage '${STAGE}'. Must be '1', '2', or 'all'."
+  exit 1
+fi
+
+# Validate env argument
+if [[ "${ENV_TARGET}" != "prod" && "${ENV_TARGET}" != "ci" ]]; then
+  log_error "Invalid environment '${ENV_TARGET}'. Must be 'prod' or 'ci'."
   exit 1
 fi
 
@@ -208,41 +224,58 @@ resolve_sops_credentials() {
 
   local sops_file="${SOPS_SECRETS_FILE:-}"
   if [[ -z "${sops_file}" ]]; then
-    if [[ -f "${REPO_ROOT}/secrets/credentials.sops.yaml" ]] && command -v gpg &>/dev/null; then
+    if [[ "${ENV_TARGET}" == "prod" ]]; then
+      if ! command -v gpg &>/dev/null; then
+        log_error "Production environment (--env prod) requires 'gpg' on PATH to decrypt secrets/credentials.sops.yaml (refusing to fall back to CI credentials)."
+        exit 1
+      fi
       sops_file="${REPO_ROOT}/secrets/credentials.sops.yaml"
-    elif [[ -f "${REPO_ROOT}/secrets/credentials.ci.sops.yaml" ]] && { [[ -n "${SOPS_AGE_KEY:-}" ]] || [[ -f "${HOME}/.config/sops/age/keys.txt" ]]; }; then
+    else
       sops_file="${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
     fi
   fi
 
-  if [[ -n "${sops_file}" ]] && command -v sops &>/dev/null && command -v yq &>/dev/null; then
-    local creds
-    if creds=$(sops -d --extract '["opentofu"]' "${sops_file}" 2>/dev/null); then
-      local key_id secret_key state_pass
-      key_id=$(echo "${creds}" | yq '.cloudflare_r2_access_key_id // ""' 2>/dev/null || true)
-      secret_key=$(echo "${creds}" | yq '.cloudflare_r2_secret_access_key // ""' 2>/dev/null || true)
-      state_pass=$(echo "${creds}" | yq '.state_encryption_passphrase // ""' 2>/dev/null || true)
-      if [[ -z "${AWS_ACCESS_KEY_ID:-}" && -n "${key_id}" && "${key_id}" != "null" ]]; then
-        export AWS_ACCESS_KEY_ID="${key_id}"
-        log_info "Auto-resolved AWS_ACCESS_KEY_ID from SOPS (${sops_file##*/})."
-      fi
-      if [[ -z "${AWS_SECRET_ACCESS_KEY:-}" && -n "${secret_key}" && "${secret_key}" != "null" ]]; then
-        export AWS_SECRET_ACCESS_KEY="${secret_key}"
-        log_info "Auto-resolved AWS_SECRET_ACCESS_KEY from SOPS (${sops_file##*/})."
-      fi
-      if [[ -z "${TF_VAR_state_encryption_passphrase:-}" && -n "${state_pass}" && "${state_pass}" != "null" ]]; then
-        export TF_VAR_state_encryption_passphrase="${state_pass}"
-        log_info "Auto-resolved TF_VAR_state_encryption_passphrase from SOPS (${sops_file##*/})."
-      fi
-    fi
+  if [[ ! -f "${sops_file}" ]]; then
+    log_error "SOPS credentials file not found: ${sops_file}"
+    return 1
+  fi
+
+  if ! command -v sops &>/dev/null || ! command -v yq &>/dev/null; then
+    log_error "Both 'sops' and 'yq' are required to resolve credentials from ${sops_file}."
+    return 1
+  fi
+
+  local creds
+  if ! creds=$(sops -d --extract '["opentofu"]' "${sops_file}"); then
+    log_error "Failed to decrypt SOPS credentials from ${sops_file}."
+    return 1
+  fi
+
+  local key_id secret_key state_pass
+  key_id=$(printf '%s\n' "${creds}" | yq '.cloudflare_r2_access_key_id // ""')
+  secret_key=$(printf '%s\n' "${creds}" | yq '.cloudflare_r2_secret_access_key // ""')
+  state_pass=$(printf '%s\n' "${creds}" | yq '.state_encryption_passphrase // ""')
+
+  if [[ -z "${AWS_ACCESS_KEY_ID:-}" && -n "${key_id}" && "${key_id}" != "null" ]]; then
+    export AWS_ACCESS_KEY_ID="${key_id}"
+    log_info "Auto-resolved AWS_ACCESS_KEY_ID from SOPS (${sops_file##*/})."
+  fi
+  if [[ -z "${AWS_SECRET_ACCESS_KEY:-}" && -n "${secret_key}" && "${secret_key}" != "null" ]]; then
+    export AWS_SECRET_ACCESS_KEY="${secret_key}"
+    log_info "Auto-resolved AWS_SECRET_ACCESS_KEY from SOPS (${sops_file##*/})."
+  fi
+  if [[ -z "${TF_VAR_state_encryption_passphrase:-}" && -n "${state_pass}" && "${state_pass}" != "null" ]]; then
+    export TF_VAR_state_encryption_passphrase="${state_pass}"
+    log_info "Auto-resolved TF_VAR_state_encryption_passphrase from SOPS (${sops_file##*/})."
   fi
 }
 
 # Validate credentials
 validate_credentials() {
   local missing=0
+  local sops_rc=0
 
-  resolve_sops_credentials
+  resolve_sops_credentials || sops_rc=$?
 
   # Both stages run tofu, and the modules have no passphrase default (fail closed).
   if [[ -z "${TF_VAR_state_encryption_passphrase:-}" ]]; then
@@ -278,6 +311,11 @@ validate_credentials() {
       log_error "Missing required environment variable: CLOUDFLARE_ACCOUNT_ID for R2 endpoint construction"
       missing=$((missing + 1))
     fi
+  fi
+
+  if [[ "${sops_rc}" -ne 0 && "${DRY_RUN}" != "true" ]]; then
+    log_error "Credential resolution from SOPS failed; aborting."
+    exit 1
   fi
 
   if [[ "${missing}" -gt 0 ]]; then
@@ -341,6 +379,56 @@ execute_stage_1() {
   fi
 }
 
+# Migrate local state to remote backend and verify resource parity before cleanup
+migrate_to_remote() {
+  tofu -chdir="${MODULE_DIR}" init -migrate-state -force-copy -input=false \
+    -backend-config="endpoint=${R2_ENDPOINT}" \
+    -backend-config="bucket=${BUCKET_NAME}"
+
+  if [[ -f "${MODULE_DIR}/terraform.tfstate" ]]; then
+    log_info "Verifying remote state matches local state before cleanup..."
+    local remote_list_raw
+    if ! remote_list_raw=$(tofu -chdir="${MODULE_DIR}" state list); then
+      log_error "Failed to list remote state via 'tofu state list'; preserving local terraform.tfstate."
+      exit 1
+    fi
+
+    local remote_sorted local_sorted=""
+    remote_sorted=$(printf '%s\n' "${remote_list_raw}" | sed '/^[[:space:]]*$/d' | LC_ALL=C sort)
+
+    if [[ -s "${MODULE_DIR}/terraform.tfstate" ]]; then
+      # shellcheck disable=SC2016
+      if ! local_sorted=$(yq -r '
+        [.resources[]? |
+          (((.module // "") | if . != "" then . + "." else "" end) +
+           (if .mode == "data" then "data." else "" end) +
+           .type + "." + .name) as $base |
+          if (.instances | length) > 0 then
+            (.instances[] |
+              if .index_key == null then $base
+              elif (.index_key | tag) == "!!int" then $base + "[" + (.index_key | tostring) + "]"
+              else $base + "[\"" + (.index_key | tostring) + "\"]"
+              end)
+          else
+            $base
+          end
+        ] | .[]
+      ' "${MODULE_DIR}/terraform.tfstate" | sed '/^[[:space:]]*$/d' | LC_ALL=C sort); then
+        log_error "Failed to parse local ${MODULE_DIR}/terraform.tfstate; preserving local state files."
+        exit 1
+      fi
+    fi
+
+    if [[ "${remote_sorted}" != "${local_sorted}" ]]; then
+      log_error "Remote state resource list does not match local terraform.tfstate; preserving local state files."
+      exit 1
+    fi
+
+    log_info "Cleaning up local state files..."
+    rm -f "${MODULE_DIR}/terraform.tfstate" "${MODULE_DIR}/terraform.tfstate.backup"
+  fi
+}
+
 # Execute Stage 2
 execute_stage_2() {
   log_step "Executing Stage 2: Migrating state to Cloudflare R2 remote backend..."
@@ -361,16 +449,10 @@ execute_stage_2() {
   log_info "Migrating OpenTofu state to R2 backend (endpoint: ${R2_ENDPOINT})..."
   if [[ "${DRY_RUN}" == "true" ]]; then
     log_info "[dry-run] tofu -chdir=${MODULE_DIR} init -migrate-state -force-copy -input=false -backend-config=endpoint=${R2_ENDPOINT} -backend-config=bucket=${BUCKET_NAME}"
+    log_info "[dry-run] tofu -chdir=${MODULE_DIR} state list"
     log_info "[dry-run] rm -f ${MODULE_DIR}/terraform.tfstate ${MODULE_DIR}/terraform.tfstate.backup"
   else
-    tofu -chdir="${MODULE_DIR}" init -migrate-state -force-copy -input=false \
-      -backend-config="endpoint=${R2_ENDPOINT}" \
-      -backend-config="bucket=${BUCKET_NAME}"
-
-    if [[ -f "${MODULE_DIR}/terraform.tfstate" ]]; then
-      log_info "Cleaning up local state files..."
-      rm -f "${MODULE_DIR}/terraform.tfstate" "${MODULE_DIR}/terraform.tfstate.backup"
-    fi
+    migrate_to_remote
   fi
 
   log_info "Stage 2 complete: State successfully migrated to Cloudflare R2 (${BUCKET_NAME})."

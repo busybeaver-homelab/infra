@@ -1,6 +1,6 @@
 locals {
   # Sensitive: the decoded cloudflare.config tree (identifying values only).
-  cf = yamldecode(data.sops_file.secrets.raw).cloudflare.config
+  cf = sensitive(jsondecode(data.external.sops_config.result.json))
 
   # Logical zone keys (e.g. "primary") are non-identifying and may drive for_each.
   zone_keys = nonsensitive(toset(keys(local.cf.zones)))

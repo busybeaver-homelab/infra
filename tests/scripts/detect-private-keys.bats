@@ -144,3 +144,71 @@ teardown() {
   run grep -E "AGE-SECRET-'? *'?KEY-1[0-9A-Z]{10}" "${REPO_ROOT}/tests/scripts/detect-private-keys.bats"
   [ "$status" -eq 1 ]
 }
+
+@test "detect-private-keys.sh detects private key in staged file containing NUL byte (R2-GATE-03)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  printf 'binary\0prefix\n%s%s\n' '-----BEGIN ' 'RSA PRIVATE KEY-----' > nul_key.bin
+  git add nul_key.bin
+
+  run bash "${DETECT_SCRIPT}" "nul_key.bin"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Private key header detected in nul_key.bin" ]]
+}
+
+@test "detect-private-keys.sh detects private key in staged file marked -diff in .gitattributes (R2-GATE-03)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo "*.nodiff -diff" > .gitattributes
+  printf '%s%s\n' '-----BEGIN ' 'EC PRIVATE KEY-----' > secret.nodiff
+  git add .gitattributes secret.nodiff
+
+  run bash "${DETECT_SCRIPT}" "secret.nodiff"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Private key header detected in secret.nodiff" ]]
+}
+
+@test "detect-private-keys.sh rejects staged binary key containers (.p12, .jks, .kdbx) and DER 30 82 magic bytes (R2-GATE-03)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  echo "dummy-pkcs12" > cert.p12
+  printf '\x30\x82\x01\x22\x02\x01\x00' > raw_der.key
+  git add cert.p12 raw_der.key
+
+  run bash "${DETECT_SCRIPT}" cert.p12 raw_der.key
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Binary key container (cert.p12) is forbidden" ]] || false
+  [[ "$output" =~ "DER-encoded binary key/container detected in raw_der.key" ]]
+}
+
+@test "detect-private-keys.sh skips git-crypt encrypted staged blobs cleanly (R2-GATE-03)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  printf '\0GITCRYPT\0%s%s\n' '-----BEGIN ' 'RSA PRIVATE KEY-----' > encrypted.md
+  git add encrypted.md
+
+  run bash "${DETECT_SCRIPT}" encrypted.md
+  [ "$status" -eq 0 ]
+}
+
+@test "detect-private-keys.sh fails closed with exit 2 on broken GIT_DIR or invalid pathspec (R2-GATE-03)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+
+  GIT_DIR="${mock_repo}/broken-git-dir" run bash "${DETECT_SCRIPT}"
+  [ "$status" -eq 2 ]
+
+  git init -q
+  run bash "${DETECT_SCRIPT}" ":(invalid-magic)foo"
+  [ "$status" -eq 2 ]
+}
+

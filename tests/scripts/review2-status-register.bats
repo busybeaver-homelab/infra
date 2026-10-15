@@ -6,7 +6,8 @@ load 'helpers/test_helper'
 
 PLAN="${REPO_ROOT}/docs/plans/2026-10-13-infrastructure-review-2-improvement-plan.md"
 REGISTER="${REPO_ROOT}/docs/plans/2026-10-13-infrastructure-review-2-status.md"
-STATUSES="Done Partial Open Owner Superseded"
+STATUSES=("Done" "In Progress" "Partial" "Open" "Owner" "Superseded" "N/A")
+STATUSES_PIPE="Done|In Progress|Partial|Open|Owner|Superseded|N/A"
 
 setup() {
   # Both files live under docs/** and are git-crypt ciphertext without the key (e.g. in CI).
@@ -57,7 +58,7 @@ register_rows() {
 @test "every register row uses an allowed status" {
   local bad=0 id status
   while IFS='|' read -r id status _; do
-    if [[ " ${STATUSES} " != *" ${status} "* ]]; then
+    if [[ "|${STATUSES_PIPE}|" != *"|${status}|"* ]]; then
       echo "${id}: invalid status '${status}'" >&2
       bad=1
     fi
@@ -72,7 +73,7 @@ register_rows() {
       echo "${id}: Done without PR/SHA" >&2
       bad=1
     fi
-    if [[ "$status" =~ ^(Partial|Open|Owner)$ ]] && [[ -z "$gap" || "$gap" == "-" || "$gap" == "—" ]]; then
+    if [[ "$status" =~ ^(In\ Progress|Partial|Open|Owner)$ ]] && [[ -z "$gap" || "$gap" == "-" || "$gap" == "—" ]]; then
       echo "${id}: ${status} without a remaining gap" >&2
       bad=1
     fi
@@ -83,13 +84,13 @@ register_rows() {
 @test "the summary table matches the register rows" {
   local bad=0 phase status expected actual
   for phase in P0 P1 P2 P3 P4 X; do
-    for status in $STATUSES; do
+    for status in "${STATUSES[@]}"; do
       actual="$(register_rows | awk -F'|' -v p="REV2-${phase}-" -v s="$status" 'index($1, p) == 1 && $2 == s' | wc -l | tr -d ' ')"
-      # Summary row: | P0 | <Done> | <Partial> | <Open> | <Owner> | <Superseded> | <Total> |
-      expected="$(awk -F'|' -v p="$phase" -v s="$status" '
-        BEGIN { split("Done Partial Open Owner Superseded", cols, " ") }
+      # Summary row: | P0 | <Done> | <In Progress> | <Partial> | <Open> | <Owner> | <Superseded> | <N/A> | <Total> |
+      expected="$(awk -F'|' -v p="$phase" -v s="$status" -v sp="$STATUSES_PIPE" '
+        BEGIN { n = split(sp, cols, "|") }
         { gsub(/ /, "", $2) }
-        $2 == p { for (i = 1; i <= 5; i++) if (cols[i] == s) { v = $(i + 2); gsub(/ /, "", v); print v } }' "$REGISTER")"
+        $2 == p { for (i = 1; i <= n; i++) if (cols[i] == s) { v = $(i + 2); gsub(/ /, "", v); print v } }' "$REGISTER")"
       if [ "${expected:-missing}" != "$actual" ]; then
         echo "summary ${phase}/${status}: table says ${expected:-missing}, rows say ${actual}" >&2
         bad=1

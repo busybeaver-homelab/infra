@@ -1,6 +1,17 @@
 mock_provider "oci" {}
 mock_provider "sops" {}
 
+mock_provider "external" {
+  override_data {
+    target = data.external.sops_config
+    values = {
+      result = {
+        json = "{}"
+      }
+    }
+  }
+}
+
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
   tenancy_ocid                = "ocid1.tenancy.oc1..test"
@@ -86,6 +97,11 @@ run "verify_compute_instances_and_free_tier" {
   assert {
     condition     = strcontains(base64decode(oci_core_instance.amd[0].metadata["user_data"]), "--hostname=\"oci-amd-1\"")
     error_message = "AMD instance user_data must render shared cloud-init template with hostname oci-amd-1"
+  }
+
+  assert {
+    condition     = strcontains(base64decode(oci_core_instance.amd[0].metadata["user_data"]), "--auth-key=file:/run/ts.key") && strcontains(base64decode(oci_core_instance.amd[0].metadata["user_data"]), "shred -u /run/ts.key") && !strcontains(base64decode(oci_core_instance.amd[0].metadata["user_data"]), "--authkey=")
+    error_message = "AMD instance user_data must deliver Tailscale auth key via /run/ts.key and shred it after use"
   }
 
   assert {

@@ -74,6 +74,17 @@ variable "bootstrap_gcp_key_tags" {
   }
 }
 
+variable "bootstrap_key_expiry" {
+  type        = number
+  description = "Expiry in seconds for single-use bootstrap keys (1 hour default; max 24 hours)."
+  default     = 3600
+
+  validation {
+    condition     = var.bootstrap_key_expiry >= 60 && var.bootstrap_key_expiry <= 86400
+    error_message = "Bootstrap key expiry must be between 60 seconds and 86400 seconds (24 hours)."
+  }
+}
+
 variable "monitored_device_hostnames" {
   description = "List of device hostnames (without domain suffix) to retrieve via data.tailscale_device."
   type        = list(string)

@@ -1,19 +1,20 @@
 mock_provider "tailscale" {}
+mock_provider "sops" {}
 
-mock_provider "sops" {
+mock_provider "external" {
   override_data {
-    target = data.sops_file.secrets
+    target = data.external.sops_config
     values = {
-      raw = <<-EOT
-        tailscale:
-          client_id: "ts-client-id-decoy"
-          client_secret: "ts-client-secret-decoy"
-          config:
-            tailnet_name: "example.ts.net"
-            contact_account_email: "account@example.test"
-            contact_support_email: "support@example.test"
-            contact_security_email: "security@example.test"
-      EOT
+      result = {
+        json = <<-EOT
+          {
+            "tailnet_name": "example.ts.net",
+            "contact_account_email": "account@example.test",
+            "contact_support_email": "support@example.test",
+            "contact_security_email": "security@example.test"
+          }
+        EOT
+      }
     }
   }
 }
@@ -61,8 +62,8 @@ run "mutate_bootstrap_tags" {
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap_oci.reusable == true
-    error_message = "Bootstrap key must remain reusable after tag mutation."
+    condition     = tailscale_tailnet_key.bootstrap_oci.reusable == false
+    error_message = "Bootstrap key must remain single-use (reusable = false) after tag mutation."
   }
 
   assert {
@@ -71,8 +72,8 @@ run "mutate_bootstrap_tags" {
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap_gcp.reusable == true
-    error_message = "GCP bootstrap key must remain reusable after tag mutation."
+    condition     = tailscale_tailnet_key.bootstrap_gcp.reusable == false
+    error_message = "GCP bootstrap key must remain single-use (reusable = false) after tag mutation."
   }
 }
 
