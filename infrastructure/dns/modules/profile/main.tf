@@ -37,6 +37,10 @@ resource "nextdns_parental_control" "this" {
   youtube_restricted_mode = var.parental_control.youtube_restricted_mode
   block_bypass            = var.parental_control.block_bypass
 
+  recreation {
+    timezone = ""
+  }
+
   dynamic "category" {
     for_each = var.parental_control.categories
     content {
