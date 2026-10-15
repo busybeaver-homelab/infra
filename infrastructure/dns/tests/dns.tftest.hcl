@@ -87,6 +87,8 @@ mock_provider "sops" {
                   inherit_shared_denylist: true
                   excluded_denylist_ids: []
                   extra_denylist: []
+                  security:
+                    dns_rebinding: false
             shared:
               rewrites:
                 - name: "svc-a.example.test"
@@ -135,6 +137,26 @@ run "baseline_and_override_merging_plan" {
   assert {
     condition     = contains(nonsensitive(local.effective_accounts["account_1"].privacy.natives), "samsung") && length(nonsensitive(local.effective_accounts["account_1"].privacy.natives)) == 5
     error_message = "Baseline privacy natives must include apple, samsung, sonos, windows, and xiaomi."
+  }
+
+  assert {
+    condition     = contains(nonsensitive(local.effective_accounts["account_1"].privacy.blocklists), "hagezi-multi-pro") && !contains(nonsensitive(local.effective_accounts["account_1"].privacy.blocklists), "fanboy-annoyance") && !contains(nonsensitive(local.effective_accounts["account_1"].privacy.blocklists), "fanboy-enhanced-tracking") && length(nonsensitive(local.effective_accounts["account_1"].privacy.blocklists)) == 4
+    error_message = "Baseline blocklists must include hagezi-multi-pro and exclude retired Fanboy lists."
+  }
+
+  assert {
+    condition     = nonsensitive(local.effective_accounts["account_1"].security.ai_threat_detection) == true && nonsensitive(local.effective_accounts["account_1"].security.nrd) == true && nonsensitive(local.effective_accounts["account_1"].security.parking) == true && nonsensitive(local.effective_accounts["account_1"].security.ddns) == false && nonsensitive(local.effective_accounts["account_1"].security.dns_rebinding) == true
+    error_message = "Accounts 1..4 security must enable ai_threat_detection, nrd, parking, and dns_rebinding while keeping ddns disabled."
+  }
+
+  assert {
+    condition     = nonsensitive(local.effective_accounts["account_5"].security.ai_threat_detection) == true && nonsensitive(local.effective_accounts["account_5"].security.nrd) == true && nonsensitive(local.effective_accounts["account_5"].security.parking) == true && nonsensitive(local.effective_accounts["account_5"].security.dns_rebinding) == false
+    error_message = "Account 5 security must inherit hardened baseline flags while overriding dns_rebinding = false."
+  }
+
+  assert {
+    condition     = nonsensitive(local.effective_accounts["account_1"].settings.logs.location) == "ch" && nonsensitive(local.effective_accounts["account_1"].settings.logs.retention) == "1 day" && nonsensitive(local.effective_accounts["account_1"].settings.logs.drop_ip) == true && nonsensitive(local.effective_accounts["account_1"].parental_control.block_bypass) == false
+    error_message = "Logs must use location = ch, retention = 1 day, drop_ip = true, and block_bypass = false."
   }
 }
 

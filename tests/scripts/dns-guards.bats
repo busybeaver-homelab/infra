@@ -34,7 +34,7 @@ lifecycle_set() {
   for vars in "$DNS/variables.tf" "$DNS/modules/profile/variables.tf"; do
     run grep -A5 'variable "enable_prevent_destroy"' "$vars"
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "default     = true" ]]
+    [[ "$output" =~ "default     = true" ]] || false
   done
 }
 

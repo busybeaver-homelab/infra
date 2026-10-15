@@ -22,16 +22,16 @@ locals {
   baseline_posture = {
     security = {
       threat_intelligence_feeds = true
-      ai_threat_detection       = false
+      ai_threat_detection       = true
       google_safe_browsing      = true
       cryptojacking             = true
       dns_rebinding             = true
       idn_homographs            = true
       typosquatting             = true
       dga                       = true
-      nrd                       = false
+      nrd                       = true
       ddns                      = false
-      parking                   = false
+      parking                   = true
       csam                      = true
       tlds                      = []
     }
@@ -42,8 +42,7 @@ locals {
         "nextdns-recommended",
         "adguard-dns-filter",
         "easylist-germany",
-        "fanboy-enhanced-tracking",
-        "fanboy-annoyance",
+        "hagezi-multi-pro",
       ]
       natives = [
         "apple",
@@ -74,7 +73,7 @@ locals {
         drop_ip     = true
         drop_domain = false
         retention   = "1 day"
-        location    = "eu"
+        location    = "ch"
       }
       block_page = {
         enabled = false
@@ -97,7 +96,7 @@ locals {
       profile_id   = local.nextdns.config.accounts[k].profile_id
       profile_name = local.nextdns.config.accounts[k].profile_name
 
-      security         = try(local.nextdns.config.accounts[k].overrides.security, local.baseline_posture.security)
+      security         = merge(local.baseline_posture.security, try(local.nextdns.config.accounts[k].overrides.security, {}))
       privacy          = try(local.nextdns.config.accounts[k].overrides.privacy, local.baseline_posture.privacy)
       parental_control = try(local.nextdns.config.accounts[k].overrides.parental_control, local.baseline_posture.parental_control)
       settings         = try(local.nextdns.config.accounts[k].overrides.settings, local.baseline_posture.settings)

@@ -44,7 +44,7 @@ teardown() {
   [[ "$output" =~ "infrastructure/homelab" ]] || false
   [[ "$output" =~ "infrastructure/monitoring" ]] || false
   [[ "$output" =~ "infrastructure/oci" ]] || false
-  [[ "$output" =~ "infrastructure/mesh" ]]
+  [[ "$output" =~ "infrastructure/mesh" ]] || false
   [[ "$output" =~ "infrastructure/dns" ]]
 }
 
