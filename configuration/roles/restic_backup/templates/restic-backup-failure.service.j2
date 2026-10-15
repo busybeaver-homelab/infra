@@ -6,6 +6,10 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 {% if restic_backup_healthchecks_ping_url | default('') | length > 0 %}
+# Fallback: if the encrypted credential cannot be loaded, systemd uses this sentinel instead of
+# failing the alert unit at the CREDENTIALS step (an empty value is invalid syntax on systemd 259).
+# The notifier then logs the exact reason and still exits non-zero for a fail event.
+SetCredential=healthchecks_ping_url:missing
 LoadCredentialEncrypted=healthchecks_ping_url:{{ restic_backup_credstore_dir }}/healthchecks_ping_url
 {% endif %}
 ExecStart={{ restic_backup_libexec_dir }}/restic-backup-notify fail %i
