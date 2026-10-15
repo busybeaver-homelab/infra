@@ -29,8 +29,8 @@
 | [tailscale_dns_preferences.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_preferences)            | resource    |
 | [tailscale_dns_search_paths.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_search_paths)          | resource    |
 | [tailscale_dns_split_nameservers.routes](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_split_nameservers) | resource    |
-| [tailscale_tailnet_key.bootstrap](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)                  | resource    |
 | [tailscale_tailnet_key.bootstrap_gcp](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)              | resource    |
+| [tailscale_tailnet_key.bootstrap_oci](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)              | resource    |
 | [tailscale_tailnet_key.roles](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)                      | resource    |
 | [tailscale_tailnet_settings.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_settings)          | resource    |
 | [tailscale_webhook.events](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/webhook)                             | resource    |
