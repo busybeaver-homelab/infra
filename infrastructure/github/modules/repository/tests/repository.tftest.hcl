@@ -162,6 +162,14 @@ run "ruleset_bypass_and_required_check_follow_owner_decision" {
 
   assert {
     condition = alltrue([
+      for a in github_repository_ruleset.main_protection.bypass_actors :
+      coalesce(a.actor_id, 0) == 0 if a.actor_type == "OrganizationAdmin"
+    ])
+    error_message = "OrganizationAdmin must not set actor_id: GitHub stores null and a configured value is a perpetual diff."
+  }
+
+  assert {
+    condition = alltrue([
       for c in github_repository_ruleset.main_protection.rules[0].required_status_checks[0].required_check :
       c.integration_id == 15368
     ])
