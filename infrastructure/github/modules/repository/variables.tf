@@ -99,3 +99,10 @@ variable "enable_prevent_destroy" {
   default     = true
 }
 
+variable "enable_merge_queue" {
+  type        = bool
+  description = "Whether to enable GitHub Merge Queue on the main branch ruleset. Defaults to true when visibility is public and false otherwise (GitHub Free org plans only support merge queues on public repositories)."
+  default     = null
+  nullable    = true
+}
+

@@ -89,6 +89,13 @@ variable "enable_prevent_destroy" {
   default     = true
 }
 
+variable "enable_merge_queue" {
+  type        = bool
+  description = "Override for GitHub Merge Queue on each managed repository's main ruleset. Null (default) enables it on public repositories only, the GitHub Free plan limit."
+  default     = null
+  nullable    = true
+}
+
 variable "state_encryption_passphrase" {
   type        = string
   description = "State and plan encryption passphrase. Source: production SOPS opentofu.state_encryption_passphrase. No default, so a missing value fails closed."

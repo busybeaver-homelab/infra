@@ -124,6 +124,26 @@ run "verify_repository_child_module" {
   }
 
   assert {
+    condition     = github_repository_environment.ci.deployment_branch_policy[0].custom_branch_policies == true
+    error_message = "CI environment must restrict deployments to an explicit ref allowlist (STD-CI-23)"
+  }
+
+  assert {
+    condition     = toset(keys(github_repository_environment_deployment_policy.ci)) == toset(["main", "refs/pull/*/merge", "gh-readonly-queue/main/*"])
+    error_message = "CI environment must allow exactly main, pull_request merge refs and merge queue groups (STD-CI-23)"
+  }
+
+  assert {
+    condition     = github_repository_ruleset.main_protection.rules[0].merge_queue[0].merge_method == "SQUASH"
+    error_message = "Main branch ruleset merge_queue must enforce SQUASH merge method"
+  }
+
+  assert {
+    condition     = github_repository_ruleset.main_protection.rules[0].merge_queue[0].grouping_strategy == "ALLGREEN"
+    error_message = "Main branch ruleset merge_queue must use ALLGREEN grouping strategy"
+  }
+
+  assert {
     condition     = github_repository_environment.backup.environment == "backup"
     error_message = "Backup environment must be defined"
   }

@@ -359,3 +359,62 @@ setup() {
   run yq '.jobs.lint-format.env // {} | length' "$WORKFLOW"
   [ "$output" = "0" ]
 }
+
+@test "ci.yml triggers on merge_group checks_requested targeting main (STD-CI-01)" {
+  run yq '.on.merge_group.types[]' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "checks_requested" ]
+
+  run yq '.on.merge_group.branches[]' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "main" ]
+}
+
+@test "changes job checks out full history on merge_group so dorny/paths-filter can diff base_sha" {
+  run yq '.jobs.changes.steps[0].with["fetch-depth"]' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "\${{ github.event_name != 'merge_group' && 1 || 0 }}" ]
+}
+
+@test "no workflow uses a pseudo-ternary with a falsy true value (cond && 0 || x always yields x)" {
+  run grep -rnE '&&[[:space:]]*(0|false|""|'"''"')[[:space:]]*\|\|' "$REPO_ROOT/.github/workflows" "$REPO_ROOT/.github/actions"
+  [ "$status" -eq 1 ]
+}
+
+@test "all 5 domain jobs treat merge_group as path-filtered alongside pull_request (STD-CI-05, STD-CI-48)" {
+  local job cond
+  for job in lint-format shell-bats tofu-validate ansible-check molecule; do
+    cond="$(yq ".jobs[\"${job}\"].if" "$WORKFLOW")"
+    [[ "$cond" == *"github.event_name != 'pull_request'"* ]] || {
+      echo "${job} missing pull_request condition" >&2
+      false
+    }
+    [[ "$cond" == *"github.event_name != 'merge_group'"* ]] || {
+      echo "${job} missing merge_group condition" >&2
+      false
+    }
+  done
+}
+
+@test "lint-format checkout fetches full history on every event so base diffs resolve" {
+  run yq '.jobs.lint-format.steps[0].with["fetch-depth"]' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "0" ]
+}
+
+@test "lint-format passes EVENT_NAME and MERGE_GROUP_BASE_SHA via env and diffs merge_group safely (STD-CI-36)" {
+  run yq '.jobs.lint-format.steps[] | select(.name == "Run Lefthook Linters") | .env.EVENT_NAME' "$WORKFLOW"
+  [ "$output" = '${{ github.event_name }}' ]
+
+  run yq '.jobs.lint-format.steps[] | select(.name == "Run Lefthook Linters") | .env.MERGE_GROUP_BASE_SHA' "$WORKFLOW"
+  [ "$output" = '${{ github.event.merge_group.base_sha }}' ]
+
+  run grep -F -- 'git diff --name-only --diff-filter=d -z "${MERGE_GROUP_BASE_SHA}...HEAD"' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+}
+
+@test "ci.yml cancels in-progress runs only for pull_request, never merge_group (STD-CI-44)" {
+  run yq '.concurrency["cancel-in-progress"]' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "\${{ github.event_name == 'pull_request' }}" ]
+}

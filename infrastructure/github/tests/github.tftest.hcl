@@ -70,6 +70,16 @@ run "verify_github_root_hardening" {
   }
 
   assert {
+    condition     = module.repository["infra"].merge_queue_enabled == true
+    error_message = "Main branch ruleset must enable merge queue for infra repository"
+  }
+
+  assert {
+    condition     = module.repository["infra"].ci_deployment_branch_patterns == tolist(["gh-readonly-queue/main/*", "main", "refs/pull/*/merge"])
+    error_message = "CI environment must allow only main, pull_request merge refs and merge queue groups (STD-CI-23)"
+  }
+
+  assert {
     condition     = module.repository["infra"].environments.ci == "ci"
     error_message = "CI environment must be defined"
   }
@@ -123,6 +133,24 @@ run "verify_computed_outputs_on_apply" {
   }
 }
 
+
+run "merge_queue_root_override_disables_queue" {
+  command = plan
+
+  variables {
+    enable_merge_queue = false
+  }
+
+  assert {
+    condition     = module.repository["infra"].merge_queue_enabled == false
+    error_message = "Root enable_merge_queue = false must disable the merge queue"
+  }
+
+  assert {
+    condition     = module.repository["infra"].ci_deployment_branch_patterns == tolist(["main", "refs/pull/*/merge"])
+    error_message = "CI environment must drop merge queue refs when the merge queue is disabled"
+  }
+}
 
 run "ci_environment_holds_no_production_material" {
   command = plan
