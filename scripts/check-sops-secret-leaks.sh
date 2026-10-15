@@ -210,6 +210,7 @@ function is_allowlisted_path(p) {
   if (p == "is_production" || p == "gcp.region" || p == "gcp.zone" || p == "gcp.breakglass_user" || p == "oci.region" || p == "oci.breakglass_user" || p == "cloudflare_restic.bucket" || p == "github.owner") return 1
   if (p ~ /^github\.config\.repositories\.[^.]+\.(name|description)$/) return 1
   if (p ~ /^github\.config\.repositories\.[^.]+\.topics\.[0-9]+$/) return 1
+  if (p ~ /^nextdns\.accounts\.[^.]+\.account_name$/) return 1
   if (p ~ /^cloudflare\.config\.zero_trust\.split_tunnel_excludes\.[0-9]+\.(address|description)$/) return 1
   if (p ~ /\.permission_groups\.[0-9]+$/) return 1
   if (p ~ /\.(type|effect|field|action|proxied|ttl|priority|enabled|locked|auto_init|visibility|vulnerability_alerts|delete_branch_on_merge|web_commit_signoff_required|default_branch|squash_merge_commit_title|squash_merge_commit_message)$/) return 1

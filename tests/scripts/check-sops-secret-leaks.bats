@@ -57,6 +57,11 @@ is_production: true
 gcp:
   project_id: "prod-homelab-project-42"
   region: "us-central1"
+nextdns:
+  accounts:
+    account_1:
+      account_name: "synthetic-account-label"
+      api_key: "prod-nextdns-api-key-998877"
 cloudflare:
   api_token: "${PROD_TOKEN_VAL}"
   config:
@@ -78,6 +83,11 @@ is_production: false
 gcp:
   project_id: "ci-decoy-project-99"
   region: "us-central1"
+nextdns:
+  accounts:
+    account_1:
+      account_name: "synthetic-account-label"
+      api_key: "ci-nextdns-api-key-112233"
 cloudflare:
   api_token: "${CI_TOKEN_VAL}"
   config:
@@ -100,6 +110,11 @@ is_production: false
 gcp:
   project_id: "ci-decoy-project-99"
   region: "us-central1"
+nextdns:
+  accounts:
+    account_1:
+      account_name: "synthetic-account-label"
+      api_key: "ci-nextdns-api-key-112233"
 cloudflare:
   api_token: "${PROD_TOKEN_VAL}"
   config:
@@ -231,7 +246,7 @@ EOF
   assert_output_not_contains "${PROD_PEM_LINE}"
 }
 
-@test "check-sops-secret-leaks.sh ignores allowlisted structural values like gcp.region and dns record type" {
+@test "check-sops-secret-leaks.sh ignores allowlisted structural values like gcp.region, dns record type, and nextdns.accounts.*.account_name" {
   cd "${MOCK_REPO}"
   git init -q
   cat <<'EOF' >main.tf
@@ -240,6 +255,9 @@ variable "region" {
 }
 variable "record_type" {
   default = "A"
+}
+variable "nextdns_account_name" {
+  default = "synthetic-account-label"
 }
 EOF
   git add main.tf
