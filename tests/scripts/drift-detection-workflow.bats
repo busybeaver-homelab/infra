@@ -11,14 +11,14 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "drift detection workflow defines daily schedule and workflow_dispatch triggers" {
-  run yq eval '.on.schedule[0].cron' "$WORKFLOW"
+@test "drift detection workflow is manual-only until local drift:all replaces it (REV2-P0-7)" {
+  run yq eval '.on.schedule' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [ "$output" = "0 6 * * *" ]
+  [ "$output" = "null" ]
 
-  run yq eval '.on.workflow_dispatch' "$WORKFLOW"
+  run yq eval '.on | keys | join(",")' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [ "$output" != "null" ]
+  [ "$output" = "workflow_dispatch" ]
 }
 
 @test "drift detection workflow defines matrix across the 6 CI-plannable modules" {
@@ -48,8 +48,11 @@ setup() {
   run grep -E "tofu plan.*-detailed-exitcode" "$WORKFLOW"
   [ "$status" -eq 0 ]
 
-  run grep -E -- "-lockfile=readonly" "$WORKFLOW"
+  # -lockfile is an init flag; on plan it is an error that failed every run.
+  run grep -E "tofu init.*-lockfile=readonly" "$WORKFLOW"
   [ "$status" -eq 0 ]
+  run grep -E "tofu plan.*-lockfile" "$WORKFLOW"
+  [ "$status" -ne 0 ]
 }
 
 @test "drift detection workflow exports and masks opentofu r2 backend credentials" {
@@ -74,4 +77,70 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "drift detection workflow never prints plan or log text and uses env indirection" {
+  run grep -nE 'cat .*(drift|plan|RUNNER_TEMP)' "$WORKFLOW"
+  [ "$status" -ne 0 ]
+  # No ${{ }} expressions inside run: blocks (template injection hygiene).
+  run yq eval '[.jobs.drift-detect.steps[].run | select(. != null) | select(test("[$][{][{]"))] | length' "$WORKFLOW"
+  [ "$output" = "0" ]
+}
 
+# Runs the real "Check Infrastructure Drift" step against a stub tofu that prints marker
+# text and exits with STUB_RC; the step summary must never contain that text.
+run_drift_step() {
+  local stub="${BATS_TEST_TMPDIR}/bin"
+  mkdir -p "$stub"
+  cat >"$stub/mise" <<'EOF'
+#!/usr/bin/env bash
+[ "$1" = "exec" ] && shift
+[ "$1" = "--" ] && shift
+case "$1 $2" in
+  "tofu plan")
+    echo "PLAN-TEXT-MARKER secret_attribute = \"do-not-print\""
+    echo "Error: Synthetic failure headline"
+    echo "  detail line with VALUE-MARKER"
+    exit "${STUB_RC}"
+    ;;
+  "tofu show")
+    echo '{"resource_changes":[
+      {"address":"a.ADDRESS-MARKER","change":{"actions":["create"]}},
+      {"address":"b.x","change":{"actions":["update"]}},
+      {"address":"c.x","change":{"actions":["delete","create"]}},
+      {"address":"d.x","change":{"actions":["no-op"]}}]}'
+    ;;
+esac
+EOF
+  chmod +x "$stub/mise"
+  yq eval '.jobs.drift-detect.steps[] | select(.id == "drift") | .run' "$WORKFLOW" >"${BATS_TEST_TMPDIR}/step.sh"
+  export RUNNER_TEMP="${BATS_TEST_TMPDIR}" GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary.md" MODULE=github
+  : >"$GITHUB_STEP_SUMMARY"
+  (cd "$REPO_ROOT" && PATH="$stub:$PATH" STUB_RC="$1" bash -e "${BATS_TEST_TMPDIR}/step.sh")
+}
+
+@test "drift step reports counts only when drift is detected" {
+  run run_drift_step 2
+  [ "$status" -eq 2 ]
+  run cat "${BATS_TEST_TMPDIR}/summary.md"
+  [[ "$output" == *"1 to add, 1 to change, 1 to replace, 0 to destroy"* ]] || false
+  [[ "$output" != *MARKER* ]] || false
+  [[ "$output" != *do-not-print* ]] || false
+  [ ! -e "${BATS_TEST_TMPDIR}/drift.tfplan" ]
+  [ ! -e "${BATS_TEST_TMPDIR}/drift_plan.log" ]
+}
+
+@test "drift step reports only error headlines on failure" {
+  run run_drift_step 1
+  [ "$status" -eq 1 ]
+  [[ "$output" != *MARKER* ]] || false
+  run cat "${BATS_TEST_TMPDIR}/summary.md"
+  [[ "$output" == *"- Error: Synthetic failure headline"* ]] || false
+  [[ "$output" != *MARKER* ]] || false
+}
+
+@test "drift step reports a clean module without output" {
+  run run_drift_step 0
+  [ "$status" -eq 0 ]
+  [[ "$output" != *MARKER* ]] || false
+  run cat "${BATS_TEST_TMPDIR}/summary.md"
+  [[ "$output" == *"No drift detected for github"* ]] || false
+}
