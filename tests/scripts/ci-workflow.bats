@@ -373,7 +373,12 @@ setup() {
 @test "changes job checks out full history on merge_group so dorny/paths-filter can diff base_sha" {
   run yq '.jobs.changes.steps[0].with["fetch-depth"]' "$WORKFLOW"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"github.event_name == 'merge_group'"* ]]
+  [ "$output" = "\${{ github.event_name != 'merge_group' && 1 || 0 }}" ]
+}
+
+@test "no workflow uses a pseudo-ternary with a falsy true value (cond && 0 || x always yields x)" {
+  run grep -rnE '&&[[:space:]]*(0|false|""|'"''"')[[:space:]]*\|\|' "$REPO_ROOT/.github/workflows" "$REPO_ROOT/.github/actions"
+  [ "$status" -eq 1 ]
 }
 
 @test "all 5 domain jobs treat merge_group as path-filtered alongside pull_request (STD-CI-05, STD-CI-48)" {
