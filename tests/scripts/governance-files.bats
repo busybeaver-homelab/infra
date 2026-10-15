@@ -52,6 +52,57 @@ EOF
   [ "$missing" -eq 0 ]
 }
 
+# True when a repository path (leading slash) is owned by a CODEOWNERS pattern with an owner.
+is_owned() {
+  local file="$1" pattern
+  while IFS= read -r pattern; do
+    # shellcheck disable=SC2053 # the pattern is a glob on purpose
+    if [[ "$pattern" == */ && "$file" == "$pattern"* ]] || [[ "$file" == $pattern ]]; then
+      return 0
+    fi
+  done < <(grep -vE '^\s*(#|$)' "$CODEOWNERS" | awk 'NF >= 2 {print $1}')
+  return 1
+}
+
+@test "every CODEOWNERS glob pattern matches at least one file" {
+  local pattern bad=0
+  while IFS= read -r pattern; do
+    [[ "$pattern" == *"*"* && "$pattern" != *"**"* ]] || continue
+    # shellcheck disable=SC2086 # expand the glob relative to the repository root
+    if ! compgen -G "${REPO_ROOT}${pattern}" >/dev/null; then
+      echo "CODEOWNERS pattern matches nothing: ${pattern}" >&2
+      bad=1
+    fi
+  done < <(grep -vE '^\s*(#|$)' "$CODEOWNERS" | awk 'NF >= 2 {print $1}')
+  [ "$bad" -eq 0 ]
+}
+
+@test "every guard script and every lefthook guard is owned (REV2-X-5)" {
+  local f bad=0 guards
+  guards="$(
+    cd "$REPO_ROOT" && {
+      ls scripts/{verify,detect,check,block,guard}-*.sh scripts/rotate-state-passphrase.sh 2>/dev/null
+      grep -oE 'scripts/(verify|detect|check|block|guard)-[a-z0-9-]+\.sh' lefthook.yml
+    } | sort -u
+  )"
+  # Guard against a vacuous pass: the list itself must not be empty.
+  [ "$(grep -c . <<<"$guards")" -ge 8 ]
+  while IFS= read -r f; do
+    if ! is_owned "/${f}"; then
+      echo "unowned guard script: ${f}" >&2
+      bad=1
+    fi
+  done <<<"$guards"
+  [ "$bad" -eq 0 ]
+}
+
+@test "the ownership check rejects an unowned guard script" {
+  run is_owned "/scripts/new-unlisted-guard.sh"
+  [ "$status" -eq 1 ]
+  run is_owned "/scripts/check-anything-new.sh"
+  [ "$status" -eq 0 ]
+}
+
 @test "CODEOWNERS does not own paths that Renovate updates" {
   local owned
   owned="$(grep -vE '^\s*(#|$)' "$CODEOWNERS" | awk 'NF >= 2 {print $1}')"

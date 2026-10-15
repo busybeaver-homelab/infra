@@ -8,13 +8,13 @@
 /.gitattributes                     @busybeaver
 /secrets/                           @busybeaver
 /lefthook.yml                       @busybeaver
-/scripts/verify-sops-encryption.sh  @busybeaver
-/scripts/verify-commit-msg.sh       @busybeaver
-/scripts/detect-private-keys.sh     @busybeaver
-/scripts/check-network-masking.sh   @busybeaver
-/scripts/check-secrets-schema-parity.sh @busybeaver
-/scripts/block-ansible-vault.sh     @busybeaver
-/scripts/guard-main-push.sh         @busybeaver
+# Guard scripts by prefix, so new guards are owned without a CODEOWNERS edit (REV2-X-5).
+/scripts/verify-*                   @busybeaver
+/scripts/detect-*                   @busybeaver
+/scripts/check-*                    @busybeaver
+/scripts/block-*                    @busybeaver
+/scripts/guard-*                    @busybeaver
+/scripts/rotate-state-passphrase.sh @busybeaver
 /infrastructure/github/             @busybeaver
 /AGENTS.md                          @busybeaver
 /LICENSE                            @busybeaver
