@@ -4,19 +4,19 @@
 #   retired - appears only in committed history; its values were rotated (decision D1)
 # Recipients are public keys or PGP fingerprints, not secrets.
 
-# prod retired: first seen 2026-06-07 (9b9f723), last seen 2026-06-09 (8218ef7)  (leaked early age key; values rotated, decision D1)
+# prod retired: first seen 2026-06-07 (9b9f723), last seen 2026-06-09 (8218ef7)
 age1tvjjrqfkhm3zwakv8cy4kk8kzhglz8yhwj3gz8tyhmawmdnfkussnvhm3w retired prod
 
 # prod active: first seen 2026-06-09 (8218ef7), last seen 2026-10-15 (73c7df9)
 5EE1590FF82DC2A3829D224FAA73ACF495CC009D active prod
 
-# prod retired: first seen 2026-10-08 (fc54123), last seen 2026-10-08 (fc54123)  (owner's own key, removed the same day; decision D1)
+# prod retired: first seen 2026-10-08 (fc54123), last seen 2026-10-08 (fc54123)
 age14elxn8s32z2y348n0fhczz9ukdxafh4vau4zkgdq4rdfszhrz3ns7nd477 retired prod
 
 # prod active: first seen 2026-10-08 (ace6123), last seen 2026-10-15 (73c7df9)
 age136vdv2svv5lm53um9yvgw2f6uq87ce2cgcr2n54s32mpwlseh4cqsjsdlv active prod
 
-# ci retired: first seen 2026-06-07 (1a2c69d), last seen 2026-10-07 (9a7815d)  (old CI key, replaced 2026-10-07; key leaked, values synthetic)
+# ci retired: first seen 2026-06-07 (1a2c69d), last seen 2026-10-07 (9a7815d)
 age1znxravd7ehfaqk6reqr7tdr5wrzmx9zw7f3uyhqc9g5mt0wyxsss2jpr2v retired ci
 
 # ci active: first seen 2026-10-07 (bd67b81), last seen 2026-10-15 (73c7df9)
