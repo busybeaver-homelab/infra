@@ -36,7 +36,6 @@ mock_provider "sops" {
                 - { host: "decoy.example.test", description: "decoy" }
             iam:
               tokens:
-                grafana:   { id: "00000000000000000000000000000009", policies: [{ effect: "allow", resources: "{\"com.cloudflare.api.account.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }, { effect: "allow", resources: "{\"com.cloudflare.api.account.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }] }
                 r2_state:  { id: "0000000000000000000000000000000a", policies: [{ effect: "allow", resources: "{\"com.cloudflare.edge.r2.bucket.0_default_x\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }] }
                 terraform: { id: "0000000000000000000000000000000b", policies: [{ effect: "allow", resources: "{\"com.cloudflare.api.account.zone.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }, { effect: "allow", resources: "{\"com.cloudflare.api.account.0\":\"*\"}", permission_groups: ["Decoy Read|com.cloudflare.api.account"] }] }
               member: { id: "0000000000000000000000000000000c", email: "user@example.test", resource_group_id: "00000000000000000000000000000012" }
@@ -176,8 +175,8 @@ run "verify_frozen_iam" {
   command = plan
 
   assert {
-    condition     = toset(keys(cloudflare_account_token.frozen)) == toset(["grafana", "r2_state", "terraform"])
-    error_message = "All three account tokens must be documented as frozen resources"
+    condition     = toset(keys(cloudflare_account_token.frozen)) == toset(["r2_state", "terraform"])
+    error_message = "Both remaining account tokens must be documented as frozen resources"
   }
   assert {
     condition     = length(cloudflare_account_token.frozen["terraform"].policies) == 2
@@ -214,12 +213,12 @@ run "frozen_tokens_present_pass" {
   override_data {
     target = data.cloudflare_account_tokens.all
     values = {
-      result = [{ name = "Grafana: Read analytics, logs and radar", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }, { name = "homelab-infra-opentofu-state-r2-token", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }, { name = "terraform-homelab-manually-provisioned", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }]
+      result = [{ name = "homelab-infra-opentofu-state-r2-token", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }, { name = "terraform-homelab-manually-provisioned", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }]
     }
   }
 
   assert {
-    condition     = length(cloudflare_account_token.frozen) == 3
+    condition     = length(cloudflare_account_token.frozen) == 2
     error_message = "All frozen tokens must plan when they exist live"
   }
 }
