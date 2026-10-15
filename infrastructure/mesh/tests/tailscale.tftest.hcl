@@ -77,17 +77,17 @@ run "unit_plan_matches_baseline" {
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap.preauthorized == true
+    condition     = tailscale_tailnet_key.bootstrap_oci.preauthorized == true
     error_message = "Bootstrap key must be preauthorized."
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap.reusable == true
+    condition     = tailscale_tailnet_key.bootstrap_oci.reusable == true
     error_message = "Bootstrap key must be reusable."
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap.ephemeral == false
+    condition     = tailscale_tailnet_key.bootstrap_oci.ephemeral == false
     error_message = "Bootstrap key must not be ephemeral."
   }
 
@@ -153,5 +153,15 @@ run "verify_computed_outputs_on_apply" {
   assert {
     condition     = output.auth_keys["oci"] != "" && output.auth_keys["gcp"] != ""
     error_message = "auth_keys map output must include non-empty oci and gcp keys."
+  }
+
+  assert {
+    condition     = output.auth_key_bootstrap == tailscale_tailnet_key.bootstrap_oci.key && output.auth_keys["oci"] == tailscale_tailnet_key.bootstrap_oci.key
+    error_message = "OCI bootstrap outputs must expose the bootstrap_oci key."
+  }
+
+  assert {
+    condition     = output.auth_key_bootstrap_gcp == tailscale_tailnet_key.bootstrap_gcp.key && output.auth_keys["gcp"] == tailscale_tailnet_key.bootstrap_gcp.key
+    error_message = "GCP bootstrap outputs must expose the bootstrap_gcp key."
   }
 }
