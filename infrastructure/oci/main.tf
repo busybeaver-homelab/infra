@@ -46,7 +46,7 @@ resource "oci_core_instance" "amd" {
   source_details {
     source_type             = "image"
     source_id               = var.instance_image_ocid_amd
-    boot_volume_size_in_gbs = 50
+    boot_volume_size_in_gbs = var.amd_boot_volume_size_gb
   }
 
   metadata = {
@@ -60,6 +60,12 @@ resource "oci_core_instance" "amd" {
 
   lifecycle {
     prevent_destroy = var.enable_prevent_destroy
+
+    precondition {
+      condition     = 2 * var.amd_boot_volume_size_gb + var.arm_boot_volume_size_gb <= 200
+      error_message = "Combined OCI boot volume storage across all instances must not exceed the 200 GB Always Free limit."
+    }
+
     ignore_changes = [
       metadata["user_data"],
       metadata["ssh_authorized_keys"],
@@ -105,7 +111,7 @@ resource "oci_core_instance" "ampere" {
   source_details {
     source_type             = "image"
     source_id               = var.instance_image_ocid_arm
-    boot_volume_size_in_gbs = 100
+    boot_volume_size_in_gbs = var.arm_boot_volume_size_gb
   }
 
   metadata = {
@@ -119,6 +125,17 @@ resource "oci_core_instance" "ampere" {
 
   lifecycle {
     prevent_destroy = var.enable_prevent_destroy
+
+    precondition {
+      condition     = var.ampere_ocpus <= 2 && var.ampere_memory_in_gbs <= 12
+      error_message = "Ampere A1 shape must remain within the Always Free allowance (<= 2 OCPUs, <= 12 GB memory)."
+    }
+
+    precondition {
+      condition     = 2 * var.amd_boot_volume_size_gb + var.arm_boot_volume_size_gb <= 200
+      error_message = "Combined OCI boot volume storage across all instances must not exceed the 200 GB Always Free limit."
+    }
+
     ignore_changes = [
       metadata["user_data"],
       metadata["ssh_authorized_keys"],

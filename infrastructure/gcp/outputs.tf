@@ -75,3 +75,18 @@ output "budget_name" {
   description = "Resource name of the mandatory $1 monthly GCP billing budget."
   sensitive   = true
 }
+
+output "ansible_inventory" {
+  description = "Structured Ansible inventory map for GCP compute instances consumed by scripts/generate-inventory.sh."
+  sensitive   = true
+  value = {
+    (google_compute_instance.default.name) = {
+      name         = google_compute_instance.default.name
+      ip           = google_compute_instance.default.network_interface[0].network_ip
+      private_ip   = google_compute_instance.default.network_interface[0].network_ip
+      ansible_host = google_compute_instance.default.name
+      group        = "gcp"
+      role         = "compute"
+    }
+  }
+}

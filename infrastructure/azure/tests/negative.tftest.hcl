@@ -9,6 +9,7 @@ mock_provider "azurerm" {
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
   azure_subscription_id       = "00000000-0000-0000-0000-000000000000"
+  budget_contact_emails       = ["admin@example.com"]
 }
 
 run "reject_excessive_monthly_budget" {
@@ -28,6 +29,18 @@ run "reject_invalid_budget_email" {
 
   variables {
     budget_contact_emails = ["not-an-email-address"]
+  }
+
+  expect_failures = [
+    var.budget_contact_emails,
+  ]
+}
+
+run "reject_empty_budget_contact_emails" {
+  command = plan
+
+  variables {
+    budget_contact_emails = []
   }
 
   expect_failures = [

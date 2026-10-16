@@ -12,3 +12,10 @@
       ansible.builtin.apt:
         name: openssh-server
         state: present
+
+    - name: Ensure ssh.socket is enabled to mirror Ubuntu 26.04 cloud image
+      ansible.builtin.systemd_service:
+        name: ssh.socket
+        masked: false
+        enabled: true
+        daemon_reload: true

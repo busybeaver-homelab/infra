@@ -1,0 +1,12 @@
+# Managed by Ansible - do not edit manually
+[Unit]
+Description=Homelab host-alive and disk-space healthcheck ping
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/default/homelab-healthcheck
+ExecStart=/usr/local/libexec/homelab-healthcheck

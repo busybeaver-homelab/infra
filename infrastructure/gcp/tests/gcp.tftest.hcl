@@ -183,4 +183,14 @@ run "verify_computed_outputs_on_apply" {
     condition     = issensitive(output.instance_private_ip) && issensitive(output.instance_public_ip) && issensitive(output.backup_hmac_secret)
     error_message = "All network and credential outputs must be marked sensitive"
   }
+
+  assert {
+    condition = (
+      toset(keys(output.ansible_inventory)) == toset(["gcp-default-vm"]) &&
+      output.ansible_inventory["gcp-default-vm"].group == "gcp" &&
+      output.ansible_inventory["gcp-default-vm"].ansible_host == "gcp-default-vm" &&
+      issensitive(output.ansible_inventory)
+    )
+    error_message = "ansible_inventory output must expose gcp-default-vm with group=gcp and sensitive=true"
+  }
 }

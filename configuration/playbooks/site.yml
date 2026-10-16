@@ -1,5 +1,21 @@
 ---
 # Master Playbook Entrypoint
+- name: Preflight — assert non-empty target inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Assert inventory contains at least one target host
+      ansible.builtin.assert:
+        that:
+          - groups['all'] | default([]) | length > 0
+        fail_msg: >-
+          Inventory resolved zero target hosts. Populate Tailscale MagicDNS
+          hostnames in SOPS or pass -e allow_empty_inventory=true for syntax/dry checks.
+      when:
+        - not ansible_check_mode
+        - not (allow_empty_inventory | default(false) | bool)
+
 - name: Apply base hardening to all managed hosts
   ansible.builtin.import_playbook: base.yml
 

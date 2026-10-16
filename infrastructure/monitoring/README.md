@@ -41,14 +41,19 @@ Declarative monitoring and heartbeat check resources managed via OpenTofu and th
 
 ## Resources
 
-| Name                                                                                                                                  | Type     |
-| ------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| [healthchecksio_check.restic_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check) | resource |
+| Name                                                                                                                                      | Type     |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| [healthchecksio_check.backup_prune](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)      | resource |
+| [healthchecksio_check.drift_detection](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)   | resource |
+| [healthchecksio_check.gcp_restic_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check) | resource |
+| [healthchecksio_check.oci_restic_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check) | resource |
+| [healthchecksio_check.restic_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)     | resource |
 
 ## Inputs
 
 | Name                                                                                                                 | Description                                                                                                                                        | Type           | Default                                                         | Required |
 | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------------------------- | :------: |
+| <a name="input_check_tags"></a> [check\_tags](#input_check_tags)                                                     | Additional project tags applied across all healthchecks (must include 'homelab').                                                                  | `list(string)` | <pre>[<br/> "homelab",<br/> "backup",<br/> "restic"<br/>]</pre> |    no    |
 | <a name="input_default_tags"></a> [default\_tags](#input_default_tags)                                               | Default tags applied to healthchecks.                                                                                                              | `list(string)` | <pre>[<br/> "homelab",<br/> "backup",<br/> "restic"<br/>]</pre> |    no    |
 | <a name="input_healthcheck_grace"></a> [healthcheck\_grace](#input_healthcheck_grace)                                | Grace period in seconds before alerting on a missed ping (300s / 5m to 14400s / 4h).                                                               | `number`       | `7200`                                                          |    no    |
 | <a name="input_healthcheck_timeout"></a> [healthcheck\_timeout](#input_healthcheck_timeout)                          | Execution interval / timeout in seconds between ping events (60s to 86400s / 24h).                                                                 | `number`       | `86400`                                                         |    no    |
@@ -57,9 +62,13 @@ Declarative monitoring and heartbeat check resources managed via OpenTofu and th
 
 ## Outputs
 
-| Name                                                                                                     | Description                                                  |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| <a name="output_restic_backup_check_id"></a> [restic\_backup\_check\_id](#output_restic_backup_check_id) | Unique UUID of the homelab restic backup check.              |
-| <a name="output_restic_backup_ping_url"></a> [restic\_backup\_ping\_url](#output_restic_backup_ping_url) | Unique ping URL for homelab restic backup completion signal. |
+| Name                                                                                                           | Description                                                                             |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| <a name="output_backup_prune_ping_url"></a> [backup\_prune\_ping\_url](#output_backup_prune_ping_url)          | Unique ping URL for weekly Restic repository prune and integrity check dead-man switch. |
+| <a name="output_drift_detection_ping_url"></a> [drift\_detection\_ping\_url](#output_drift_detection_ping_url) | Unique ping URL for daily OpenTofu drift detection dead-man switch.                     |
+| <a name="output_gcp_restic_ping_url"></a> [gcp\_restic\_ping\_url](#output_gcp_restic_ping_url)                | Unique ping URL for GCP restic backup completion signal.                                |
+| <a name="output_oci_restic_ping_url"></a> [oci\_restic\_ping\_url](#output_oci_restic_ping_url)                | Unique ping URL for OCI restic backup completion signal.                                |
+| <a name="output_restic_backup_check_id"></a> [restic\_backup\_check\_id](#output_restic_backup_check_id)       | Unique UUID of the homelab restic backup check.                                         |
+| <a name="output_restic_backup_ping_url"></a> [restic\_backup\_ping\_url](#output_restic_backup_ping_url)       | Unique ping URL for homelab restic backup completion signal.                            |
 
 <!-- END_TF_DOCS -->

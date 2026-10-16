@@ -61,18 +61,10 @@ argument_specs:
         type: list
         elements: str
         description: List of glob patterns excluded from the backup.
-      restic_backup_keep_daily:
-        type: int
-        default: 3
-        description: Number of daily snapshots to retain.
-      restic_backup_keep_weekly:
-        type: int
-        default: 1
-        description: Number of weekly snapshots to retain.
-      restic_backup_keep_monthly:
-        type: int
-        default: 0
-        description: Number of monthly snapshots to retain.
+      restic_backup_auto_init:
+        type: bool
+        default: false
+        description: Whether to automatically initialize an uninitialized repository when restic cat config exits 10.
       restic_backup_schedule_calendar:
         type: str
         default: "*-*-* 03:00:00 UTC"

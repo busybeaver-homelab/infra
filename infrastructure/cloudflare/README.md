@@ -80,7 +80,7 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 | --------------------------------------------------------------------------- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | 1.16.6  |
 | <a name="requirement_cloudflare"></a> [cloudflare](#requirement_cloudflare) | 5.28.0  |
-| <a name="requirement_external"></a> [external](#requirement_external)       | 2.3.5   |
+| <a name="requirement_external"></a> [external](#requirement_external)       | 2.4.2   |
 | <a name="requirement_sops"></a> [sops](#requirement_sops)                   | 1.4.1   |
 
 ## Providers
@@ -88,7 +88,7 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 | Name                                                                  | Version |
 | --------------------------------------------------------------------- | ------- |
 | <a name="provider_cloudflare"></a> [cloudflare](#provider_cloudflare) | 5.28.0  |
-| <a name="provider_external"></a> [external](#provider_external)       | 2.3.5   |
+| <a name="provider_external"></a> [external](#provider_external)       | 2.4.2   |
 
 ## Modules
 
@@ -103,10 +103,12 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 | [cloudflare_account.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/account)                                                                     | resource    |
 | [cloudflare_account_member.frozen](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/account_member)                                                     | resource    |
 | [cloudflare_account_token.frozen](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/account_token)                                                       | resource    |
+| [cloudflare_api_token.r2_restic_prune](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/api_token)                                                      | resource    |
 | [cloudflare_email_routing_address.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/email_routing_address)                                         | resource    |
 | [cloudflare_notification_policy.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/notification_policy)                                             | resource    |
 | [cloudflare_r2_bucket.backups_dr](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/r2_bucket)                                                           | resource    |
 | [cloudflare_r2_bucket.tfstate](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/r2_bucket)                                                              | resource    |
+| [cloudflare_r2_bucket_lifecycle.backups_dr](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/r2_bucket_lifecycle)                                       | resource    |
 | [cloudflare_zero_trust_access_identity_provider.otp](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/zero_trust_access_identity_provider)              | resource    |
 | [cloudflare_zero_trust_device_default_profile.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/zero_trust_device_default_profile)                 | resource    |
 | [cloudflare_zero_trust_dns_location.default](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/zero_trust_dns_location)                                  | resource    |
@@ -115,7 +117,7 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 | [cloudflare_account_api_token_permission_groups_list.all](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/data-sources/account_api_token_permission_groups_list) | data source |
 | [cloudflare_account_permission_groups.frozen_member](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/data-sources/account_permission_groups)                     | data source |
 | [cloudflare_account_tokens.all](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/data-sources/account_tokens)                                                     | data source |
-| [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.3.5/docs/data-sources/external)                                                               | data source |
+| [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                                                               | data source |
 
 ## Inputs
 
@@ -131,12 +133,14 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 
 ## Outputs
 
-| Name                                                                                                     | Description                                                   |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| <a name="output_managed_zone_keys"></a> [managed\_zone\_keys](#output_managed_zone_keys)                 | Logical keys of the zones managed by this module.             |
-| <a name="output_r2_backup_bucket_name"></a> [r2\_backup\_bucket\_name](#output_r2_backup_bucket_name)    | The name of the secondary R2 disaster recovery backup bucket. |
-| <a name="output_r2_backup_endpoint"></a> [r2\_backup\_endpoint](#output_r2_backup_endpoint)              | S3-compatible endpoint URL for the R2 backup bucket.          |
-| <a name="output_r2_tfstate_bucket_name"></a> [r2\_tfstate\_bucket\_name](#output_r2_tfstate_bucket_name) | The name of the OpenTofu state storage R2 bucket.             |
-| <a name="output_zone_ids"></a> [zone\_ids](#output_zone_ids)                                             | Cloudflare zone IDs keyed by logical zone key.                |
+| Name                                                                                                                                                  | Description                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| <a name="output_managed_zone_keys"></a> [managed\_zone\_keys](#output_managed_zone_keys)                                                              | Logical keys of the zones managed by this module.                                                         |
+| <a name="output_r2_backup_bucket_name"></a> [r2\_backup\_bucket\_name](#output_r2_backup_bucket_name)                                                 | The name of the secondary R2 disaster recovery backup bucket.                                             |
+| <a name="output_r2_backup_endpoint"></a> [r2\_backup\_endpoint](#output_r2_backup_endpoint)                                                           | S3-compatible endpoint URL for the R2 backup bucket.                                                      |
+| <a name="output_r2_restic_prune_s3_access_key_id"></a> [r2\_restic\_prune\_s3\_access\_key\_id](#output_r2_restic_prune_s3_access_key_id)             | S3 Access Key ID for the dedicated R2 Restic prune/check API token.                                       |
+| <a name="output_r2_restic_prune_s3_secret_access_key"></a> [r2\_restic\_prune\_s3\_secret\_access\_key](#output_r2_restic_prune_s3_secret_access_key) | S3 Secret Access Key (SHA-256 of the API token secret) for the dedicated R2 Restic prune/check API token. |
+| <a name="output_r2_tfstate_bucket_name"></a> [r2\_tfstate\_bucket\_name](#output_r2_tfstate_bucket_name)                                              | The name of the OpenTofu state storage R2 bucket.                                                         |
+| <a name="output_zone_ids"></a> [zone\_ids](#output_zone_ids)                                                                                          | Cloudflare zone IDs keyed by logical zone key.                                                            |
 
 <!-- END_TF_DOCS -->

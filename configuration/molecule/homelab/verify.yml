@@ -37,3 +37,32 @@
       register: docker_is_active
       changed_when: false
       failed_when: docker_is_active.rc != 0
+
+    - name: Slurp /etc/ufw/after.rules
+      ansible.builtin.slurp:
+        src: /etc/ufw/after.rules
+      register: homelab_ufw_after_rules
+
+    - name: Assert DOCKER-USER isolation block is present in /etc/ufw/after.rules
+      ansible.builtin.assert:
+        that:
+          - "'-A DOCKER-USER -d 169.254.169.254/32 -j DROP' in (homelab_ufw_after_rules.content | b64decode)"
+          - "'-A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN' in (homelab_ufw_after_rules.content | b64decode)"
+          - "'-A DOCKER-USER -i tailscale0 -j RETURN' in (homelab_ufw_after_rules.content | b64decode)"
+          - "'-m conntrack --ctstate NEW -j DROP' in (homelab_ufw_after_rules.content | b64decode)"
+          - "'-A DOCKER-USER -j RETURN' in (homelab_ufw_after_rules.content | b64decode)"
+        fail_msg: "DOCKER-USER isolation rules missing from /etc/ufw/after.rules"
+
+    - name: Read active DOCKER-USER iptables rules
+      ansible.builtin.command: iptables -S DOCKER-USER
+      register: homelab_docker_user_rules
+      changed_when: false
+
+    - name: Assert DOCKER-USER chain rules are active in iptables
+      ansible.builtin.assert:
+        that:
+          - "'-A DOCKER-USER -d 169.254.169.254/32 -j DROP' in homelab_docker_user_rules.stdout"
+          - "'-A DOCKER-USER -i tailscale0 -j RETURN' in homelab_docker_user_rules.stdout"
+          - "'--ctstate NEW -j DROP' in homelab_docker_user_rules.stdout"
+          - "'-A DOCKER-USER -j RETURN' in homelab_docker_user_rules.stdout"
+        fail_msg: "Active iptables DOCKER-USER chain does not match expected rules"

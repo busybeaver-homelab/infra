@@ -76,3 +76,27 @@ run "reject_placeholder_state_encryption_passphrase" {
     var.state_encryption_passphrase,
   ]
 }
+
+run "reject_missing_homelab_in_default_tags" {
+  command = plan
+
+  variables {
+    default_tags = ["backup", "restic"]
+  }
+
+  expect_failures = [
+    var.default_tags,
+  ]
+}
+
+run "reject_missing_homelab_in_check_tags" {
+  command = plan
+
+  variables {
+    check_tags = ["backup", "restic"]
+  }
+
+  expect_failures = [
+    var.check_tags,
+  ]
+}

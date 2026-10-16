@@ -21,8 +21,8 @@ setup() {
   [ "$output" = "workflow_dispatch" ]
 }
 
-@test "drift detection workflow defines matrix across the 6 CI-plannable modules" {
-  for mod in oci gcp azure homelab github monitoring; do
+@test "drift detection workflow defines matrix across the 7 CI-plannable modules" {
+  for mod in oci gcp azure homelab github monitoring mesh; do
     run yq eval ".jobs.drift-detect.strategy.matrix.module[] | select(. == \"$mod\")" "$WORKFLOW"
     [ "$status" -eq 0 ]
     [ "$output" = "$mod" ]
@@ -143,4 +143,17 @@ EOF
   [[ "$output" != *MARKER* ]] || false
   run cat "${BATS_TEST_TMPDIR}/summary.md"
   [[ "$output" == *"No drift detected for github"* ]] || false
+}
+
+@test "drift detection workflow configures Tailscale OAuth credentials for mesh and exposes unified drift:all" {
+  run grep -F 'TAILSCALE_OAUTH_CLIENT_ID' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'TAILSCALE_OAUTH_CLIENT_SECRET' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+
+  [ -x "$REPO_ROOT/scripts/drift.sh" ]
+
+  run grep -E '^\[tasks\."drift:all"\]' "$REPO_ROOT/mise.toml"
+  [ "$status" -eq 0 ]
 }

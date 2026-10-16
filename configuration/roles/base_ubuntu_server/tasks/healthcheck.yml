@@ -1,0 +1,61 @@
+---
+# Deploy host-alive and disk-space (< 85% / usage) systemd oneshot + timer
+
+- name: Ensure /usr/local/libexec directory exists
+  ansible.builtin.file:
+    path: /usr/local/libexec
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Deploy homelab-healthcheck environment file
+  ansible.builtin.template:
+    src: homelab-healthcheck.env.j2
+    dest: /etc/default/homelab-healthcheck
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  no_log: true
+
+- name: Deploy homelab-healthcheck runner script
+  ansible.builtin.template:
+    src: homelab-healthcheck.sh.j2
+    dest: /usr/local/libexec/homelab-healthcheck
+    owner: root
+    group: root
+    mode: "0750"
+  become: true
+
+- name: Deploy homelab-healthcheck systemd service unit
+  ansible.builtin.template:
+    src: homelab-healthcheck.service.j2
+    dest: /etc/systemd/system/homelab-healthcheck.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Reload systemd daemon
+
+- name: Deploy homelab-healthcheck systemd timer unit
+  ansible.builtin.template:
+    src: homelab-healthcheck.timer.j2
+    dest: /etc/systemd/system/homelab-healthcheck.timer
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Reload systemd daemon
+
+- name: Flush handlers before enabling homelab-healthcheck timer
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start homelab-healthcheck.timer
+  ansible.builtin.systemd_service:
+    name: homelab-healthcheck.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true

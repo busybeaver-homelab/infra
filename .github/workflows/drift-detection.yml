@@ -24,8 +24,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # cloudflare is intentionally excluded: it reads identifying configuration from
-        # production SOPS (GPG), which CI cannot decrypt. Run `mise run drift:cloudflare` locally.
+        # cloudflare and dns read identifying configuration from production SOPS (GPG),
+        # which CI cannot decrypt. Run `mise run drift:cloudflare`, `mise run drift:dns`,
+        # or `mise run drift:all` (with HEALTHCHECKS_DRIFT_PING_URL) locally.
         module:
           - oci
           - gcp
@@ -33,6 +34,7 @@ jobs:
           - homelab
           - github
           - monitoring
+          - mesh
     steps:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -72,6 +74,27 @@ jobs:
               echo "::add-mask::$STATE_PASSPHRASE"
               echo "TF_VAR_state_encryption_passphrase=$STATE_PASSPHRASE" >> "$GITHUB_ENV"
             fi
+          fi
+
+      - name: Install Provider Credentials
+        env:
+          MODULE: ${{ matrix.module }}
+        run: |
+          if [ -f "${RUNNER_TEMP}/credentials.ci.yaml" ]; then
+            case "${MODULE}" in
+              mesh)
+                TS_CLIENT_ID=$(mise exec -- yq '.tailscale.client_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+                TS_CLIENT_SECRET=$(mise exec -- yq '.tailscale.client_secret // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+                if [ -n "${TS_CLIENT_ID}" ] && [ -n "${TS_CLIENT_SECRET}" ]; then
+                  echo "::add-mask::${TS_CLIENT_ID}"
+                  echo "::add-mask::${TS_CLIENT_SECRET}"
+                  {
+                    echo "TAILSCALE_OAUTH_CLIENT_ID=${TS_CLIENT_ID}"
+                    echo "TAILSCALE_OAUTH_CLIENT_SECRET=${TS_CLIENT_SECRET}"
+                  } >> "$GITHUB_ENV"
+                fi
+                ;;
+            esac
           fi
 
       - name: Initialize OpenTofu Module

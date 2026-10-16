@@ -16,7 +16,7 @@ jobs:
   prune:
     name: Restic Snapshot Retention & Integrity Check
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
-    environment: backup
+    environment: ops
     permissions:
       contents: read
     timeout-minutes: 30
@@ -29,15 +29,14 @@ jobs:
       - name: Setup Environment
         uses: $/.github/actions/setup-environment
 
-      - name: Install Restic
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends restic
-
       - name: Decrypt CI secrets (scoped permissions)
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
         run: |
+          if [ -z "${SOPS_AGE_KEY:-}" ]; then
+            echo "::error::SOPS_AGE_KEY is required to decrypt backup credentials"
+            exit 1
+          fi
           (umask 077 && mise exec -- sops --decrypt secrets/credentials.ci.sops.yaml > "${RUNNER_TEMP}/credentials.ci.yaml")
 
       - name: Prune primary OCI backup repository
@@ -48,16 +47,24 @@ jobs:
           OCI_ENDPOINT=$(mise exec -- yq -r '.oci_restic.s3_endpoint // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
           OCI_BUCKET=$(mise exec -- yq -r '.oci_restic.bucket // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
 
-          if [ -n "${RESTIC_PASSWORD}" ] && [ -n "${OCI_BUCKET}" ]; then
-            echo "::add-mask::${RESTIC_PASSWORD}"
-            echo "::add-mask::${AWS_SECRET_ACCESS_KEY}"
-            RESTIC_REPO="s3:${OCI_ENDPOINT}/${OCI_BUCKET}"
-            export RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-            restic -r "${RESTIC_REPO}" forget --keep-daily 7 --keep-weekly 4 --prune
-            restic -r "${RESTIC_REPO}" check --read-data-subset=1%
-          else
-            echo "Primary OCI backup repository details not configured; skipping."
+          if [ -z "${RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${OCI_ENDPOINT}" ] || [ -z "${OCI_BUCKET}" ]; then
+            echo "::error::Primary OCI backup repository credentials are missing or incomplete"
+            exit 1
           fi
+
+          echo "::add-mask::${RESTIC_PASSWORD}"
+          echo "::add-mask::${AWS_ACCESS_KEY_ID}"
+          echo "::add-mask::${AWS_SECRET_ACCESS_KEY}"
+          echo "::add-mask::${OCI_ENDPOINT}"
+          echo "::add-mask::${OCI_BUCKET}"
+
+          export RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+          for host in ${OCI_HOSTS:-oci-amd-1}; do
+            RESTIC_REPOSITORY="s3:${OCI_ENDPOINT}/${OCI_BUCKET}/${host}"
+            export RESTIC_REPOSITORY
+            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --prune --max-unused 10%
+            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h check --read-data-subset=5%
+          done
 
       - name: Prune primary GCP backup repository
         run: |
@@ -67,35 +74,70 @@ jobs:
           GCP_ENDPOINT=$(mise exec -- yq -r '.gcp_restic.s3_endpoint // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
           GCP_BUCKET=$(mise exec -- yq -r '.gcp_restic.bucket // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
 
-          if [ -n "${RESTIC_PASSWORD}" ] && [ -n "${GCP_BUCKET}" ]; then
-            echo "::add-mask::${RESTIC_PASSWORD}"
-            echo "::add-mask::${AWS_SECRET_ACCESS_KEY}"
-            RESTIC_REPO="s3:${GCP_ENDPOINT}/${GCP_BUCKET}"
-            export RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-            restic -r "${RESTIC_REPO}" forget --keep-daily 7 --keep-weekly 4 --prune
-            restic -r "${RESTIC_REPO}" check --read-data-subset=1%
-          else
-            echo "Primary GCP backup repository details not configured; skipping."
+          if [ -z "${RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${GCP_ENDPOINT}" ] || [ -z "${GCP_BUCKET}" ]; then
+            echo "::error::Primary GCP backup repository credentials are missing or incomplete"
+            exit 1
           fi
+
+          echo "::add-mask::${RESTIC_PASSWORD}"
+          echo "::add-mask::${AWS_ACCESS_KEY_ID}"
+          echo "::add-mask::${AWS_SECRET_ACCESS_KEY}"
+          echo "::add-mask::${GCP_ENDPOINT}"
+          echo "::add-mask::${GCP_BUCKET}"
+
+          export RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+          for host in ${GCP_HOSTS:-gcp-default-vm}; do
+            RESTIC_REPOSITORY="s3:${GCP_ENDPOINT}/${GCP_BUCKET}/${host}"
+            export RESTIC_REPOSITORY
+            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --prune --max-unused 10%
+            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h check --read-data-subset=5%
+          done
 
       - name: Prune secondary Cloudflare R2 DR backup repository
         run: |
-          RESTIC_PASSWORD=$(mise exec -- yq -r '.oci_restic.password // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          CF_ACCOUNT_ID=$(mise exec -- yq -r '.cloudflare.account_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          CF_ACCESS_KEY=$(mise exec -- yq -r '.cloudflare.r2_access_key_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          CF_SECRET_KEY=$(mise exec -- yq -r '.cloudflare.r2_secret_access_key // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          R2_RESTIC_PASSWORD=$(mise exec -- yq -r '.cloudflare_restic.password // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          AWS_ACCESS_KEY_ID=$(mise exec -- yq -r '.cloudflare_restic.s3_access_key_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          AWS_SECRET_ACCESS_KEY=$(mise exec -- yq -r '.cloudflare_restic.s3_secret_access_key // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          R2_ENDPOINT=$(mise exec -- yq -r '.cloudflare_restic.s3_endpoint // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
+          R2_BUCKET=$(mise exec -- yq -r '.cloudflare_restic.bucket // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
 
-          if [ -n "${RESTIC_PASSWORD}" ] && [ -n "${CF_ACCOUNT_ID}" ] && [ -n "${CF_ACCESS_KEY}" ]; then
-            echo "::add-mask::${RESTIC_PASSWORD}"
-            echo "::add-mask::${CF_SECRET_KEY}"
-            R2_REPO="s3:https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com/homelab-backups-dr"
-            export RESTIC_PASSWORD AWS_ACCESS_KEY_ID="${CF_ACCESS_KEY}" AWS_SECRET_ACCESS_KEY="${CF_SECRET_KEY}"
-            restic -r "${R2_REPO}" forget --keep-last 2 --prune
-            restic -r "${R2_REPO}" check --read-data-subset=1%
-          else
-            echo "Secondary Cloudflare R2 DR backup repository details not configured; skipping."
+          if [ -z "${R2_RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${R2_ENDPOINT}" ] || [ -z "${R2_BUCKET}" ]; then
+            echo "::error::Secondary Cloudflare R2 DR backup repository credentials are missing or incomplete"
+            exit 1
           fi
+
+          echo "::add-mask::${R2_RESTIC_PASSWORD}"
+          echo "::add-mask::${AWS_ACCESS_KEY_ID}"
+          echo "::add-mask::${AWS_SECRET_ACCESS_KEY}"
+          echo "::add-mask::${R2_ENDPOINT}"
+          echo "::add-mask::${R2_BUCKET}"
+
+          export RESTIC_PASSWORD="${R2_RESTIC_PASSWORD}" AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+          for host in oci-amd-1 gcp-default-vm; do
+            RESTIC_REPOSITORY="s3:${R2_ENDPOINT}/${R2_BUCKET}/${host}"
+            export RESTIC_REPOSITORY
+            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-last 2 --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --prune --max-unused 10%
+            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h check --read-data-subset=5%
+          done
 
       - name: Remove decrypted secrets
         if: always()
         run: rm -f "${RUNNER_TEMP}/credentials.ci.yaml"
+
+      - name: Report Backup Prune Heartbeat
+        if: always()
+        env:
+          HEALTHCHECKS_BACKUP_PRUNE_PING_URL: ${{ secrets.HEALTHCHECKS_BACKUP_PRUNE_PING_URL }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ -z "${HEALTHCHECKS_BACKUP_PRUNE_PING_URL:-}" ]; then
+            echo "HEALTHCHECKS_BACKUP_PRUNE_PING_URL not configured; skipping heartbeat ping."
+            exit 0
+          fi
+          echo "::add-mask::${HEALTHCHECKS_BACKUP_PRUNE_PING_URL}"
+          PING_URL="${HEALTHCHECKS_BACKUP_PRUNE_PING_URL%/}"
+          SUFFIX=""
+          if [ "${JOB_STATUS}" != "success" ]; then
+            SUFFIX="/fail"
+          fi
+          curl -fsS -m 10 --retry 3 "${PING_URL}${SUFFIX}" >/dev/null

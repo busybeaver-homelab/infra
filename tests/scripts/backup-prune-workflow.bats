@@ -31,15 +31,15 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
 }
 
 @test "backup-prune workflow performs retention prune on OCI and R2 repositories" {
-  run grep -E 'restic.*forget.*--keep-daily 7.*--keep-weekly 4.*--prune' "${WORKFLOW_FILE}"
+  run grep -E 'restic.*forget.*--keep-daily 7.*--keep-weekly 4.*--keep-monthly 3.*--prune.*--max-unused 10%' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 
-  run grep -E 'restic.*forget.*--keep-last 2.*--prune' "${WORKFLOW_FILE}"
+  run grep -E 'restic.*forget.*--keep-last 2.*--keep-daily 7.*--keep-weekly 4.*--keep-monthly 3.*--prune.*--max-unused 10%' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 }
 
 @test "backup-prune workflow performs subset integrity check" {
-  run grep -E 'restic.*check.*--read-data-subset=1%' "${WORKFLOW_FILE}"
+  run grep -E 'restic.*check.*--read-data-subset=5%' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 }
 
@@ -128,5 +128,44 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
     skip "opentofu-standards.md is git-crypt encrypted in CI environment"
   fi
   run grep -E "GCP Always Free.*STANDARD.*ephemeral" "${ot_runbook}"
+  [ "$status" -eq 0 ]
+}
+
+@test "backup-prune workflow targets ops environment and uses mise-managed restic without apt-get" {
+  run yq -r '.jobs.prune.environment' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "ops" ]
+
+  run yq -r '.tools.restic' "${REPO_ROOT}/mise.toml"
+  [ "$status" -eq 0 ]
+  [[ "$output" == 0.18* ]] || false
+
+  run grep -E 'apt-get.*restic' "${WORKFLOW_FILE}"
+  [ "$status" -ne 0 ]
+}
+
+@test "backup-prune workflow iterates per-host repository paths and fails closed on missing credentials" {
+  run grep -F 's3:${OCI_ENDPOINT}/${OCI_BUCKET}/${host}' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+
+  run grep -F 's3:${GCP_ENDPOINT}/${GCP_BUCKET}/${host}' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+
+  run grep -F 's3:${R2_ENDPOINT}/${R2_BUCKET}/${host}' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+
+  run grep -F '.cloudflare_restic.s3_endpoint' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'exit 1' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+}
+
+@test "backup-prune workflow reports Healthchecks heartbeat with if: always()" {
+  run yq -r '.jobs.prune.steps[] | select(.name == "Report Backup Prune Heartbeat") | .if' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "always()" ]
+
+  run grep -F 'HEALTHCHECKS_BACKUP_PRUNE_PING_URL' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 }

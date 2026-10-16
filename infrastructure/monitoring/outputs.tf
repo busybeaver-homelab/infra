@@ -9,3 +9,27 @@ output "restic_backup_check_id" {
   description = "Unique UUID of the homelab restic backup check."
   sensitive   = true
 }
+
+output "oci_restic_ping_url" {
+  value       = healthchecksio_check.oci_restic_backup.ping_url
+  description = "Unique ping URL for OCI restic backup completion signal."
+  sensitive   = true
+}
+
+output "gcp_restic_ping_url" {
+  value       = healthchecksio_check.gcp_restic_backup.ping_url
+  description = "Unique ping URL for GCP restic backup completion signal."
+  sensitive   = true
+}
+
+output "drift_detection_ping_url" {
+  value       = healthchecksio_check.drift_detection.ping_url
+  description = "Unique ping URL for daily OpenTofu drift detection dead-man switch."
+  sensitive   = true
+}
+
+output "backup_prune_ping_url" {
+  value       = healthchecksio_check.backup_prune.ping_url
+  description = "Unique ping URL for weekly Restic repository prune and integrity check dead-man switch."
+  sensitive   = true
+}

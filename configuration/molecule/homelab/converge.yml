@@ -1,4 +1,7 @@
 ---
+- name: Import base playbook
+  ansible.builtin.import_playbook: ../../playbooks/base.yml
+
 - name: Import common playbook
   ansible.builtin.import_playbook: ../../playbooks/common.yml
 

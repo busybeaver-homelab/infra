@@ -21,6 +21,11 @@ check "policy_loaded" {
     condition     = length(tailscale_acl.homelab.acl) > 0
     error_message = "Tailscale ACL policy file must not be empty."
   }
+
+  assert {
+    condition     = strcontains(tailscale_acl.homelab.acl, "\"networkFlowLogs\"") && strcontains(tailscale_acl.homelab.acl, "\"checkPeriod\": \"12h\"")
+    error_message = "Tailscale ACL policy must enable networkFlowLogs and enforce a 12h SSH checkPeriod."
+  }
 }
 
 check "free_tier_invariants" {

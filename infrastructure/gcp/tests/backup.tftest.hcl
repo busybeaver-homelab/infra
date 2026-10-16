@@ -74,6 +74,21 @@ run "verify_gcs_backup_bucket_and_append_only_iam" {
   }
 
   assert {
+    condition = (
+      length(google_storage_bucket.backups.lifecycle_rule) == 2 &&
+      anytrue([
+        for r in google_storage_bucket.backups.lifecycle_rule :
+        one(r.action).type == "Delete" && one(r.condition).days_since_noncurrent_time == 30
+      ]) &&
+      anytrue([
+        for r in google_storage_bucket.backups.lifecycle_rule :
+        one(r.action).type == "AbortIncompleteMultipartUpload" && one(r.condition).age == 7
+      ])
+    )
+    error_message = "Backup bucket must configure 30-day noncurrent version expiration and 7-day incomplete multipart upload abort lifecycle rules"
+  }
+
+  assert {
     condition     = google_service_account.backup_writer.account_id == "homelab-gcp-backup-writer"
     error_message = "Backup writer service account ID must be homelab-gcp-backup-writer"
   }

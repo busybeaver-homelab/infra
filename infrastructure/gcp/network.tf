@@ -4,6 +4,10 @@ resource "google_compute_network" "default_vpc" {
   name                    = "homelab-vpc"
   auto_create_subnetworks = false
   project                 = var.gcp_project_id
+
+  lifecycle {
+    prevent_destroy = var.enable_prevent_destroy
+  }
 }
 
 # VPC Flow Logs incur billable Cloud Logging / network telemetry charges outside the
@@ -18,6 +22,10 @@ resource "google_compute_subnetwork" "private" {
   network                  = google_compute_network.default_vpc.id
   private_ip_google_access = true
   project                  = var.gcp_project_id
+
+  lifecycle {
+    prevent_destroy = var.enable_prevent_destroy
+  }
 }
 
 # Allow inbound Tailscale WireGuard UDP 41641 for direct peer-to-peer mesh tunnels

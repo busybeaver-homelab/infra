@@ -127,5 +127,16 @@ run "verify_computed_outputs_on_apply" {
     condition     = output.arm_instance_id != ""
     error_message = "ARM instance ID must be computed upon apply"
   }
+
+  assert {
+    condition = (
+      toset(keys(output.ansible_inventory)) == toset(["oci-amd-1", "oci-amd-2", "oci-arm-1"]) &&
+      output.ansible_inventory["oci-amd-1"].group == "oci" &&
+      output.ansible_inventory["oci-arm-1"].group == "oci" &&
+      output.ansible_inventory["oci-amd-1"].ansible_host == "oci-amd-1" &&
+      output.ansible_inventory["oci-arm-1"].ansible_host == "oci-arm-1"
+    )
+    error_message = "ansible_inventory output must expose all three OCI compute instances with group=oci"
+  }
 }
 

@@ -55,7 +55,7 @@ teardown() {
   rm -f "${TMP_STATE}"
   run ansible-inventory -i "${TEST_INV}" --host oci-amd-1
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "Unable to parse" || "$output" =~ "No inventory was parsed" ]]
+  [[ "$output" =~ "Unable to parse" || "$output" =~ "No inventory was parsed" || "$output" =~ "Failed to parse inventory" ]]
 }
 
 @test "dynamic inventory parses empty resources state into empty host list" {
@@ -210,3 +210,78 @@ EOF
   grep -q "198.51.100.40" <<< "$output"
 }
 
+@test "scripts/generate-inventory.sh renders valid Ansible inventory from --from-json fixtures" {
+  local script="${REPO_ROOT}/scripts/generate-inventory.sh"
+  [ -x "${script}" ]
+
+  local oci_json="${BATS_TEST_TMPDIR}/oci_inventory.json"
+  local gcp_json="${BATS_TEST_TMPDIR}/gcp_inventory.json"
+  local out_yml="${BATS_TEST_TMPDIR}/hosts.generated.yml"
+
+  cat > "${oci_json}" <<'EOF'
+{
+  "group": "oci",
+  "hosts": {
+    "oci-amd-1": {
+      "ansible_host": "192.0.2.10",
+      "private_ip": "192.0.2.10",
+      "role": "compute"
+    },
+    "oci-arm-1": {
+      "ansible_host": "192.0.2.11",
+      "private_ip": "192.0.2.11",
+      "role": "compute"
+    }
+  }
+}
+EOF
+
+  cat > "${gcp_json}" <<'EOF'
+{
+  "group": "gcp",
+  "hosts": {
+    "gcp-default-vm": {
+      "ansible_host": "198.51.100.40",
+      "private_ip": "198.51.100.40",
+      "role": "compute"
+    }
+  }
+}
+EOF
+
+  run "${script}" --output "${out_yml}" --from-json "${oci_json}" --from-json "${gcp_json}"
+  [ "$status" -eq 0 ]
+  [ -f "${out_yml}" ]
+
+  run ansible-inventory -i "${out_yml}" --graph
+  [ "$status" -eq 0 ]
+  grep -q "@cloud:" <<< "$output"
+  grep -q "@oci:" <<< "$output"
+  grep -q "@gcp:" <<< "$output"
+  grep -q "oci-amd-1" <<< "$output"
+  grep -q "oci-arm-1" <<< "$output"
+  grep -q "gcp-default-vm" <<< "$output"
+
+  run bash -c "ansible-inventory -i '${out_yml}' --list 2>/dev/null"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '._meta.hostvars["oci-amd-1"].ansible_host' <<< "$output")" = "192.0.2.10" ]
+  [ "$(jq -r '._meta.hostvars["oci-arm-1"].ansible_host' <<< "$output")" = "192.0.2.11" ]
+  [ "$(jq -r '._meta.hostvars["gcp-default-vm"].ansible_host' <<< "$output")" = "198.51.100.40" ]
+}
+
+@test "scripts/generate-inventory.sh fails closed when zero hosts are discovered" {
+  local script="${REPO_ROOT}/scripts/generate-inventory.sh"
+  local empty_json="${BATS_TEST_TMPDIR}/empty_inventory.json"
+  local out_yml="${BATS_TEST_TMPDIR}/hosts.empty.yml"
+
+  cat > "${empty_json}" <<'EOF'
+{
+  "group": "oci",
+  "hosts": {}
+}
+EOF
+
+  run "${script}" --output "${out_yml}" --from-json "${empty_json}"
+  [ "$status" -ne 0 ]
+  [ ! -f "${out_yml}" ]
+}
