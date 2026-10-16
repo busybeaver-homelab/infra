@@ -58,6 +58,26 @@ output "merge_queue_enabled" {
   description = "Whether GitHub Merge Queue is enabled on the main branch ruleset."
 }
 
+output "ruleset_required_checks" {
+  value       = github_repository_ruleset.main_protection.rules[0].required_status_checks[0].required_check
+  description = "Required status checks configured on the main branch ruleset."
+}
+
+output "ruleset_required_code_scanning_tools" {
+  value       = github_repository_ruleset.main_protection.rules[0].required_code_scanning[0].required_code_scanning_tool
+  description = "Required code scanning tools configured on the main branch ruleset."
+}
+
+output "ruleset_bypass_actors" {
+  value       = github_repository_ruleset.main_protection.bypass_actors
+  description = "Bypass actors configured on the main branch ruleset."
+}
+
+output "ruleset_required_linear_history" {
+  value       = github_repository_ruleset.main_protection.rules[0].required_linear_history
+  description = "Whether linear history is required on the main branch ruleset."
+}
+
 output "ci_deployment_branch_patterns" {
   value       = sort([for policy in github_repository_environment_deployment_policy.ci : policy.branch_pattern])
   description = "Ref patterns allowed to deploy to the synthetic-only 'ci' environment."

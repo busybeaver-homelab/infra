@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Tests for .gitattributes encryption and diff rules
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(git rev-parse --show-toplevel)"
   GITATTR="${REPO_ROOT}/.gitattributes"

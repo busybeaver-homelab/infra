@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Tests for .github/workflows/ci.yml and .github/actions/setup-environment
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   WORKFLOW="$REPO_ROOT/.github/workflows/ci.yml"
@@ -90,6 +92,7 @@ setup() {
   [[ "$output" =~ "check:security:checkov" ]] || false
   [[ "$output" =~ "check:security:kics" ]] || false
   [[ "$output" =~ "check:security:trivy" ]] || false
+  [[ "$output" =~ "check:security:zizmor" ]] || false
 }
 
 @test "codeql.yml defines multi-engine security scanning with distinct categories" {
@@ -153,28 +156,32 @@ setup() {
   [[ "$output" =~ "steps.cache-tflint.outputs.cache-hit != 'true'" ]] || false
 }
 
-@test "setup-environment caches ansible galaxy with cache-galaxy id and skips install on cache hit" {
+@test "setup-environment caches ansible galaxy in configuration/.galaxy and skips install on cache hit" {
   run yq eval '.runs.steps[] | select(.name == "Cache Ansible Galaxy") | .id' "$ACTION"
   [ "$status" -eq 0 ]
   [ "$output" = "cache-galaxy" ]
+
+  run yq eval '.runs.steps[] | select(.name == "Cache Ansible Galaxy") | .with.path' "$ACTION"
+  [ "$status" -eq 0 ]
+  [ "$output" = "configuration/.galaxy" ]
 
   run yq eval '.runs.steps[] | select(.name == "Install Ansible Galaxy requirements") | .if' "$ACTION"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "steps.cache-galaxy.outputs.cache-hit != 'true'" ]] || false
 }
 
-@test "setup-environment ansible-galaxy install does not specify --force" {
+@test "setup-environment ansible-galaxy install installs roles and collections into configuration/.galaxy" {
   run yq eval '.runs.steps[] | select(.name == "Install Ansible Galaxy requirements") | .run' "$ACTION"
   [ "$status" -eq 0 ]
-  [[ ! "$output" =~ "--force" ]] || false
+  [[ "$output" =~ "configuration/.galaxy/roles" ]] || false
+  [[ "$output" =~ "configuration/.galaxy/collections" ]] || false
 }
 
-@test "codeql, drift-detection, and backup-prune invoke setup-environment with lean defaults" {
-  for wf in codeql.yml drift-detection.yml backup-prune.yml; do
+@test "drift-detection and backup-prune invoke setup-environment with lean defaults and codeql enables python for uv scanners" {
+  for wf in drift-detection.yml backup-prune.yml; do
     run grep -F "uses: $/.github/actions/setup-environment" "$REPO_ROOT/.github/workflows/$wf"
     [ "$status" -eq 0 ]
 
-    # None of these lean workflows should enable python, galaxy, or tflint
     run yq eval '.. | select(.uses? == "$/.github/actions/setup-environment") | .with.python // "false"' "$REPO_ROOT/.github/workflows/$wf"
     [ "$status" -eq 0 ]
     [ "$output" = "false" ]
@@ -187,31 +194,31 @@ setup() {
     [ "$status" -eq 0 ]
     [ "$output" = "false" ]
   done
+
+  run yq eval '.jobs.analyze-iac-and-scripts.steps[] | select(.uses == "$/.github/actions/setup-environment") | .with.python' "$REPO_ROOT/.github/workflows/codeql.yml"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
 }
 
-@test "ci.yml paths filter includes .python-version, pyproject.toml, and uv.lock in critical check jobs" {
+@test "ci.yml paths filter includes mise.toml, pyproject.toml, uv.lock, and mise.lock and omits stale .python-version" {
   run yq eval '.jobs.changes.steps[] | select(.id == "filter") | .with.filters' "$WORKFLOW"
   [ "$status" -eq 0 ]
   local filters="$output"
 
-  # Ensure lint filter checks python version and lock files
-  [[ "$filters" =~ ".python-version" ]] || false
+  [[ ! "$filters" =~ ".python-version" ]] || false
+  [[ "$filters" =~ "pyproject.toml" ]] || false
   [[ "$filters" =~ "uv.lock" ]] || false
   [[ "$filters" =~ "mise.lock" ]] || false
 
-  # Ensure ansible filter checks python version and dependencies
-  run yq eval '.jobs.changes.steps[] | select(.id == "filter") | .with.filters' "$WORKFLOW"
-  [ "$status" -eq 0 ]
   local ansible_section
   ansible_section=$(echo "$output" | sed -n '/ansible:/,/molecule:/p')
-  [[ "$ansible_section" =~ ".python-version" ]] || false
+  [[ "$ansible_section" =~ "mise.toml" ]] || false
   [[ "$ansible_section" =~ "pyproject.toml" ]] || false
   [[ "$ansible_section" =~ "uv.lock" ]] || false
 
-  # Ensure molecule filter checks python version and dependencies
   local molecule_section
   molecule_section=$(echo "$output" | sed -n '/molecule:/,$ p')
-  [[ "$molecule_section" =~ ".python-version" ]] || false
+  [[ "$molecule_section" =~ "mise.toml" ]] || false
   [[ "$molecule_section" =~ "pyproject.toml" ]] || false
   [[ "$molecule_section" =~ "uv.lock" ]] || false
 }
@@ -372,7 +379,7 @@ setup() {
 }
 
 @test "changes job checks out full history on merge_group so dorny/paths-filter can diff base_sha" {
-  run yq '.jobs.changes.steps[0].with["fetch-depth"]' "$WORKFLOW"
+  run yq '.jobs.changes.steps[] | select(.with["fetch-depth"] != null) | .with["fetch-depth"]' "$WORKFLOW"
   [ "$status" -eq 0 ]
   [ "$output" = "\${{ github.event_name != 'merge_group' && 1 || 0 }}" ]
 }
@@ -398,7 +405,7 @@ setup() {
 }
 
 @test "lint-format checkout fetches full history on every event so base diffs resolve" {
-  run yq '.jobs.lint-format.steps[0].with["fetch-depth"]' "$WORKFLOW"
+  run yq '.jobs.lint-format.steps[] | select(.with["fetch-depth"] != null) | .with["fetch-depth"]' "$WORKFLOW"
   [ "$status" -eq 0 ]
   [ "$output" = "0" ]
 }

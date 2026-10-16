@@ -43,21 +43,19 @@ runs:
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
       run: |
-        mise exec -- tflint --init
+        mise exec -- tflint --init --config "$PWD/.tflint.hcl"
 
     - name: Cache Ansible Galaxy
       id: cache-galaxy
       if: inputs.galaxy == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: |
-          ~/.ansible/roles
-          ~/.ansible/collections
+        path: configuration/.galaxy
         key: galaxy-${{ runner.os }}-${{ hashFiles('configuration/roles/requirements.yml') }}
 
     - name: Install Ansible Galaxy requirements
       if: inputs.galaxy == 'true' && steps.cache-galaxy.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        mise exec -- ansible-galaxy install -r configuration/roles/requirements.yml -p ~/.ansible/roles
-        mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml
+        mise exec -- ansible-galaxy role install -r configuration/roles/requirements.yml --force -p configuration/.galaxy/roles
+        mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml --force -p configuration/.galaxy/collections

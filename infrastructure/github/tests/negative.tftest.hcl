@@ -59,7 +59,25 @@ run "reject_keyring_as_ci_age_key" {
   command = plan
 
   variables {
-    sops_age_key_ci = format("%s\n%s", var.sops_age_key_ci, var.sops_age_key_ci)
+    sops_age_key_ci = format(
+      "%s%s\n%s%s",
+      "AGE-SECRET-KEY-1",
+      join("", [for _ in range(58) : "Q"]),
+      "AGE-SECRET-KEY-1",
+      join("", [for _ in range(58) : "Q"]),
+    )
+  }
+
+  expect_failures = [
+    var.sops_age_key_ci,
+  ]
+}
+
+run "reject_malformed_ci_age_key" {
+  command = plan
+
+  variables {
+    sops_age_key_ci = "invalid-not-an-age-key"
   }
 
   expect_failures = [

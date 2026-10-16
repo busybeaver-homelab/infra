@@ -12,6 +12,10 @@ argument_specs:
         type: str
         default: "UTC"
         description: System timezone name.
+      base_ubuntu_server_manage_hosts:
+        type: bool
+        default: true
+        description: Whether to manage /etc/hosts via the role template.
       base_ubuntu_server_firewall_enabled:
         type: bool
         default: true

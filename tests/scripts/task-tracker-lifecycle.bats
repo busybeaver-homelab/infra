@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(git rev-parse --show-toplevel)"
 }

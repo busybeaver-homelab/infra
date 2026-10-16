@@ -152,9 +152,10 @@ variable "admin_cidr" {
 
 variable "tailscale_auth_key" {
   type        = string
-  description = "Tailscale authentication key for instance bootstrapping (overrides SOPS gcp.tailscale_auth_key if non-empty)."
+  description = "Tailscale authentication key for instance bootstrapping (sourced from SOPS gcp.tailscale_auth_key when null)."
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
 }
 
 variable "tailscale_common_tags" {

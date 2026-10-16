@@ -2,10 +2,11 @@
 
 ## Requirements
 
-| Name                                                                        | Version |
-| --------------------------------------------------------------------------- | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | 1.16.6  |
-| <a name="requirement_cloudflare"></a> [cloudflare](#requirement_cloudflare) | 5.28.0  |
+| Name                                                                        | Version   |
+| --------------------------------------------------------------------------- | --------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | ~> 1.13.1 |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | ~> 1.13.1 |
+| <a name="requirement_cloudflare"></a> [cloudflare](#requirement_cloudflare) | 5.28.0    |
 
 ## Providers
 

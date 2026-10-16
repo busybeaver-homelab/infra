@@ -1,33 +1,59 @@
 ---
-- name: Test fail-closed behavior on corrupted SOPS key
+- name: Test fail-closed behavior on corrupted SOPS ciphertext and key
   hosts: homelab
   gather_facts: false
+  vars:
+    corrupted_sops_file: /tmp/molecule-corrupted-credentials.ci.sops.yaml
   tasks:
-    - name: Expect failure when decrypting with corrupted key
-      ansible.builtin.command: sops --decrypt /tmp/nonexistent-or-corrupt.yaml
-      environment:
-        SOPS_AGE_KEY: "AGE-SECRET-KEY-INVALID"
-      delegate_to: localhost
-      register: corrupt_key_result
-      changed_when: false
-      failed_when: corrupt_key_result.rc == 0
-
-    - name: Assert fail-closed exit status
-      ansible.builtin.assert:
-        that:
-          - corrupt_key_result.rc != 0
-        fail_msg: "Decryption with corrupted key must fail with non-zero exit status"
-
-    - name: Test fail-closed behavior on community.sops.load_vars with missing file
+    - name: Verify fail-closed SOPS decryption against corrupted copy of real CI SOPS file
       block:
-        - name: Attempt loading corrupted or missing SOPS file
-          community.sops.load_vars:
-            file: /tmp/nonexistent-or-corrupt.yaml
-          register: load_vars_result
-        - name: Fail if load_vars succeeded unexpectedly
-          ansible.builtin.fail:
-            msg: "community.sops.load_vars should have failed on corrupted or nonexistent file"
-      rescue:
-        - name: Confirm load_vars failed closed safely
-          ansible.builtin.debug:
-            msg: "community.sops.load_vars failed closed as expected"
+        - name: Copy real CI SOPS file to temporary location for corruption test
+          ansible.builtin.copy:
+            src: "{{ playbook_dir }}/../../../secrets/credentials.ci.sops.yaml"
+            dest: "{{ corrupted_sops_file }}"
+            mode: "0600"
+          delegate_to: localhost
+
+        - name: Corrupt SOPS MAC and ciphertext in temporary copy
+          ansible.builtin.replace:
+            path: "{{ corrupted_sops_file }}"
+            regexp: 'mac: ENC\['
+            replace: "mac: ENC[CORRUPTED_"
+          delegate_to: localhost
+
+        - name: Expect failure when decrypting corrupted SOPS file via CLI
+          ansible.builtin.command:
+            argv:
+              - sops
+              - --decrypt
+              - "{{ corrupted_sops_file }}"
+          delegate_to: localhost
+          register: corrupt_file_result
+          changed_when: false
+          failed_when: corrupt_file_result.rc == 0
+
+        - name: Assert fail-closed exit status on corrupted SOPS file
+          ansible.builtin.assert:
+            that:
+              - corrupt_file_result.rc != 0
+            fail_msg: "Decryption of corrupted SOPS file must fail with non-zero exit status"
+
+        - name: Test fail-closed behavior on community.sops.load_vars with corrupted SOPS file
+          block:
+            - name: Attempt loading corrupted SOPS file via community.sops.load_vars
+              community.sops.load_vars:
+                file: "{{ corrupted_sops_file }}"
+              register: load_vars_result
+            - name: Fail if load_vars succeeded unexpectedly on corrupted SOPS file
+              ansible.builtin.fail:
+                msg: "community.sops.load_vars should have failed on corrupted SOPS file"
+          rescue:
+            - name: Confirm load_vars failed closed safely
+              ansible.builtin.debug:
+                msg: "community.sops.load_vars failed closed on corrupted SOPS file as expected"
+      always:
+        - name: Remove temporary corrupted SOPS file
+          ansible.builtin.file:
+            path: "{{ corrupted_sops_file }}"
+            state: absent
+          delegate_to: localhost

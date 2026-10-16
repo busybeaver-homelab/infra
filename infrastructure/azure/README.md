@@ -12,10 +12,11 @@ This directory contains the OpenTofu configurations for managing Microsoft Azure
 
 ## Requirements
 
-| Name                                                                     | Version |
-| ------------------------------------------------------------------------ | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.6  |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement_azurerm)       | 5.9.0   |
+| Name                                                                     | Version   |
+| ------------------------------------------------------------------------ | --------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | ~> 1.13.1 |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | ~> 1.13.1 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement_azurerm)       | 5.9.0     |
 
 ## Providers
 

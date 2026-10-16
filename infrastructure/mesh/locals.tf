@@ -3,9 +3,9 @@ locals {
   sops_config         = jsondecode(data.external.sops_config.result.json)
 
   # Tailscale provider credentials: use variable override if set, else read from ephemeral SOPS.
-  tailscale_client_id     = var.tailscale_client_id != "" ? var.tailscale_client_id : try(local.ephemeral_sops_data.tailscale.client_id, "")
-  tailscale_client_secret = var.tailscale_client_secret != "" ? var.tailscale_client_secret : try(local.ephemeral_sops_data.tailscale.client_secret, "")
-  tailnet_name            = var.tailnet_name != "" ? var.tailnet_name : try(local.sops_config.tailnet_name, "")
+  tailscale_client_id     = var.tailscale_client_id != null && trimspace(var.tailscale_client_id) != "" ? var.tailscale_client_id : try(local.ephemeral_sops_data.tailscale.client_id, "")
+  tailscale_client_secret = var.tailscale_client_secret != null && trimspace(var.tailscale_client_secret) != "" ? var.tailscale_client_secret : try(local.ephemeral_sops_data.tailscale.client_secret, "")
+  tailnet_name            = var.tailnet_name != null && trimspace(var.tailnet_name) != "" ? var.tailnet_name : try(local.sops_config.tailnet_name, "")
 
   # Tailscale tailnet contact emails: read from scoped SOPS config subtree.
   contact_account_email  = try(local.sops_config.contact_account_email, "")

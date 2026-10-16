@@ -10,8 +10,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   drift-detect:
@@ -19,7 +18,8 @@ jobs:
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     environment: ci
     permissions:
-      contents: read
+      contents: read # Required to checkout repository
+      issues: write # Required to open/update/close drift detection alert issues
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -36,6 +36,11 @@ jobs:
           - monitoring
           - mesh
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,7 +53,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: infrastructure/${{ matrix.module }}/.terraform/providers
-          key: tofu-plugins-${{ matrix.module }}-${{ hashFiles(format('infrastructure/{0}/.terraform.lock.hcl', matrix.module)) }}
+          key: tofu-plugins-${{ matrix.module }}-${{ hashFiles(format('infrastructure/{0}/.terraform.lock.hcl', matrix.module), format('infrastructure/{0}/.tofu.lock.hcl', matrix.module)) }}
           restore-keys: |
             tofu-plugins-${{ matrix.module }}-
 
@@ -142,3 +147,24 @@ jobs:
           esac
           rm -f "$PLAN" "$LOG"
           exit "$EXIT_CODE"
+
+      - name: Create or Update Drift Alert Issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODULE: ${{ matrix.module }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          EXISTING_ISSUE=$(mise exec -- gh issue list --state open --label "drift" --json number --jq '.[0].number // empty')
+          BODY="Infrastructure drift or evaluation failure detected for module \`${MODULE}\`.\n\nInspect workflow run: ${RUN_URL}"
+          if [ -n "${EXISTING_ISSUE}" ]; then
+            mise exec -- gh issue comment "${EXISTING_ISSUE}" --body "${BODY}"
+          else
+            mise exec -- gh issue create \
+              --title "🚨 Infrastructure Drift Detected (${MODULE})" \
+              --body "${BODY}" \
+              --label "drift,automated" || \
+            mise exec -- gh issue create \
+              --title "🚨 Infrastructure Drift Detected (${MODULE})" \
+              --body "${BODY}"
+          fi

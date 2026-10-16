@@ -8,9 +8,11 @@ exclude_paths:
   - .venv/
   - .agent/
   - .agents/
+  - .ansible/
   - .ruff_cache/
   - .worktrees/
   - apps/
+  - configuration/.galaxy/
   - infrastructure/
   - secrets/
   - scripts/

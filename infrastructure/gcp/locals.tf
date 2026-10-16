@@ -10,8 +10,11 @@ locals {
     try(local.sops_gcp.subnet_cidr, null),
   )
 
-  tailscale_tags     = join(",", concat(var.tailscale_common_tags, var.tailscale_extra_tags_gcp))
-  tailscale_auth_key = coalesce(var.tailscale_auth_key != "" ? var.tailscale_auth_key : null, try(local.sops_gcp.tailscale_auth_key, ""))
+  tailscale_tags = join(",", concat(var.tailscale_common_tags, var.tailscale_extra_tags_gcp))
+  tailscale_auth_key = coalesce(
+    var.tailscale_auth_key != null && trimspace(var.tailscale_auth_key) != "" ? var.tailscale_auth_key : null,
+    try(local.sops_gcp.tailscale_auth_key, ""),
+  )
 
   sops_budget_recipients = compact([
     for s in split(",", try(local.sops_gcp.budget_alert_recipients, "")) : trimspace(s)

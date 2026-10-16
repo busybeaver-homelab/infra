@@ -2,30 +2,41 @@
 # scripts/verify-commit-msg.sh
 # Validates Conventional Commits format and branch naming conventions.
 #
-# Usage: verify-commit-msg.sh <commit-msg-file>
+# Usage:
+#   verify-commit-msg.sh <commit-msg-file>
+#   verify-commit-msg.sh --subject "<subject-line>"
 # Exit codes:
 #   0 = Valid commit message and branch name
 #   1 = Invalid commit message or branch name
 
 set -euo pipefail
 
-if [[ $# -lt 1 || ! -f "$1" ]]; then
-  echo "ERROR: Missing or unreadable commit message file: ${1:-<empty>}" >&2
-  exit 1
-fi
-
-msg_file="$1"
-
-# Extract first non-comment, non-empty line
 commit_msg=""
-while IFS= read -r line || [[ -n "$line" ]]; do
-  # Skip comments starting with '#' and whitespace-only lines
-  if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
-    continue
+
+if [[ "${1:-}" == "--subject" ]]; then
+  if [[ $# -lt 2 ]]; then
+    echo "ERROR: --subject requires a subject string argument." >&2
+    exit 1
   fi
-  commit_msg="$line"
-  break
-done <"$msg_file"
+  commit_msg="$2"
+else
+  if [[ $# -lt 1 || ! -f "$1" ]]; then
+    echo "ERROR: Missing or unreadable commit message file: ${1:-<empty>}" >&2
+    exit 1
+  fi
+
+  msg_file="$1"
+
+  # Extract first non-comment, non-empty line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip comments starting with '#' and whitespace-only lines
+    if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
+      continue
+    fi
+    commit_msg="$line"
+    break
+  done <"$msg_file"
+fi
 
 if [[ -z "$commit_msg" ]]; then
   echo "ERROR: Commit message is empty." >&2
@@ -35,7 +46,8 @@ fi
 # 1. Validate Conventional Commit Format
 # Format: <type>[(<scope>)][!]: <description>
 # Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-readonly CC_REGEX='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([-a-zA-Z0-9_./]+\))?(!)?: .+'
+# Also allow git-generated Merge and Revert "..." subjects.
+readonly CC_REGEX='^(Merge .+|Revert ".+"|(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([-a-zA-Z0-9_./]+\))?(!)?: .+)'
 
 if [[ ! "$commit_msg" =~ $CC_REGEX ]]; then
   echo "ERROR: Invalid commit message format." >&2

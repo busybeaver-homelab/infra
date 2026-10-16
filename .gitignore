@@ -4,6 +4,8 @@
 ### Ansible ###
 *.retry
 configuration/inventories/hosts.generated.yml
+configuration/.galaxy/
+.ansible/
 
 ### Linux ###
 *~

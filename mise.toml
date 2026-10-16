@@ -7,7 +7,7 @@ sops = "3.13"
 age = "1.3"
 lefthook = "2.1"
 python = "3.14"
-uv = "0.13"
+"aqua:astral-sh/uv" = "0.13"
 ruff = "0.16"
 shellcheck = "0.11"
 "terraform-docs" = "0.24"
@@ -63,9 +63,16 @@ run = "ruff format"
 description = "Run all linters and static checks"
 depends = ["check:python", "check:ansible", "check:shell", "check:general"]
 
+[tasks."deps:galaxy"]
+description = "Install pinned Ansible Galaxy roles and collections into configuration/.galaxy"
+run = """
+ansible-galaxy role install -r configuration/roles/requirements.yml --force -p configuration/.galaxy/roles
+ansible-galaxy collection install -r configuration/roles/requirements.yml --force -p configuration/.galaxy/collections
+"""
 
 [tasks."check:ansible"]
 description = "Lint Ansible configurations"
+depends = ["deps:galaxy"]
 run = "ansible-lint configuration/"
 
 [tasks."check:shell"]
@@ -83,20 +90,36 @@ description = "Check general files (JS/TS) with oxlint"
 run = "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern apps/"
 
 [tasks."check:security:trivy"]
-description = "Scan repository files and configurations for security vulnerabilities with Trivy"
-run = "trivy fs --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed . && trivy config --exit-code 0 infrastructure/ && trivy config --exit-code 0 configuration/"
+description = "Run Trivy IaC, secret, and vulnerability scans (matches CI)"
+run = """
+trivy config --severity HIGH,CRITICAL --exit-code 1 infrastructure/
+trivy fs --skip-dirs .venv,.worktrees --scanners vuln,secret --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 .
+"""
 
 [tasks."check:security:checkov"]
-description = "Scan OpenTofu and Ansible configurations with Checkov"
-run = "uvx checkov -d infrastructure -d configuration --framework terraform,ansible"
+description = "Run Checkov static analysis against OpenTofu and Ansible (matches CI)"
+run = "uv run --locked checkov -d infrastructure -d configuration --skip-path molecule --framework terraform,ansible --compact --quiet"
+
+[tasks."check:security:zizmor"]
+description = "Run zizmor GitHub Actions security audit (auditor persona, matches CI)"
+run = "uv run --locked zizmor --persona=auditor ."
 
 [tasks."check:security:kics"]
 description = "Scan OpenTofu and Ansible configurations with Checkmarx KICS"
-run = "scripts/run-kics.sh"
+run = "bash scripts/run-kics.sh --format console"
 
 [tasks."check:security"]
-description = "Run full static analysis and IaC security scan matrix (Trivy, Checkov, KICS)"
-depends = ["check:security:trivy", "check:security:checkov", "check:security:kics"]
+description = "Run all local security scanners (Trivy, Checkov, Zizmor, and KICS if Docker is available)"
+run = """
+mise run check:security:trivy
+mise run check:security:checkov
+mise run check:security:zizmor
+if bash scripts/run-kics.sh --check-docker >/dev/null 2>&1; then
+  mise run check:security:kics
+else
+  echo "⚠️  Skipping KICS scan: Docker daemon is not running."
+fi
+"""
 
 
 [tasks.test]
@@ -271,89 +294,195 @@ run = "terraform-docs markdown table --output-file README.md --output-mode injec
 [tasks."secret:prod:set"]
 description = "Set or override a production secret"
 usage = '''
-arg "<key>" help="Name of the secret to set"
-arg "[file]" help="File containing the secret value (if omitted, clipboard is used)"
+arg "<key>" help="Name of the secret to set (supports dotted paths, e.g. a.b.c)"
+arg "[file]" help="File containing the secret value (if omitted, clipboard or stdin is used)"
 '''
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-KEY="${usage_key}"
-FILE="${usage_file}"
+KEY="${usage_key:-${1:-}}"
+FILE="${usage_file:-${2:-}}"
+TARGET_FILE="${SOPS_PROD_FILE:-secrets/credentials.sops.yaml}"
 
-if [ -n "$FILE" ]; then
-  VAL=$(cat "$FILE")
-else
-  VAL=$(pbpaste)
+if [[ -z "$KEY" ]] || ! [[ "$KEY" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$ ]]; then
+  echo "Error: Invalid secret key '$KEY'. Keys must match ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$" >&2
+  exit 1
 fi
 
-# Convert value to JSON string for sops
-JSON_VAL=$(echo -n "$VAL" | python -c 'import sys, json; print(json.dumps(sys.stdin.read()))')
+sops_path=""
+IFS='.' read -ra parts <<< "$KEY"
+for part in "${parts[@]}"; do
+  sops_path+="[\"${part}\"]"
+done
 
-sops set secrets/credentials.sops.yaml "[\"$KEY\"]" "$JSON_VAL"
-echo "Set secret $KEY in secrets/credentials.sops.yaml"
+if [[ -n "$FILE" ]]; then
+  VAL=$(cat "$FILE")
+elif [[ -p /dev/stdin || -s /dev/stdin ]]; then
+  VAL=$(cat)
+elif command -v pbpaste >/dev/null 2>&1; then
+  VAL=$(pbpaste)
+elif command -v wl-paste >/dev/null 2>&1 && [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+  VAL=$(wl-paste --no-newline)
+elif command -v xclip >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+  VAL=$(xclip -selection clipboard -o)
+elif [[ ! -t 0 ]]; then
+  VAL=$(cat)
+else
+  echo "Error: No clipboard utility (pbpaste/wl-paste/xclip) found and stdin is a TTY." >&2
+  exit 1
+fi
+
+if [[ -z "$VAL" ]]; then
+  echo "Error: Secret value is empty." >&2
+  exit 1
+fi
+
+printf '%s' "$VAL" | jq -Rs . | sops set --value-stdin "$TARGET_FILE" "$sops_path"
+echo "Set secret $KEY in $TARGET_FILE"
 '''
 
 [tasks."secret:prod:get"]
 description = "Get a production secret"
-usage = 'arg "<key>" help="Name of the secret to get"'
+usage = 'arg "<key>" help="Name of the secret to get (supports dotted paths, e.g. a.b.c)"'
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-sops -d --extract "[\"${usage_key}\"]" secrets/credentials.sops.yaml
+KEY="${usage_key:-${1:-}}"
+TARGET_FILE="${SOPS_PROD_FILE:-secrets/credentials.sops.yaml}"
+
+if [[ -z "$KEY" ]] || ! [[ "$KEY" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$ ]]; then
+  echo "Error: Invalid secret key '$KEY'. Keys must match ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$" >&2
+  exit 1
+fi
+
+sops_path=""
+IFS='.' read -ra parts <<< "$KEY"
+for part in "${parts[@]}"; do
+  sops_path+="[\"${part}\"]"
+done
+
+sops -d --extract "$sops_path" "$TARGET_FILE"
 '''
 
 [tasks."secret:prod:delete"]
 description = "Delete a production secret"
-usage = 'arg "<key>" help="Name of the secret to delete"'
+usage = 'arg "<key>" help="Name of the secret to delete (supports dotted paths, e.g. a.b.c)"'
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-sops unset secrets/credentials.sops.yaml "[\"${usage_key}\"]"
-echo "Deleted secret ${usage_key} from secrets/credentials.sops.yaml"
+KEY="${usage_key:-${1:-}}"
+TARGET_FILE="${SOPS_PROD_FILE:-secrets/credentials.sops.yaml}"
+
+if [[ -z "$KEY" ]] || ! [[ "$KEY" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$ ]]; then
+  echo "Error: Invalid secret key '$KEY'. Keys must match ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$" >&2
+  exit 1
+fi
+
+yq_path=""
+IFS='.' read -ra parts <<< "$KEY"
+for part in "${parts[@]}"; do
+  yq_path+=".\"${part}\""
+done
+
+EDITOR="yq -i 'del(${yq_path})'" sops "$TARGET_FILE"
+echo "Deleted secret $KEY from $TARGET_FILE"
 '''
 
 [tasks."secret:ci:set"]
 description = "Set or override a CI secret"
 usage = '''
-arg "<key>" help="Name of the secret to set"
-arg "[file]" help="File containing the secret value (if omitted, clipboard is used)"
+arg "<key>" help="Name of the secret to set (supports dotted paths, e.g. a.b.c)"
+arg "[file]" help="File containing the secret value (if omitted, clipboard or stdin is used)"
 '''
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-KEY="${usage_key}"
-FILE="${usage_file}"
+KEY="${usage_key:-${1:-}}"
+FILE="${usage_file:-${2:-}}"
+TARGET_FILE="${SOPS_CI_FILE:-secrets/credentials.ci.sops.yaml}"
 
-if [ -n "$FILE" ]; then
-  VAL=$(cat "$FILE")
-else
-  VAL=$(pbpaste)
+if [[ -z "$KEY" ]] || ! [[ "$KEY" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$ ]]; then
+  echo "Error: Invalid secret key '$KEY'. Keys must match ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$" >&2
+  exit 1
 fi
 
-# Convert value to JSON string for sops
-JSON_VAL=$(echo -n "$VAL" | python -c 'import sys, json; print(json.dumps(sys.stdin.read()))')
+sops_path=""
+IFS='.' read -ra parts <<< "$KEY"
+for part in "${parts[@]}"; do
+  sops_path+="[\"${part}\"]"
+done
 
-sops set secrets/credentials.ci.sops.yaml "[\"$KEY\"]" "$JSON_VAL"
-echo "Set secret $KEY in secrets/credentials.ci.sops.yaml"
+if [[ -n "$FILE" ]]; then
+  VAL=$(cat "$FILE")
+elif [[ -p /dev/stdin || -s /dev/stdin ]]; then
+  VAL=$(cat)
+elif command -v pbpaste >/dev/null 2>&1; then
+  VAL=$(pbpaste)
+elif command -v wl-paste >/dev/null 2>&1 && [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+  VAL=$(wl-paste --no-newline)
+elif command -v xclip >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+  VAL=$(xclip -selection clipboard -o)
+elif [[ ! -t 0 ]]; then
+  VAL=$(cat)
+else
+  echo "Error: No clipboard utility (pbpaste/wl-paste/xclip) found and stdin is a TTY." >&2
+  exit 1
+fi
+
+if [[ -z "$VAL" ]]; then
+  echo "Error: Secret value is empty." >&2
+  exit 1
+fi
+
+printf '%s' "$VAL" | jq -Rs . | sops set --value-stdin "$TARGET_FILE" "$sops_path"
+echo "Set secret $KEY in $TARGET_FILE"
 '''
 
 [tasks."secret:ci:get"]
 description = "Get a CI secret"
-usage = 'arg "<key>" help="Name of the secret to get"'
+usage = 'arg "<key>" help="Name of the secret to get (supports dotted paths, e.g. a.b.c)"'
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-sops -d --extract "[\"${usage_key}\"]" secrets/credentials.ci.sops.yaml
+KEY="${usage_key:-${1:-}}"
+TARGET_FILE="${SOPS_CI_FILE:-secrets/credentials.ci.sops.yaml}"
+
+if [[ -z "$KEY" ]] || ! [[ "$KEY" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$ ]]; then
+  echo "Error: Invalid secret key '$KEY'. Keys must match ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$" >&2
+  exit 1
+fi
+
+sops_path=""
+IFS='.' read -ra parts <<< "$KEY"
+for part in "${parts[@]}"; do
+  sops_path+="[\"${part}\"]"
+done
+
+sops -d --extract "$sops_path" "$TARGET_FILE"
 '''
 
 [tasks."secret:ci:delete"]
 description = "Delete a CI secret"
-usage = 'arg "<key>" help="Name of the secret to delete"'
+usage = 'arg "<key>" help="Name of the secret to delete (supports dotted paths, e.g. a.b.c)"'
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-sops unset secrets/credentials.ci.sops.yaml "[\"${usage_key}\"]"
-echo "Deleted secret ${usage_key} from secrets/credentials.ci.sops.yaml"
+KEY="${usage_key:-${1:-}}"
+TARGET_FILE="${SOPS_CI_FILE:-secrets/credentials.ci.sops.yaml}"
+
+if [[ -z "$KEY" ]] || ! [[ "$KEY" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$ ]]; then
+  echo "Error: Invalid secret key '$KEY'. Keys must match ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$" >&2
+  exit 1
+fi
+
+yq_path=""
+IFS='.' read -ra parts <<< "$KEY"
+for part in "${parts[@]}"; do
+  yq_path+=".\"${part}\""
+done
+
+EDITOR="yq -i 'del(${yq_path})'" sops "$TARGET_FILE"
+echo "Deleted secret $KEY from $TARGET_FILE"
 '''
 
 [tasks."secret:verify"]
@@ -374,7 +503,8 @@ run = "scripts/sync-cloudflare-budget-alert.sh"
 
 [tasks."skills:update"]
 description = "Update AI agent skills and synchronize skills-lock.json"
-run = "npx skills update -p -y"
+# renovate: datasource=npm depName=skills
+run = "npx --yes skills@1.7.2 update -p -y"
 
 [tasks."test:infra"]
 description = "Run native OpenTofu tests concurrently across all infrastructure modules"

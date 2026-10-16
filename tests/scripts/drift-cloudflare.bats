@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Unit tests for scripts/drift-cloudflare.sh using stubbed tofu/sops (no network, no real secrets).
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   SCRIPT="$REPO_ROOT/scripts/drift-cloudflare.sh"

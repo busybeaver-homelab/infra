@@ -7,8 +7,8 @@ locals {
   github_config = try(local.sops_github.config, {})
 
   # GitHub provider credentials: use variable override if set, else read from SOPS.
-  github_owner = var.github_owner != "" ? var.github_owner : try(local.sops_ephemeral.github.owner, local.sops_github.owner, "")
-  github_token = var.github_token != "" ? var.github_token : try(local.sops_ephemeral.github.token, "")
+  github_owner = var.github_owner != null && trimspace(var.github_owner) != "" ? var.github_owner : try(local.sops_ephemeral.github.owner, local.sops_github.owner, "")
+  github_token = var.github_token != null && trimspace(var.github_token) != "" ? var.github_token : try(local.sops_ephemeral.github.token, "")
 
   # Repositories managed by OpenTofu: map of repository configs from SOPS.
   repositories = nonsensitive(try(local.github_config.repositories, {}))
@@ -20,7 +20,7 @@ locals {
   # Source: production SOPS `github.ci_age_key`, or an explicit variable override.
   # Never read from a local keyring file and never fall back to a decoy: a missing
   # key fails the plan through the repository module's validation.
-  ci_age_key = var.sops_age_key_ci != "" ? var.sops_age_key_ci : trimspace(try(local.sops_github.ci_age_key, ""))
+  ci_age_key = var.sops_age_key_ci != null && trimspace(var.sops_age_key_ci) != "" ? var.sops_age_key_ci : trimspace(try(local.sops_github.ci_age_key, ""))
 
   # Secrets injected into the `ci` environment. PR jobs can reach this environment,
   # so it MUST NOT hold production material such as the state passphrase.

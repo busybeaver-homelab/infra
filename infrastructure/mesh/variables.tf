@@ -22,22 +22,25 @@ variable "policy_file_path" {
 
 variable "tailscale_client_id" {
   type        = string
-  description = "Tailscale OAuth client ID (overrides SOPS if provided)."
+  description = "Tailscale OAuth client ID (sourced from SOPS tailscale.client_id when null)."
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
 }
 
 variable "tailscale_client_secret" {
   type        = string
-  description = "Tailscale OAuth client secret (overrides SOPS if provided)."
+  description = "Tailscale OAuth client secret (sourced from SOPS tailscale.client_secret when null)."
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
 }
 
 variable "tailnet_name" {
   type        = string
-  description = "Tailscale tailnet name (overrides SOPS if provided)."
-  default     = ""
+  description = "Tailscale tailnet name (sourced from SOPS tailscale.config.tailnet_name when null)."
+  nullable    = true
+  default     = null
 }
 
 variable "bootstrap_key_tags" {
@@ -196,21 +199,23 @@ variable "device_subnet_routes" {
 }
 
 variable "webhook_endpoint_url" {
-  description = "Optional HTTPS endpoint URL to receive tailnet event webhooks."
+  description = "Optional HTTPS endpoint URL to receive tailnet event webhooks (webhook disabled when null)."
   type        = string
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
 
   validation {
-    condition     = var.webhook_endpoint_url == "" || can(regex("^https://", var.webhook_endpoint_url))
-    error_message = "Webhook endpoint URL must start with https:// or remain empty."
+    condition     = var.webhook_endpoint_url == null || var.webhook_endpoint_url == "" || can(regex("^https://", var.webhook_endpoint_url))
+    error_message = "Webhook endpoint URL must start with https:// or be null."
   }
 }
 
 variable "webhook_provider_type" {
-  description = "Optional webhook provider type (e.g. slack, discord, mattermost, generic)."
+  description = "Optional webhook provider type (e.g. slack, discord, mattermost, generic; omitted when null)."
   type        = string
-  default     = ""
+  nullable    = true
+  default     = null
 }
 
 variable "webhook_subscriptions" {

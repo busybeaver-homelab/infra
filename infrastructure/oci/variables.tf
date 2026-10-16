@@ -35,6 +35,12 @@ variable "private_key" {
   type        = string
   description = "PEM-encoded private key for OCI API authentication."
   sensitive   = true
+  nullable    = false
+
+  validation {
+    condition     = length(trimspace(var.private_key)) > 0
+    error_message = "private_key is required for OCI API authentication (source: SOPS oci.private_key)."
+  }
 }
 
 variable "region" {
@@ -57,26 +63,39 @@ variable "compartment_ocid" {
 
 variable "availability_domain" {
   type        = string
-  description = "Availability domain for compute instances."
+  description = "OCI availability domain name for compute instances."
   sensitive   = true
-  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = length(trimspace(var.availability_domain)) > 0
+    error_message = "availability_domain is required (source: SOPS oci.config)."
+  }
 }
 
 variable "instance_image_ocid_amd" {
   type        = string
   description = "OCID of the Ubuntu Minimal OS image for AMD64 instances."
   sensitive   = true
-  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^ocid1\\.image\\.oc1\\..*", var.instance_image_ocid_amd))
+    error_message = "The instance_image_ocid_amd must be a valid OCI image OCID starting with 'ocid1.image.oc1..'."
+  }
 }
 
 variable "instance_image_ocid_arm" {
   type        = string
   description = "OCID of the Ubuntu Minimal OS image for ARM64 (Ampere) instances."
   sensitive   = true
-  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^ocid1\\.image\\.oc1\\..*", var.instance_image_ocid_arm))
+    error_message = "The instance_image_ocid_arm must be a valid OCI image OCID starting with 'ocid1.image.oc1..'."
+  }
 }
-
-
 
 variable "budget_amount" {
   type        = number
@@ -127,23 +146,35 @@ variable "subnet_cidr" {
 
 variable "tailscale_auth_key" {
   type        = string
-  description = "Tailscale authentication key for instance bootstrapping."
+  description = "Tailscale authentication key for instance bootstrapping (sourced from SOPS oci.tailscale_auth_key when null)."
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
 }
 
 variable "ssh_public_key" {
   type        = string
   description = "SSH public key for emergency access to compute instances."
   sensitive   = true
-  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = length(trimspace(var.ssh_public_key)) > 0
+    error_message = "ssh_public_key is required for emergency access to compute instances (source: SOPS oci.ssh_public_key)."
+  }
 }
 
 variable "admin_cidr" {
   type        = string
-  description = "IPv4 CIDR block authorized for emergency SSH access (e.g. bastion, management subnet, or CGNAT)."
+  description = "IPv4 CIDR block authorized for emergency SSH access (sourced from SOPS oci.admin_cidr or vcn_cidr when null)."
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
+
+  validation {
+    condition     = var.admin_cidr == null || var.admin_cidr == "" || can(cidrhost(var.admin_cidr, 0))
+    error_message = "When set, admin_cidr must be a valid IPv4 CIDR block in standard CIDR notation."
+  }
 }
 
 variable "tenancy_name" {
@@ -268,10 +299,11 @@ variable "backup_service_user_email" {
   type        = string
   description = "Optional base email for the backup IAM users (identity domains); plus-addressed per user, SOPS fallback."
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
 
   validation {
-    condition     = var.backup_service_user_email == "" || can(regex("^[^@+\\s]+@[^@\\s]+\\.[A-Za-z]{2,}$", var.backup_service_user_email))
+    condition     = var.backup_service_user_email == null || var.backup_service_user_email == "" || can(regex("^[^@+\\s]+@[^@\\s]+\\.[A-Za-z]{2,}$", var.backup_service_user_email))
     error_message = "backup_service_user_email must be empty or a single address without plus-addressing (the module appends +restic-writer / +restic-pruner)."
   }
 }

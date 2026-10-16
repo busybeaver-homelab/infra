@@ -103,6 +103,23 @@
         that:
           - base_ubuntu_server_timezone_stat.stat.exists
 
+    - name: Read /etc/hosts configuration file
+      ansible.builtin.slurp:
+        src: /etc/hosts
+      register: base_ubuntu_server_hosts_content
+
+    - name: Assert /etc/hosts is managed and contains localhost and hostname entries
+      ansible.builtin.assert:
+        that:
+          - "'Ansible managed' in (base_ubuntu_server_hosts_content.content | b64decode)"
+          - "'127.0.0.1 localhost' in (base_ubuntu_server_hosts_content.content | b64decode)"
+          - "inventory_hostname in (base_ubuntu_server_hosts_content.content | b64decode)"
+
+    - name: Resolve inventory hostname via getent hosts
+      ansible.builtin.getent:
+        database: hosts
+        key: "{{ inventory_hostname }}"
+
     - name: Stat retired OCI Vault secrets fetcher artifacts
       ansible.builtin.stat:
         path: "{{ item }}"

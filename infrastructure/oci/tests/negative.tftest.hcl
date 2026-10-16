@@ -252,3 +252,51 @@ run "reject_combined_boot_volume_exceeding_always_free_cap" {
     oci_core_instance.ampere,
   ]
 }
+
+run "reject_empty_availability_domain" {
+  command = plan
+
+  variables {
+    availability_domain = "   "
+  }
+
+  expect_failures = [
+    var.availability_domain,
+  ]
+}
+
+run "reject_invalid_instance_image_ocid_amd" {
+  command = plan
+
+  variables {
+    instance_image_ocid_amd = "not-an-image-ocid"
+  }
+
+  expect_failures = [
+    var.instance_image_ocid_amd,
+  ]
+}
+
+run "reject_invalid_instance_image_ocid_arm" {
+  command = plan
+
+  variables {
+    instance_image_ocid_arm = "not-an-image-ocid"
+  }
+
+  expect_failures = [
+    var.instance_image_ocid_arm,
+  ]
+}
+
+run "reject_empty_ssh_public_key" {
+  command = plan
+
+  variables {
+    ssh_public_key = ""
+  }
+
+  expect_failures = [
+    var.ssh_public_key,
+  ]
+}

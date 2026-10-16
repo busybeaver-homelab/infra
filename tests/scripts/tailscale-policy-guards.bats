@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Tests for Tailscale policy files and git-crypt encryption
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(git rev-parse --show-toplevel)"
   PROD_POLICY="${REPO_ROOT}/infrastructure/mesh/policy.hujson.tftpl"

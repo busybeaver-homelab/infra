@@ -2,7 +2,9 @@
 # scripts/run-kics.sh - Executes Checkmarx KICS scanner via Docker and sanitizes SARIF output paths.
 set -euo pipefail
 
-KICS_IMAGE="${KICS_IMAGE:-checkmarx/kics:v2.2.0}"
+# renovate: datasource=docker depName=checkmarx/kics
+KICS_VERSION="v2.2.0@sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602"
+KICS_IMAGE="${KICS_IMAGE:-checkmarx/kics:${KICS_VERSION}}"
 OUTPUT_DIR="kics-results"
 OUTPUT_NAME="kics.sarif"
 TARGETS="/path/infrastructure,/path/configuration"

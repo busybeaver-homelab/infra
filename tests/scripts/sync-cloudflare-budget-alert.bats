@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Tests for scripts/sync-cloudflare-budget-alert.sh
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   SCRIPT="$REPO_ROOT/scripts/sync-cloudflare-budget-alert.sh"

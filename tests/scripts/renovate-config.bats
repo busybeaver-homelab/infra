@@ -70,7 +70,8 @@ EOF
 }
 
 @test "renovate-config-validator validates .github/renovate.json5" {
-  run npx --prefer-offline --yes --package renovate renovate-config-validator --strict "${REPO_ROOT}/.github/renovate.json5"
+  # renovate: datasource=npm depName=renovate
+  run npx --prefer-offline --yes --package renovate@44.149.2 renovate-config-validator --strict "${REPO_ROOT}/.github/renovate.json5"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Config validated successfully" ]]
 }
@@ -190,13 +191,13 @@ if (!presets) {
   [ "$status" -ne 0 ]
 }
 
-@test "mise.toml defines skills:update task using npx skills update" {
+@test "mise.toml defines skills:update task using version-pinned npx skills update" {
   local config="${REPO_ROOT}/mise.toml"
   [ -f "$config" ]
   run grep -E '\[tasks\."skills:update"\]' "$config"
   [ "$status" -eq 0 ]
 
-  run grep -E 'npx skills update' "$config"
+  run grep -E 'npx --yes skills@[0-9]+\.[0-9]+\.[0-9]+ update -p -y' "$config"
   [ "$status" -eq 0 ]
 }
 
@@ -628,3 +629,69 @@ console.log("security gates ok");
   [ "$status" -eq 0 ]
   [[ "$output" == *"security gates ok"* ]] || false
 }
+
+@test ".github/renovate.json5 customManagers track digest-pinned KICS in scripts/run-kics.sh and npx pins" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  local kics_script="${REPO_ROOT}/scripts/run-kics.sh"
+  local mise_toml="${REPO_ROOT}/mise.toml"
+  local bats_file="${REPO_ROOT}/tests/scripts/renovate-config.bats"
+
+  run node -e '
+const fs = require("fs");
+const config = eval("(" + fs.readFileSync(process.argv[1], "utf8") + ")");
+
+const scriptMgr = config.customManagers.find(m =>
+  Array.isArray(m.managerFilePatterns) &&
+  m.managerFilePatterns.some(p => p.includes("scripts"))
+);
+if (!scriptMgr) { console.error("scripts/*.sh customManager missing"); process.exit(1); }
+const scriptRe = new RegExp(scriptMgr.matchStrings[0]);
+const kicsMatch = fs.readFileSync(process.argv[2], "utf8").match(scriptRe);
+if (!kicsMatch || kicsMatch.groups.depName !== "checkmarx/kics" || !kicsMatch.groups.currentDigest || !kicsMatch.groups.currentDigest.startsWith("sha256:")) {
+  console.error("Failed to match digest-pinned checkmarx/kics in run-kics.sh");
+  process.exit(1);
+}
+
+const npxMgr = config.customManagers.find(m =>
+  Array.isArray(m.matchStrings) && m.matchStrings[0].includes("npx")
+);
+if (!npxMgr) { console.error("npx customManager missing"); process.exit(1); }
+const npxRe = new RegExp(npxMgr.matchStrings[0]);
+const skillsMatch = fs.readFileSync(process.argv[3], "utf8").match(npxRe);
+if (!skillsMatch || skillsMatch.groups.depName !== "skills") {
+  console.error("Failed to match npx skills pin in mise.toml");
+  process.exit(1);
+}
+const renovateMatch = fs.readFileSync(process.argv[4], "utf8").match(npxRe);
+if (!renovateMatch || renovateMatch.groups.depName !== "renovate") {
+  console.error("Failed to match npx renovate pin in renovate-config.bats");
+  process.exit(1);
+}
+
+const hasTofuMgr = config.customManagers.some(m =>
+  Array.isArray(m.managerFilePatterns) && m.managerFilePatterns.some(p => p.includes("opentofu\\.tofu"))
+);
+const hasMoleculeMgr = config.customManagers.some(m =>
+  Array.isArray(m.managerFilePatterns) && m.managerFilePatterns.some(p => p.includes("molecule"))
+);
+if (!hasTofuMgr || !hasMoleculeMgr) {
+  console.error("Missing opentofu.tofu or molecule.yml customManager");
+  process.exit(1);
+}
+
+const miseLockRule = config.packageRules.find(r =>
+  Array.isArray(r.matchManagers) && r.matchManagers.includes("mise") &&
+  Array.isArray(r.matchUpdateTypes) && r.matchUpdateTypes.includes("lockFileMaintenance") &&
+  r.enabled === false
+);
+if (!miseLockRule) {
+  console.error("Missing packageRule disabling lockFileMaintenance for mise manager");
+  process.exit(1);
+}
+
+console.log("customManagers and mise lockFileMaintenance ok");
+' "$config" "$kics_script" "$mise_toml" "$bats_file"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"customManagers and mise lockFileMaintenance ok"* ]] || false
+}
+

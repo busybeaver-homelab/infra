@@ -26,6 +26,17 @@
     name: "{{ base_ubuntu_server_timezone }}"
   become: true
 
+- name: Configure /etc/hosts
+  ansible.builtin.template:
+    src: hosts.j2
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: "0644"
+    unsafe_writes: true
+  become: true
+  when: base_ubuntu_server_manage_hosts | bool
+
 - name: Configure host firewall and Docker chain isolation
   ansible.builtin.include_tasks: firewall.yml
   when: base_ubuntu_server_firewall_enabled | bool

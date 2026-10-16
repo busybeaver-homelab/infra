@@ -4,7 +4,8 @@
   gather_facts: false
   become: true
   vars:
-    restic_backup_test_primary_password: "test-primary-encryption-password-molecule!"
+    restic_backup_test_primary_password: >-
+      {{ lookup('ansible.builtin.password', '/tmp/molecule-restic-primary-pass', length=32, chars=['ascii_letters', 'digits']) }}
     restic_backup_test_credstore: /etc/credstore.encrypted
     restic_backup_test_stub_log: /tmp/hc-stub/requests.log
   tasks:

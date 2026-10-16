@@ -126,16 +126,13 @@
         - cloud_provider_config.breakglass_password_hash is defined
 
   roles:
-    - ajsalminen.hosts
     - base_ubuntu_server
     - geerlingguy.swap
     - geerlingguy.ntp
-    - dev-sec.os-hardening
-    - dev-sec.ssh-hardening
+    - devsec.hardening.os_hardening
     - geerlingguy.security
     - geerlingguy.firewall
     - geerlingguy.docker
-    - singleplatform-eng.users
     - restic_backup
     - docker_compose_service
 

@@ -4,7 +4,7 @@ dependency:
   enabled: false
   options:
     role-file: ${MOLECULE_PROJECT_DIRECTORY}/roles/requirements.yml
-    roles-path: ~/.ansible/roles
+    roles-path: ${MOLECULE_PROJECT_DIRECTORY}/.galaxy/roles
 
 driver:
   name: docker
@@ -28,13 +28,15 @@ provisioner:
     links:
       group_vars: ../../group_vars
   env:
-    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles"
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles:${MOLECULE_PROJECT_DIRECTORY}/.galaxy/roles"
+    ANSIBLE_COLLECTIONS_PATH: "${MOLECULE_PROJECT_DIRECTORY}/.galaxy/collections"
     SOPS_AGE_KEY_FILE: "${HOME}/.config/sops/age/keys.txt"
   config_options:
     defaults:
       callbacks_enabled: profile_tasks
       remote_tmp: /tmp
-      roles_path: ${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles
+      roles_path: ${MOLECULE_PROJECT_DIRECTORY}/roles:${MOLECULE_PROJECT_DIRECTORY}/.galaxy/roles
+      collections_path: ${MOLECULE_PROJECT_DIRECTORY}/.galaxy/collections
     connection:
       pipelining: true
   playbooks:
@@ -58,5 +60,6 @@ scenario:
 verifier:
   name: ansible
   env:
-    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles:~/.ansible/roles"
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/roles:${MOLECULE_PROJECT_DIRECTORY}/.galaxy/roles"
+    ANSIBLE_COLLECTIONS_PATH: "${MOLECULE_PROJECT_DIRECTORY}/.galaxy/collections"
     SOPS_AGE_KEY_FILE: "${HOME}/.config/sops/age/keys.txt"

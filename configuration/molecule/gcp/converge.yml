@@ -35,7 +35,3 @@
       - host: "gcp-ubuntu-server-26"
         target: "gcp"
         healthchecks_ping_url: "https://hc-ping.com/00000000-0000-4000-8000-000000009002"
-    users:
-      - username: dockerapp
-        name: Docker Application Service User
-        shell: /usr/sbin/nologin

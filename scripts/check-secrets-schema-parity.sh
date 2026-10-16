@@ -13,9 +13,9 @@ NC='\033[0m' # No Color
 
 # Locate yq command
 if command -v yq >/dev/null 2>&1; then
-  YQ_CMD="yq"
+  YQ_CMD=(yq)
 else
-  YQ_CMD="mise exec -- yq"
+  YQ_CMD=(mise exec -- yq)
 fi
 
 repo_root=""
@@ -54,7 +54,16 @@ fi
 
 extract_keys() {
   local target="$1"
-  $YQ_CMD 'del(.sops) | [.. | select(tag != "!!map") | path | join(".")] | .[]' "$target" 2>/dev/null | sort -u
+  local raw
+  if ! raw=$("${YQ_CMD[@]}" 'del(.sops) | [.. | select(tag != "!!map") | path | join(".")] | .[]' "$target"); then
+    echo -e "${RED}[ERROR] Failed to parse YAML in $target${NC}" >&2
+    return 1
+  fi
+  if [[ -z "${raw//[[:space:]]/}" ]]; then
+    echo -e "${RED}[ERROR] No secret keys found in $target${NC}" >&2
+    return 1
+  fi
+  printf '%s\n' "$raw" | sort -u
 }
 
 prod_keys=$(extract_keys "$PROD_FILE")

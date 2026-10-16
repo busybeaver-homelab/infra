@@ -3,11 +3,22 @@
 
 load 'helpers/test_helper'
 
-@test "mise.toml specifies uv in toolchain" {
+@test "mise.toml specifies aqua:astral-sh/uv in toolchain" {
   local mise_config="${REPO_ROOT}/mise.toml"
   [ -f "$mise_config" ]
-  run grep -E 'uv\s*=\s*"0\.13"' "$mise_config"
+  run grep -E '"aqua:astral-sh/uv"\s*=\s*"0\.13"' "$mise_config"
   [ "$status" -eq 0 ]
+}
+
+@test "mise.lock contains aqua:astral-sh/uv tool entries and no legacy asdf:uv backend" {
+  local mise_lock="${REPO_ROOT}/mise.lock"
+  [ -f "$mise_lock" ]
+  run grep -E '\[\[tools\."aqua:astral-sh/uv"\]\]' "$mise_lock"
+  [ "$status" -eq 0 ]
+  run grep -E 'backend = "aqua:astral-sh/uv"' "$mise_lock"
+  [ "$status" -eq 0 ]
+  run grep -E 'backend = "asdf:uv"' "$mise_lock"
+  [ "$status" -ne 0 ]
 }
 
 @test ".gitignore explicitly unignores .mise/locks/" {

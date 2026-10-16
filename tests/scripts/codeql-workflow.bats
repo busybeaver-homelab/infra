@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Tests for .github/workflows/codeql.yml
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   WORKFLOW="$REPO_ROOT/.github/workflows/codeql.yml"
@@ -34,11 +36,16 @@ assert "pull_request" in on
 assert "schedule" in on
 assert "workflow_dispatch" in on
 
-# Permissions
-perms = data.get("permissions", {})
-assert perms.get("contents") == "read"
-assert perms.get("security-events") == "write"
-assert perms.get("actions") == "read"
+# Top-level permissions must be empty {} (REV2-P3-9)
+perms = data.get("permissions")
+assert perms == {}, f"expected top-level permissions {{}}, got {perms}"
+
+# Job-level permissions
+for job_name in ("analyze-codeql", "analyze-iac-and-scripts"):
+    jperms = data["jobs"][job_name].get("permissions", {})
+    assert jperms.get("contents") == "read"
+    assert jperms.get("security-events") == "write"
+    assert jperms.get("actions") == "read"
 ' "$WORKFLOW"
   [ "$status" -eq 0 ]
 }
