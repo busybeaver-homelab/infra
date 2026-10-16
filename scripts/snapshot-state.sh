@@ -122,7 +122,6 @@ if [[ -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" || -z "${R2
         R2_ENDPOINT="$(jq -r '
           .opentofu.cloudflare_r2_endpoint
           // (if ((.cloudflare.account_id // .cloudflare.config.account_id // "") != "") then "https://" + (.cloudflare.account_id // .cloudflare.config.account_id) + ".r2.cloudflarestorage.com" else null end)
-          // .cloudflare_restic.s3_endpoint
           // ""
         ' <<<"${sops_json}")"
         if [[ -n "${R2_ENDPOINT}" && "${R2_ENDPOINT}" != http://* && "${R2_ENDPOINT}" != https://* ]]; then
