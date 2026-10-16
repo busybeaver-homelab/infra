@@ -106,7 +106,6 @@ output "backup_prune_s3_secret_access_key" {
   sensitive   = true
 }
 
-
 output "ansible_inventory" {
   description = "Structured Ansible inventory map for OCI compute instances consumed by scripts/generate-inventory.sh."
   sensitive   = true

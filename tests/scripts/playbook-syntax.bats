@@ -454,6 +454,32 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "configuration/playbooks/cloud.yml loads OpenTofu restic outputs once on localhost with no_log and fails explicitly" {
+  local cloud_pb="$REPO_ROOT/configuration/playbooks/cloud.yml"
+  local blk='.[1].pre_tasks[] | select(.name == "Load Restic backup variables from OpenTofu outputs")'
+
+  run yq -r "${blk} | .when" "$cloud_pb"
+  [ "$status" -eq 0 ]
+  [ "$output" = "not (is_ci_environment | default(false) | bool)" ]
+
+  run yq -r "${blk} | .block[0] | [.delegate_to, .become, .run_once, .no_log, .check_mode, .changed_when, has(\"failed_when\")] | map(tostring) | join(\",\")" "$cloud_pb"
+  [ "$status" -eq 0 ]
+  [ "$output" = "localhost,false,true,true,false,false,false" ]
+
+  run yq -r "${blk} | .block[0][\"ansible.builtin.command\"].argv[0]" "$cloud_pb"
+  [[ "$output" == *"/scripts/get-tofu-restic-vars.sh" ]] || false
+
+  # Failure is surfaced by a rescue task that never echoes the helper's stdout/stderr.
+  run yq -r "${blk} | .rescue[0][\"ansible.builtin.fail\"].msg" "$cloud_pb"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"rc="* ]] || false
+  [[ "$output" != *"stderr"* && "$output" != *"stdout"* ]] || false
+
+  # Every task touching the parsed outputs keeps no_log.
+  run yq -r '.[1].pre_tasks[] | select((.name // "") | test("OpenTofu Restic backup (facts|variables are populated)")) | .no_log' "$cloud_pb"
+  [ "$output" = $'true\ntrue' ]
+}
+
 @test "restic_backup generalizes primary S3 credential name to primary_s3_secret_key" {
   local vars_file="$REPO_ROOT/configuration/roles/restic_backup/vars/main.yml"
   local runner_tpl="$REPO_ROOT/configuration/roles/restic_backup/templates/restic-backup-runner.sh.j2"

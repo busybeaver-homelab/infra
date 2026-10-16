@@ -114,4 +114,3 @@ resource "google_storage_hmac_key" "backup_pruner" {
   service_account_email = google_service_account.backup_pruner.email
   project               = var.gcp_project_id
 }
-

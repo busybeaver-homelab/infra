@@ -10,9 +10,11 @@
 #   --env <environment>       GitHub Actions environment name (default: ops)
 #   --tofu-dir <dir>          Base infrastructure directory (default: <repo-root>/infrastructure)
 #   --sops-file <file>        Path to canonical SOPS credentials file (default: secrets/credentials.sops.yaml)
-#   --dry-run                 Preview secret names to be synchronized without calling gh or printing values
+#   --dry-run                 Validate inputs and list secret names without calling gh or printing values
 #   -h, --help                Display this help message and exit
 
+# Secret variables are read through ${!name} indirection over SECRET_NAMES.
+# shellcheck disable=SC2034
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,21 +31,32 @@ usage() {
   exit 0
 }
 
+require_arg() {
+  if [[ $# -lt 2 || -z "${2:-}" ]]; then
+    echo "ERROR: $1 requires a value." >&2
+    exit 1
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
+      require_arg "$@"
       REPO="$2"
       shift 2
       ;;
     --env)
+      require_arg "$@"
       ENV_NAME="$2"
       shift 2
       ;;
     --tofu-dir)
+      require_arg "$@"
       TOFU_DIR="$2"
       shift 2
       ;;
     --sops-file)
+      require_arg "$@"
       CREDENTIALS_FILE="$2"
       shift 2
       ;;
@@ -66,12 +79,6 @@ if [[ ! -f "$CREDENTIALS_FILE" ]]; then
   exit 1
 fi
 
-if [[ -z "${GH_TOKEN:-}" ]]; then
-  if token="$(sops -d --extract '["github"]["token"]' "$CREDENTIALS_FILE" 2>/dev/null)" && [[ -n "$token" ]]; then
-    export GH_TOKEN="$token"
-  fi
-fi
-
 if [[ -z "$REPO" ]]; then
   if owner="$(sops -d --extract '["github"]["owner"]' "$CREDENTIALS_FILE" 2>/dev/null)" && [[ -n "$owner" ]]; then
     REPO="${owner}/infra"
@@ -86,98 +93,64 @@ if [[ ! "$REPO" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
   exit 1
 fi
 
-extract_tofu_json() {
-  local mod_dir="$1"
-  if [[ ! -d "$mod_dir" ]]; then
-    echo "ERROR: OpenTofu module directory not found: $mod_dir" >&2
-    return 1
-  fi
-  tofu -chdir="$mod_dir" output -json
-}
-
-oci_json="$(extract_tofu_json "$TOFU_DIR/oci")"
-gcp_json="$(extract_tofu_json "$TOFU_DIR/gcp")"
-cf_json="$(extract_tofu_json "$TOFU_DIR/cloudflare")"
-
-OCI_RESTIC_S3_ENDPOINT="$(jq -r '.backup_s3_endpoint.value // empty' <<<"$oci_json")"
-OCI_RESTIC_BUCKET="$(jq -r '.backup_bucket_name.value // empty' <<<"$oci_json")"
-OCI_RESTIC_PRUNE_ACCESS_KEY_ID="$(jq -r '.backup_prune_s3_access_key_id.value // empty' <<<"$oci_json")"
-OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY="$(jq -r '.backup_prune_s3_secret_access_key.value // empty' <<<"$oci_json")"
-OCI_RESTIC_PASSWORD="$(sops -d --extract '["oci_restic"]["password"]' "$CREDENTIALS_FILE")"
-
-GCP_RESTIC_S3_ENDPOINT="$(jq -r '.backup_s3_endpoint.value // empty' <<<"$gcp_json")"
-GCP_RESTIC_BUCKET="$(jq -r '.backup_bucket_name.value // empty' <<<"$gcp_json")"
-GCP_RESTIC_PRUNE_ACCESS_KEY_ID="$(jq -r '.backup_prune_hmac_access_id.value // empty' <<<"$gcp_json")"
-GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY="$(jq -r '.backup_prune_hmac_secret.value // empty' <<<"$gcp_json")"
-GCP_RESTIC_PASSWORD="$(sops -d --extract '["gcp_restic"]["password"]' "$CREDENTIALS_FILE")"
-
-R2_RESTIC_S3_ENDPOINT="$(jq -r '.r2_backup_endpoint.value // empty' <<<"$cf_json")"
-R2_RESTIC_BUCKET="$(jq -r '.r2_backup_bucket_name.value // empty' <<<"$cf_json")"
-R2_RESTIC_PRUNE_ACCESS_KEY_ID="$(jq -r '.r2_restic_prune_s3_access_key_id.value // empty' <<<"$cf_json")"
-R2_RESTIC_PRUNE_SECRET_ACCESS_KEY="$(jq -r '.r2_restic_prune_s3_secret_access_key.value // empty' <<<"$cf_json")"
-R2_RESTIC_PASSWORD="$(sops -d --extract '["cloudflare_restic"]["password"]' "$CREDENTIALS_FILE")"
-
-HEALTHCHECKS_BACKUP_PRUNE_PING_URL=""
-if [[ -d "$TOFU_DIR/monitoring" ]]; then
-  if mon_json="$(tofu -chdir="$TOFU_DIR/monitoring" output -json 2>/dev/null)"; then
-    HEALTHCHECKS_BACKUP_PRUNE_PING_URL="$(jq -r '.backup_prune_ping_url.value // empty' <<<"$mon_json")"
-  fi
+if [[ ! "$ENV_NAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "ERROR: Invalid environment name: '$ENV_NAME'." >&2
+  exit 1
 fi
 
-require_non_empty() {
-  local name="$1"
-  local val="$2"
-  if [[ -z "$val" || "$val" == "null" ]]; then
+# Prune-capable keys, endpoints, buckets and the prune heartbeat URL (fails closed).
+prune_json="$("$SCRIPT_DIR/get-tofu-restic-vars.sh" --mode prune --tofu-dir "$TOFU_DIR" --sops-file "$CREDENTIALS_FILE")"
+
+field() { printf '%s' "$prune_json" | jq -r "$1 // empty"; }
+
+OCI_RESTIC_S3_ENDPOINT="$(field '.tofu_oci_restic.s3_endpoint')"
+OCI_RESTIC_BUCKET="$(field '.tofu_oci_restic.bucket')"
+OCI_RESTIC_PRUNE_ACCESS_KEY_ID="$(field '.tofu_oci_restic.s3_access_key_id')"
+OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY="$(field '.tofu_oci_restic.s3_secret_access_key')"
+OCI_RESTIC_PASSWORD="$(sops -d --extract '["oci_restic"]["password"]' "$CREDENTIALS_FILE")"
+
+GCP_RESTIC_S3_ENDPOINT="$(field '.tofu_gcp_restic.s3_endpoint')"
+GCP_RESTIC_BUCKET="$(field '.tofu_gcp_restic.bucket')"
+GCP_RESTIC_PRUNE_ACCESS_KEY_ID="$(field '.tofu_gcp_restic.s3_access_key_id')"
+GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY="$(field '.tofu_gcp_restic.s3_secret_access_key')"
+GCP_RESTIC_PASSWORD="$(sops -d --extract '["gcp_restic"]["password"]' "$CREDENTIALS_FILE")"
+
+R2_RESTIC_S3_ENDPOINT="$(field '.tofu_cloudflare_restic.s3_endpoint')"
+R2_RESTIC_BUCKET="$(field '.tofu_cloudflare_restic.bucket')"
+R2_RESTIC_PRUNE_ACCESS_KEY_ID="$(field '.tofu_cloudflare_restic.s3_access_key_id')"
+R2_RESTIC_PRUNE_SECRET_ACCESS_KEY="$(field '.tofu_cloudflare_restic.s3_secret_access_key')"
+R2_RESTIC_PASSWORD="$(sops -d --extract '["cloudflare_restic"]["password"]' "$CREDENTIALS_FILE")"
+
+HEALTHCHECKS_BACKUP_PRUNE_PING_URL="$(field '.backup_prune_ping_url')"
+
+SECRET_NAMES=(
+  OCI_RESTIC_S3_ENDPOINT OCI_RESTIC_BUCKET OCI_RESTIC_PRUNE_ACCESS_KEY_ID OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY OCI_RESTIC_PASSWORD
+  GCP_RESTIC_S3_ENDPOINT GCP_RESTIC_BUCKET GCP_RESTIC_PRUNE_ACCESS_KEY_ID GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY GCP_RESTIC_PASSWORD
+  R2_RESTIC_S3_ENDPOINT R2_RESTIC_BUCKET R2_RESTIC_PRUNE_ACCESS_KEY_ID R2_RESTIC_PRUNE_SECRET_ACCESS_KEY R2_RESTIC_PASSWORD
+  HEALTHCHECKS_BACKUP_PRUNE_PING_URL
+)
+
+# Validate everything before the first write so a failure never leaves a partial sync.
+for name in "${SECRET_NAMES[@]}"; do
+  if [[ -z "${!name}" || "${!name}" == "null" ]]; then
     echo "ERROR: Required secret '$name' is empty or missing from OpenTofu outputs / SOPS." >&2
     exit 1
   fi
-}
+done
 
-require_non_empty "OCI_RESTIC_S3_ENDPOINT" "$OCI_RESTIC_S3_ENDPOINT"
-require_non_empty "OCI_RESTIC_BUCKET" "$OCI_RESTIC_BUCKET"
-require_non_empty "OCI_RESTIC_PRUNE_ACCESS_KEY_ID" "$OCI_RESTIC_PRUNE_ACCESS_KEY_ID"
-require_non_empty "OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY" "$OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY"
-require_non_empty "OCI_RESTIC_PASSWORD" "$OCI_RESTIC_PASSWORD"
-require_non_empty "GCP_RESTIC_S3_ENDPOINT" "$GCP_RESTIC_S3_ENDPOINT"
-require_non_empty "GCP_RESTIC_BUCKET" "$GCP_RESTIC_BUCKET"
-require_non_empty "GCP_RESTIC_PRUNE_ACCESS_KEY_ID" "$GCP_RESTIC_PRUNE_ACCESS_KEY_ID"
-require_non_empty "GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY" "$GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY"
-require_non_empty "GCP_RESTIC_PASSWORD" "$GCP_RESTIC_PASSWORD"
-require_non_empty "R2_RESTIC_S3_ENDPOINT" "$R2_RESTIC_S3_ENDPOINT"
-require_non_empty "R2_RESTIC_BUCKET" "$R2_RESTIC_BUCKET"
-require_non_empty "R2_RESTIC_PRUNE_ACCESS_KEY_ID" "$R2_RESTIC_PRUNE_ACCESS_KEY_ID"
-require_non_empty "R2_RESTIC_PRUNE_SECRET_ACCESS_KEY" "$R2_RESTIC_PRUNE_SECRET_ACCESS_KEY"
-require_non_empty "R2_RESTIC_PASSWORD" "$R2_RESTIC_PASSWORD"
+if [[ "$DRY_RUN" != "true" && -z "${GH_TOKEN:-}" ]]; then
+  if token="$(sops -d --extract '["github"]["token"]' "$CREDENTIALS_FILE" 2>/dev/null)" && [[ -n "$token" ]]; then
+    export GH_TOKEN="$token"
+  fi
+fi
 
-sync_secret() {
-  local name="$1"
-  local val="$2"
+for name in "${SECRET_NAMES[@]}"; do
   if [[ "$DRY_RUN" == "true" ]]; then
     printf '[%s] [DRY RUN] Would set secret %s in environment %s on %s\n' \
       "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$name" "$ENV_NAME" "$REPO"
   else
-    printf '%s' "$val" | gh secret set "$name" --env "$ENV_NAME" --repo "$REPO"
+    printf '%s' "${!name}" | gh secret set "$name" --env "$ENV_NAME" --repo "$REPO"
     printf '[%s] [INFO] Synchronized secret %s in environment %s on %s\n' \
       "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$name" "$ENV_NAME" "$REPO"
   fi
-}
-
-sync_secret "OCI_RESTIC_S3_ENDPOINT" "$OCI_RESTIC_S3_ENDPOINT"
-sync_secret "OCI_RESTIC_BUCKET" "$OCI_RESTIC_BUCKET"
-sync_secret "OCI_RESTIC_PRUNE_ACCESS_KEY_ID" "$OCI_RESTIC_PRUNE_ACCESS_KEY_ID"
-sync_secret "OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY" "$OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY"
-sync_secret "OCI_RESTIC_PASSWORD" "$OCI_RESTIC_PASSWORD"
-sync_secret "GCP_RESTIC_S3_ENDPOINT" "$GCP_RESTIC_S3_ENDPOINT"
-sync_secret "GCP_RESTIC_BUCKET" "$GCP_RESTIC_BUCKET"
-sync_secret "GCP_RESTIC_PRUNE_ACCESS_KEY_ID" "$GCP_RESTIC_PRUNE_ACCESS_KEY_ID"
-sync_secret "GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY" "$GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY"
-sync_secret "GCP_RESTIC_PASSWORD" "$GCP_RESTIC_PASSWORD"
-sync_secret "R2_RESTIC_S3_ENDPOINT" "$R2_RESTIC_S3_ENDPOINT"
-sync_secret "R2_RESTIC_BUCKET" "$R2_RESTIC_BUCKET"
-sync_secret "R2_RESTIC_PRUNE_ACCESS_KEY_ID" "$R2_RESTIC_PRUNE_ACCESS_KEY_ID"
-sync_secret "R2_RESTIC_PRUNE_SECRET_ACCESS_KEY" "$R2_RESTIC_PRUNE_SECRET_ACCESS_KEY"
-sync_secret "R2_RESTIC_PASSWORD" "$R2_RESTIC_PASSWORD"
-
-if [[ -n "$HEALTHCHECKS_BACKUP_PRUNE_PING_URL" && "$HEALTHCHECKS_BACKUP_PRUNE_PING_URL" != "null" ]]; then
-  sync_secret "HEALTHCHECKS_BACKUP_PRUNE_PING_URL" "$HEALTHCHECKS_BACKUP_PRUNE_PING_URL"
-fi
+done

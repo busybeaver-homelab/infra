@@ -40,7 +40,6 @@ output "r2_restic_writer_s3_secret_access_key" {
   sensitive   = true
 }
 
-
 output "managed_zone_keys" {
   value       = local.zone_keys
   description = "Logical keys of the zones managed by this module."

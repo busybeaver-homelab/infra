@@ -81,6 +81,9 @@ done
 case "$extract" in
   *'["github"]["owner"]'*) echo "example-owner" ;;
   *'["github"]["token"]'*) echo "ghp_synthetic_token_0000" ;;
+  *'["opentofu"]["cloudflare_r2_access_key_id"]'*) echo "backend-ak-synthetic" ;;
+  *'["opentofu"]["cloudflare_r2_secret_access_key"]'*) echo "backend-sk-synthetic" ;;
+  *'["opentofu"]["state_encryption_passphrase"]'*) echo "backend-passphrase-synthetic-0000000000" ;;
   *'["oci_restic"]["password"]'*) echo "oci-restic-pass-synthetic" ;;
   *'["gcp_restic"]["password"]'*) echo "gcp-restic-pass-synthetic" ;;
   *'["cloudflare_restic"]["password"]'*) echo "r2-restic-pass-synthetic" ;;
@@ -137,7 +140,7 @@ STUB
   [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
 }
 
-@test "sync-ops-secrets.sh syncs all 15 restic secrets and healthchecks ping url to ops environment" {
+@test "sync-ops-secrets.sh syncs all 16 restic secrets and healthchecks ping url to ops environment" {
   run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE"
   [ "$status" -eq 0 ]
   [ -f "$BATS_TEST_TMPDIR/gh.calls" ]
@@ -169,6 +172,34 @@ STUB
   # Ensure secret values are never echoed to stdout/stderr
   [[ ! "$output" =~ "oci-prune-sk-synthetic" ]] || false
   [[ ! "$output" =~ "r2-restic-pass-synthetic" ]] || false
+
+  [ "$(wc -l <"$BATS_TEST_TMPDIR/gh.calls" | tr -d ' ')" -eq 16 ]
+}
+
+@test "sync-ops-secrets.sh fails closed without partial sync when the prune heartbeat URL is missing" {
+  mv "$STUB_BIN/tofu" "$STUB_BIN/tofu-real"
+  cat >"$STUB_BIN/tofu" <<'STUB'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [[ "$arg" == -chdir=*/monitoring ]]; then
+    echo '{}'
+    exit 0
+  fi
+done
+exec "$(dirname "$0")/tofu-real" "$@"
+STUB
+  chmod +x "$STUB_BIN/tofu"
+
+  run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE" --repo "example-owner/infra"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "backup_prune_ping_url" ]] || false
+  [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
+}
+
+@test "sync-ops-secrets.sh rejects options without a value" {
+  run "$SCRIPT" --repo
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "--repo requires a value" ]] || false
 }
 
 @test "sync-ops-secrets.sh fails closed when a required OpenTofu output is missing" {

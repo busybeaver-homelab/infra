@@ -104,9 +104,37 @@ run "verify_backup_bucket_and_lifecycle" {
   }
 
   assert {
+    condition     = strcontains(oci_identity_policy.backup_uploaders.statements[1], "target.bucket.name='homelab-backups-testtenancy'") && !strcontains(oci_identity_policy.backup_uploaders.statements[1], "OBJECT_DELETE") && !strcontains(oci_identity_policy.backup_uploaders.statements[1], "OBJECT_OVERWRITE")
+    error_message = "OCI backup uploaders policy must be scoped to the backups bucket and stay append-only (no OBJECT_DELETE / OBJECT_OVERWRITE)"
+  }
+
+  assert {
     condition     = oci_identity_user_capabilities_management.backup_writer.can_use_customer_secret_keys == true && oci_identity_user_capabilities_management.backup_writer.can_use_console_password == false && oci_identity_user_capabilities_management.backup_pruner.can_use_customer_secret_keys == true && oci_identity_user_capabilities_management.backup_pruner.can_use_console_password == false
     error_message = "OCI backup writer and pruner users must only enable customer secret keys and disable console passwords"
   }
+}
+
+run "verify_backup_user_email_plus_addressing" {
+  command = plan
+
+  variables {
+    backup_service_user_email = "ops@example.test"
+  }
+
+  assert {
+    condition     = oci_identity_user.backup_writer.email == "ops+restic-writer@example.test" && oci_identity_user.backup_pruner.email == "ops+restic-pruner@example.test"
+    error_message = "OCI backup IAM users must get unique plus-addressed emails derived from backup_service_user_email"
+  }
+}
+
+run "reject_plus_addressed_backup_user_email" {
+  command = plan
+
+  variables {
+    backup_service_user_email = "ops+x@example.test"
+  }
+
+  expect_failures = [var.backup_service_user_email]
 }
 
 run "verify_backup_s3_outputs_on_apply" {

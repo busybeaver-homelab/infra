@@ -59,15 +59,18 @@ resource "oci_identity_policy" "backup_uploaders" {
   description    = "Append-only permissions for host backup uploaders (strictly no OBJECT_DELETE)"
   statements = [
     "Allow group ${oci_identity_group.backup_uploaders.name} to read buckets in compartment id ${var.compartment_ocid}",
-    "Allow group ${oci_identity_group.backup_uploaders.name} to manage objects in compartment id ${var.compartment_ocid} where any {request.permission='OBJECT_CREATE', request.permission='OBJECT_INSPECT', request.permission='OBJECT_READ'}"
+    "Allow group ${oci_identity_group.backup_uploaders.name} to manage objects in compartment id ${var.compartment_ocid} where all {target.bucket.name='${oci_objectstorage_bucket.backups.name}', any {request.permission='OBJECT_CREATE', request.permission='OBJECT_INSPECT', request.permission='OBJECT_READ'}}"
   ]
   freeform_tags = local.effective_tags
 }
+
+# --- Dedicated Writer IAM User and S3 Customer Secret Key (host VMs, append-only) ---
 
 resource "oci_identity_user" "backup_writer" {
   compartment_id = var.tenancy_ocid
   name           = "homelab-backup-writer"
   description    = "Dedicated service user for append-only Restic S3 backups"
+  email          = local.backup_writer_email
   freeform_tags  = local.effective_tags
 }
 
@@ -114,6 +117,7 @@ resource "oci_identity_user" "backup_pruner" {
   compartment_id = var.tenancy_ocid
   name           = "homelab-backup-pruner"
   description    = "Dedicated service user for scheduled Restic repository pruning"
+  email          = local.backup_pruner_email
   freeform_tags  = local.effective_tags
 }
 
@@ -135,5 +139,3 @@ resource "oci_identity_customer_secret_key" "backup_pruner" {
   display_name = "homelab-restic-backup-pruner-s3-key"
   user_id      = oci_identity_user.backup_pruner.id
 }
-
-

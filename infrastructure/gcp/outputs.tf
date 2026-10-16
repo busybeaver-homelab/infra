@@ -82,7 +82,6 @@ output "backup_prune_hmac_secret" {
   sensitive   = true
 }
 
-
 output "budget_name" {
   value       = google_billing_budget.monthly_spend_limit.name
   description = "Resource name of the mandatory $1 monthly GCP billing budget."

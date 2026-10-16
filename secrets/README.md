@@ -339,7 +339,8 @@ Restic repository encryption passwords remain in the canonical SOPS files, where
 | `cloudflare_restic.password` | Restic repository encryption password for secondary R2 DR copies | `configuration/group_vars/cloud.yml`, `scripts/sync-ops-secrets.sh` |
 
 - **Ansible Runtime Delivery:** `configuration/playbooks/cloud.yml` executes `scripts/get-tofu-restic-vars.sh` in memory (`no_log: true`) to populate `tofu_oci_restic`, `tofu_gcp_restic`, and `tofu_cloudflare_restic` without writing sensitive S3 keys to disk.
-- **GitHub `ops` Environment Sync:** After applying `oci`, `gcp`, `cloudflare`, or `monitoring` OpenTofu changes (or rotating Restic passwords), run `mise run github:sync:ops` (`scripts/sync-ops-secrets.sh`) to synchronize the privileged prune S3 credentials and Restic passwords into the GitHub `ops` environment for `.github/workflows/backup-prune.yml`.
+- **GitHub `ops` Environment Sync:** After applying `oci`, `gcp`, `cloudflare`, or `monitoring` OpenTofu changes (or rotating Restic passwords), run `mise run github:sync:ops` (`scripts/sync-ops-secrets.sh`) to synchronize the privileged prune S3 credentials and Restic passwords into the GitHub `ops` environment for `.github/workflows/backup-prune.yml`. Preview with `bash scripts/sync-ops-secrets.sh --dry-run`. It writes 16 secrets, `{OCI,GCP,R2}_RESTIC_{S3_ENDPOINT,BUCKET,PRUNE_ACCESS_KEY_ID,PRUNE_SECRET_ACCESS_KEY,PASSWORD}` plus `HEALTHCHECKS_BACKUP_PRUNE_PING_URL`, and validates all of them before the first write.
+- **Optional `oci.backup_service_user_email`:** OCI tenancies with identity domains reject IAM users that have no email. If `tofu apply` fails on `oci_identity_user.backup_writer` with HTTP 400, set this key in both SOPS files (a distinct decoy address in the CI file). `infrastructure/oci` plus-addresses it as `+restic-writer` and `+restic-pruner`. Leave it unset on legacy tenancies.
 
 ### Host Secret Delivery (systemd Encrypted Credentials)
 
