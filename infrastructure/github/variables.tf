@@ -6,16 +6,18 @@ variable "secrets_file_path" {
 
 variable "github_token" {
   type        = string
-  description = "Personal Access Token for GitHub authentication (overrides SOPS if provided)."
+  description = "Personal Access Token for GitHub authentication (sourced from SOPS github.token when null)."
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
 }
 
 variable "github_owner" {
   type        = string
-  description = "The target GitHub organization or user account (overrides SOPS if provided)."
+  description = "The target GitHub organization or user account (sourced from SOPS github.owner when null)."
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
 }
 
 
@@ -84,13 +86,14 @@ variable "ops_secrets" {
 
 variable "sops_age_key_ci" {
   type        = string
-  description = "Override for the single CI age identity uploaded to GitHub. Empty (default) reads production SOPS `github.ci_age_key`."
+  description = "Override for the single CI age identity uploaded to GitHub. Null (default) reads production SOPS `github.ci_age_key`."
   sensitive   = true
-  default     = ""
+  nullable    = true
+  default     = null
 
   validation {
-    condition     = var.sops_age_key_ci == "" || can(regex("^AGE-SECRET-KEY-1[0-9A-Z]{58}$", var.sops_age_key_ci))
-    error_message = "sops_age_key_ci must be empty or exactly one age identity (AGE-SECRET-KEY-1...), not a keyring file."
+    condition     = var.sops_age_key_ci == null || var.sops_age_key_ci == "" || can(regex("^AGE-SECRET-KEY-1[0-9A-Z]{58}$", var.sops_age_key_ci))
+    error_message = "sops_age_key_ci must be null/empty or exactly one age identity (AGE-SECRET-KEY-1...), not a keyring file."
   }
 }
 

@@ -13,9 +13,8 @@ pre-commit:
 
     # OpenTofu Linter
     tofu-lint:
-      root: "infrastructure/"
-      glob: "*.tf"
-      run: tflint --recursive
+      glob: "infrastructure/**/*.{tf,tofu}"
+      run: tflint --recursive --config "$PWD/.tflint.hcl"
 
     # Auto-generate OpenTofu documentation
     terraform-docs:
@@ -213,3 +212,14 @@ pre-push:
     guard-main-push:
       use_stdin: true
       run: bash scripts/guard-main-push.sh
+    tofu-lint:
+      glob: "infrastructure/**/*.tf"
+      run: mise exec -- tflint --recursive --config "$PWD/.tflint.hcl"
+    tofu-validate:
+      glob: "infrastructure/**/*.tf"
+      run: |
+        for d in infrastructure/*/; do
+          [[ -f "${d}main.tf" ]] || continue
+          mise exec -- tofu -chdir="$d" init -backend=false -input=false >/dev/null
+          mise exec -- tofu -chdir="$d" validate
+        done

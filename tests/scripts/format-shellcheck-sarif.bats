@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Tests for scripts/format-shellcheck-sarif.py
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   SCRIPT="$REPO_ROOT/scripts/format-shellcheck-sarif.py"

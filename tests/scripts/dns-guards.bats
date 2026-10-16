@@ -2,6 +2,8 @@
 # Static guards for the NextDNS (infrastructure/dns) module:
 # lifecycle protections, provider aliasing, SOPS mocking, and sensitive-value leak guards.
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   DNS="$REPO_ROOT/infrastructure/dns"

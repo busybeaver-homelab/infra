@@ -79,7 +79,7 @@
       description: "Custom dependency version tracking for Bash and Shell scripts via comment annotations",
       managerFilePatterns: ["^scripts/.*\\.sh$"],
       matchStrings: [
-        '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+[A-Za-z0-9_]+_VERSION="?(?<currentValue>[^"\\s]+)"?',
+        '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+[A-Za-z0-9_]+_VERSION="?(?<currentValue>[^"@\\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?"?',
       ],
     },
     {
@@ -100,6 +100,37 @@
       managerFilePatterns: ["^configuration/roles/docker_compose_service/defaults/main\\.yml$"],
       matchStrings: [
         '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)\\s+docker_compose_service_cosign_version:\\s*"(?<currentValue>[^"]+)"',
+      ],
+    },
+    {
+      customType: "regex",
+      description: "Track OpenTofu required_version constraints in infrastructure/**/opentofu.tofu against opentofu/opentofu releases (R2-REN-02)",
+      managerFilePatterns: ["^infrastructure/.+/opentofu\\.tofu$"],
+      matchStrings: [
+        '(?:# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+)?required_version\\s*=\\s*"(?:~>|>=|=)?\\s*(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)"',
+      ],
+      depNameTemplate: "{{#if depName}}{{{depName}}}{{else}}opentofu/opentofu{{/if}}",
+      datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
+      extractVersionTemplate: "^v?(?<version>.*)$",
+    },
+    {
+      customType: "regex",
+      description: "Track Molecule container image tags and digests in configuration/**/molecule/*/molecule.yml (R2-REN-04)",
+      managerFilePatterns: ["^configuration/(?:.+/)?molecule/[^/]+/molecule\\.ya?ml$"],
+      matchStrings: [
+        'image:\\s*["\']?(?<depName>[a-z0-9._/-]+):(?<currentValue>[A-Za-z0-9._-]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?["\']?',
+      ],
+      datasourceTemplate: "docker",
+    },
+    {
+      customType: "regex",
+      description: "Track npx CLI package versions in mise.toml and Bats tests via comment annotations (R2-MISE-04)",
+      managerFilePatterns: [
+        "^mise\\.toml$",
+        "^tests/scripts/.*\\.bats$",
+      ],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)\\s+[^\n]*?npx(?:\\s+--[a-z-]+)*\\s+(?:--package\\s+)?[a-z0-9@/._-]+@(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)',
       ],
     },
   ],
@@ -334,7 +365,6 @@
       matchDepTypes: ["required_version"],
       enabled: false,
     },
-
     // 15. Sigstore Cosign binary pin (requires updating per-arch SHA-256 checksums in defaults/main.yml)
     {
       description: "Require human review for Sigstore Cosign updates so per-arch SHA-256 checksums are updated",
@@ -342,6 +372,14 @@
       semanticCommitType: "chore",
       semanticCommitScope: "deps/ansible",
       automerge: false,
+    },
+
+    // 16. Mise lockfile maintenance (R2-REN-05): scripts/mise-lock.sh manages .mise/locks sidecars
+    {
+      description: "Disable lockFileMaintenance for mise; scripts/mise-lock.sh manages .mise/locks sidecars",
+      matchManagers: ["mise"],
+      matchUpdateTypes: ["lockFileMaintenance"],
+      enabled: false,
     },
   ],
 }

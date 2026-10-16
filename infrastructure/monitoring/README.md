@@ -33,10 +33,11 @@ Declarative monitoring and heartbeat check resources managed via OpenTofu and th
 
 ## Requirements
 
-| Name                                                                                    | Version |
-| --------------------------------------------------------------------------------------- | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)                | 1.16.6  |
-| <a name="requirement_healthchecksio"></a> [healthchecksio](#requirement_healthchecksio) | 2.3.0   |
+| Name                                                                                    | Version   |
+| --------------------------------------------------------------------------------------- | --------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)                | ~> 1.13.1 |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)                | ~> 1.13.1 |
+| <a name="requirement_healthchecksio"></a> [healthchecksio](#requirement_healthchecksio) | 2.3.0     |
 
 ## Providers
 

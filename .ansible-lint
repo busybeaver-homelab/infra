@@ -2,15 +2,18 @@
 # .ansible-lint
 # Configure ansible-lint to use the strict production profile
 profile: production
+offline: true
 
 # Exclude paths that do not contain Ansible content
 exclude_paths:
   - .venv/
   - .agent/
   - .agents/
+  - .ansible/
   - .ruff_cache/
   - .worktrees/
   - apps/
+  - configuration/.galaxy/
   - infrastructure/
   - secrets/
   - scripts/

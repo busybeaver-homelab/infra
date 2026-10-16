@@ -1,7 +1,7 @@
 resource "github_repository" "repo" {
   #checkov:skip=CKV_GIT_1:Repository visibility is configurable and defaults to public for open-source homelab infrastructure
   name        = var.repository_name
-  description = var.description
+  description = var.description != null ? var.description : ""
   # kics-scan ignore-line
   visibility             = var.visibility
   has_issues             = false
@@ -110,6 +110,14 @@ resource "github_repository_ruleset" "main_protection" {
       required_check {
         context        = "CI Gate"
         integration_id = 15368 # GitHub Actions: only Actions can satisfy the required check
+      }
+    }
+
+    required_code_scanning {
+      required_code_scanning_tool {
+        tool                      = "CodeQL"
+        alerts_threshold          = "errors"
+        security_alerts_threshold = "high_or_higher"
       }
     }
 

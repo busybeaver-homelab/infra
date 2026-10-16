@@ -416,4 +416,12 @@ run "ruleset_bypass_and_required_check_follow_owner_decision" {
     condition     = github_repository_ruleset.main_protection.rules[0].required_linear_history == true
     error_message = "main must keep linear history (no merge commits, also for owner local merges)."
   }
+
+  assert {
+    condition = anytrue([
+      for t in github_repository_ruleset.main_protection.rules[0].required_code_scanning[0].required_code_scanning_tool :
+      t.tool == "CodeQL" && t.alerts_threshold == "errors" && t.security_alerts_threshold == "high_or_higher"
+    ])
+    error_message = "Main branch ruleset must require CodeQL code scanning with alerts_threshold = errors and security_alerts_threshold = high_or_higher (R2-CI-07)."
+  }
 }

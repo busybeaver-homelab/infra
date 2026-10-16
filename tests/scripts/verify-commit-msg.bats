@@ -25,7 +25,7 @@ run_verify() {
   git init -q -b "${branch}" 2>/dev/null || (git init -q && git checkout -q -b "${branch}")
 
   local msg_file="${mock_repo}/COMMIT_MSG"
-  printf '%s\n' "${commit_msg}" > "${msg_file}"
+  printf '%s\n' "${commit_msg}" >"${msg_file}"
 
   run bash "${VERIFY_SCRIPT}" "${msg_file}"
 }
@@ -119,7 +119,7 @@ run_verify() {
   git checkout -q --detach HEAD
 
   local msg_file="${mock_repo}/COMMIT_MSG"
-  printf '%s\n' "feat(test): detached head commit" > "${msg_file}"
+  printf '%s\n' "feat(test): detached head commit" >"${msg_file}"
 
   run bash "${VERIFY_SCRIPT}" "${msg_file}"
   [ "$status" -eq 0 ]
@@ -135,6 +135,10 @@ run_verify() {
   [ "$status" -eq 0 ]
 }
 
+@test "verify-commit-msg.sh passes on exempt branch matching gh-readonly-queue/*" {
+  run_verify "gh-readonly-queue/main/pr-95-1c99bc538e83bbde3af94ec8153c453df6b030ab" "feat(ci): merge queue commit"
+  [ "$status" -eq 0 ]
+}
 
 @test "verify-commit-msg.sh fails on branch missing scope (only 2 segments)" {
   run_verify "feat/only-desc" "feat(test): missing scope in branch"
@@ -163,4 +167,47 @@ run_verify() {
 @test "verify-commit-msg.sh fails when commit message file argument is missing or unreadable" {
   run bash "${VERIFY_SCRIPT}" "${BATS_TMPDIR}/nonexistent-file"
   [ "$status" -ne 0 ]
+}
+
+# --- --subject Mode & Git-Generated Merge/Revert Tests ---
+
+@test "verify-commit-msg.sh --subject passes on valid conventional commit subject regardless of current branch" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  rm -rf "${mock_repo}"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q -b "gh-readonly-queue/main/pr-95-deadbeef" 2>/dev/null || (git init -q && git checkout -q -b "gh-readonly-queue/main/pr-95-deadbeef")
+
+  run bash "${VERIFY_SCRIPT}" --subject "feat(ci): enforce pr title and commitlint"
+  [ "$status" -eq 0 ]
+}
+
+@test "verify-commit-msg.sh --subject fails on invalid subject" {
+  run bash "${VERIFY_SCRIPT}" --subject "update ci workflow"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Conventional Commits" ]]
+}
+
+@test "verify-commit-msg.sh --subject fails when subject argument is empty or missing" {
+  run bash "${VERIFY_SCRIPT}" --subject ""
+  [ "$status" -ne 0 ]
+
+  run bash "${VERIFY_SCRIPT}" --subject
+  [ "$status" -ne 0 ]
+}
+
+@test "verify-commit-msg.sh allows git-generated Merge subjects in file and --subject modes" {
+  run_verify "feat/ci/merge-test" "Merge branch 'main' into feat/ci/merge-test"
+  [ "$status" -eq 0 ]
+
+  run bash "${VERIFY_SCRIPT}" --subject "Merge pull request #42 from owner/feat/ci/merge-test"
+  [ "$status" -eq 0 ]
+}
+
+@test "verify-commit-msg.sh allows git-generated Revert subjects in file and --subject modes" {
+  run_verify "fix/ci/revert-test" 'Revert "feat(ci): add gate"'
+  [ "$status" -eq 0 ]
+
+  run bash "${VERIFY_SCRIPT}" --subject 'Revert "feat(ci): add gate"'
+  [ "$status" -eq 0 ]
 }

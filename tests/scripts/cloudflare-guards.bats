@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Static guards for the Cloudflare module: lifecycle protections must never be removed silently.
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   CF="$REPO_ROOT/infrastructure/cloudflare"

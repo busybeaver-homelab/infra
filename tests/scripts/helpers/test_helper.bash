@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Shared setup helpers for Bats test suites.
 
+bats_require_minimum_version 1.5.0
+if ((BASH_VERSINFO[0] < 4)); then
+  echo "ERROR: Bash 4+ required (found ${BASH_VERSION}). Run via 'mise exec -- bats'." >&2
+  exit 1
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME}")/../.." && pwd)"
 export SCRIPTS_DIR="${REPO_ROOT}/scripts"
 

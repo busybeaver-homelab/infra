@@ -17,13 +17,33 @@
       register: pkg_check
       failed_when: pkg_check.changed
 
-    - name: Verify dedicated docker service user was created
-      ansible.builtin.user:
-        name: dockerapp
-        state: present
-      check_mode: true
-      register: user_check
-      failed_when: user_check.changed
+    - name: Verify /etc/hosts is managed and resolves localhost and inventory hostname
+      ansible.builtin.slurp:
+        src: /etc/hosts
+      register: gcp_hosts_content
+
+    - name: Assert /etc/hosts contains managed header, localhost, and hostname entries
+      ansible.builtin.assert:
+        that:
+          - "'Ansible managed' in (gcp_hosts_content.content | b64decode)"
+          - "'127.0.0.1 localhost' in (gcp_hosts_content.content | b64decode)"
+          - "inventory_hostname in (gcp_hosts_content.content | b64decode)"
+        fail_msg: "/etc/hosts was not rendered as expected by base_ubuntu_server"
+
+    - name: Check IPv4 forwarding sysctl set by devsec.hardening.os_hardening
+      ansible.builtin.command:
+        argv:
+          - sysctl
+          - -n
+          - net.ipv4.ip_forward
+      register: gcp_ip_forward_sysctl
+      changed_when: false
+
+    - name: Assert net.ipv4.ip_forward is enabled
+      ansible.builtin.assert:
+        that:
+          - gcp_ip_forward_sysctl.stdout | trim == '1'
+        fail_msg: "Expected net.ipv4.ip_forward to be 1, got '{{ gcp_ip_forward_sysctl.stdout | trim }}'"
 
     - name: Gather service facts
       ansible.builtin.service_facts:

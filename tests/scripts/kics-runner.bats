@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Tests for scripts/run-kics.sh
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   RUNNER="$REPO_ROOT/scripts/run-kics.sh"

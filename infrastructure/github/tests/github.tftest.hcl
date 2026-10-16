@@ -82,6 +82,14 @@ run "verify_github_root_hardening" {
   }
 
   assert {
+    condition = anytrue([
+      for t in module.repository["infra"].ruleset_required_code_scanning_tools :
+      t.tool == "CodeQL" && t.alerts_threshold == "errors" && t.security_alerts_threshold == "high_or_higher"
+    ])
+    error_message = "Main branch ruleset must require CodeQL code scanning with alerts_threshold = errors and security_alerts_threshold = high_or_higher (R2-CI-07)"
+  }
+
+  assert {
     condition     = module.repository["infra"].ci_deployment_branch_patterns == tolist(["gh-readonly-queue/main/*", "main", "refs/pull/*/merge"])
     error_message = "CI environment must allow only main, pull_request merge refs and merge queue groups (STD-CI-23)"
   }

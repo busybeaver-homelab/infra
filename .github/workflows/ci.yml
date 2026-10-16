@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, edited, synchronize, reopened]
     branches: [main]
   merge_group:
     types: [checks_requested]
@@ -19,15 +20,47 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
+  pr-metadata:
+    name: Verify PR Metadata
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify PR title follows Conventional Commits
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: bash scripts/verify-commit-msg.sh --subject "$PR_TITLE"
+
+      - name: Verify PR branch name convention
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if ! [[ "$HEAD_REF" =~ ^(renovate/.+|(feat|fix|chore|docs|refactor|test|ci|perf|style|build)/[a-z0-9-]+/[a-z0-9._-]+)$ ]]; then
+            echo "Error: Branch '$HEAD_REF' does not match <type>/<scope>/<short-desc> or renovate/*" >&2
+            exit 1
+          fi
+
   changes:
     name: Detect Changed Paths
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     permissions:
       contents: read
+    timeout-minutes: 5
     outputs:
       lint: ${{ steps.filter.outputs.lint }}
       shell: ${{ steps.filter.outputs.shell }}
@@ -35,6 +68,11 @@ jobs:
       ansible: ${{ steps.filter.outputs.ansible }}
       molecule: ${{ steps.filter.outputs.molecule }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,43 +84,44 @@ jobs:
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
+            toolchain: &toolchain
+              - 'mise.toml'
+              - 'mise.lock'
+              - '.mise/locks/**'
+              - '.github/actions/**'
+              - '.github/workflows/ci.yml'
+              - 'pyproject.toml'
+              - 'uv.lock'
             lint:
+              - *toolchain
               - '**/*.{yml,yaml,json,md,py,sh,tf,hcl,toml}'
-              - '.python-version'
               - '.tflint.hcl'
               - 'lefthook.yml'
-              - 'mise.lock'
-              - 'uv.lock'
               - '.github/**'
             shell:
+              - *toolchain
               - 'scripts/**'
               - 'tests/scripts/**'
               - 'configuration/roles/docker_compose_service/files/**'
               - 'infrastructure/cloudflare/**'
               - 'infrastructure/dns/**'
               - '.github/**'
-              - 'mise.toml'
-              - 'mise.lock'
-              - 'pyproject.toml'
-              - 'uv.lock'
-              - '.python-version'
             tofu:
+              - *toolchain
               - 'infrastructure/**'
-              - '.github/workflows/ci.yml'
+              - '.tflint.hcl'
             ansible:
+              # Includes *toolchain (pyproject.toml, uv.lock, mise.toml, mise.lock, .mise/locks/**)
+              - *toolchain
               - 'configuration/**'
               - 'secrets/credentials.ci.sops.yaml'
-              - '.github/workflows/ci.yml'
-              - 'pyproject.toml'
-              - 'uv.lock'
-              - '.python-version'
+              - 'ansible.cfg'
             molecule:
+              # Includes *toolchain (pyproject.toml, uv.lock, mise.toml, mise.lock, .mise/locks/**)
+              - *toolchain
               - 'configuration/**'
               - 'secrets/credentials.ci.sops.yaml'
-              - '.github/workflows/ci.yml'
-              - 'pyproject.toml'
-              - 'uv.lock'
-              - '.python-version'
+              - 'ansible.cfg'
 
   lint-format:
     name: Code Quality and Lint Checks
@@ -94,6 +133,11 @@ jobs:
       contents: read
     timeout-minutes: 10
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -145,8 +189,18 @@ jobs:
       - name: Verify git-crypt Encryption
         run: mise exec -- bash scripts/verify-git-crypt.sh --all
 
-      - name: Verify zero uncommitted formatting diff
-        run: git diff --no-textconv --exit-code
+      - name: Verify mise.lock is in sync with mise.toml
+        run: mise exec -- mise lock --dry-run
+
+      - name: Verify OpenTofu README docs are up to date
+        run: git ls-files 'infrastructure/**/*.tf' | xargs bash scripts/generate-tf-docs.sh
+
+      - name: Verify zero formatting / generated-docs drift
+        run: |
+          if ! git diff --no-textconv --exit-code HEAD; then
+            echo "::error::Formatting or generated-docs drift detected. Run 'mise run fmt' and 'scripts/generate-tf-docs.sh' locally and commit the changes."
+            exit 1
+          fi
 
   shell-bats:
     name: Script Tests (Bats-core)
@@ -157,6 +211,11 @@ jobs:
       contents: read
     timeout-minutes: 10
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -174,7 +233,7 @@ jobs:
   tofu-validate:
     name: OpenTofu Validation & Tests
     needs: changes
-    if: always() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.tofu == 'true')
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.tofu == 'true'
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     permissions:
       contents: read
@@ -184,6 +243,11 @@ jobs:
       TF_VAR_state_encryption_passphrase: ci-validation-dummy-passphrase-32ch
       TOFU_STATE_PASSPHRASE: ci-validation-dummy-passphrase-32ch
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -208,7 +272,7 @@ jobs:
         run: mise exec -- tofu fmt -check -recursive infrastructure/
 
       - name: Run TFLint
-        run: mise exec -- tflint --recursive
+        run: mise exec -- tflint --recursive --config "$PWD/.tflint.hcl"
 
       - name: Validate OpenTofu Modules
         run: |
@@ -218,9 +282,17 @@ jobs:
           done
 
       - name: Run Native OpenTofu Tests
+        run: mise run test:infra
+
+      - name: Run OpenTofu child-module unit tests
+        run: mise run test:tofu:children
+
+      - name: Verify OpenTofu provider lockfiles cover linux_amd64 and darwin_arm64
         run: |
-          mise run test:infra
-          mise run test:tofu:children
+          for lock in infrastructure/*/.terraform.lock.hcl; do
+            echo "Checking $lock"
+            grep -q 'zh:' "$lock" || { echo "::error::$lock is missing zh: hashes (run 'mise run tofu:lock')"; exit 1; }
+          done
 
   ansible-check:
     name: Ansible Lint & Syntax Check
@@ -232,6 +304,10 @@ jobs:
       contents: read
     timeout-minutes: 20
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -305,6 +381,11 @@ jobs:
           - gcp
           - homelab
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -402,6 +483,7 @@ jobs:
     name: CI Gate
     if: always()
     needs:
+      - pr-metadata
       - changes
       - lint-format
       - shell-bats
@@ -411,13 +493,28 @@ jobs:
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     permissions:
       contents: read
+    timeout-minutes: 5
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
       - name: Aggregate CI Status
         env:
+          EVENT_NAME: ${{ github.event_name }}
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
           echo "=== Evaluating CI Job Results ==="
           echo "${NEEDS_JSON}" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            pr_meta_result=$(echo "${NEEDS_JSON}" | jq -r '.["pr-metadata"].result // "missing"')
+            if [ "${pr_meta_result}" != "success" ]; then
+              echo "Error: pr-metadata must succeed on pull_request events (got: ${pr_meta_result})."
+              exit 1
+            fi
+          fi
 
           failed_jobs=$(echo "${NEEDS_JSON}" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | .key')
 

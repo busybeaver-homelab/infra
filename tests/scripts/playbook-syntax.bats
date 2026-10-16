@@ -71,28 +71,8 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "configuration/molecule/site configures mock harness for site and unifi playbooks" {
-  local mol="$REPO_ROOT/configuration/molecule/site/molecule.yml"
-  local conv="$REPO_ROOT/configuration/molecule/site/converge.yml"
-  local ver="$REPO_ROOT/configuration/molecule/site/verify.yml"
-
-  [ -f "$mol" ]
-  [ -f "$conv" ]
-  [ -f "$ver" ]
-
-  run yq eval '.platforms[0].groups[]' "$mol"
-  [ "$status" -eq 0 ]
-  grep -q "^cloud$" <<<"$output"
-  grep -q "^homelab$" <<<"$output"
-  grep -q "^oci$" <<<"$output"
-  grep -q "^gcp$" <<<"$output"
-  grep -q "^unifi$" <<<"$output"
-
-  run grep "site.yml --syntax-check" "$conv"
-  [ "$status" -eq 0 ]
-
-  run grep "unifi.yml --syntax-check" "$conv"
-  [ "$status" -eq 0 ]
+@test "vacuous configuration/molecule/site scenario is removed in favor of real docker scenarios (R2-ANS-11)" {
+  [ ! -e "$REPO_ROOT/configuration/molecule/site" ]
 }
 
 @test "configuration/molecule/homelab configures Ubuntu 26.04 docker platform for homelab" {
@@ -550,7 +530,7 @@ setup() {
 
   run yq eval '.collections[] | select(.name == "community.general") | .version' "$req"
   [ "$status" -eq 0 ]
-  [ "$output" = "10.4.0" ]
+  [ "$output" = "13.5.0" ]
 
   run yq eval '.collections[] | select(.name == "cloud.terraform") | .version' "$req"
   [ "$status" -eq 0 ]
@@ -559,6 +539,10 @@ setup() {
   run yq eval '.collections[] | select(.name == "community.docker") | .version' "$req"
   [ "$status" -eq 0 ]
   [ "$output" = "5.4.0" ]
+
+  run yq eval '.collections[] | select(.name == "devsec.hardening") | .version' "$req"
+  [ "$status" -eq 0 ]
+  [ "$output" = "11.0.0" ]
 }
 
 @test "all collection references in configuration are declared in requirements.yml or ansible.builtin" {

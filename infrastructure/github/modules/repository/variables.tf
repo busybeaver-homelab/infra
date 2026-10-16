@@ -6,8 +6,9 @@ variable "repository_name" {
 
 variable "description" {
   type        = string
-  description = "A description of the repository."
-  default     = ""
+  description = "Optional description of the repository (defaults to empty description when null)."
+  nullable    = true
+  default     = null
 }
 
 variable "topics" {

@@ -76,12 +76,13 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 
 ## Requirements
 
-| Name                                                                        | Version |
-| --------------------------------------------------------------------------- | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | 1.16.6  |
-| <a name="requirement_cloudflare"></a> [cloudflare](#requirement_cloudflare) | 5.28.0  |
-| <a name="requirement_external"></a> [external](#requirement_external)       | 2.4.2   |
-| <a name="requirement_sops"></a> [sops](#requirement_sops)                   | 1.4.1   |
+| Name                                                                        | Version   |
+| --------------------------------------------------------------------------- | --------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | ~> 1.13.1 |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform)    | ~> 1.13.1 |
+| <a name="requirement_cloudflare"></a> [cloudflare](#requirement_cloudflare) | 5.28.0    |
+| <a name="requirement_external"></a> [external](#requirement_external)       | 2.4.2     |
+| <a name="requirement_sops"></a> [sops](#requirement_sops)                   | 1.4.1     |
 
 ## Providers
 

@@ -2,12 +2,13 @@
 
 ## Requirements
 
-| Name                                                                     | Version |
-| ------------------------------------------------------------------------ | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | 1.16.6  |
-| <a name="requirement_external"></a> [external](#requirement_external)    | 2.4.2   |
-| <a name="requirement_google"></a> [google](#requirement_google)          | 8.7.0   |
-| <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1   |
+| Name                                                                     | Version   |
+| ------------------------------------------------------------------------ | --------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | ~> 1.13.1 |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | ~> 1.13.1 |
+| <a name="requirement_external"></a> [external](#requirement_external)    | 2.4.2     |
+| <a name="requirement_google"></a> [google](#requirement_google)          | 8.7.0     |
+| <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1     |
 
 ## Providers
 
@@ -60,7 +61,7 @@
 | <a name="input_gcp_zone"></a> [gcp\_zone](#input_gcp_zone)                                                           | The Google Cloud availability zone within gcp\_region (e.g., us-central1-a).                                                                       | `string`       | `"us-central1-a"`                                                                        |    no    |
 | <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input_secrets_file_path)                               | Path to the canonical SOPS credentials file (defaults to production credentials).                                                                  | `string`       | `"../../secrets/credentials.sops.yaml"`                                                  |    no    |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | State and plan encryption passphrase. Source: production SOPS opentofu.state\_encryption\_passphrase. No default, so a missing value fails closed. | `string`       | n/a                                                                                      |   yes    |
-| <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input_tailscale_auth_key)                            | Tailscale authentication key for instance bootstrapping (overrides SOPS gcp.tailscale\_auth\_key if non-empty).                                    | `string`       | `""`                                                                                     |    no    |
+| <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input_tailscale_auth_key)                            | Tailscale authentication key for instance bootstrapping (sourced from SOPS gcp.tailscale\_auth\_key when null).                                    | `string`       | `null`                                                                                   |    no    |
 | <a name="input_tailscale_common_tags"></a> [tailscale\_common\_tags](#input_tailscale_common_tags)                   | Common Tailscale tags applied across all cloud instances.                                                                                          | `list(string)` | <pre>[<br/> "tag:type-server",<br/> "tag:os-linux",<br/> "tag:hosting-cloud"<br/>]</pre> |    no    |
 | <a name="input_tailscale_extra_tags_gcp"></a> [tailscale\_extra\_tags\_gcp](#input_tailscale_extra_tags_gcp)         | GCP-specific Tailscale tags applied to the GCP compute instance.                                                                                   | `list(string)` | <pre>[<br/> "tag:location-us",<br/> "tag:env-gcp"<br/>]</pre>                            |    no    |
 | <a name="input_vpc_subnet_cidr"></a> [vpc\_subnet\_cidr](#input_vpc_subnet_cidr)                                     | IPv4 CIDR block for the private GCP compute subnetwork (sourced from SOPS gcp.subnet\_cidr when null).                                             | `string`       | `null`                                                                                   |    no    |

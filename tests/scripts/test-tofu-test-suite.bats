@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 }

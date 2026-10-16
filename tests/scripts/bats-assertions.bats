@@ -22,7 +22,7 @@ find_ineffective_assertions() {
     $0 ~ /^[[:space:]]*(#.*)?$/ { next }
     {
       if (pending != "") {
-        if ($0 !~ /^[[:space:]]*}[[:space:]]*$/) print pending
+        if ($0 !~ /^[[:space:]]*(}|done([[:space:]].*)?)[[:space:]]*$/) print pending
         pending = ""
       }
       if ($0 ~ /^[[:space:]]+\[\[ .* \]\][[:space:]]*$/) pending = FILENAME ":" FNR

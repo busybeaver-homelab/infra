@@ -161,7 +161,6 @@ EOF
     [ "$output" = "true" ]
   done
 }
-
 @test "canonical secrets files define compose schema keys" {
   local targets=("homelab" "gcp" "oci-1")
   for target in "${targets[@]}"; do
@@ -184,4 +183,28 @@ EOF
       [ "$output" = "true" ]
     done
   done
+}
+
+@test "check-secrets-schema-parity.sh fails closed on malformed YAML input" {
+  local file_a="${BATS_TMPDIR}/malformed.yaml"
+  local file_b="${BATS_TMPDIR}/valid.yaml"
+
+  printf 'oci:\n  region: [unclosed\n' >"${file_a}"
+  printf 'oci:\n  region: synthetic\n' >"${file_b}"
+
+  run bash "${PARITY_SCRIPT}" "${file_a}" "${file_b}"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Failed to parse YAML" ]]
+}
+
+@test "check-secrets-schema-parity.sh fails closed when both files are empty" {
+  local file_a="${BATS_TMPDIR}/empty_a.yaml"
+  local file_b="${BATS_TMPDIR}/empty_b.yaml"
+
+  : >"${file_a}"
+  : >"${file_b}"
+
+  run bash "${PARITY_SCRIPT}" "${file_a}" "${file_b}"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "No secret keys found in" ]] || false
 }

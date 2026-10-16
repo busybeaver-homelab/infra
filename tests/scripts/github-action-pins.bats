@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Tests for pinned GitHub Actions commit SHAs across workflows and actions
 
+load 'helpers/test_helper'
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 }

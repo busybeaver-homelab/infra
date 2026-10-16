@@ -4,6 +4,7 @@
 # from secrets/credentials.ci.sops.yaml (CI) or secrets/credentials.sops.yaml (prod).
 
 base_ubuntu_server_timezone: "UTC"
+base_ubuntu_server_manage_hosts: true
 
 # Firewall settings (UFW & Docker chain isolation)
 base_ubuntu_server_firewall_enabled: true
