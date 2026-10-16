@@ -67,7 +67,7 @@ depends = ["check:python", "check:ansible", "check:shell", "check:general"]
 description = "Install pinned Ansible Galaxy roles and collections into configuration/.galaxy"
 run = """
 ansible-galaxy role install -r configuration/roles/requirements.yml --force -p configuration/.galaxy/roles
-ansible-galaxy collection install -r configuration/roles/requirements.yml --force -p configuration/.galaxy/collections
+ansible-galaxy collection install -r configuration/roles/requirements.yml --force --no-cache -p configuration/.galaxy/collections
 """
 
 [tasks."check:ansible"]

@@ -58,4 +58,4 @@ runs:
       shell: bash
       run: |
         mise exec -- ansible-galaxy role install -r configuration/roles/requirements.yml --force -p configuration/.galaxy/roles
-        mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml --force -p configuration/.galaxy/collections
+        mise exec -- ansible-galaxy collection install -r configuration/roles/requirements.yml --force --no-cache -p configuration/.galaxy/collections

@@ -134,10 +134,11 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
-@test "all Molecule scenarios use project-local .galaxy paths and never ~/.ansible/roles" {
+@test "all Molecule scenarios use project-local .galaxy paths, disable prerun, and never use ~/.ansible/roles" {
   local scenarios=(
     "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
     "configuration/roles/restic_backup/molecule/default/molecule.yml"
+    "configuration/roles/docker_compose_service/molecule/default/molecule.yml"
     "configuration/molecule/oci/molecule.yml"
     "configuration/molecule/gcp/molecule.yml"
     "configuration/molecule/homelab/molecule.yml"
@@ -149,6 +150,9 @@ teardown() {
 
     run grep -F '~/.ansible/roles' "$mol"
     [ "$status" -ne 0 ]
+
+    run grep -Fx 'prerun: false' "$mol"
+    [ "$status" -eq 0 ]
 
     run grep -F '.galaxy/roles' "$mol"
     [ "$status" -eq 0 ]
