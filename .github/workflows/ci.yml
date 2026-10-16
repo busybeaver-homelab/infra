@@ -57,6 +57,7 @@ jobs:
             shell:
               - 'scripts/**'
               - 'tests/scripts/**'
+              - 'configuration/roles/docker_compose_service/files/**'
               - 'infrastructure/cloudflare/**'
               - 'infrastructure/dns/**'
               - '.github/**'
@@ -299,6 +300,7 @@ jobs:
         scenario:
           - base_ubuntu_server
           - restic_backup
+          - docker_compose_service
           - oci
           - gcp
           - homelab
@@ -320,6 +322,7 @@ jobs:
           path: |
             configuration/roles/base_ubuntu_server/.cache/apt/archives
             configuration/roles/restic_backup/.cache/apt/archives
+            configuration/roles/docker_compose_service/.cache/apt/archives
             configuration/.cache/apt/oci/archives
             configuration/.cache/apt/gcp/archives
             configuration/.cache/apt/homelab/archives
@@ -341,6 +344,16 @@ jobs:
         if: matrix.scenario == 'restic_backup'
         run: |
           cd configuration/roles/restic_backup
+          mise exec -- molecule test
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
+
+      - name: Run Molecule test (docker_compose_service)
+        if: matrix.scenario == 'docker_compose_service'
+        run: |
+          cd configuration/roles/docker_compose_service
           mise exec -- molecule test
         env:
           PY_COLORS: "1"

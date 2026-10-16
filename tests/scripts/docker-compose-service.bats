@@ -34,9 +34,9 @@ render_templates() {
     "${BATS_TMPDIR}/var/lib/homelab-compose" \
     "${BATS_TMPDIR}/mock_server"
 
-  printf 'PUBLIC_KEY_STUB\n' > "${BATS_TMPDIR}/etc/containers/cosign.pub"
-  printf 'APP_SECRET=synthetic_value\nVOLUME_BASE_DIRECTORY=/srv/data\n' > "${BATS_TMPDIR}/creds/homelab_compose_env"
-  printf 'https://hc-ping.example.test/00000000-0000-0000-0000-000000000001' > "${BATS_TMPDIR}/creds/compose_healthchecks_ping_url"
+  printf 'PUBLIC_KEY_STUB\n' >"${BATS_TMPDIR}/etc/containers/cosign.pub"
+  printf 'APP_SECRET=synthetic_value\nVOLUME_BASE_DIRECTORY=/srv/data\n' >"${BATS_TMPDIR}/creds/homelab_compose_env"
+  printf 'https://hc-ping.example.test/00000000-0000-0000-0000-000000000001' >"${BATS_TMPDIR}/creds/compose_healthchecks_ping_url"
 
   python3 - "${RECONCILE_TEMPLATE}" "${CLEANUP_TEMPLATE}" "${BATS_TMPDIR}" "${allow_macvlan}" <<'PY'
 import sys
@@ -79,14 +79,14 @@ PY
   fi
 
   # Stub flock: runs the remaining command or acquires fd lock via real flock if present, else pass-through.
-  cat > "${BATS_TMPDIR}/bin/flock" <<'SH'
+  cat >"${BATS_TMPDIR}/bin/flock" <<'SH'
 #!/usr/bin/env bash
 echo "flock $*" >> "${BATS_TMPDIR}/flock.log"
 exit 0
 SH
 
   # Stub cosign: checks STUB_COSIGN_RC or STUB_COSIGN_ACCEPT_KEY.
-  cat > "${BATS_TMPDIR}/bin/cosign" <<'SH'
+  cat >"${BATS_TMPDIR}/bin/cosign" <<'SH'
 #!/usr/bin/env bash
 echo "cosign $*" >> "${BATS_TMPDIR}/cosign.log"
 key_arg=""
@@ -106,7 +106,7 @@ exit "${STUB_COSIGN_RC:-0}"
 SH
 
   # Stub curl: serves mock release metadata and assets, or records Healthchecks --config - stdin.
-  cat > "${BATS_TMPDIR}/bin/curl" <<'SH'
+  cat >"${BATS_TMPDIR}/bin/curl" <<'SH'
 #!/usr/bin/env bash
 echo "curl $*" >> "${BATS_TMPDIR}/curl.argv.log"
 out_file=""
@@ -165,7 +165,7 @@ esac
 SH
 
   # Stub docker: handles `docker compose ...` and cleanup subcommands (`ps`, `create`, `rm`, `container`, `image`, `network`, `builder`, `volume`).
-  cat > "${BATS_TMPDIR}/bin/docker" <<'SH'
+  cat >"${BATS_TMPDIR}/bin/docker" <<'SH'
 #!/usr/bin/env bash
 echo "docker $*" >> "${BATS_TMPDIR}/docker.log"
 
@@ -336,16 +336,16 @@ prepare_mock_release() {
   local release_file_content="${4:-${tag}}"
 
   mkdir -p "${BATS_TMPDIR}/mock_server"
-  printf '%s\n' "${release_file_content}" > "${BATS_TMPDIR}/mock_server/RELEASE"
-  printf '%s\n' "${content}" > "${BATS_TMPDIR}/mock_server/docker-compose.${target}.yaml"
-  printf 'services: {}\n' > "${BATS_TMPDIR}/mock_server/docker-compose.homelab.yaml"
+  printf '%s\n' "${release_file_content}" >"${BATS_TMPDIR}/mock_server/RELEASE"
+  printf '%s\n' "${content}" >"${BATS_TMPDIR}/mock_server/docker-compose.${target}.yaml"
+  printf 'services: {}\n' >"${BATS_TMPDIR}/mock_server/docker-compose.homelab.yaml"
   (
     cd "${BATS_TMPDIR}/mock_server"
-    LC_ALL=C sha256sum RELEASE "docker-compose.${target}.yaml" docker-compose.homelab.yaml | LC_ALL=C sort -k2 > SHA256SUMS
+    LC_ALL=C sha256sum RELEASE "docker-compose.${target}.yaml" docker-compose.homelab.yaml | LC_ALL=C sort -k2 >SHA256SUMS
   )
-  printf '{"mediaType":"application/vnd.dev.sigstore.bundle.v0.3+json"}\n' > "${BATS_TMPDIR}/mock_server/SHA256SUMS.sigstore.json"
+  printf '{"mediaType":"application/vnd.dev.sigstore.bundle.v0.3+json"}\n' >"${BATS_TMPDIR}/mock_server/SHA256SUMS.sigstore.json"
 
-  cat > "${BATS_TMPDIR}/mock_server/latest.json" <<JSON
+  cat >"${BATS_TMPDIR}/mock_server/latest.json" <<JSON
 {
   "tag_name": "${tag}",
   "assets": [
@@ -415,7 +415,7 @@ run_cleanup() {
   run grep -F 'url = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000001/fail"' "${BATS_TMPDIR}/curl.stdin.log"
   [ "$status" -eq 0 ]
 
-  printf 'missing' > "${BATS_TMPDIR}/creds/compose_healthchecks_ping_url"
+  printf 'missing' >"${BATS_TMPDIR}/creds/compose_healthchecks_ping_url"
   run env \
     PATH="${BATS_TMPDIR}/bin:${PATH}" \
     CREDENTIALS_DIRECTORY="${BATS_TMPDIR}/creds" \
@@ -431,7 +431,7 @@ run_cleanup() {
 
 @test "homelab-compose-credential-sync validates inputs and syncs idempotently without echoing secrets" {
   mkdir -p "${BATS_TMPDIR}/bin" "${BATS_TMPDIR}/credstore"
-  cat > "${BATS_TMPDIR}/bin/systemd-creds" <<'SH'
+  cat >"${BATS_TMPDIR}/bin/systemd-creds" <<'SH'
 #!/usr/bin/env bash
 case "$1" in
   encrypt)
@@ -509,7 +509,7 @@ SH
   [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release" ]
 
   # With cosign-next.pub present, fallback succeeds
-  printf 'NEXT_PUBLIC_KEY\n' > "${BATS_TMPDIR}/etc/containers/cosign-next.pub"
+  printf 'NEXT_PUBLIC_KEY\n' >"${BATS_TMPDIR}/etc/containers/cosign-next.pub"
   STUB_COSIGN_ACCEPT_KEY="${BATS_TMPDIR}/etc/containers/cosign-next.pub" run_reconcile
   [ "$status" -eq 0 ]
   [ -L "${BATS_TMPDIR}/opt/containers/current" ]
@@ -544,7 +544,7 @@ SH
 
   # 4. Missing target line in SHA256SUMS
   prepare_mock_release "v2026.10.16-4" "gcp" "services: {web: {image: 'v4'}}"
-  grep -v "docker-compose.gcp.yaml" "${BATS_TMPDIR}/mock_server/SHA256SUMS" > "${BATS_TMPDIR}/mock_server/SHA256SUMS.tmp"
+  grep -v "docker-compose.gcp.yaml" "${BATS_TMPDIR}/mock_server/SHA256SUMS" >"${BATS_TMPDIR}/mock_server/SHA256SUMS.tmp"
   mv "${BATS_TMPDIR}/mock_server/SHA256SUMS.tmp" "${BATS_TMPDIR}/mock_server/SHA256SUMS"
   run_reconcile
   [ "$status" -ne 0 ]
@@ -552,7 +552,7 @@ SH
 
   # 5. Checksum mismatch
   prepare_mock_release "v2026.10.16-5" "gcp" "services: {web: {image: 'v5'}}"
-  printf 'tampered\n' >> "${BATS_TMPDIR}/mock_server/docker-compose.gcp.yaml"
+  printf 'tampered\n' >>"${BATS_TMPDIR}/mock_server/docker-compose.gcp.yaml"
   run_reconcile
   [ "$status" -ne 0 ]
   [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
@@ -642,7 +642,7 @@ SH
   [ "$(readlink "${BATS_TMPDIR}/opt/containers/current")" = "${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-1" ]
   # Verify rollback up ran on v2026.10.16-1
   run tail -n 1 "${BATS_TMPDIR}/docker_up.log"
-  [[ "$output" == *"v2026.10.16-1"* ]]
+  [[ "$output" == *"v2026.10.16-1"* ]] || false
 
   # Next cycle while v2026.10.16-2 is still latest: skips download/deploy and exits 1
   rm -f "${BATS_TMPDIR}/docker_up.log"
@@ -665,7 +665,7 @@ SH
   [ "$status" -eq 1 ]
   [ "$(cat "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release")" = "v2026.10.16-1" ]
   [ ! -e "${BATS_TMPDIR}/opt/containers/current" ]
-  [ "$(wc -l < "${BATS_TMPDIR}/docker_up.log" | tr -d ' ')" -eq 1 ]
+  [ "$(wc -l <"${BATS_TMPDIR}/docker_up.log" | tr -d ' ')" -eq 1 ]
 }
 
 @test "reconcile: steady-state unhealthy current runs one repair up without rollback and exits 1" {
@@ -682,8 +682,8 @@ SH
   STUB_PS_JSON='[{"Service":"web","State":"running","Health":"unhealthy","ExitCode":0,"Labels":""},{"Service":"worker","State":"running","Health":"healthy","ExitCode":0,"Labels":""}]' \
     run_reconcile
   [ "$status" -eq 1 ]
-  [ "$(wc -l < "${BATS_TMPDIR}/docker_up.log" | tr -d ' ')" -eq 1 ]
-  [[ "$(cat "${BATS_TMPDIR}/docker_up.log")" == *"v2026.10.16-2"* ]]
+  [ "$(wc -l <"${BATS_TMPDIR}/docker_up.log" | tr -d ' ')" -eq 1 ]
+  [[ "$(cat "${BATS_TMPDIR}/docker_up.log")" == *"v2026.10.16-2"* ]] || false
   [ "$(readlink "${BATS_TMPDIR}/opt/containers/current")" = "${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-2" ]
 }
 
@@ -694,7 +694,7 @@ SH
   [ "$status" -eq 0 ]
 
   rm -f "${BATS_TMPDIR}/docker_up.log"
-  printf 'v2026.10.16-2\n' > "${BATS_TMPDIR}/var/lib/homelab-compose/deploying"
+  printf 'v2026.10.16-2\n' >"${BATS_TMPDIR}/var/lib/homelab-compose/deploying"
   prepare_mock_release "v2026.10.16-2" "gcp" "services: {web: {image: 'v2'}}"
   run_reconcile
   # Because v2026.10.16-2 was marked deploying, it gets quarantined, current (v1) is restored, and since latest==v2 (quarantined), it exits 1
@@ -729,21 +729,21 @@ SH
   run_reconcile
   [ "$status" -eq 0 ]
 
-  printf 'stale_hold_id_123\n' > "${BATS_TMPDIR}/stale_holds.txt"
+  printf 'stale_hold_id_123\n' >"${BATS_TMPDIR}/stale_holds.txt"
   STUB_MISSING_IMAGE="ghcr.io/example/web:v1" run_cleanup
   [ "$status" -eq 0 ]
   [ ! -e "${BATS_TMPDIR}/docker_volume_forbidden.log" ]
 
   run cat "${BATS_TMPDIR}/docker_holds.log"
-  [[ "$output" == *"rm -f stale_hold_id_123"* ]]
-  [[ "$output" == *"create --pull=never --label homelab.compose.hold=true"* ]]
-  [[ "$output" == *"rm -f homelab-hold-"* ]]
+  [[ "$output" == *"rm -f stale_hold_id_123"* ]] || false
+  [[ "$output" == *"create --pull=never --label homelab.compose.hold=true"* ]] || false
+  [[ "$output" == *"rm -f homelab-hold-"* ]] || false
 
   run cat "${BATS_TMPDIR}/docker_prune.log"
-  [[ "$output" == *"container prune --force --filter until=168h"* ]]
-  [[ "$output" == *"image prune --all --force --filter until=720h"* ]]
-  [[ "$output" == *"network prune --force --filter until=168h"* ]]
-  [[ "$output" == *"builder prune --all --force --filter until=720h"* ]]
+  [[ "$output" == *"container prune --force --filter until=168h"* ]] || false
+  [[ "$output" == *"image prune --all --force --filter until=720h"* ]] || false
+  [[ "$output" == *"network prune --force --filter until=168h"* ]] || false
+  [[ "$output" == *"builder prune --all --force --filter until=720h"* ]] || false
 
   # Verify EXIT trap still cleans up hold containers when image prune fails
   rm -f "${BATS_TMPDIR}/docker_holds.log"

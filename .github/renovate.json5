@@ -94,6 +94,14 @@
       ],
       datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
     },
+    {
+      customType: "regex",
+      description: "Track Sigstore Cosign version pin in docker_compose_service role defaults",
+      managerFilePatterns: ["^configuration/roles/docker_compose_service/defaults/main\\.yml$"],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)\\s+docker_compose_service_cosign_version:\\s*"(?<currentValue>[^"]+)"',
+      ],
+    },
   ],
 
   // Package rules for ecosystem-specific grouping, conventional commit scopes, and automerge policies
@@ -325,6 +333,15 @@
       matchManagers: ["terraform"],
       matchDepTypes: ["required_version"],
       enabled: false,
+    },
+
+    // 15. Sigstore Cosign binary pin (requires updating per-arch SHA-256 checksums in defaults/main.yml)
+    {
+      description: "Require human review for Sigstore Cosign updates so per-arch SHA-256 checksums are updated",
+      matchPackageNames: ["sigstore/cosign"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/ansible",
+      automerge: false,
     },
   ],
 }

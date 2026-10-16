@@ -139,3 +139,50 @@
         fail_msg: "Breakglass user password hash in /etc/shadow does not match expected SHA-512 hash"
         quiet: true
       no_log: true
+
+    - name: Check systemd enabled state of compose timers # noqa: command-instead-of-module
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-enabled
+          - "{{ item }}"
+      loop:
+        - homelab-compose-reconcile.timer
+        - homelab-docker-cleanup.timer
+      register: oci_compose_timers_enabled
+      changed_when: false
+
+    - name: Assert compose reconciler and cleanup timers are enabled
+      ansible.builtin.assert:
+        that:
+          - item.stdout | trim == 'enabled'
+        fail_msg: "Expected {{ item.item }} to be enabled, got '{{ item.stdout | trim }}'"
+      loop: "{{ oci_compose_timers_enabled.results }}"
+
+    - name: Stat /etc/containers/cosign.pub
+      ansible.builtin.stat:
+        path: /etc/containers/cosign.pub
+      register: oci_cosign_pub
+
+    - name: Assert /etc/containers/cosign.pub exists
+      ansible.builtin.assert:
+        that:
+          - oci_cosign_pub.stat.exists
+          - oci_cosign_pub.stat.mode == '0444'
+        fail_msg: "/etc/containers/cosign.pub is missing or has unexpected permissions"
+
+    - name: Read /etc/docker/daemon.json
+      ansible.builtin.slurp:
+        src: /etc/docker/daemon.json
+      register: oci_daemon_json
+
+    - name: Assert /etc/docker/daemon.json configures json-file log rotation and live-restore
+      vars:
+        daemon_cfg: "{{ oci_daemon_json.content | b64decode | from_json }}"
+      ansible.builtin.assert:
+        that:
+          - daemon_cfg['log-driver'] == 'json-file'
+          - daemon_cfg['log-opts']['max-size'] == '10m'
+          - daemon_cfg['log-opts']['max-file'] == '3'
+          - daemon_cfg['live-restore'] == true
+        fail_msg: "/etc/docker/daemon.json does not contain expected log rotation and live-restore options"

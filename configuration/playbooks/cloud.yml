@@ -27,7 +27,7 @@
     - name: Load SOPS credentials
       community.sops.load_vars:
         file: "{{ playbook_dir }}/../../secrets/{{ custom_sops_secrets_file | default('credentials.sops.yaml') }}"
-      when: (oci is not defined) or (gcp is not defined)
+      when: (oci is not defined) or (gcp is not defined) or (compose is not defined)
 
     - name: Validate environment sentinel
       ansible.builtin.assert:
@@ -137,6 +137,7 @@
     - geerlingguy.docker
     - singleplatform-eng.users
     - restic_backup
+    - docker_compose_service
 
   post_tasks:
     - name: Stop, disable, and mask OpenSSH socket and service

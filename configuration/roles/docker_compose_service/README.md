@@ -34,7 +34,7 @@ compose:
       env:
         TZ: "Europe/Berlin"
         VOLUME_BASE_DIRECTORY: "/opt/container-data"
-    oci:
+    oci-1:
       env:
         TZ: "Europe/Berlin"
         VOLUME_BASE_DIRECTORY: "/opt/container-data"

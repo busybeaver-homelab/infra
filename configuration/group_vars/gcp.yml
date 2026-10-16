@@ -10,3 +10,4 @@ restic_backup_healthchecks_ping_url: "{{ tofu_gcp_restic.healthcheck_url | defau
 
 # Bind systemd encrypted credentials on GCP Shielded VMs to both host secret and vTPM2
 restic_backup_credential_key: "host+tpm2"
+docker_compose_service_credential_key: "host+tpm2"

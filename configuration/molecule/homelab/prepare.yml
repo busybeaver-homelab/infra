@@ -10,5 +10,7 @@
 
     - name: Install docker package for test environment
       ansible.builtin.apt:
-        name: docker.io
+        name:
+          - docker.io
+          - docker-compose-v2
         state: present
