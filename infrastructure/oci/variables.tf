@@ -263,3 +263,15 @@ variable "state_encryption_passphrase" {
     error_message = "state_encryption_passphrase looks like a placeholder; supply the real value from SOPS."
   }
 }
+
+variable "backup_service_user_email" {
+  type        = string
+  description = "Optional base email for the backup IAM users (identity domains); plus-addressed per user, SOPS fallback."
+  sensitive   = true
+  default     = ""
+
+  validation {
+    condition     = var.backup_service_user_email == "" || can(regex("^[^@+\\s]+@[^@\\s]+\\.[A-Za-z]{2,}$", var.backup_service_user_email))
+    error_message = "backup_service_user_email must be empty or a single address without plus-addressing (the module appends +restic-writer / +restic-pruner)."
+  }
+}

@@ -11,6 +11,23 @@
     # Docker test containers do not expose a hardware/virtual TPM2 device (/dev/tpmrm0),
     # so override the GCP Shielded VM default (host+tpm2) with host-only binding in Molecule.
     restic_backup_credential_key: "host"
+    tofu_oci_restic:
+      s3_endpoint: "https://objectstorage.eu-frankfurt-1.example.test"
+      bucket: "molecule-oci-backups"
+      s3_access_key_id: "molecule-oci-access-key-id"
+      s3_secret_access_key: "molecule-oci-secret-access-key"
+      healthcheck_url: "https://hc-ping.example.test/00000000-0000-0000-0000-000000000001"
+    tofu_gcp_restic:
+      s3_endpoint: "https://storage.example.test"
+      bucket: "molecule-gcp-backups"
+      s3_access_key_id: "GOOG1EMOLECULEKEYID"
+      s3_secret_access_key: "molecule-gcp-hmac-secret-key"
+      healthcheck_url: "https://hc-ping.example.test/00000000-0000-0000-0000-000000000002"
+    tofu_cloudflare_restic:
+      s3_endpoint: "https://00000000000000000000000000000000.r2.example.test"
+      bucket: "molecule-r2-backups-dr"
+      s3_access_key_id: "molecule-r2-access-key-id"
+      s3_secret_access_key: "molecule-r2-secret-access-key"
     users:
       - username: dockerapp
         name: Docker Application Service User

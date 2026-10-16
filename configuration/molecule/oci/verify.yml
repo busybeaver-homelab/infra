@@ -96,6 +96,28 @@
         file: "{{ playbook_dir }}/../../../secrets/credentials.ci.sops.yaml"
       no_log: true
 
+    - name: Read primary restic backup environment file
+      ansible.builtin.slurp:
+        src: /etc/restic/primary.env
+      register: oci_primary_env
+
+    - name: Assert primary restic backup points to synthetic OCI Object Storage S3 endpoint
+      ansible.builtin.assert:
+        that:
+          - "'s3:https://objectstorage.eu-frankfurt-1.example.test/molecule-oci-backups/' in (oci_primary_env.content | b64decode)"
+        fail_msg: "Primary restic backup environment does not point to expected OCI Object Storage repository"
+
+    - name: Read secondary restic backup environment file
+      ansible.builtin.slurp:
+        src: /etc/restic/secondary.env
+      register: oci_secondary_env
+
+    - name: Assert secondary restic backup points to synthetic Cloudflare R2 S3 endpoint
+      ansible.builtin.assert:
+        that:
+          - "'s3:https://00000000000000000000000000000000.r2.example.test/molecule-r2-backups-dr/' in (oci_secondary_env.content | b64decode)"
+        fail_msg: "Secondary restic backup environment does not point to expected Cloudflare R2 repository"
+
     - name: Verify breakglass user exists in passwd database
       ansible.builtin.getent:
         database: passwd

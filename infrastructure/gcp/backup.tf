@@ -79,3 +79,38 @@ resource "google_storage_hmac_key" "backup_writer" {
   service_account_email = google_service_account.backup_writer.email
   project               = var.gcp_project_id
 }
+
+# --- Dedicated Prune Service Account, Custom Role, and HMAC Key for Weekly Backup Prune ---
+
+resource "google_service_account" "backup_pruner" {
+  account_id   = "homelab-gcp-backup-pruner"
+  display_name = "Homelab Restic Backup Pruner"
+  description  = "Dedicated service account for scheduled Restic repository prune and integrity checks"
+  project      = var.gcp_project_id
+}
+
+resource "google_project_iam_custom_role" "backup_pruner" {
+  role_id     = "homelabResticBackupPruner"
+  title       = "Homelab Restic Backup Pruner"
+  description = "Grants object read/write/delete on GCS backup bucket for out-of-band Restic prune"
+  project     = var.gcp_project_id
+  permissions = [
+    "storage.buckets.get",
+    "storage.objects.create",
+    "storage.objects.get",
+    "storage.objects.list",
+    "storage.objects.delete",
+    "storage.objects.update",
+  ]
+}
+
+resource "google_storage_bucket_iam_member" "backup_pruner" {
+  bucket = google_storage_bucket.backups.name
+  role   = google_project_iam_custom_role.backup_pruner.name
+  member = "serviceAccount:${google_service_account.backup_pruner.email}"
+}
+
+resource "google_storage_hmac_key" "backup_pruner" {
+  service_account_email = google_service_account.backup_pruner.email
+  project               = var.gcp_project_id
+}

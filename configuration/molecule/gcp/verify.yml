@@ -104,9 +104,19 @@
     - name: Assert primary restic backup points to GCP Cloud Storage S3 endpoint
       ansible.builtin.assert:
         that:
-          - "'s3:' ~ gcp_restic.s3_endpoint ~ '/' ~ gcp_restic.bucket ~ '/' in (gcp_primary_env.content | b64decode)"
-          - "'https://storage.googleapis.com/' in (gcp_primary_env.content | b64decode)"
+          - "'s3:https://storage.example.test/molecule-gcp-backups/' in (gcp_primary_env.content | b64decode)"
         fail_msg: "Primary restic backup environment does not point to GCP Cloud Storage"
+
+    - name: Read secondary restic backup environment file
+      ansible.builtin.slurp:
+        src: /etc/restic/secondary.env
+      register: gcp_secondary_env
+
+    - name: Assert secondary restic backup points to synthetic Cloudflare R2 S3 endpoint
+      ansible.builtin.assert:
+        that:
+          - "'s3:https://00000000000000000000000000000000.r2.example.test/molecule-r2-backups-dr/' in (gcp_secondary_env.content | b64decode)"
+        fail_msg: "Secondary restic backup environment does not point to expected Cloudflare R2 repository"
 
     - name: Stat encrypted primary S3 secret key credential
       ansible.builtin.stat:

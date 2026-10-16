@@ -421,28 +421,63 @@ setup() {
   local cloud_vars="$REPO_ROOT/configuration/group_vars/cloud.yml"
   local oci_vars="$REPO_ROOT/configuration/group_vars/oci.yml"
   local gcp_vars="$REPO_ROOT/configuration/group_vars/gcp.yml"
+  local cloud_pb="$REPO_ROOT/configuration/playbooks/cloud.yml"
   [ -f "$cloud_vars" ]
   [ -f "$oci_vars" ]
   [ -f "$gcp_vars" ]
+  [ -f "$cloud_pb" ]
+
+  run grep "get-tofu-restic-vars.sh" "$cloud_pb"
+  [ "$status" -eq 0 ]
 
   run grep "restic_backup_secondary_enabled: true" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.s3_endpoint" "$cloud_vars"
+  run grep "tofu_cloudflare_restic.s3_endpoint" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.bucket" "$cloud_vars"
+  run grep "tofu_cloudflare_restic.bucket" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.s3_access_key_id" "$cloud_vars"
+  run grep "tofu_cloudflare_restic.s3_access_key_id" "$cloud_vars"
   [ "$status" -eq 0 ]
   run grep "cloudflare_restic.password" "$cloud_vars"
   [ "$status" -eq 0 ]
 
-  run grep "oci_restic.bucket" "$oci_vars"
+  run grep "tofu_oci_restic.bucket" "$oci_vars"
+  [ "$status" -eq 0 ]
+  run grep "oci_restic.password" "$oci_vars"
   [ "$status" -eq 0 ]
 
-  run grep "gcp_restic.bucket" "$gcp_vars"
+  run grep "tofu_gcp_restic.bucket" "$gcp_vars"
+  [ "$status" -eq 0 ]
+  run grep "gcp_restic.password" "$gcp_vars"
   [ "$status" -eq 0 ]
   run grep 'restic_backup_credential_key: "host+tpm2"' "$gcp_vars"
   [ "$status" -eq 0 ]
+}
+
+@test "configuration/playbooks/cloud.yml loads OpenTofu restic outputs once on localhost with no_log and fails explicitly" {
+  local cloud_pb="$REPO_ROOT/configuration/playbooks/cloud.yml"
+  local blk='.[1].pre_tasks[] | select(.name == "Load Restic backup variables from OpenTofu outputs")'
+
+  run yq -r "${blk} | .when" "$cloud_pb"
+  [ "$status" -eq 0 ]
+  [ "$output" = "not (is_ci_environment | default(false) | bool)" ]
+
+  run yq -r "${blk} | .block[0] | [.delegate_to, .become, .run_once, .no_log, .check_mode, .changed_when, has(\"failed_when\")] | map(tostring) | join(\",\")" "$cloud_pb"
+  [ "$status" -eq 0 ]
+  [ "$output" = "localhost,false,true,true,false,false,false" ]
+
+  run yq -r "${blk} | .block[0][\"ansible.builtin.command\"].argv[0]" "$cloud_pb"
+  [[ "$output" == *"/scripts/get-tofu-restic-vars.sh" ]] || false
+
+  # Failure is surfaced by a rescue task that never echoes the helper's stdout/stderr.
+  run yq -r "${blk} | .rescue[0][\"ansible.builtin.fail\"].msg" "$cloud_pb"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"rc="* ]] || false
+  [[ "$output" != *"stderr"* && "$output" != *"stdout"* ]] || false
+
+  # Every task touching the parsed outputs keeps no_log.
+  run yq -r '.[1].pre_tasks[] | select((.name // "") | test("OpenTofu Restic backup (facts|variables are populated)")) | .no_log' "$cloud_pb"
+  [ "$output" = $'true\ntrue' ]
 }
 
 @test "restic_backup generalizes primary S3 credential name to primary_s3_secret_key" {

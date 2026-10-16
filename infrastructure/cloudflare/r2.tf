@@ -45,3 +45,4 @@ resource "cloudflare_r2_bucket_lifecycle" "backups_dr" {
     },
   ]
 }
+

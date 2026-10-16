@@ -95,15 +95,12 @@ EOF
 }
 
 @test "canonical secrets files define cloudflare_restic schema keys" {
-  local keys=("s3_endpoint" "bucket" "s3_access_key_id" "s3_secret_access_key" "password")
-  for key in "${keys[@]}"; do
-    run yq eval "has(\"cloudflare_restic\") and (.cloudflare_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
-    [ "$status" -eq 0 ]
-    [ "$output" = "true" ]
-    run yq eval "has(\"cloudflare_restic\") and (.cloudflare_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
-    [ "$status" -eq 0 ]
-    [ "$output" = "true" ]
-  done
+  run yq eval '(.cloudflare_restic | keys | sort | join(",")) == "password"' "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+  run yq eval '(.cloudflare_restic | keys | sort | join(",")) == "password"' "${REPO_ROOT}/secrets/credentials.sops.yaml"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
 }
 
 @test "canonical secrets files define github repositories config schema keys" {
@@ -154,14 +151,14 @@ EOF
   done
 }
 
-@test "canonical secrets files define gcp_restic schema keys" {
-  local keys=("s3_endpoint" "bucket" "s3_access_key_id" "s3_secret_access_key" "password")
-  for key in "${keys[@]}"; do
-    run yq eval "has(\"gcp_restic\") and (.gcp_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+@test "canonical secrets files define gcp_restic and oci_restic schema keys" {
+  for section in gcp_restic oci_restic; do
+    run yq eval "(.${section} | keys | sort | join(\",\")) == \"password\"" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
-    run yq eval "has(\"gcp_restic\") and (.gcp_restic | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    run yq eval "(.${section} | keys | sort | join(\",\")) == \"password\"" "${REPO_ROOT}/secrets/credentials.sops.yaml"
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
   done
 }
+

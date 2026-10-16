@@ -107,6 +107,21 @@ run "verify_gcs_backup_bucket_and_append_only_iam" {
     condition     = google_storage_bucket_iam_member.backup_writer_append_only.bucket == "mock-gcp-project-12345-homelab-backups"
     error_message = "Bucket IAM binding must target the backups bucket"
   }
+
+  assert {
+    condition     = google_service_account.backup_pruner.account_id == "homelab-gcp-backup-pruner"
+    error_message = "Backup pruner service account ID must be homelab-gcp-backup-pruner"
+  }
+
+  assert {
+    condition     = contains(tolist(google_project_iam_custom_role.backup_pruner.permissions), "storage.objects.delete") && contains(tolist(google_project_iam_custom_role.backup_pruner.permissions), "storage.objects.update") && contains(tolist(google_project_iam_custom_role.backup_pruner.permissions), "storage.objects.create")
+    error_message = "Backup pruner custom IAM role must include delete, update, create, get, and list permissions"
+  }
+
+  assert {
+    condition     = google_storage_bucket_iam_member.backup_pruner.bucket == "mock-gcp-project-12345-homelab-backups"
+    error_message = "Backup pruner bucket IAM binding must target the backups bucket"
+  }
 }
 
 run "verify_backup_outputs_on_apply" {
@@ -125,5 +140,10 @@ run "verify_backup_outputs_on_apply" {
   assert {
     condition     = output.backup_hmac_access_id != "" && output.backup_hmac_secret != ""
     error_message = "HMAC access_id and secret outputs must be populated on apply"
+  }
+
+  assert {
+    condition     = output.backup_prune_hmac_access_id != "" && output.backup_prune_hmac_secret != ""
+    error_message = "Pruner HMAC access_id and secret outputs must be populated on apply"
   }
 }

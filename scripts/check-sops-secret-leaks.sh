@@ -246,7 +246,7 @@ analysis=$(
     -v prod_ok="$prod_decrypted" '
 # Structural/public values, anchored to the real schema paths.
 function is_allowlisted_path(p) {
-  if (p ~ /^(is_production|gcp\.(region|zone|breakglass_user)|oci\.(region|breakglass_user)|cloudflare_restic\.bucket|github\.owner)$/) return 1
+  if (p ~ /^(is_production|gcp\.(region|zone|breakglass_user)|oci\.(region|breakglass_user)|github\.owner)$/) return 1
   if (p ~ /^github\.config\.repositories\.[^.]+\.(name|description|topics\.[0-9]+)$/) return 1
   if (p ~ /^github\.config\.deploy_keys\.[^.]+\.title$/) return 1
   if (p ~ /^nextdns\.(accounts\.[^.]+\.account_name|config\.accounts\.account_5\.profile_name)$/) return 1

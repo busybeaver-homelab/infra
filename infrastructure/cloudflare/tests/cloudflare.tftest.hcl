@@ -320,4 +320,9 @@ run "verify_computed_outputs_on_apply" {
     condition     = output.r2_restic_prune_s3_access_key_id != ""
     error_message = "R2 restic prune S3 Access Key ID output must be computed on apply"
   }
+
+  assert {
+    condition     = output.r2_restic_writer_s3_access_key_id != "" && output.r2_restic_writer_s3_secret_access_key != ""
+    error_message = "R2 restic writer S3 credentials outputs must be computed on apply"
+  }
 }

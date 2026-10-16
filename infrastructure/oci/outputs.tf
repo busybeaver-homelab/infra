@@ -82,6 +82,30 @@ output "backup_uploaders_policy_id" {
   sensitive   = true
 }
 
+output "backup_s3_access_key_id" {
+  value       = oci_identity_customer_secret_key.backup_writer.id
+  description = "S3 Customer Secret Key Access Key ID for append-only host Restic backups."
+  sensitive   = true
+}
+
+output "backup_s3_secret_access_key" {
+  value       = oci_identity_customer_secret_key.backup_writer.key
+  description = "S3 Customer Secret Key Secret Access Key for append-only host Restic backups."
+  sensitive   = true
+}
+
+output "backup_prune_s3_access_key_id" {
+  value       = oci_identity_customer_secret_key.backup_pruner.id
+  description = "S3 Customer Secret Key Access Key ID for scheduled Restic repository pruning."
+  sensitive   = true
+}
+
+output "backup_prune_s3_secret_access_key" {
+  value       = oci_identity_customer_secret_key.backup_pruner.key
+  description = "S3 Customer Secret Key Secret Access Key for scheduled Restic repository pruning."
+  sensitive   = true
+}
+
 output "ansible_inventory" {
   description = "Structured Ansible inventory map for OCI compute instances consumed by scripts/generate-inventory.sh."
   sensitive   = true
