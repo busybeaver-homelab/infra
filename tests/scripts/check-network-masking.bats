@@ -270,6 +270,12 @@ teardown() {
   [[ "$output" =~ "Network masking violation" ]]
 }
 
+@test "check-network-masking.sh passes on all tracked files in .agent/ and .agents/ (R2-GOV-04)" {
+  cd "${REPO_ROOT}"
+  run bash "${MASK_SCRIPT}" .agent .agents
+  [ "$status" -eq 0 ]
+}
+
 @test "check-network-masking.sh fails closed (exit 2) on broken GIT_DIR" {
   local mock_repo="${BATS_TMPDIR}/mock-repo"
   mkdir -p "${mock_repo}"

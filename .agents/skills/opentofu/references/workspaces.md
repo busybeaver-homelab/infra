@@ -100,7 +100,7 @@ module "infrastructure" {
   environment    = "production"
   instance_type  = "m5.large"
   instance_count = 3
-  vpc_cidr       = "10.1.0.0/16"
+  vpc_cidr       = "198.51.100.0/24"
 }
 ```
 

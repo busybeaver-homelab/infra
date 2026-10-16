@@ -50,12 +50,12 @@ import * as aws from '@pulumi/aws';
 import * as pulumi from '@pulumi/pulumi';
 
 const vpc = new aws.ec2.Vpc('main', {
-  cidrBlock: '10.0.0.0/16',
+  cidrBlock: '192.0.2.0/24',
 });
 
 const subnet = new aws.ec2.Subnet('public', {
   vpcId: vpc.id,
-  cidrBlock: '10.0.1.0/24',
+  cidrBlock: '192.0.2.0/25',
   mapPublicIpOnLaunch: true,
 });
 
@@ -130,7 +130,7 @@ class Vpc extends pulumi.ComponentResource {
         `${name}-public-${i}`,
         {
           vpcId: vpc.id,
-          cidrBlock: `10.0.${i}.0/24`,
+          cidrBlock: `198.51.100.${i * 64}/26`,
           availabilityZone: az,
           mapPublicIpOnLaunch: true,
         },
@@ -142,7 +142,7 @@ class Vpc extends pulumi.ComponentResource {
         `${name}-private-${i}`,
         {
           vpcId: vpc.id,
-          cidrBlock: `10.0.${i + 100}.0/24`,
+          cidrBlock: `203.0.113.${i * 64}/26`,
           availabilityZone: az,
         },
         { parent: this },
@@ -158,7 +158,7 @@ class Vpc extends pulumi.ComponentResource {
   }
 }
 
-const network = new Vpc('main', { cidrBlock: '10.0.0.0/16', azCount: 2 });
+const network = new Vpc('main', { cidrBlock: '192.0.2.0/24', azCount: 2 });
 export const vpcId = network.vpcId;
 ```
 

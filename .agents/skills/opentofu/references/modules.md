@@ -28,7 +28,7 @@ modules/
 module "vpc" {
   source = "./modules/vpc"
 
-  cidr_block  = "10.0.0.0/16"
+  cidr_block  = "192.0.2.0/24"
   environment = var.environment
   project     = var.project
 }
@@ -209,13 +209,13 @@ run "create_vpc" {
   command = plan
 
   variables {
-    cidr_block  = "10.0.0.0/16"
+    cidr_block  = "192.0.2.0/24"
     environment = "dev"
     project     = "test"
   }
 
   assert {
-    condition     = aws_vpc.main.cidr_block == "10.0.0.0/16"
+    condition     = aws_vpc.main.cidr_block == "192.0.2.0/24"
     error_message = "VPC CIDR block did not match expected value."
   }
 }
@@ -224,7 +224,7 @@ run "validate_outputs" {
   command = apply
 
   variables {
-    cidr_block  = "10.0.0.0/16"
+    cidr_block  = "192.0.2.0/24"
     environment = "dev"
     project     = "test"
   }

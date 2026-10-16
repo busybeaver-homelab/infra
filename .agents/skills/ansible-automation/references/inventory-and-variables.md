@@ -5,13 +5,13 @@
 ```yaml
 # inventory/hosts.ini
 [webservers]
-web1 ansible_host=10.0.1.10
-web2 ansible_host=10.0.1.11
-web3 ansible_host=10.0.1.12
+web1 ansible_host=192.0.2.10
+web2 ansible_host=192.0.2.11
+web3 ansible_host=192.0.2.12
 
 [databases]
-db1 ansible_host=10.0.2.10 db_role=primary
-db2 ansible_host=10.0.2.11 db_role=replica
+db1 ansible_host=198.51.100.10 db_role=primary
+db2 ansible_host=198.51.100.11 db_role=replica
 
 [all:vars]
 ansible_user=ubuntu
