@@ -72,4 +72,62 @@ run "verify_backup_bucket_and_lifecycle" {
     condition     = length(oci_identity_policy.backup_uploaders.statements) == 2
     error_message = "Backup uploaders policy must contain exactly two append-only statements"
   }
+
+  assert {
+    condition     = oci_identity_user.backup_writer.name == "homelab-backup-writer" && oci_identity_user.backup_writer.freeform_tags["project"] == "homelab"
+    error_message = "OCI backup writer IAM user must be named homelab-backup-writer and carry project=homelab tag"
+  }
+
+  assert {
+    condition     = oci_identity_customer_secret_key.backup_writer.display_name == "homelab-restic-backup-writer-s3-key"
+    error_message = "OCI backup writer customer secret key must be configured for S3-compatible Restic uploads"
+  }
+
+  assert {
+    condition     = oci_identity_group.backup_pruners.name == "BackupPruners" && oci_identity_group.backup_pruners.freeform_tags["project"] == "homelab"
+    error_message = "OCI backup pruners IAM group must be named BackupPruners and carry project=homelab tag"
+  }
+
+  assert {
+    condition     = length(oci_identity_policy.backup_pruners.statements) == 2 && strcontains(oci_identity_policy.backup_pruners.statements[1], "target.bucket.name='homelab-backups-testtenancy'") && strcontains(oci_identity_policy.backup_pruners.statements[1], "OBJECT_DELETE")
+    error_message = "OCI backup pruners policy must scope OBJECT_DELETE permissions to the backups bucket"
+  }
+
+  assert {
+    condition     = oci_identity_user.backup_pruner.name == "homelab-backup-pruner" && oci_identity_user.backup_pruner.freeform_tags["project"] == "homelab"
+    error_message = "OCI backup pruner IAM user must be named homelab-backup-pruner and carry project=homelab tag"
+  }
+
+  assert {
+    condition     = oci_identity_customer_secret_key.backup_pruner.display_name == "homelab-restic-backup-pruner-s3-key"
+    error_message = "OCI backup pruner customer secret key must be configured for S3-compatible Restic pruning"
+  }
+
+  assert {
+    condition     = oci_identity_user_capabilities_management.backup_writer.can_use_customer_secret_keys == true && oci_identity_user_capabilities_management.backup_writer.can_use_console_password == false && oci_identity_user_capabilities_management.backup_pruner.can_use_customer_secret_keys == true && oci_identity_user_capabilities_management.backup_pruner.can_use_console_password == false
+    error_message = "OCI backup writer and pruner users must only enable customer secret keys and disable console passwords"
+  }
+}
+
+run "verify_backup_s3_outputs_on_apply" {
+  command = apply
+
+  variables {
+    enable_prevent_destroy = false
+  }
+
+  assert {
+    condition     = output.backup_bucket_name == "homelab-backups-testtenancy"
+    error_message = "backup_bucket_name output must match bucket name"
+  }
+
+  assert {
+    condition     = output.backup_s3_access_key_id != "" && output.backup_s3_secret_access_key != ""
+    error_message = "OCI backup writer S3 access_key_id and secret_access_key outputs must be populated on apply"
+  }
+
+  assert {
+    condition     = output.backup_prune_s3_access_key_id != "" && output.backup_prune_s3_secret_access_key != ""
+    error_message = "OCI backup pruner S3 access_key_id and secret_access_key outputs must be populated on apply"
+  }
 }

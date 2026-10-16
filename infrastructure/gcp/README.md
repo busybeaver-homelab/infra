@@ -30,10 +30,14 @@
 | [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/compute_subnetwork)                                 | resource    |
 | [google_monitoring_notification_channel.budget_email](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/monitoring_notification_channel)  | resource    |
 | [google_project_iam_custom_role.backup_append_only](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/project_iam_custom_role)            | resource    |
+| [google_project_iam_custom_role.backup_pruner](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/project_iam_custom_role)                 | resource    |
+| [google_service_account.backup_pruner](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/service_account)                                 | resource    |
 | [google_service_account.backup_writer](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/service_account)                                 | resource    |
 | [google_service_account.vm](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/service_account)                                            | resource    |
 | [google_storage_bucket.backups](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_bucket)                                         | resource    |
+| [google_storage_bucket_iam_member.backup_pruner](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_bucket_iam_member)             | resource    |
 | [google_storage_bucket_iam_member.backup_writer_append_only](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_bucket_iam_member) | resource    |
+| [google_storage_hmac_key.backup_pruner](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_hmac_key)                               | resource    |
 | [google_storage_hmac_key.backup_writer](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_hmac_key)                               | resource    |
 | [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                                          | data source |
 | [google_compute_image.ubuntu_2604](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/data-sources/compute_image)                                    | data source |
@@ -63,21 +67,23 @@
 
 ## Outputs
 
-| Name                                                                                                           | Description                                                                                           |
-| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| <a name="output_ansible_inventory"></a> [ansible\_inventory](#output_ansible_inventory)                        | Structured Ansible inventory map for GCP compute instances consumed by scripts/generate-inventory.sh. |
-| <a name="output_backup_bucket_name"></a> [backup\_bucket\_name](#output_backup_bucket_name)                    | Name of the GCS regional Standard bucket for primary Restic backups.                                  |
-| <a name="output_backup_hmac_access_id"></a> [backup\_hmac\_access\_id](#output_backup_hmac_access_id)          | HMAC access ID for the append-only backup writer service account.                                     |
-| <a name="output_backup_hmac_secret"></a> [backup\_hmac\_secret](#output_backup_hmac_secret)                    | HMAC secret key for the append-only backup writer service account.                                    |
-| <a name="output_backup_s3_endpoint"></a> [backup\_s3\_endpoint](#output_backup_s3_endpoint)                    | S3-compatible endpoint URL for GCS Restic backups.                                                    |
-| <a name="output_budget_name"></a> [budget\_name](#output_budget_name)                                          | Resource name of the mandatory $1 monthly GCP billing budget.                                         |
-| <a name="output_instance_id"></a> [instance\_id](#output_instance_id)                                          | The unique instance ID of gcp-default-vm.                                                             |
-| <a name="output_instance_name"></a> [instance\_name](#output_instance_name)                                    | The hostname of the GCP compute instance.                                                             |
-| <a name="output_instance_private_ip"></a> [instance\_private\_ip](#output_instance_private_ip)                 | The internal RFC1918 IPv4 address of gcp-default-vm.                                                  |
-| <a name="output_instance_public_ip"></a> [instance\_public\_ip](#output_instance_public_ip)                    | The Standard-Tier ephemeral external IPv4 address of gcp-default-vm.                                  |
-| <a name="output_subnet_id"></a> [subnet\_id](#output_subnet_id)                                                | The ID of the private GCP compute subnetwork.                                                         |
-| <a name="output_vm_service_account_email"></a> [vm\_service\_account\_email](#output_vm_service_account_email) | Email of the dedicated least-privilege VM service account.                                            |
-| <a name="output_vpc_network_id"></a> [vpc\_network\_id](#output_vpc_network_id)                                | The ID of the GCP VPC network.                                                                        |
-| <a name="output_vpc_network_name"></a> [vpc\_network\_name](#output_vpc_network_name)                          | The name of the GCP VPC network.                                                                      |
+| Name                                                                                                                     | Description                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| <a name="output_ansible_inventory"></a> [ansible\_inventory](#output_ansible_inventory)                                  | Structured Ansible inventory map for GCP compute instances consumed by scripts/generate-inventory.sh. |
+| <a name="output_backup_bucket_name"></a> [backup\_bucket\_name](#output_backup_bucket_name)                              | Name of the GCS regional Standard bucket for primary Restic backups.                                  |
+| <a name="output_backup_hmac_access_id"></a> [backup\_hmac\_access\_id](#output_backup_hmac_access_id)                    | HMAC access ID for the append-only backup writer service account.                                     |
+| <a name="output_backup_hmac_secret"></a> [backup\_hmac\_secret](#output_backup_hmac_secret)                              | HMAC secret key for the append-only backup writer service account.                                    |
+| <a name="output_backup_prune_hmac_access_id"></a> [backup\_prune\_hmac\_access\_id](#output_backup_prune_hmac_access_id) | HMAC access ID for the dedicated backup pruner service account.                                       |
+| <a name="output_backup_prune_hmac_secret"></a> [backup\_prune\_hmac\_secret](#output_backup_prune_hmac_secret)           | HMAC secret key for the dedicated backup pruner service account.                                      |
+| <a name="output_backup_s3_endpoint"></a> [backup\_s3\_endpoint](#output_backup_s3_endpoint)                              | S3-compatible endpoint URL for GCS Restic backups.                                                    |
+| <a name="output_budget_name"></a> [budget\_name](#output_budget_name)                                                    | Resource name of the mandatory $1 monthly GCP billing budget.                                         |
+| <a name="output_instance_id"></a> [instance\_id](#output_instance_id)                                                    | The unique instance ID of gcp-default-vm.                                                             |
+| <a name="output_instance_name"></a> [instance\_name](#output_instance_name)                                              | The hostname of the GCP compute instance.                                                             |
+| <a name="output_instance_private_ip"></a> [instance\_private\_ip](#output_instance_private_ip)                           | The internal RFC1918 IPv4 address of gcp-default-vm.                                                  |
+| <a name="output_instance_public_ip"></a> [instance\_public\_ip](#output_instance_public_ip)                              | The Standard-Tier ephemeral external IPv4 address of gcp-default-vm.                                  |
+| <a name="output_subnet_id"></a> [subnet\_id](#output_subnet_id)                                                          | The ID of the private GCP compute subnetwork.                                                         |
+| <a name="output_vm_service_account_email"></a> [vm\_service\_account\_email](#output_vm_service_account_email)           | Email of the dedicated least-privilege VM service account.                                            |
+| <a name="output_vpc_network_id"></a> [vpc\_network\_id](#output_vpc_network_id)                                          | The ID of the GCP VPC network.                                                                        |
+| <a name="output_vpc_network_name"></a> [vpc\_network\_name](#output_vpc_network_name)                                    | The name of the GCP VPC network.                                                                      |
 
 <!-- END_TF_DOCS -->
