@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 ALL_MODULES=(cloudflare dns oci gcp azure homelab github monitoring mesh)
-STATE_BUCKET="${STATE_BUCKET:-homelab-tofu-state}"
+STATE_BUCKET="${STATE_BUCKET:-homelab-infra-tfstate}"
 SOPS_SECRETS_FILE="${SOPS_SECRETS_FILE:-${SOPS_FILE:-${REPO_ROOT}/secrets/credentials.sops.yaml}}"
 
 RUN_ALL=0
@@ -121,9 +121,13 @@ if [[ -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" || -z "${R2
       if [[ -z "${R2_ENDPOINT:-}" ]]; then
         R2_ENDPOINT="$(jq -r '
           .opentofu.cloudflare_r2_endpoint
+          // (if ((.cloudflare.account_id // .cloudflare.config.account_id // "") != "") then "https://" + (.cloudflare.account_id // .cloudflare.config.account_id) + ".r2.cloudflarestorage.com" else null end)
           // .cloudflare_restic.s3_endpoint
-          // (if (.cloudflare.account_id // "") != "" then "https://" + .cloudflare.account_id + ".r2.cloudflarestorage.com" else "" end)
+          // ""
         ' <<<"${sops_json}")"
+        if [[ -n "${R2_ENDPOINT}" && "${R2_ENDPOINT}" != http://* && "${R2_ENDPOINT}" != https://* ]]; then
+          R2_ENDPOINT="https://${R2_ENDPOINT}"
+        fi
       fi
       unset sops_json
     fi

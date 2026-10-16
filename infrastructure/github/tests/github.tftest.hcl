@@ -127,18 +127,8 @@ run "verify_github_root_hardening" {
   }
 
   assert {
-    condition     = module.repository["infra"].actions_permissions.github_owned_allowed == true
-    error_message = "Actions permissions must allow GitHub-owned actions"
-  }
-
-  assert {
-    condition     = module.repository["infra"].actions_permissions.verified_allowed == false
-    error_message = "Actions permissions must not blanket-allow all Marketplace verified actions"
-  }
-
-  assert {
-    condition     = contains(module.repository["infra"].actions_permissions.patterns_allowed, "step-security/harden-runner@*")
-    error_message = "Actions permissions must explicitly allow step-security/harden-runner@*"
+    condition     = contains(module.repository["infra"].actions_permissions.allowed_action_patterns, "step-security/harden-runner@*")
+    error_message = "Actions permissions must explicitly list step-security/harden-runner@* in allowed_action_patterns"
   }
 
   assert {

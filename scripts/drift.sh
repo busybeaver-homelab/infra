@@ -161,21 +161,33 @@ run_single_module() {
     mask_profile_ids=1
   fi
 
+  local r2_endpoint=""
   if [[ -f "${SOPS_FILE}" ]]; then
     local sops_json
     if sops_json="$(run_tool sops -d --output-type json "${SOPS_FILE}" 2>/dev/null)"; then
       if jq -e 'type == "object"' <<<"${sops_json}" >/dev/null 2>&1; then
-        local r2_id r2_secret tf_pass
+        local r2_id r2_secret tf_pass cf_acct
         r2_id="$(jq -r '.opentofu.cloudflare_r2_access_key_id // empty' <<<"${sops_json}")"
         r2_secret="$(jq -r '.opentofu.cloudflare_r2_secret_access_key // empty' <<<"${sops_json}")"
         tf_pass="$(jq -r '.opentofu.state_encryption_passphrase // empty' <<<"${sops_json}")"
+        cf_acct="$(jq -r '.cloudflare.account_id // .cloudflare.config.account_id // empty' <<<"${sops_json}")"
         [[ -n "${r2_id}" ]] && export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-${r2_id}}"
         [[ -n "${r2_secret}" ]] && export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-${r2_secret}}"
-        [[ -n "${tf_pass}" ]] && export TF_ENCRYPTION_PASSPHRASE="${TF_ENCRYPTION_PASSPHRASE:-${tf_pass}}"
+        if [[ -n "${tf_pass}" ]]; then
+          export TF_ENCRYPTION_PASSPHRASE="${TF_ENCRYPTION_PASSPHRASE:-${tf_pass}}"
+          export TF_VAR_state_encryption_passphrase="${TF_VAR_state_encryption_passphrase:-${tf_pass}}"
+        fi
+        if [[ -n "${cf_acct}" ]]; then
+          r2_endpoint="https://${cf_acct}.r2.cloudflarestorage.com"
+        fi
 
         local extracted_secrets=""
         case "${mod}" in
           cloudflare)
+            local cf_token
+            cf_token="$(jq -r '.cloudflare.api_token // empty' <<<"${sops_json}")"
+            [[ -n "${cf_token}" ]] && export TF_VAR_cloudflare_api_token="${TF_VAR_cloudflare_api_token:-${cf_token}}"
+            [[ -n "${cf_acct}" ]] && export TF_VAR_cloudflare_account_id="${TF_VAR_cloudflare_account_id:-${cf_acct}}"
             extracted_secrets="$(jq -r '
               [
                 .opentofu.cloudflare_r2_access_key_id,
@@ -183,6 +195,7 @@ run_single_module() {
                 .opentofu.state_encryption_passphrase,
                 .cloudflare.api_token,
                 .cloudflare.account_id,
+                .cloudflare.config.account_id,
                 .cloudflare.zone_id
               ] | .[] | select(type == "string" and length >= 6)
             ' <<<"${sops_json}")"
@@ -198,6 +211,23 @@ run_single_module() {
             ' <<<"${sops_json}")"
             ;;
           oci)
+            local oci_tenancy oci_user oci_fp oci_key oci_comp oci_region oci_vcn oci_subnet
+            oci_tenancy="$(jq -r '.oci.tenancy_ocid // empty' <<<"${sops_json}")"
+            oci_user="$(jq -r '.oci.user_ocid // empty' <<<"${sops_json}")"
+            oci_fp="$(jq -r '.oci.fingerprint // empty' <<<"${sops_json}")"
+            oci_key="$(jq -r '.oci.private_key // empty' <<<"${sops_json}")"
+            oci_comp="$(jq -r '.oci.compartment_ocid // .oci.tenancy_ocid // empty' <<<"${sops_json}")"
+            oci_region="$(jq -r '.oci.region // empty' <<<"${sops_json}")"
+            oci_vcn="$(jq -r '.oci.vcn_cidr // empty' <<<"${sops_json}")"
+            oci_subnet="$(jq -r '.oci.subnet_cidr // empty' <<<"${sops_json}")"
+            [[ -n "${oci_tenancy}" ]] && export TF_VAR_tenancy_ocid="${TF_VAR_tenancy_ocid:-${oci_tenancy}}"
+            [[ -n "${oci_user}" ]] && export TF_VAR_user_ocid="${TF_VAR_user_ocid:-${oci_user}}"
+            [[ -n "${oci_fp}" ]] && export TF_VAR_fingerprint="${TF_VAR_fingerprint:-${oci_fp}}"
+            [[ -n "${oci_key}" ]] && export TF_VAR_private_key="${TF_VAR_private_key:-${oci_key}}"
+            [[ -n "${oci_comp}" ]] && export TF_VAR_compartment_ocid="${TF_VAR_compartment_ocid:-${oci_comp}}"
+            [[ -n "${oci_region}" ]] && export TF_VAR_region="${TF_VAR_region:-${oci_region}}"
+            [[ -n "${oci_vcn}" ]] && export TF_VAR_vcn_cidr="${TF_VAR_vcn_cidr:-${oci_vcn}}"
+            [[ -n "${oci_subnet}" ]] && export TF_VAR_subnet_cidr="${TF_VAR_subnet_cidr:-${oci_subnet}}"
             extracted_secrets="$(jq -r '
               [
                 .opentofu.cloudflare_r2_access_key_id,
@@ -211,6 +241,15 @@ run_single_module() {
             ' <<<"${sops_json}")"
             ;;
           gcp)
+            local gcp_proj gcp_bill gcp_reg gcp_zone
+            gcp_proj="$(jq -r '.gcp.project_id // empty' <<<"${sops_json}")"
+            gcp_bill="$(jq -r '.gcp.billing_account_id // empty' <<<"${sops_json}")"
+            gcp_reg="$(jq -r '.gcp.region // empty' <<<"${sops_json}")"
+            gcp_zone="$(jq -r '.gcp.zone // empty' <<<"${sops_json}")"
+            [[ -n "${gcp_proj}" ]] && export TF_VAR_gcp_project_id="${TF_VAR_gcp_project_id:-${gcp_proj}}"
+            [[ -n "${gcp_bill}" ]] && export TF_VAR_gcp_billing_account_id="${TF_VAR_gcp_billing_account_id:-${gcp_bill}}"
+            [[ -n "${gcp_reg}" ]] && export TF_VAR_gcp_region="${TF_VAR_gcp_region:-${gcp_reg}}"
+            [[ -n "${gcp_zone}" ]] && export TF_VAR_gcp_zone="${TF_VAR_gcp_zone:-${gcp_zone}}"
             extracted_secrets="$(jq -r '
               [
                 .opentofu.cloudflare_r2_access_key_id,
@@ -264,14 +303,18 @@ run_single_module() {
             ;;
           monitoring)
             local hc_token
-            hc_token="$(jq -r '.monitoring.healthchecksio_api_token // empty' <<<"${sops_json}")"
-            [[ -n "${hc_token}" ]] && export TF_VAR_healthchecksio_api_token="${TF_VAR_healthchecksio_api_token:-${hc_token}}"
+            hc_token="$(jq -r '.monitoring.healthchecksio_api_token // .monitoring.healthchecksio_api_key // empty' <<<"${sops_json}")"
+            if [[ -n "${hc_token}" ]]; then
+              export TF_VAR_healthchecksio_api_key="${TF_VAR_healthchecksio_api_key:-${hc_token}}"
+              export TF_VAR_healthchecksio_api_token="${TF_VAR_healthchecksio_api_token:-${hc_token}}"
+            fi
             extracted_secrets="$(jq -r '
               [
                 .opentofu.cloudflare_r2_access_key_id,
                 .opentofu.cloudflare_r2_secret_access_key,
                 .opentofu.state_encryption_passphrase,
-                .monitoring.healthchecksio_api_token
+                .monitoring.healthchecksio_api_token,
+                .monitoring.healthchecksio_api_key
               ] | .[] | select(type == "string" and length >= 6)
             ' <<<"${sops_json}")"
             ;;
@@ -332,7 +375,11 @@ run_single_module() {
   local err_log="${tmp_dir}/plan.err"
 
   if [[ "${RUN_INIT}" -eq 1 ]]; then
-    if ! run_tool tofu -chdir="${mod_dir}" init -input=false -no-color >"${init_log}" 2>&1; then
+    local -a init_args=(-input=false -no-color)
+    if [[ -n "${r2_endpoint}" ]]; then
+      init_args+=(-backend-config="endpoint=${r2_endpoint}" -reconfigure)
+    fi
+    if ! run_tool tofu -chdir="${mod_dir}" init "${init_args[@]}" >"${init_log}" 2>&1; then
       echo "Error: tofu init failed for infrastructure/${mod}:" >&2
       grep -E '^(Error:|│)' "${init_log}" | mask_stream >&2 || mask_stream <"${init_log}" >&2
       rm -rf "${tmp_dir}"
@@ -355,8 +402,21 @@ run_single_module() {
       return 0
       ;;
     2)
+      local plan_json change_count
+      plan_json="$(run_tool tofu -chdir="${mod_dir}" show -json "${plan_file}")"
+      change_count="$(jq -r '
+        [ (.resource_changes // [])[]
+          | select(.change.actions != ["no-op"] and .change.actions != ["read"])
+        ] | length
+      ' <<<"${plan_json}")"
+      if [[ "${change_count}" -eq 0 ]]; then
+        unset plan_json
+        echo "No drift in infrastructure/${mod}."
+        rm -rf "${tmp_dir}"
+        return 0
+      fi
       echo "Drift detected in infrastructure/${mod} (resource addresses and action counts only; values omitted):"
-      run_tool tofu -chdir="${mod_dir}" show -json "${plan_file}" | jq -r '
+      jq -r '
         [ (.resource_changes // [])[]
           | select(.change.actions != ["no-op"] and .change.actions != ["read"])
           | { address: .address, actions: (.change.actions | join(",")) }
@@ -371,7 +431,8 @@ run_single_module() {
             ] | join(", ")),
           "  Changed resources:",
           ($changes[] | "    - \(.address) : \(.actions)")
-      ' | mask_stream
+      ' <<<"${plan_json}" | mask_stream
+      unset plan_json
       rm -rf "${tmp_dir}"
       return 2
       ;;

@@ -98,20 +98,21 @@ run "verify_repository_child_module" {
     error_message = "Actions must require full-length commit SHA pinning"
   }
 
-  assert {
-    condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed == true
-    error_message = "Actions permissions must allow GitHub-owned actions"
-  }
-
-  assert {
-    condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].verified_allowed == false
-    error_message = "Actions permissions must not blanket-allow all Marketplace verified actions"
-  }
-
-  assert {
-    condition     = contains(github_actions_repository_permissions.repo.allowed_actions_config[0].patterns_allowed, "step-security/harden-runner@*")
-    error_message = "Actions permissions must explicitly allow step-security/harden-runner@*"
-  }
+  # allowed_actions_config is managed at the organization level (see main.tf comment):
+  # assert {
+  #   condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed == true
+  #   error_message = "Actions permissions must allow GitHub-owned actions"
+  # }
+  #
+  # assert {
+  #   condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].verified_allowed == false
+  #   error_message = "Actions permissions must not blanket-allow all Marketplace verified actions"
+  # }
+  #
+  # assert {
+  #   condition     = contains(github_actions_repository_permissions.repo.allowed_actions_config[0].patterns_allowed, "step-security/harden-runner@*")
+  #   error_message = "Actions permissions must explicitly allow step-security/harden-runner@*"
+  # }
 
   assert {
     condition     = github_workflow_repository_permissions.repo.default_workflow_permissions == "read"

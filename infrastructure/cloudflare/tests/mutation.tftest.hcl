@@ -42,6 +42,7 @@ mock_provider "external" {
             },
             "iam": {
               "tokens": {
+                "r2_restic_prune": { "id": "0000000000000000000000000000001c", "policies": [{ "effect": "allow", "resources": "{\"com.cloudflare.edge.r2.bucket.0_default_homelab-backups-dr\":\"*\"}", "permission_groups": ["Decoy Read|com.cloudflare.api.account"] }] },
                 "r2_state": { "id": "0000000000000000000000000000000a", "policies": [{ "effect": "allow", "resources": "{\"com.cloudflare.edge.r2.bucket.0_default_x\":\"*\"}", "permission_groups": ["Decoy Read|com.cloudflare.api.account"] }] },
                 "terraform": { "id": "0000000000000000000000000000000b", "policies": [{ "effect": "allow", "resources": "{\"com.cloudflare.api.account.zone.0\":\"*\"}", "permission_groups": ["Decoy Read|com.cloudflare.api.account"] }, { "effect": "allow", "resources": "{\"com.cloudflare.api.account.0\":\"*\"}", "permission_groups": ["Decoy Read|com.cloudflare.api.account"] }] }
               },

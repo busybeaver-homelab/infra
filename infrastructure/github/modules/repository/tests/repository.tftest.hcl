@@ -115,20 +115,21 @@ run "verify_repository_module_plan" {
     error_message = "ops environment must restrict deployments to main (R2-CI-01)"
   }
 
-  assert {
-    condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed == true
-    error_message = "Actions permissions must allow GitHub-owned actions (R2-GOV-01)"
-  }
-
-  assert {
-    condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].verified_allowed == false
-    error_message = "Actions permissions must disable verified_allowed (R2-GOV-01)"
-  }
-
-  assert {
-    condition     = contains(github_actions_repository_permissions.repo.allowed_actions_config[0].patterns_allowed, "step-security/harden-runner@*")
-    error_message = "Actions permissions must allow step-security/harden-runner@* (R2-GOV-01)"
-  }
+  # allowed_actions_config is managed at the organization level (see main.tf comment):
+  # assert {
+  #   condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed == true
+  #   error_message = "Actions permissions must allow GitHub-owned actions (R2-GOV-01)"
+  # }
+  #
+  # assert {
+  #   condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].verified_allowed == false
+  #   error_message = "Actions permissions must disable verified_allowed (R2-GOV-01)"
+  # }
+  #
+  # assert {
+  #   condition     = contains(github_actions_repository_permissions.repo.allowed_actions_config[0].patterns_allowed, "step-security/harden-runner@*")
+  #   error_message = "Actions permissions must allow step-security/harden-runner@* (R2-GOV-01)"
+  # }
 }
 
 run "verify_repository_module_apply" {

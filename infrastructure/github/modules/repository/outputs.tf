@@ -102,11 +102,13 @@ output "deploy_keys" {
 
 output "actions_permissions" {
   value = {
-    allowed_actions      = github_actions_repository_permissions.repo.allowed_actions
-    sha_pinning_required = github_actions_repository_permissions.repo.sha_pinning_required
-    github_owned_allowed = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed
-    verified_allowed     = github_actions_repository_permissions.repo.allowed_actions_config[0].verified_allowed
-    patterns_allowed     = tolist(github_actions_repository_permissions.repo.allowed_actions_config[0].patterns_allowed)
+    allowed_actions         = github_actions_repository_permissions.repo.allowed_actions
+    sha_pinning_required    = github_actions_repository_permissions.repo.sha_pinning_required
+    allowed_action_patterns = var.allowed_action_patterns
+    # Configured at the organization level (see main.tf comment on github_actions_repository_permissions.repo):
+    # github_owned_allowed = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed
+    # verified_allowed     = github_actions_repository_permissions.repo.allowed_actions_config[0].verified_allowed
+    # patterns_allowed     = tolist(github_actions_repository_permissions.repo.allowed_actions_config[0].patterns_allowed)
   }
   description = "Actions repository permissions."
 }

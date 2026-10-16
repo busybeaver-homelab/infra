@@ -6,8 +6,9 @@ locals {
   # Logical key => token name. Policies (who may do what) are security topology and live in
   # SOPS: cloudflare.config.iam.tokens.<key>.policies[] = {effect, resources, permission_groups}.
   frozen_token_names = {
-    r2_state  = "homelab-infra-opentofu-state-r2-token"
-    terraform = "terraform-homelab-manually-provisioned"
+    r2_restic_prune = "homelab-infra-r2-restic-prune-token"
+    r2_state        = "homelab-infra-opentofu-state-r2-token"
+    terraform       = "terraform-homelab-manually-provisioned"
   }
 
   live_token_names = [for t in data.cloudflare_account_tokens.all.result : t.name]
