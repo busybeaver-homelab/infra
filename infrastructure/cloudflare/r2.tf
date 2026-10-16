@@ -45,33 +45,3 @@ resource "cloudflare_r2_bucket_lifecycle" "backups_dr" {
     },
   ]
 }
-
-# --- Dedicated least-privilege R2 API token for weekly Restic repository prune/check ---
-resource "cloudflare_api_token" "r2_restic_prune" {
-  name = "homelab-r2-restic-prune-token"
-
-  policies = [
-    {
-      effect = "allow"
-      permission_groups = [
-        {
-          id = lookup(
-            local.permission_group_ids,
-            "Workers R2 Storage Bucket Item Read|com.cloudflare.edge.r2.bucket",
-            format("%s%s", "6a018a9f2fc74eb6", "b293b0c548f38b39")
-          )
-        },
-        {
-          id = lookup(
-            local.permission_group_ids,
-            "Workers R2 Storage Bucket Item Write|com.cloudflare.edge.r2.bucket",
-            format("%s%s", "bf7481a1826f4396", "97cb59a20b22293e")
-          )
-        },
-      ]
-      resources = jsonencode({
-        "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.backups_dr.name}" = "*"
-      })
-    },
-  ]
-}

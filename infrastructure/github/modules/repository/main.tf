@@ -214,11 +214,17 @@ resource "github_actions_repository_permissions" "repo" {
   allowed_actions      = "selected"
   sha_pinning_required = true
 
-  allowed_actions_config {
-    github_owned_allowed = true
-    verified_allowed     = false
-    patterns_allowed     = var.allowed_action_patterns
-  }
+  # Note: allowed_actions_config (PUT /repos/{owner}/{repo}/actions/permissions/selected-actions)
+  # is intentionally commented out because busybeaver-homelab is a GitHub Organization that enforces
+  # allowed_actions = "selected" at the organization level. GitHub's REST API returns 409 Conflict
+  # ("Cannot set selected actions for this repository as the organization does not allow all actions.")
+  # when attempting to configure selected-actions at the repository level while org-level restrictions
+  # are active. Selected-actions allowlists are therefore managed at the organization level.
+  # allowed_actions_config {
+  #   github_owned_allowed = true
+  #   verified_allowed     = false
+  #   patterns_allowed     = var.allowed_action_patterns
+  # }
 }
 
 resource "github_workflow_repository_permissions" "repo" {

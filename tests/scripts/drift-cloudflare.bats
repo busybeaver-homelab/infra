@@ -93,3 +93,57 @@ STUB
   [ "$status" -eq 2 ]
   grep -q "https://hc-ping.example.com/00000000-0000-0000-0000-000000000000/fail$" "$curl_log"
 }
+
+@test "scripts/drift.sh exports TF_VARs and passes R2 endpoint to tofu init, and treats output-only changes as no drift" {
+  local env_log="$BATS_TEST_TMPDIR/tofu_env.log"
+  cat >"$STUB_BIN/sops" <<'STUB'
+#!/usr/bin/env bash
+cat <<'JSON'
+{
+  "opentofu": {
+    "cloudflare_r2_access_key_id": "r2-id-test",
+    "cloudflare_r2_secret_access_key": "r2-secret-test",
+    "state_encryption_passphrase": "test-passphrase-at-least-32-chars"
+  },
+  "cloudflare": {
+    "api_token": "cf-api-token-test",
+    "account_id": "11111111111111111111111111111111"
+  }
+}
+JSON
+STUB
+  cat >"$STUB_BIN/tofu" <<STUB
+#!/usr/bin/env bash
+args=" \$* "
+case "\$args" in
+  *" init "*)
+    echo "INIT_ARGS=\$*" >>"$env_log"
+    exit 0
+    ;;
+  *" plan "*)
+    echo "TF_VAR_state_encryption_passphrase=\${TF_VAR_state_encryption_passphrase:-}" >>"$env_log"
+    echo "TF_VAR_cloudflare_api_token=\${TF_VAR_cloudflare_api_token:-}" >>"$env_log"
+    echo "TF_VAR_cloudflare_account_id=\${TF_VAR_cloudflare_account_id:-}" >>"$env_log"
+    exit 2
+    ;;
+  *" show "*)
+    cat <<'JSON'
+{"resource_changes":[
+  {"address":"data.tailscale_devices.all","change":{"actions":["read"]}}
+],"output_changes":{
+  "devices":{"actions":["update"]}
+}}
+JSON
+    ;;
+esac
+STUB
+  chmod +x "$STUB_BIN/sops" "$STUB_BIN/tofu"
+
+  run "$REPO_ROOT/scripts/drift.sh" --module cloudflare --module-dir "$BATS_TEST_TMPDIR/module"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No drift"* ]] || false
+  grep -q 'endpoint=https://11111111111111111111111111111111.r2.cloudflarestorage.com' "$env_log"
+  grep -q 'TF_VAR_state_encryption_passphrase=test-passphrase-at-least-32-chars' "$env_log"
+  grep -q 'TF_VAR_cloudflare_api_token=cf-api-token-test' "$env_log"
+  grep -q 'TF_VAR_cloudflare_account_id=11111111111111111111111111111111' "$env_log"
+}

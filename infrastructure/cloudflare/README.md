@@ -103,7 +103,6 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 | [cloudflare_account.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/account)                                                                     | resource    |
 | [cloudflare_account_member.frozen](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/account_member)                                                     | resource    |
 | [cloudflare_account_token.frozen](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/account_token)                                                       | resource    |
-| [cloudflare_api_token.r2_restic_prune](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/api_token)                                                      | resource    |
 | [cloudflare_email_routing_address.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/email_routing_address)                                         | resource    |
 | [cloudflare_notification_policy.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/notification_policy)                                             | resource    |
 | [cloudflare_r2_bucket.backups_dr](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/r2_bucket)                                                           | resource    |
@@ -133,14 +132,13 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 
 ## Outputs
 
-| Name                                                                                                                                                  | Description                                                                                               |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| <a name="output_managed_zone_keys"></a> [managed\_zone\_keys](#output_managed_zone_keys)                                                              | Logical keys of the zones managed by this module.                                                         |
-| <a name="output_r2_backup_bucket_name"></a> [r2\_backup\_bucket\_name](#output_r2_backup_bucket_name)                                                 | The name of the secondary R2 disaster recovery backup bucket.                                             |
-| <a name="output_r2_backup_endpoint"></a> [r2\_backup\_endpoint](#output_r2_backup_endpoint)                                                           | S3-compatible endpoint URL for the R2 backup bucket.                                                      |
-| <a name="output_r2_restic_prune_s3_access_key_id"></a> [r2\_restic\_prune\_s3\_access\_key\_id](#output_r2_restic_prune_s3_access_key_id)             | S3 Access Key ID for the dedicated R2 Restic prune/check API token.                                       |
-| <a name="output_r2_restic_prune_s3_secret_access_key"></a> [r2\_restic\_prune\_s3\_secret\_access\_key](#output_r2_restic_prune_s3_secret_access_key) | S3 Secret Access Key (SHA-256 of the API token secret) for the dedicated R2 Restic prune/check API token. |
-| <a name="output_r2_tfstate_bucket_name"></a> [r2\_tfstate\_bucket\_name](#output_r2_tfstate_bucket_name)                                              | The name of the OpenTofu state storage R2 bucket.                                                         |
-| <a name="output_zone_ids"></a> [zone\_ids](#output_zone_ids)                                                                                          | Cloudflare zone IDs keyed by logical zone key.                                                            |
+| Name                                                                                                                                      | Description                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| <a name="output_managed_zone_keys"></a> [managed\_zone\_keys](#output_managed_zone_keys)                                                  | Logical keys of the zones managed by this module.                               |
+| <a name="output_r2_backup_bucket_name"></a> [r2\_backup\_bucket\_name](#output_r2_backup_bucket_name)                                     | The name of the secondary R2 disaster recovery backup bucket.                   |
+| <a name="output_r2_backup_endpoint"></a> [r2\_backup\_endpoint](#output_r2_backup_endpoint)                                               | S3-compatible endpoint URL for the R2 backup bucket.                            |
+| <a name="output_r2_restic_prune_s3_access_key_id"></a> [r2\_restic\_prune\_s3\_access\_key\_id](#output_r2_restic_prune_s3_access_key_id) | S3 Access Key ID (Token ID) for the frozen R2 Restic prune/check account token. |
+| <a name="output_r2_tfstate_bucket_name"></a> [r2\_tfstate\_bucket\_name](#output_r2_tfstate_bucket_name)                                  | The name of the OpenTofu state storage R2 bucket.                               |
+| <a name="output_zone_ids"></a> [zone\_ids](#output_zone_ids)                                                                              | Cloudflare zone IDs keyed by logical zone key.                                  |
 
 <!-- END_TF_DOCS -->

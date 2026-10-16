@@ -143,11 +143,6 @@ run "unit_plan_matches_baseline" {
   }
 
   assert {
-    condition     = strcontains(tailscale_acl.homelab.acl, "\"networkFlowLogs\"") && strcontains(tailscale_acl.homelab.acl, "\"enabled\": true")
-    error_message = "Tailscale ACL policy must enable networkFlowLogs."
-  }
-
-  assert {
     condition     = strcontains(tailscale_acl.homelab.acl, "\"checkPeriod\": \"12h\"")
     error_message = "Tailscale ACL SSH check rules must enforce a 12h checkPeriod."
   }

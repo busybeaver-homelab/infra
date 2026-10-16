@@ -17,14 +17,8 @@ output "r2_backup_endpoint" {
 }
 
 output "r2_restic_prune_s3_access_key_id" {
-  value       = cloudflare_api_token.r2_restic_prune.id
-  description = "S3 Access Key ID for the dedicated R2 Restic prune/check API token."
-  sensitive   = true
-}
-
-output "r2_restic_prune_s3_secret_access_key" {
-  value       = sha256(cloudflare_api_token.r2_restic_prune.value)
-  description = "S3 Secret Access Key (SHA-256 of the API token secret) for the dedicated R2 Restic prune/check API token."
+  value       = cloudflare_account_token.frozen["r2_restic_prune"].id
+  description = "S3 Access Key ID (Token ID) for the frozen R2 Restic prune/check account token."
   sensitive   = true
 }
 

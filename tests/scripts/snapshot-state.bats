@@ -93,7 +93,7 @@ teardown() {
 }
 
 @test "scripts/snapshot-state.sh snapshots a single module and verifies SHA-256 round-trip" {
-  local state_dir="${BUCKET_DIR}/homelab-tofu-state/homelab-infra/state/oci"
+  local state_dir="${BUCKET_DIR}/homelab-infra-tfstate/homelab-infra/state/oci"
   mkdir -p "${state_dir}"
   echo '{"encrypted":"state-payload-oci"}' > "${state_dir}/tofu.tfstate"
 
@@ -104,14 +104,14 @@ teardown() {
     run "${SCRIPT}" oci
   [ "$status" -eq 0 ]
   [ "$output" = "homelab-infra/snapshots/oci/20261015T120000Z.tfstate" ]
-  [ -f "${BUCKET_DIR}/homelab-tofu-state/homelab-infra/snapshots/oci/20261015T120000Z.tfstate" ]
-  cmp -s "${state_dir}/tofu.tfstate" "${BUCKET_DIR}/homelab-tofu-state/homelab-infra/snapshots/oci/20261015T120000Z.tfstate"
+  [ -f "${BUCKET_DIR}/homelab-infra-tfstate/homelab-infra/snapshots/oci/20261015T120000Z.tfstate" ]
+  cmp -s "${state_dir}/tofu.tfstate" "${BUCKET_DIR}/homelab-infra-tfstate/homelab-infra/snapshots/oci/20261015T120000Z.tfstate"
 }
 
 @test "scripts/snapshot-state.sh --all snapshots all 9 OpenTofu modules" {
   for mod in cloudflare dns oci gcp azure homelab github monitoring mesh; do
-    mkdir -p "${BUCKET_DIR}/homelab-tofu-state/homelab-infra/state/${mod}"
-    echo "{\"module\":\"${mod}\"}" > "${BUCKET_DIR}/homelab-tofu-state/homelab-infra/state/${mod}/tofu.tfstate"
+    mkdir -p "${BUCKET_DIR}/homelab-infra-tfstate/homelab-infra/state/${mod}"
+    echo "{\"module\":\"${mod}\"}" > "${BUCKET_DIR}/homelab-infra-tfstate/homelab-infra/state/${mod}/tofu.tfstate"
   done
 
   AWS_ACCESS_KEY_ID="test-id" \
@@ -122,12 +122,12 @@ teardown() {
   [ "$status" -eq 0 ]
 
   for mod in cloudflare dns oci gcp azure homelab github monitoring mesh; do
-    [ -f "${BUCKET_DIR}/homelab-tofu-state/homelab-infra/snapshots/${mod}/20261015T120000Z.tfstate" ]
+    [ -f "${BUCKET_DIR}/homelab-infra-tfstate/homelab-infra/snapshots/${mod}/20261015T120000Z.tfstate" ]
   done
 }
 
 @test "scripts/snapshot-state.sh fails closed when round-trip SHA-256 verification fails" {
-  local state_dir="${BUCKET_DIR}/homelab-tofu-state/homelab-infra/state/gcp"
+  local state_dir="${BUCKET_DIR}/homelab-infra-tfstate/homelab-infra/state/gcp"
   mkdir -p "${state_dir}"
   echo '{"encrypted":"state-payload-gcp"}' > "${state_dir}/tofu.tfstate"
 
@@ -139,4 +139,39 @@ teardown() {
     run "${SCRIPT}" gcp
   [ "$status" -ne 0 ]
   [[ "$output" == *"SHA-256 mismatch"* ]]
+}
+
+@test "scripts/snapshot-state.sh auto-derives R2 credentials and endpoint from SOPS JSON" {
+  local state_dir="${BUCKET_DIR}/homelab-infra-tfstate/homelab-infra/state/monitoring"
+  mkdir -p "${state_dir}"
+  echo '{"encrypted":"state-payload-monitoring"}' > "${state_dir}/tofu.tfstate"
+
+  local fake_sops="${BATS_TEST_TMPDIR}/fake.sops.yaml"
+  : > "${fake_sops}"
+  cat > "${STUB_BIN}/sops" <<'EOF'
+#!/usr/bin/env bash
+cat <<'JSON'
+{
+  "opentofu": {
+    "cloudflare_r2_access_key_id": "sops-r2-id",
+    "cloudflare_r2_secret_access_key": "sops-r2-secret"
+  },
+  "cloudflare": {
+    "config": {
+      "account_id": "00000000000000000000000000000000"
+    }
+  }
+}
+JSON
+EOF
+  chmod +x "${STUB_BIN}/sops"
+
+  SOPS_SECRETS_FILE="${fake_sops}" \
+  AWS_ACCESS_KEY_ID="" \
+  AWS_SECRET_ACCESS_KEY="" \
+  R2_ENDPOINT="" \
+  SNAPSHOT_TIMESTAMP="20261016T080000Z" \
+    run "${SCRIPT}" monitoring
+  [ "$status" -eq 0 ]
+  [ "$output" = "homelab-infra/snapshots/monitoring/20261016T080000Z.tfstate" ]
 }

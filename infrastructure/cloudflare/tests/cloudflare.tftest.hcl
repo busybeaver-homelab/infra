@@ -43,6 +43,7 @@ mock_provider "external" {
             },
             "iam": {
               "tokens": {
+                "r2_restic_prune": { "id": "0000000000000000000000000000001c", "policies": [{ "effect": "allow", "resources": "{\"com.cloudflare.edge.r2.bucket.0_default_homelab-backups-dr\":\"*\"}", "permission_groups": ["Decoy Read|com.cloudflare.api.account"] }] },
                 "r2_state": { "id": "0000000000000000000000000000000a", "policies": [{ "effect": "allow", "resources": "{\"com.cloudflare.edge.r2.bucket.0_default_x\":\"*\"}", "permission_groups": ["Decoy Read|com.cloudflare.api.account"] }] },
                 "terraform": { "id": "0000000000000000000000000000000b", "policies": [{ "effect": "allow", "resources": "{\"com.cloudflare.api.account.zone.0\":\"*\"}", "permission_groups": ["Decoy Read|com.cloudflare.api.account"] }, { "effect": "allow", "resources": "{\"com.cloudflare.api.account.0\":\"*\"}", "permission_groups": ["Decoy Read|com.cloudflare.api.account"] }] }
               },
@@ -124,13 +125,12 @@ run "verify_r2_backup_bucket" {
 
   assert {
     condition = (
-      cloudflare_api_token.r2_restic_prune.name == "homelab-r2-restic-prune-token" &&
-      length(cloudflare_api_token.r2_restic_prune.policies) == 1 &&
-      cloudflare_api_token.r2_restic_prune.policies[0].effect == "allow" &&
-      length(cloudflare_api_token.r2_restic_prune.policies[0].permission_groups) == 2 &&
-      strcontains(cloudflare_api_token.r2_restic_prune.policies[0].resources, "com.cloudflare.edge.r2.bucket.mock-account-id-12345_default_homelab-backups-dr")
+      cloudflare_account_token.frozen["r2_restic_prune"].name == "homelab-infra-r2-restic-prune-token" &&
+      length(cloudflare_account_token.frozen["r2_restic_prune"].policies) == 1 &&
+      cloudflare_account_token.frozen["r2_restic_prune"].policies[0].effect == "allow" &&
+      strcontains(cloudflare_account_token.frozen["r2_restic_prune"].policies[0].resources, "homelab-backups-dr")
     )
-    error_message = "R2 restic prune API token must be scoped exclusively to the backups_dr R2 bucket with item read/write permissions"
+    error_message = "Frozen R2 restic prune account token must be documented and scoped to the backups_dr R2 bucket"
   }
 }
 
@@ -212,8 +212,8 @@ run "verify_frozen_iam" {
   command = plan
 
   assert {
-    condition     = toset(keys(cloudflare_account_token.frozen)) == toset(["r2_state", "terraform"])
-    error_message = "Both remaining account tokens must be documented as frozen resources"
+    condition     = toset(keys(cloudflare_account_token.frozen)) == toset(["r2_restic_prune", "r2_state", "terraform"])
+    error_message = "All three account tokens must be documented as frozen resources"
   }
   assert {
     condition     = length(cloudflare_account_token.frozen["terraform"].policies) == 2
@@ -250,12 +250,12 @@ run "frozen_tokens_present_pass" {
   override_data {
     target = data.cloudflare_account_tokens.all
     values = {
-      result = [{ name = "homelab-infra-opentofu-state-r2-token", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }, { name = "terraform-homelab-manually-provisioned", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }]
+      result = [{ name = "homelab-infra-r2-restic-prune-token", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }, { name = "homelab-infra-opentofu-state-r2-token", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }, { name = "terraform-homelab-manually-provisioned", condition = null, creator_email_at_creation = null, expires_on = null, id = null, issued_on = null, last_used_on = null, modified_on = null, not_before = null, policies = null, provisioner_id = null, provisioner_type = null, status = null }]
     }
   }
 
   assert {
-    condition     = length(cloudflare_account_token.frozen) == 2
+    condition     = length(cloudflare_account_token.frozen) == 3
     error_message = "All frozen tokens must plan when they exist live"
   }
 }
@@ -317,7 +317,7 @@ run "verify_computed_outputs_on_apply" {
   }
 
   assert {
-    condition     = output.r2_restic_prune_s3_access_key_id != "" && output.r2_restic_prune_s3_secret_access_key != ""
-    error_message = "R2 restic prune S3 credentials outputs must be computed on apply"
+    condition     = output.r2_restic_prune_s3_access_key_id != ""
+    error_message = "R2 restic prune S3 Access Key ID output must be computed on apply"
   }
 }
