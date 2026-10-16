@@ -328,16 +328,29 @@ Map keys (`account_1`..`account_5`) are generic and non-identifying (SOPS does n
 | `nextdns.config.accounts.<account_key>.overrides.excluded_{allowlist,denylist}_ids`            | Per-account excluded shared allowlist/denylist domain IDs                             |
 | `nextdns.config.accounts.<account_key>.overrides.{security,privacy,parental_control,settings}` | Per-account posture overrides (`null`/omitted inherits baseline)                      |
 
+### Restic Backup Passwords & OpenTofu Outputs (`oci_restic`, `gcp_restic`, `cloudflare_restic`)
+
+Restic repository encryption passwords remain in the canonical SOPS files, whereas all object storage endpoints, bucket names, append-only VM writer S3 credentials (`STD-OT-51`), delete-capable pruner S3 credentials, and Healthchecks ping URLs are provisioned by OpenTofu (`infrastructure/oci`, `infrastructure/gcp`, `infrastructure/cloudflare`, `infrastructure/monitoring`) and exposed as `sensitive = true` outputs (`STD-OT-25`).
+
+| Secret Key                   | Description                                                      | Sourced By                                                          |
+| ---------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `oci_restic.password`        | Restic repository encryption password for primary OCI backups    | `configuration/group_vars/oci.yml`, `scripts/sync-ops-secrets.sh`   |
+| `gcp_restic.password`        | Restic repository encryption password for primary GCP backups    | `configuration/group_vars/gcp.yml`, `scripts/sync-ops-secrets.sh`   |
+| `cloudflare_restic.password` | Restic repository encryption password for secondary R2 DR copies | `configuration/group_vars/cloud.yml`, `scripts/sync-ops-secrets.sh` |
+
+- **Ansible Runtime Delivery:** `configuration/playbooks/cloud.yml` executes `scripts/get-tofu-restic-vars.sh` in memory (`no_log: true`) to populate `tofu_oci_restic`, `tofu_gcp_restic`, and `tofu_cloudflare_restic` without writing sensitive S3 keys to disk.
+- **GitHub `ops` Environment Sync:** After applying `oci`, `gcp`, `cloudflare`, or `monitoring` OpenTofu changes (or rotating Restic passwords), run `mise run github:sync:ops` (`scripts/sync-ops-secrets.sh`) to synchronize the privileged prune S3 credentials and Restic passwords into the GitHub `ops` environment for `.github/workflows/backup-prune.yml`.
+
 ### Host Secret Delivery (systemd Encrypted Credentials)
 
 Service secrets on hosts (restic repository passwords, S3 secret keys, the Healthchecks ping URL) are delivered without plaintext on disk and survive reboots:
 
-1. **Source of truth:** values stay in the canonical SOPS files. Ansible decrypts them on the controller (`community.sops`) as before.
+1. **Source of truth:** Restic encryption passwords stay in the canonical SOPS files (`community.sops`), while S3 endpoints, bucket names, append-only writer keys, and Healthchecks ping URLs come from OpenTofu sensitive outputs in memory via `scripts/get-tofu-restic-vars.sh`.
 2. **Encrypted at rest on the host:** the `restic_backup` role pipes each secret through stdin into `systemd-creds encrypt --with-key=host`, writing `/etc/credstore.encrypted/<name>` (`0400 root:root`, AES-256-GCM, bound to the root-only host key `/var/lib/systemd/credential.secret`). It only re-encrypts when a value changed.
 3. **Decrypted per service:** units use `LoadCredentialEncrypted=<name>:/etc/credstore.encrypted/<name>`. systemd decrypts into the service's private `$CREDENTIALS_DIRECTORY` at start, and the process reads `$CREDENTIALS_DIRECTORY/<name>`. Nothing goes into `EnvironmentFile=`, argv or `/run/secrets`.
 4. **Backups:** `/etc` is backed up, so backups contain only ciphertext. The host key in `/var/lib/systemd` is excluded, so a leaked backup does not expose the credentials.
 5. **Limits:** root on the running host can decrypt the credentials, as with any host-side delivery. A boot-volume copy contains both the ciphertext and the host key. Binding to a TPM2 chip (`--with-key=host+tpm2`) would close that gap, but Always Free shapes (`VM.Standard.A1.Flex`, `VM.Standard.E2.1.Micro`) do not support Shielded Instances / vTPM.
-6. **Rotation:** change the value in SOPS and re-run Ansible; the next service start uses the new credential.
+6. **Rotation:** rotate S3 keys in OpenTofu (`tofu apply`) or change Restic passwords in SOPS and re-run Ansible; the next service start uses the new credential.
 
 The earlier OCI Vault boot-fetch design (`docs/plans/2026-10-13-oci-vault-secrets-and-systemd-credentials-design.md`) was retired in favour of this approach; see `docs/plans/2026-10-13-systemd-creds-secret-delivery-design.md`.
 
