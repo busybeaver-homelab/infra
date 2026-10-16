@@ -12,6 +12,7 @@
 set -euo pipefail
 
 commit_msg=""
+subject_only=false
 
 if [[ "${1:-}" == "--subject" ]]; then
   if [[ $# -lt 2 ]]; then
@@ -19,6 +20,7 @@ if [[ "${1:-}" == "--subject" ]]; then
     exit 1
   fi
   commit_msg="$2"
+  subject_only=true
 else
   if [[ $# -lt 1 || ! -f "$1" ]]; then
     echo "ERROR: Missing or unreadable commit message file: ${1:-<empty>}" >&2
@@ -65,15 +67,19 @@ if [[ ! "$commit_msg" =~ $CC_REGEX ]]; then
   exit 1
 fi
 
+if [[ "$subject_only" == "true" ]]; then
+  exit 0
+fi
+
 # 2. Validate Branch Naming Convention
 # Format: <type>/<scope>/<short-desc>
-# Exempt: main, master, HEAD (detached), and renovate/*
+# Exempt: main, master, HEAD (detached), renovate/*, and gh-readonly-queue/* (GitHub Merge Queue)
 current_branch="$(git branch --show-current 2>/dev/null || true)"
 if [[ -z "$current_branch" ]]; then
   current_branch="HEAD"
 fi
 
-if [[ "$current_branch" != "main" && "$current_branch" != "master" && "$current_branch" != "HEAD" && ! "$current_branch" =~ ^renovate/ ]]; then
+if [[ "$current_branch" != "main" && "$current_branch" != "master" && "$current_branch" != "HEAD" && ! "$current_branch" =~ ^(renovate|gh-readonly-queue)/ ]]; then
   readonly BRANCH_REGEX='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)/[-a-zA-Z0-9_.]+/[-a-zA-Z0-9_.]+$'
 
   if [[ ! "$current_branch" =~ $BRANCH_REGEX ]]; then
