@@ -38,6 +38,53 @@
           and is_ci_environment is not set to true. Verify credentials and decryption keys.
         success_msg: "Environment sentinel verified successfully."
 
+    - name: Load Restic backup variables from OpenTofu outputs
+      ansible.builtin.command:
+        argv:
+          - "{{ playbook_dir }}/../../scripts/get-tofu-restic-vars.sh"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
+      check_mode: false
+      no_log: true
+      register: _tofu_restic_vars_raw
+      when: not (is_ci_environment | default(false) | bool)
+
+    - name: Set OpenTofu Restic backup facts from helper output
+      ansible.builtin.set_fact:
+        tofu_oci_restic: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_oci_restic }}"
+        tofu_gcp_restic: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_gcp_restic }}"
+        tofu_cloudflare_restic: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_cloudflare_restic }}"
+      run_once: true
+      no_log: true
+      when: not (is_ci_environment | default(false) | bool)
+
+    - name: Validate OpenTofu Restic backup variables are populated
+      ansible.builtin.assert:
+        that:
+          - tofu_oci_restic is defined
+          - tofu_oci_restic.s3_endpoint | default('') | length > 0
+          - tofu_oci_restic.bucket | default('') | length > 0
+          - tofu_oci_restic.s3_access_key_id | default('') | length > 0
+          - tofu_oci_restic.s3_secret_access_key | default('') | length > 0
+          - tofu_gcp_restic is defined
+          - tofu_gcp_restic.s3_endpoint | default('') | length > 0
+          - tofu_gcp_restic.bucket | default('') | length > 0
+          - tofu_gcp_restic.s3_access_key_id | default('') | length > 0
+          - tofu_gcp_restic.s3_secret_access_key | default('') | length > 0
+          - tofu_cloudflare_restic is defined
+          - tofu_cloudflare_restic.s3_endpoint | default('') | length > 0
+          - tofu_cloudflare_restic.bucket | default('') | length > 0
+          - tofu_cloudflare_restic.s3_access_key_id | default('') | length > 0
+          - tofu_cloudflare_restic.s3_secret_access_key | default('') | length > 0
+        fail_msg: >-
+          OpenTofu Restic backup variables (tofu_oci_restic, tofu_gcp_restic, tofu_cloudflare_restic)
+          are missing or incomplete. Ensure infrastructure/oci, infrastructure/gcp,
+          infrastructure/cloudflare, and infrastructure/monitoring have been applied.
+        quiet: true
+      no_log: true
+
     - name: Set active cloud provider configuration dictionary
       ansible.builtin.set_fact:
         cloud_provider_config: >-

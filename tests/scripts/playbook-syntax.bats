@@ -421,25 +421,34 @@ setup() {
   local cloud_vars="$REPO_ROOT/configuration/group_vars/cloud.yml"
   local oci_vars="$REPO_ROOT/configuration/group_vars/oci.yml"
   local gcp_vars="$REPO_ROOT/configuration/group_vars/gcp.yml"
+  local cloud_pb="$REPO_ROOT/configuration/playbooks/cloud.yml"
   [ -f "$cloud_vars" ]
   [ -f "$oci_vars" ]
   [ -f "$gcp_vars" ]
+  [ -f "$cloud_pb" ]
+
+  run grep "get-tofu-restic-vars.sh" "$cloud_pb"
+  [ "$status" -eq 0 ]
 
   run grep "restic_backup_secondary_enabled: true" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.s3_endpoint" "$cloud_vars"
+  run grep "tofu_cloudflare_restic.s3_endpoint" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.bucket" "$cloud_vars"
+  run grep "tofu_cloudflare_restic.bucket" "$cloud_vars"
   [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.s3_access_key_id" "$cloud_vars"
+  run grep "tofu_cloudflare_restic.s3_access_key_id" "$cloud_vars"
   [ "$status" -eq 0 ]
   run grep "cloudflare_restic.password" "$cloud_vars"
   [ "$status" -eq 0 ]
 
-  run grep "oci_restic.bucket" "$oci_vars"
+  run grep "tofu_oci_restic.bucket" "$oci_vars"
+  [ "$status" -eq 0 ]
+  run grep "oci_restic.password" "$oci_vars"
   [ "$status" -eq 0 ]
 
-  run grep "gcp_restic.bucket" "$gcp_vars"
+  run grep "tofu_gcp_restic.bucket" "$gcp_vars"
+  [ "$status" -eq 0 ]
+  run grep "gcp_restic.password" "$gcp_vars"
   [ "$status" -eq 0 ]
   run grep 'restic_backup_credential_key: "host+tpm2"' "$gcp_vars"
   [ "$status" -eq 0 ]
