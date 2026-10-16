@@ -342,16 +342,27 @@ Restic repository encryption passwords remain in the canonical SOPS files, where
 - **GitHub `ops` Environment Sync:** After applying `oci`, `gcp`, `cloudflare`, or `monitoring` OpenTofu changes (or rotating Restic passwords), run `mise run github:sync:ops` (`scripts/sync-ops-secrets.sh`) to synchronize the privileged prune S3 credentials and Restic passwords into the GitHub `ops` environment for `.github/workflows/backup-prune.yml`. Preview with `bash scripts/sync-ops-secrets.sh --dry-run`. It writes 16 secrets, `{OCI,GCP,R2}_RESTIC_{S3_ENDPOINT,BUCKET,PRUNE_ACCESS_KEY_ID,PRUNE_SECRET_ACCESS_KEY,PASSWORD}` plus `HEALTHCHECKS_BACKUP_PRUNE_PING_URL`, and validates all of them before the first write.
 - **Optional `oci.backup_service_user_email`:** OCI tenancies with identity domains reject IAM users that have no email. If `tofu apply` fails on `oci_identity_user.backup_writer` with HTTP 400, set this key in both SOPS files (a distinct decoy address in the CI file). `infrastructure/oci` plus-addresses it as `+restic-writer` and `+restic-pruner`. Leave it unset on legacy tenancies.
 
+### Docker Compose GitOps Reconciler Credentials & Host Mapping (`compose`)
+
+Per-target runtime `.env` secrets and per-host reconciler routing consumed by `configuration/roles/docker_compose_service`.
+
+| Key                                     | Description                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `compose.targets.<target>.env`          | Key-value `.env` mapping encrypted into `/etc/credstore.encrypted/compose_env`                   |
+| `compose.hosts[].host`                  | Ansible `inventory_hostname` matched by `group_vars/cloud.yml` and `group_vars/homelab.yml`      |
+| `compose.hosts[].target`                | Target identifier (`homelab`, `gcp`, `oci-1`) selecting `compose.<target>.yml` in release assets |
+| `compose.hosts[].healthchecks_ping_url` | Per-host Healthchecks.io ping URL encrypted into `/etc/credstore.encrypted/compose_hc_ping_url`  |
+
 ### Host Secret Delivery (systemd Encrypted Credentials)
 
-Service secrets on hosts (restic repository passwords, S3 secret keys, the Healthchecks ping URL) are delivered without plaintext on disk and survive reboots:
+Service secrets on hosts (restic repository passwords, S3 secret keys, Docker Compose `.env` payloads, and Healthchecks ping URLs) are delivered without plaintext on disk and survive reboots:
 
-1. **Source of truth:** Restic encryption passwords stay in the canonical SOPS files (`community.sops`), while S3 endpoints, bucket names, append-only writer keys, and Healthchecks ping URLs come from OpenTofu sensitive outputs in memory via `scripts/get-tofu-restic-vars.sh`.
-2. **Encrypted at rest on the host:** the `restic_backup` role pipes each secret through stdin into `systemd-creds encrypt --with-key=host`, writing `/etc/credstore.encrypted/<name>` (`0400 root:root`, AES-256-GCM, bound to the root-only host key `/var/lib/systemd/credential.secret`). It only re-encrypts when a value changed.
-3. **Decrypted per service:** units use `LoadCredentialEncrypted=<name>:/etc/credstore.encrypted/<name>`. systemd decrypts into the service's private `$CREDENTIALS_DIRECTORY` at start, and the process reads `$CREDENTIALS_DIRECTORY/<name>`. Nothing goes into `EnvironmentFile=`, argv or `/run/secrets`.
+1. **Source of truth:** Restic encryption passwords and Docker Compose stack secrets stay in the canonical SOPS files (`community.sops`), while S3 endpoints, bucket names, append-only writer keys, and Restic Healthchecks ping URLs come from OpenTofu sensitive outputs in memory via `scripts/get-tofu-restic-vars.sh`.
+2. **Encrypted at rest on the host:** the `restic_backup` and `docker_compose_service` roles pipe each secret through stdin into `systemd-creds encrypt --with-key=host` (or `host+tpm2` on GCP Shielded VMs), writing `/etc/credstore.encrypted/<name>` (`0400 root:root`, AES-256-GCM, bound to the root-only host key `/var/lib/systemd/credential.secret`). They only re-encrypt when a value changed.
+3. **Decrypted per service:** units use `LoadCredentialEncrypted=<name>:/etc/credstore.encrypted/<name>`. systemd decrypts into the service's private `$CREDENTIALS_DIRECTORY` at start, and the process reads `$CREDENTIALS_DIRECTORY/<name>`. Nothing goes into persistent `EnvironmentFile=` on disk or argv.
 4. **Backups:** `/etc` is backed up, so backups contain only ciphertext. The host key in `/var/lib/systemd` is excluded, so a leaked backup does not expose the credentials.
-5. **Limits:** root on the running host can decrypt the credentials, as with any host-side delivery. A boot-volume copy contains both the ciphertext and the host key. Binding to a TPM2 chip (`--with-key=host+tpm2`) would close that gap, but Always Free shapes (`VM.Standard.A1.Flex`, `VM.Standard.E2.1.Micro`) do not support Shielded Instances / vTPM.
-6. **Rotation:** rotate S3 keys in OpenTofu (`tofu apply`) or change Restic passwords in SOPS and re-run Ansible; the next service start uses the new credential.
+5. **Limits:** root on the running host can decrypt the credentials, as with any host-side delivery. A boot-volume copy contains both the ciphertext and the host key. Binding to a TPM2 chip (`--with-key=host+tpm2`) closes that gap on GCP Shielded VMs; OCI Always Free shapes (`VM.Standard.A1.Flex`, `VM.Standard.E2.1.Micro`) do not support Shielded Instances / vTPM.
+6. **Rotation:** rotate S3 keys in OpenTofu (`tofu apply`) or change Restic passwords / Docker Compose secrets in SOPS and re-run Ansible; the next service start uses the new credential.
 
 The earlier OCI Vault boot-fetch design (`docs/plans/2026-10-13-oci-vault-secrets-and-systemd-credentials-design.md`) was retired in favour of this approach; see `docs/plans/2026-10-13-systemd-creds-secret-delivery-design.md`.
 

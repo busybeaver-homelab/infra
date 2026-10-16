@@ -161,4 +161,26 @@ EOF
     [ "$output" = "true" ]
   done
 }
+@test "canonical secrets files define compose schema keys" {
+  local targets=("homelab" "gcp" "oci-1")
+  for target in "${targets[@]}"; do
+    run yq eval "has(\"compose\") and (.compose | has(\"targets\")) and (.compose.targets | has(\"${target}\")) and (.compose.targets[\"${target}\"] | has(\"env\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+    run yq eval "has(\"compose\") and (.compose | has(\"targets\")) and (.compose.targets | has(\"${target}\")) and (.compose.targets[\"${target}\"] | has(\"env\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+  done
 
+  local host_keys=("host" "target" "healthchecks_ping_url")
+  for idx in 0 1 2; do
+    for key in "${host_keys[@]}"; do
+      run yq eval "has(\"compose\") and (.compose | has(\"hosts\")) and (.compose.hosts[${idx}] | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+      [ "$status" -eq 0 ]
+      [ "$output" = "true" ]
+      run yq eval "has(\"compose\") and (.compose | has(\"hosts\")) and (.compose.hosts[${idx}] | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+      [ "$status" -eq 0 ]
+      [ "$output" = "true" ]
+    done
+  done
+}

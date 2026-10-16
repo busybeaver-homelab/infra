@@ -247,6 +247,7 @@ analysis=$(
 # Structural/public values, anchored to the real schema paths.
 function is_allowlisted_path(p) {
   if (p ~ /^(is_production|gcp\.(region|zone|breakglass_user)|oci\.(region|breakglass_user)|github\.owner)$/) return 1
+  if (p ~ /^compose\.hosts\.[0-9]+\.target$/) return 1
   if (p ~ /^github\.config\.repositories\.[^.]+\.(name|description|topics\.[0-9]+)$/) return 1
   if (p ~ /^github\.config\.deploy_keys\.[^.]+\.title$/) return 1
   if (p ~ /^nextdns\.(accounts\.[^.]+\.account_name|config\.accounts\.account_5\.profile_name)$/) return 1
@@ -264,6 +265,7 @@ function is_public_constant(val,    low) {
   low = tolower(val)
   if (val ~ /^-----(BEGIN|END) /) return 1
   if (low ~ /^(placeholder|changeme|disabled|enabled|true|false|null|none)$/) return 1
+  if (low ~ /^(gcp-default-vm|oci-amd-[12]|oci-arm-1)$/) return 1
   if (low == "https://storage.googleapis.com") return 1
   # RFC 5737 / RFC 3849 documentation addresses (e.g. Cloudflare dummy origins)
   if (val ~ /^(192\.0\.2|198\.51\.100|203\.0\.113)\.[0-9]+(\/[0-9]+)?$/) return 1
@@ -279,7 +281,7 @@ function is_ci_decoy(val,    low) {
   if (val ~ /<[^>]+>/) return 1
   if (low ~ /(^|\.|@|-)example(\.|-|$)/) return 1
   if (low ~ /^0{16,}[0-9a-f]{0,4}$/) return 1
-  if (low ~ /^decoy[-_.]/) return 1
+  if (low ~ /(^|=)decoy[-_.]/) return 1
   # Throwaway values intentionally reused in CI workflows (STD-CI-25)
   if (low == "ci-validation-dummy-passphrase-32ch" || low == "012345-6789ab-cdef01") return 1
   return 0

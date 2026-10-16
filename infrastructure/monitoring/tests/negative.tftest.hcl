@@ -100,3 +100,27 @@ run "reject_missing_homelab_in_check_tags" {
     var.check_tags,
   ]
 }
+
+run "reject_empty_compose_target_id" {
+  command = plan
+
+  variables {
+    compose_targets = ["homelab", ""]
+  }
+
+  expect_failures = [
+    var.compose_targets,
+  ]
+}
+
+run "reject_duplicate_compose_target_id" {
+  command = plan
+
+  variables {
+    compose_targets = ["homelab", "gcp", "homelab"]
+  }
+
+  expect_failures = [
+    var.compose_targets,
+  ]
+}

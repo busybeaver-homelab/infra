@@ -64,3 +64,20 @@ variable "state_encryption_passphrase" {
     error_message = "state_encryption_passphrase looks like a placeholder; supply the real value from SOPS."
   }
 }
+
+variable "compose_targets" {
+  type        = list(string)
+  description = "Logical Docker Compose target IDs (one per host, e.g., homelab, gcp, oci-1)."
+  default     = ["homelab", "gcp", "oci-1"]
+  sensitive   = true
+
+  validation {
+    condition     = length(var.compose_targets) > 0 && alltrue([for t in var.compose_targets : length(trimspace(t)) > 0 && can(regex("^[a-z0-9][a-z0-9-]*$", t))])
+    error_message = "compose_targets must be non-empty and every target ID must match ^[a-z0-9][a-z0-9-]*$."
+  }
+
+  validation {
+    condition     = length(distinct(var.compose_targets)) == length(var.compose_targets)
+    error_message = "compose_targets must not contain duplicate target IDs."
+  }
+}
