@@ -141,7 +141,7 @@ STUB
 
   run "$REPO_ROOT/scripts/drift.sh" --module cloudflare --module-dir "$BATS_TEST_TMPDIR/module"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"No drift"* ]]
+  [[ "$output" == *"No drift"* ]] || false
   grep -q 'endpoint=https://11111111111111111111111111111111.r2.cloudflarestorage.com' "$env_log"
   grep -q 'TF_VAR_state_encryption_passphrase=test-passphrase-at-least-32-chars' "$env_log"
   grep -q 'TF_VAR_cloudflare_api_token=cf-api-token-test' "$env_log"
