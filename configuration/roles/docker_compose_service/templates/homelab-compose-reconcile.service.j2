@@ -1,0 +1,33 @@
+{{ ansible_managed | ansible.builtin.comment }}
+[Unit]
+Description=Signed GitOps Docker Compose Reconciler
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+OnFailure=homelab-compose-failure@%n.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=45min
+EnvironmentFile={{ docker_compose_service_env_file_path }}
+Environment=DOCKER_CONFIG={{ docker_compose_service_state_dir }}/docker TUF_ROOT={{ docker_compose_service_state_dir }}/sigstore
+StateDirectory=homelab-compose
+StateDirectoryMode=0700
+ReadWritePaths={{ docker_compose_service_base_dir }}
+LoadCredentialEncrypted=homelab_compose_env:{{ docker_compose_service_credstore_dir }}/homelab_compose_env
+LoadCredentialEncrypted=compose_healthchecks_ping_url:{{ docker_compose_service_credstore_dir }}/compose_healthchecks_ping_url
+ExecStart={{ docker_compose_service_libexec_dir }}/homelab-compose-reconcile
+User=root
+Group=root
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+LockPersonality=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=

@@ -1,0 +1,11 @@
+{{ ansible_managed | ansible.builtin.comment }}
+[Unit]
+Description=Trigger Signed GitOps Docker Compose Reconciler
+
+[Timer]
+OnCalendar={{ docker_compose_service_reconcile_calendar }}
+RandomizedDelaySec={{ docker_compose_service_reconcile_randomized_delay_sec }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

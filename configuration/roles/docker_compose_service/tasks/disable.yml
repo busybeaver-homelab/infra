@@ -1,0 +1,57 @@
+---
+# Disable tasks for docker_compose_service role (STD-AN-29)
+# Preserves running containers, /opt/containers/releases, and /var/lib/homelab-compose.
+
+- name: Check whether docker_compose_service systemd timers are installed
+  ansible.builtin.stat:
+    path: "/etc/systemd/system/{{ item }}"
+  loop:
+    - homelab-compose-reconcile.timer
+    - homelab-docker-cleanup.timer
+  register: docker_compose_service_timer_stats
+
+- name: Stop and disable docker_compose_service systemd timers
+  ansible.builtin.systemd_service:
+    name: "{{ item.item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ docker_compose_service_timer_stats.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.stat.exists
+
+- name: Remove docker_compose_service systemd units and timers
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}"
+    state: absent
+  loop:
+    - homelab-compose-failure@.service
+    - homelab-compose-reconcile.service
+    - homelab-compose-reconcile.timer
+    - homelab-docker-cleanup.service
+    - homelab-docker-cleanup.timer
+  notify: Reload systemd for docker_compose_service units
+
+- name: Remove docker_compose_service scripts, environment file, keys, and credentials
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ docker_compose_service_libexec_dir }}/homelab-compose-reconcile"
+    - "{{ docker_compose_service_libexec_dir }}/homelab-compose-notify"
+    - "{{ docker_compose_service_libexec_dir }}/homelab-compose-credential-sync"
+    - "{{ docker_compose_service_libexec_dir }}/homelab-docker-cleanup"
+    - "{{ docker_compose_service_env_file_path }}"
+    - "{{ docker_compose_service_cosign_public_key_path }}"
+    - "{{ docker_compose_service_cosign_next_public_key_path }}"
+    - "{{ docker_compose_service_credstore_dir }}/homelab_compose_env"
+    - "{{ docker_compose_service_credstore_dir }}/compose_healthchecks_ping_url"
+
+- name: Remove role-managed /etc/docker/daemon.json when owned by docker_compose_service
+  ansible.builtin.file:
+    path: "{{ docker_compose_service_daemon_json_path }}"
+    state: absent
+  when: docker_compose_service_manage_daemon_json | bool
+
+- name: Flush handlers after disabling docker_compose_service
+  ansible.builtin.meta: flush_handlers

@@ -59,11 +59,15 @@ ctx = {
     "docker_compose_service_project_name": "homelab",
     "docker_compose_service_wait_timeout": 180,
     "docker_compose_service_keep_releases": 3,
+    "ansible_managed": "Ansible managed",
 }
+
+env = jinja2.Environment(keep_trailing_newline=True)
+env.filters["ansible.builtin.comment"] = lambda s: f"# {s}"
 
 for src, dst in [(reconcile_tpl, f"{tmp}/reconcile.sh"), (cleanup_tpl, f"{tmp}/cleanup.sh")]:
     with open(src, encoding="utf-8") as handle:
-        tpl = jinja2.Template(handle.read(), keep_trailing_newline=True)
+        tpl = env.from_string(handle.read())
     with open(dst, "w", encoding="utf-8") as handle:
         handle.write(tpl.render(**ctx))
 PY

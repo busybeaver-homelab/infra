@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Managed by Ansible (docker_compose_service role). Do not edit manually.
+{{ ansible_managed | ansible.builtin.comment }}
 # Rollback-safe weekly Docker cleanup job:
 #   - Acquires shared flock with homelab-compose-reconcile
 #   - Removes stale temporary hold containers from any interrupted run

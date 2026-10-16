@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Managed by Ansible (docker_compose_service role). Do not edit manually.
+{{ ansible_managed | ansible.builtin.comment }}
 # GitOps Docker Compose reconciler:
 #   - Acquires shared flock with cleanup job
 #   - Quarantines interrupted in-flight deployments and restores current stack
@@ -92,7 +92,6 @@ verify_cosign_signature() {
   if "${COSIGN_BIN}" verify-blob \
     --key "${COSIGN_PUB}" \
     --bundle "${bundle_file}" \
-    --offline \
     "${sums_file}" >/dev/null 2>&1; then
     return 0
   fi
@@ -100,7 +99,6 @@ verify_cosign_signature() {
     if "${COSIGN_BIN}" verify-blob \
       --key "${COSIGN_NEXT_PUB}" \
       --bundle "${bundle_file}" \
-      --offline \
       "${sums_file}" >/dev/null 2>&1; then
       log "Verified release bundle using fallback key ${COSIGN_NEXT_PUB}"
       return 0
@@ -164,7 +162,7 @@ validate_compose_manifest() {
   if [ -n "${required_vars}" ]; then
     while IFS= read -r var_name; do
       [ -z "${var_name}" ] && continue
-      if ! grep -qE "^${var_name}=.+" "${ENV_CRED}"; then
+      if ! grep -qE "^${var_name}=('[^']+'|[^'].*)" "${ENV_CRED}"; then
         log "ERROR: required variable '${var_name}' is missing or empty in ${ENV_CRED}"
         return 1
       fi
@@ -282,6 +280,7 @@ fi
 
 # 7. Stage and verify release artifacts before touching running containers
 STAGING_DIR="$(mktemp -d "${STATE_DIR}/staging/tmp.XXXXXX")"
+chmod 0750 "${STAGING_DIR}"
 target_asset="docker-compose.${COMPOSE_TARGET}.yaml"
 
 for asset in "RELEASE" "SHA256SUMS" "SHA256SUMS.sigstore.json" "${target_asset}"; do
@@ -323,6 +322,7 @@ fi
 )
 
 cp "${STAGING_DIR}/${target_asset}" "${STAGING_DIR}/docker-compose.yaml"
+chmod 0640 "${STAGING_DIR}"/*
 
 if ! validate_compose_manifest "${STAGING_DIR}/docker-compose.yaml"; then
   log "ERROR: compose manifest validation failed for release '${tag}'"

@@ -1,0 +1,29 @@
+{{ ansible_managed | ansible.builtin.comment }}
+[Unit]
+Description=Signed GitOps Docker Compose Failure Alert for %I
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Fallback: if the encrypted credential cannot be loaded, systemd uses this sentinel instead of
+# failing the alert unit at the CREDENTIALS step (an empty value is invalid syntax on systemd 259).
+# The notifier then logs the exact reason and still exits non-zero for a fail event.
+SetCredential=compose_healthchecks_ping_url:missing
+LoadCredentialEncrypted=compose_healthchecks_ping_url:{{ docker_compose_service_credstore_dir }}/compose_healthchecks_ping_url
+ExecStart={{ docker_compose_service_libexec_dir }}/homelab-compose-notify fail %i
+TimeoutStartSec=2min
+User=root
+Group=root
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+LockPersonality=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=

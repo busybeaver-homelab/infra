@@ -1,0 +1,31 @@
+{{ ansible_managed | ansible.builtin.comment }}
+[Unit]
+Description=Rollback-Safe Weekly Docker Image and Cache Cleanup
+After=docker.service
+Requires=docker.service
+OnFailure=homelab-compose-failure@%n.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=30min
+EnvironmentFile={{ docker_compose_service_env_file_path }}
+Environment=DOCKER_CONFIG={{ docker_compose_service_state_dir }}/docker TUF_ROOT={{ docker_compose_service_state_dir }}/sigstore
+StateDirectory=homelab-compose
+StateDirectoryMode=0700
+ReadOnlyPaths=-{{ docker_compose_service_base_dir }}
+LoadCredentialEncrypted=homelab_compose_env:{{ docker_compose_service_credstore_dir }}/homelab_compose_env
+ExecStart={{ docker_compose_service_libexec_dir }}/homelab-docker-cleanup
+User=root
+Group=root
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+LockPersonality=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
