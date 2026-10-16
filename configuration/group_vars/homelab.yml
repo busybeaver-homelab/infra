@@ -1,0 +1,9 @@
+---
+# Group variables for local homelab server
+
+# GitOps Docker Compose Reconciler (docker_compose_service)
+docker_compose_service_enabled: false
+docker_compose_service_manage_daemon_json: true
+docker_compose_service_allow_macvlan: true
+docker_compose_service_hosts: "{{ compose.hosts | default([]) }}"
+docker_compose_service_targets: "{{ compose.targets | default({}) }}"

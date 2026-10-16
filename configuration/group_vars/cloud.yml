@@ -80,3 +80,19 @@ restic_backup_secondary_repository: "s3:{{ tofu_cloudflare_restic.s3_endpoint }}
 restic_backup_secondary_s3_access_key: "{{ tofu_cloudflare_restic.s3_access_key_id }}"
 restic_backup_secondary_s3_secret_key: "{{ tofu_cloudflare_restic.s3_secret_access_key }}"
 restic_backup_secondary_password: "{{ cloudflare_restic.password }}"
+
+# Docker daemon configuration (geerlingguy.docker)
+docker_daemon_options:
+  log-driver: "json-file"
+  log-opts:
+    max-size: "10m"
+    max-file: "3"
+  live-restore: true
+
+# GitOps Docker Compose Reconciler (docker_compose_service)
+# Disabled by default until first signed release exists for each target;
+# enable per-group or per-host once homelab-services vX.Y.Z is published.
+docker_compose_service_enabled: false
+docker_compose_service_manage_daemon_json: false
+docker_compose_service_hosts: "{{ compose.hosts | default([]) }}"
+docker_compose_service_targets: "{{ compose.targets | default({}) }}"

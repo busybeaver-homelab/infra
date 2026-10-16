@@ -77,6 +77,7 @@ Before claiming a task is complete, verify your work:
     - **Ansible changes:** `mise exec -- ansible-lint configuration/` · Molecule test suites:
       - `(cd configuration/roles/base_ubuntu_server && mise exec -- molecule test)`
       - `(cd configuration/roles/restic_backup && mise exec -- molecule test)`
+      - `(cd configuration/roles/docker_compose_service && mise exec -- molecule test)`
       - `(cd configuration && mise exec -- molecule test -s oci)`
       - `(cd configuration && mise exec -- molecule test -s gcp)`
       - `(cd configuration && mise exec -- molecule test -s homelab)`
@@ -84,7 +85,7 @@ Before claiming a task is complete, verify your work:
     - **Workflow / Renovate changes:** `mise exec -- actionlint` · the CI-related bats suites listed in `docs/runbooks/ci-workflows-standards.md` §15
     - **Python changes:** `uv run ruff check` · `uv run ruff format --check`
     - **Pre-commit gate (all changes):** `mise exec lefthook -- lefthook run pre-commit`
-    > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver across the five scenarios above (`base_ubuntu_server`, `restic_backup`, `oci`, `gcp`, and `homelab`).
+    > **Note:** Current Molecule tests target Ubuntu Server 26.04 via the Docker driver across the six scenarios above (`base_ubuntu_server`, `restic_backup`, `docker_compose_service`, `oci`, `gcp`, and `homelab`).
 2.  **Verify exit status** — all commands above must exit 0 before proceeding.
 3.  **Perform a self-review diff** of your modifications to ensure no stray code, unused variables, or comments remain.
 4.  **Update the task tracker** located at `docs/plans/task.md` during execution (this file is ignored by Git to avoid worktree merge conflicts). Upon completing all tasks for a branch or plan, move `docs/plans/task.md` to `docs/plans/archive/task-<YYYY-MM-DD>-<topic>.md` and commit the archived tracker.

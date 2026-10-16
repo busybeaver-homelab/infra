@@ -3,9 +3,40 @@
   hosts: homelab
   become: true
   gather_facts: true
-  tasks:
+  module_defaults:
+    ansible.builtin.template:
+      unsafe_writes: true
+    template:
+      unsafe_writes: true
+  pre_tasks:
+    - name: Load SOPS credentials
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../../secrets/{{ custom_sops_secrets_file | default('credentials.sops.yaml') }}"
+      when: compose is not defined
+
+    - name: Validate environment sentinel
+      ansible.builtin.assert:
+        that:
+          - (is_production | default(false) | bool) or (is_ci_environment | default(false) | bool)
+        fail_msg: >-
+          Refusing to execute playbook: Loaded secrets file does not have is_production: true,
+          and is_ci_environment is not set to true. Verify credentials and decryption keys.
+        success_msg: "Environment sentinel verified successfully."
+
     - name: Ensure Docker is running
       ansible.builtin.service:
         name: docker
         state: started
         enabled: true
+
+    - name: Verify Docker Engine and Docker Compose plugin are installed # noqa: command-instead-of-module
+      ansible.builtin.command:
+        argv: "{{ item }}"
+      loop:
+        - [docker, --version]
+        - [docker, compose, version]
+      changed_when: false
+      when: not ansible_check_mode
+
+  roles:
+    - docker_compose_service

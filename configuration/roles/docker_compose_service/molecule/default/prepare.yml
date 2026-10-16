@@ -1,0 +1,295 @@
+---
+- name: Prepare docker_compose_service test container
+  hosts: all
+  become: true
+  vars:
+    docker_compose_service_test_fixtures_dir: /tmp/molecule-fixtures
+    docker_compose_service_test_cosign_version: v3.1.3
+    docker_compose_service_test_cosign_sha256:
+      x86_64: "4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71"
+      aarch64: "c5d324e091826b0d7a78eb16fef316450b4eb9aaec045611c08ba06f5e73220a"
+    docker_compose_service_test_busybox_image: >-
+      docker.io/library/busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+  tasks:
+    - name: Update apt cache and install Docker engine and Compose v2 plugin
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+          - openssl
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure Docker daemon is enabled and started
+      ansible.builtin.systemd_service:
+        name: docker.service
+        enabled: true
+        state: started
+
+    - name: Pre-pull pinned busybox fixture image into nested Docker
+      ansible.builtin.command:
+        argv:
+          - docker
+          - pull
+          - --quiet
+          - "{{ docker_compose_service_test_busybox_image }}"
+      register: docker_compose_service_prepare_pull
+      changed_when: docker_compose_service_prepare_pull.rc == 0
+
+    - name: Create Molecule fixture and stub directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ docker_compose_service_test_fixtures_dir }}/bin"
+        - "{{ docker_compose_service_test_fixtures_dir }}/keys"
+        - "{{ docker_compose_service_test_fixtures_dir }}/keys-wrong"
+        - "{{ docker_compose_service_test_fixtures_dir }}/releases/v2026.10.16-1"
+        - "{{ docker_compose_service_test_fixtures_dir }}/releases/v2026.10.16-2"
+        - "{{ docker_compose_service_test_fixtures_dir }}/releases/v2026.10.16-3"
+        - /tmp/hc-stub
+
+    - name: Download isolated cosign binary for fixture signing
+      ansible.builtin.get_url:
+        url: >-
+          https://github.com/sigstore/cosign/releases/download/{{
+          docker_compose_service_test_cosign_version }}/cosign-linux-{{
+          'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}
+        dest: "{{ docker_compose_service_test_fixtures_dir }}/bin/cosign-signer"
+        checksum: "sha256:{{ docker_compose_service_test_cosign_sha256[ansible_facts['architecture']] }}"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Generate ephemeral cosign key pair for valid fixture releases
+      ansible.builtin.command:
+        argv:
+          - "{{ docker_compose_service_test_fixtures_dir }}/bin/cosign-signer"
+          - generate-key-pair
+        chdir: "{{ docker_compose_service_test_fixtures_dir }}/keys"
+        creates: "{{ docker_compose_service_test_fixtures_dir }}/keys/cosign.pub"
+      environment:
+        COSIGN_PASSWORD: ""
+
+    - name: Generate second ephemeral cosign key pair for negative signature test
+      ansible.builtin.command:
+        argv:
+          - "{{ docker_compose_service_test_fixtures_dir }}/bin/cosign-signer"
+          - generate-key-pair
+        chdir: "{{ docker_compose_service_test_fixtures_dir }}/keys-wrong"
+        creates: "{{ docker_compose_service_test_fixtures_dir }}/keys-wrong/cosign.pub"
+      environment:
+        COSIGN_PASSWORD: ""
+
+    - name: Write healthy Compose fixture (v2026.10.16-1)
+      ansible.builtin.copy:
+        dest: "{{ docker_compose_service_test_fixtures_dir }}/releases/v2026.10.16-1/docker-compose.gcp.yaml"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          services:
+            app:
+              image: {{ docker_compose_service_test_busybox_image }}
+              command: ["sh", "-c", "trap 'exit 0' TERM INT; while true; do sleep 1; done"]
+              environment:
+                APP_MARKER: "${APP_MARKER}"
+              healthcheck:
+                test: ["CMD", "true"]
+                interval: 1s
+                timeout: 2s
+                retries: 2
+                start_period: 0s
+
+    - name: Write unhealthy Compose fixture (v2026.10.16-2)
+      ansible.builtin.copy:
+        dest: "{{ docker_compose_service_test_fixtures_dir }}/releases/v2026.10.16-2/docker-compose.gcp.yaml"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          services:
+            app:
+              image: {{ docker_compose_service_test_busybox_image }}
+              command: ["sh", "-c", "trap 'exit 0' TERM INT; while true; do sleep 1; done"]
+              environment:
+                APP_MARKER: "${APP_MARKER}"
+              healthcheck:
+                test: ["CMD", "false"]
+                interval: 1s
+                timeout: 1s
+                retries: 1
+                start_period: 0s
+
+    - name: Write untrusted-key Compose fixture (v2026.10.16-3)
+      ansible.builtin.copy:
+        dest: "{{ docker_compose_service_test_fixtures_dir }}/releases/v2026.10.16-3/docker-compose.gcp.yaml"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          services:
+            app:
+              image: {{ docker_compose_service_test_busybox_image }}
+              command: ["sh", "-c", "trap 'exit 0' TERM INT; while true; do sleep 1; done"]
+              environment:
+                APP_MARKER: "${APP_MARKER}"
+              healthcheck:
+                test: ["CMD", "true"]
+                interval: 1s
+                timeout: 2s
+                retries: 2
+                start_period: 0s
+
+    - name: Build RELEASE, SHA256SUMS, and Cosign bundles for fixture releases
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd "{{ docker_compose_service_test_fixtures_dir }}/releases/{{ item.tag }}"
+        printf '%s\n' "{{ item.tag }}" > RELEASE
+        sha256sum RELEASE docker-compose.gcp.yaml > SHA256SUMS
+        COSIGN_PASSWORD="" "{{ docker_compose_service_test_fixtures_dir }}/bin/cosign-signer" sign-blob \
+          --yes \
+          --key "{{ item.key }}" \
+          --bundle SHA256SUMS.sigstore.json \
+          SHA256SUMS
+      args:
+        executable: /bin/bash
+        creates: "{{ docker_compose_service_test_fixtures_dir }}/releases/{{ item.tag }}/SHA256SUMS.sigstore.json"
+      loop:
+        - tag: v2026.10.16-1
+          key: "{{ docker_compose_service_test_fixtures_dir }}/keys/cosign.key"
+        - tag: v2026.10.16-2
+          key: "{{ docker_compose_service_test_fixtures_dir }}/keys/cosign.key"
+        - tag: v2026.10.16-3
+          key: "{{ docker_compose_service_test_fixtures_dir }}/keys-wrong/cosign.key"
+
+    - name: Set initial active release tag for mock GitHub Release server
+      ansible.builtin.copy:
+        dest: "{{ docker_compose_service_test_fixtures_dir }}/releases/active-tag"
+        owner: root
+        group: root
+        mode: "0644"
+        content: "v2026.10.16-1\n"
+
+    - name: Deploy mock GitHub Releases HTTP server
+      ansible.builtin.copy:
+        dest: "{{ docker_compose_service_test_fixtures_dir }}/release_server.py"
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/usr/bin/env python3
+          """Serves mock GitHub /releases/latest JSON and release assets on 127.0.0.1:18081."""
+          import json
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+          from pathlib import Path
+
+          ROOT = Path("{{ docker_compose_service_test_fixtures_dir }}/releases")
+          BASE_URL = "http://127.0.0.1:18081"
+          ASSETS = ["RELEASE", "SHA256SUMS", "SHA256SUMS.sigstore.json", "docker-compose.gcp.yaml"]
+
+          class Handler(BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == "/repos/busybeaver/homelab-services/releases/latest":
+                      tag = (ROOT / "active-tag").read_text(encoding="utf-8").strip()
+                      payload = {
+                          "tag_name": tag,
+                          "assets": [
+                              {
+                                  "name": name,
+                                  "browser_download_url": f"{BASE_URL}/assets/{tag}/{name}",
+                              }
+                              for name in ASSETS
+                          ],
+                      }
+                      body = json.dumps(payload).encode("utf-8")
+                      self.send_response(200)
+                      self.send_header("Content-Type", "application/json")
+                      self.send_header("Content-Length", str(len(body)))
+                      self.end_headers()
+                      self.wfile.write(body)
+                      return
+
+                  if self.path.startswith("/assets/"):
+                      rel = self.path[len("/assets/"):]
+                      file_path = (ROOT / rel).resolve()
+                      if ROOT.resolve() in file_path.parents and file_path.is_file():
+                          data = file_path.read_bytes()
+                          self.send_response(200)
+                          self.send_header("Content-Length", str(len(data)))
+                          self.end_headers()
+                          self.wfile.write(data)
+                          return
+
+                  self.send_response(404)
+                  self.end_headers()
+
+              def log_message(self, *args):
+                  pass
+
+          HTTPServer(("127.0.0.1", 18081), Handler).serve_forever()
+
+    - name: Start mock GitHub Releases HTTP server
+      ansible.builtin.command:
+        argv:
+          - systemd-run
+          - --unit=mock-release-server
+          - --collect
+          - python3
+          - "{{ docker_compose_service_test_fixtures_dir }}/release_server.py"
+        creates: /run/systemd/transient/mock-release-server.service
+
+    - name: Deploy Healthchecks stub listener
+      ansible.builtin.copy:
+        dest: /tmp/hc-stub/server.py
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/usr/bin/env python3
+          """Accepts GET/POST on 127.0.0.1:18080 and appends '<METHOD> <path>' to requests.log."""
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+
+          LOG = "/tmp/hc-stub/requests.log"
+
+          class Handler(BaseHTTPRequestHandler):
+              def _ok(self):
+                  length = int(self.headers.get("Content-Length") or 0)
+                  if length:
+                      self.rfile.read(length)
+                  with open(LOG, "a", encoding="utf-8") as log:
+                      log.write(f"{self.command} {self.path}\n")
+                  self.send_response(200)
+                  self.end_headers()
+                  self.wfile.write(b"OK")
+
+              do_GET = _ok
+              do_POST = _ok
+
+              def log_message(self, *args):
+                  pass
+
+          HTTPServer(("127.0.0.1", 18080), Handler).serve_forever()
+
+    - name: Start Healthchecks stub listener
+      ansible.builtin.command:
+        argv:
+          - systemd-run
+          - --unit=hc-stub
+          - --collect
+          - python3
+          - /tmp/hc-stub/server.py
+        creates: /run/systemd/transient/hc-stub.service
+
+    - name: Wait for mock release server and Healthchecks stub ports
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ item }}"
+        timeout: 15
+      loop:
+        - 18080
+        - 18081

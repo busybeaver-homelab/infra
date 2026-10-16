@@ -1,0 +1,11 @@
+{{ ansible_managed | ansible.builtin.comment }}
+[Unit]
+Description=Trigger Rollback-Safe Weekly Docker Image and Cache Cleanup
+
+[Timer]
+OnCalendar={{ docker_compose_service_cleanup_calendar }}
+RandomizedDelaySec={{ docker_compose_service_cleanup_randomized_delay_sec }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

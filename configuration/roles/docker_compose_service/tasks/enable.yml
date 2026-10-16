@@ -1,0 +1,172 @@
+---
+# Enable tasks for docker_compose_service role
+
+- name: Install jq and curl packages for docker_compose_service
+  ansible.builtin.apt:
+    name:
+      - jq
+      - curl
+    state: present
+    update_cache: false
+
+- name: Create docker_compose_service directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ docker_compose_service_base_dir }}", mode: "0755" }
+    - { path: "{{ docker_compose_service_base_dir }}/releases", mode: "0755" }
+    - { path: "{{ docker_compose_service_state_dir }}", mode: "0700" }
+    - { path: "{{ docker_compose_service_state_dir }}/docker", mode: "0700" }
+    - { path: "{{ docker_compose_service_state_dir }}/sigstore", mode: "0700" }
+    - { path: "{{ docker_compose_service_credstore_dir }}", mode: "0700" }
+    - { path: "{{ docker_compose_service_libexec_dir }}", mode: "0755" }
+    - { path: "{{ docker_compose_service_cosign_public_key_path | dirname }}", mode: "0755" }
+
+- name: Ensure /etc/docker directory exists when managing daemon.json
+  ansible.builtin.file:
+    path: "{{ docker_compose_service_daemon_json_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: docker_compose_service_manage_daemon_json | bool
+
+- name: Deploy Docker daemon log rotation configuration
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: "{{ docker_compose_service_daemon_json_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart docker for docker_compose_service
+  when: docker_compose_service_manage_daemon_json | bool
+
+- name: Download and verify pinned Sigstore cosign binary
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/sigstore/cosign/releases/download/{{ docker_compose_service_cosign_version }}/cosign-linux-{{
+        'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64'
+      }}
+    dest: "{{ docker_compose_service_cosign_bin }}"
+    checksum: "sha256:{{ docker_compose_service_cosign_sha256[ansible_facts['architecture']] }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install primary Cosign public verification key
+  ansible.builtin.copy:
+    src: "{{ docker_compose_service_cosign_public_key_src }}"
+    remote_src: "{{ docker_compose_service_cosign_public_key_remote_src }}"
+    dest: "{{ docker_compose_service_cosign_public_key_path }}"
+    owner: root
+    group: root
+    mode: "0444"
+
+- name: Install secondary Cosign public verification key for rotation
+  ansible.builtin.copy:
+    content: "{{ docker_compose_service_cosign_next_public_key }}"
+    dest: "{{ docker_compose_service_cosign_next_public_key_path }}"
+    owner: root
+    group: root
+    mode: "0444"
+  when: (docker_compose_service_cosign_next_public_key | trim | length) > 0
+
+- name: Remove secondary Cosign public verification key when not rotating
+  ansible.builtin.file:
+    path: "{{ docker_compose_service_cosign_next_public_key_path }}"
+    state: absent
+  when: (docker_compose_service_cosign_next_public_key | trim | length) == 0
+
+- name: Deploy docker_compose_service helper scripts
+  ansible.builtin.copy:
+    src: "{{ item }}.sh"
+    dest: "{{ docker_compose_service_libexec_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0750"
+    validate: bash -n %s
+  loop:
+    - homelab-compose-credential-sync
+    - homelab-compose-notify
+
+- name: Deploy docker_compose_service reconciler and cleanup scripts
+  ansible.builtin.template:
+    src: "{{ item }}.sh.j2"
+    dest: "{{ docker_compose_service_libexec_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0750"
+    validate: bash -n %s
+  loop:
+    - homelab-compose-reconcile
+    - homelab-docker-cleanup
+
+- name: Deploy non-secret reconciler environment configuration
+  ansible.builtin.template:
+    src: homelab-compose.env.j2
+    dest: "{{ docker_compose_service_env_file_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Build in-memory Compose interpolation dotenv payload
+  ansible.builtin.set_fact:
+    docker_compose_service_dotenv_payload: |-
+      {% for key, val in (docker_compose_service_effective_env | dictsort) %}
+      {{ key }}={{ val }}
+      {% endfor %}
+  no_log: true
+  diff: false
+
+- name: Encrypt docker_compose_service credentials into systemd credential store
+  ansible.builtin.command:
+    argv:
+      - "{{ docker_compose_service_libexec_dir }}/homelab-compose-credential-sync"
+      - "{{ item.name }}"
+      - "{{ docker_compose_service_credstore_dir }}"
+      - "{{ docker_compose_service_credential_key }}"
+    stdin: "{{ item.value }}"
+    stdin_add_newline: false
+  loop:
+    - name: homelab_compose_env
+      value: "{{ docker_compose_service_dotenv_payload }}"
+    - name: compose_healthchecks_ping_url
+      value: "{{ docker_compose_service_effective_ping_url }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: not ansible_check_mode
+  register: docker_compose_service_credential_sync
+  changed_when: docker_compose_service_credential_sync.stdout == 'changed'
+  no_log: true
+  diff: false
+
+- name: Deploy docker_compose_service systemd units and timers
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - homelab-compose-failure@.service
+    - homelab-compose-reconcile.service
+    - homelab-compose-reconcile.timer
+    - homelab-docker-cleanup.service
+    - homelab-docker-cleanup.timer
+  notify: Reload systemd for docker_compose_service units
+
+- name: Flush handlers before enabling docker_compose_service timers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start docker_compose_service systemd timers
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - homelab-compose-reconcile.timer
+    - homelab-docker-cleanup.timer

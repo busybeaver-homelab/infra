@@ -265,13 +265,22 @@ EOF
   assert_output_not_contains "${PROD_PEM_LINE}"
 }
 
-@test "check-sops-secret-leaks.sh ignores allowlisted structural values like gcp.region, dns record type, nextdns.accounts.*.account_name, and github.config.deploy_keys.*.title" {
+@test "check-sops-secret-leaks.sh ignores allowlisted structural values like gcp.region, dns record type, nextdns.accounts.*.account_name, compose.hosts.*.target, and github.config.deploy_keys.*.title" {
   cd "${MOCK_REPO}"
   git init -q
   cat <<'EOF' | write_sops credentials.sops.yaml
 is_production: true
 gcp:
   region: "us-central1"
+compose:
+  targets:
+    homelab:
+      env: |
+        # env
+  hosts:
+    - hostname: "placeholder"
+      target: "homelab"
+      healthchecks_ping_url: "https://hc-ping.com/<compose_homelab_uuid>"
 github:
   config:
     deploy_keys:
@@ -299,6 +308,15 @@ EOF
 is_production: false
 gcp:
   region: "us-central1"
+compose:
+  targets:
+    homelab:
+      env: |
+        HOMELAB_DUMMY_VAR=decoy-ci-only
+  hosts:
+    - hostname: "homelab.example.test"
+      target: "homelab"
+      healthchecks_ping_url: "https://hc-ping.com/<compose_homelab_uuid>"
 github:
   config:
     deploy_keys:
@@ -322,6 +340,9 @@ variable "nextdns_tailscale_profile_name" {
 }
 variable "deploy_key_title" {
   default = "Homelab Server"
+}
+variable "compose_target" {
+  default = "homelab"
 }
 EOF
   git add main.tf

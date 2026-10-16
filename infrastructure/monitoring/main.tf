@@ -37,3 +37,13 @@ resource "healthchecksio_check" "backup_prune" {
   grace   = 14400
   tags    = distinct(concat(var.check_tags, ["homelab", "ci", "backup", "prune"]))
 }
+
+resource "healthchecksio_check" "compose" {
+  for_each = toset(nonsensitive(var.compose_targets))
+
+  name    = "homelab-compose-${each.key}"
+  desc    = "GitOps Docker Compose reconciler and weekly cleanup monitoring (${each.key})"
+  timeout = 900
+  grace   = 2700
+  tags    = distinct(concat(var.check_tags, ["homelab", "compose", each.key]))
+}

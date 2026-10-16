@@ -28,7 +28,7 @@ teardown() {
       echo "Preset '$preset' is missing a colon namespace prefix"
       return 1
     }
-  done <<< "$presets"
+  done <<<"$presets"
 }
 
 @test "pinAllExceptPeerDependencies preset is correctly prefixed with colon" {
@@ -44,12 +44,12 @@ teardown() {
       echo "Found bare pinAllExceptPeerDependencies: $line"
       return 1
     fi
-  done < "$config"
+  done <"$config"
 }
 
 @test "detects and rejects bare unnamespaced presets in extends" {
   local test_fixture="${BATS_TMPDIR}/invalid-renovate.json5"
-  cat <<'EOF' > "$test_fixture"
+  cat <<'EOF' >"$test_fixture"
 {
   extends: [
     "config:best-practices",
@@ -64,7 +64,7 @@ EOF
     if [[ ! "$preset" =~ : ]]; then
       bare_count=$((bare_count + 1))
     fi
-  done <<< "$presets"
+  done <<<"$presets"
 
   [ "$bare_count" -eq 1 ]
 }
@@ -541,8 +541,6 @@ console.log("Mise language runtimes rule correctly configured with automerge fal
   [[ "$output" =~ "Mise language runtimes rule correctly configured" ]]
 }
 
-
-
 @test ".github/renovate.json5 sets a global minimumReleaseAge of at least 3 days" {
   local config="${REPO_ROOT}/.github/renovate.json5"
   run node -e '
@@ -562,22 +560,47 @@ const rules = config.packageRules;
 const automergeIdx = rules.findIndex(r => r.automerge === true && r.platformAutomerge === true);
 if (automergeIdx < 0) { console.error("automerge rule missing"); process.exit(1); }
 const has = (r, k, v) => Array.isArray(r[k]) && r[k].includes(v);
-const gates = {
-  "runtime (mise)": r => r.automerge === false && has(r, "matchManagers", "mise") && has(r, "matchPackageNames", "python"),
-  "runtime (pep621)": r => r.automerge === false && has(r, "matchManagers", "pep621") && has(r, "matchPackageNames", "python"),
-  "mise cli": r => r.automerge === false && has(r, "matchPackageNames", "jdx/mise"),
-  "agent skills": r => r.automerge === false && has(r, "matchFileNames", "skills-lock.json"),
-  "security boundary": r => r.automerge === false && has(r, "matchFileNames", ".sops.yaml"),
-  "major": r => r.automerge === false && has(r, "matchUpdateTypes", "major"),
-};
-for (const [name, pred] of Object.entries(gates)) {
-  const last = rules.map((r, i) => pred(r) ? i : -1).filter(i => i >= 0).pop();
-  if (last === undefined || last < automergeIdx) { console.error("gate not after automerge rule: " + name); process.exit(1); }
-}
-console.log("gates ordered after automerge");
+  const gates = {
+    "runtime (mise)": r => r.automerge === false && has(r, "matchManagers", "mise") && has(r, "matchPackageNames", "python"),
+    "runtime (pep621)": r => r.automerge === false && has(r, "matchManagers", "pep621") && has(r, "matchPackageNames", "python"),
+    "mise cli": r => r.automerge === false && has(r, "matchPackageNames", "jdx/mise"),
+    "cosign binary": r => r.automerge === false && has(r, "matchPackageNames", "sigstore/cosign"),
+    "agent skills": r => r.automerge === false && has(r, "matchFileNames", "skills-lock.json"),
+    "security boundary": r => r.automerge === false && has(r, "matchFileNames", ".sops.yaml"),
+    "major": r => r.automerge === false && has(r, "matchUpdateTypes", "major"),
+  };
+  for (const [name, pred] of Object.entries(gates)) {
+    const last = rules.map((r, i) => pred(r) ? i : -1).filter(i => i >= 0).pop();
+    if (last === undefined || last < automergeIdx) { console.error("gate not after automerge rule: " + name); process.exit(1); }
+  }
+  console.log("gates ordered after automerge");
 ' "$config"
   [ "$status" -eq 0 ]
   [[ "$output" == *"gates ordered after automerge"* ]]
+}
+
+@test ".github/renovate.json5 configures custom regex manager and never-automerge gate for sigstore/cosign" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  local defaults_yml="${REPO_ROOT}/configuration/roles/docker_compose_service/defaults/main.yml"
+  run node -e '
+const fs = require("fs");
+const config = eval("(" + fs.readFileSync(process.argv[1], "utf8") + ")");
+const mgr = (config.customManagers || []).find(m =>
+  m.customType === "regex" &&
+  Array.isArray(m.managerFilePatterns) &&
+  m.managerFilePatterns.some(p => new RegExp(p).test("configuration/roles/docker_compose_service/defaults/main.yml"))
+);
+if (!mgr) { console.error("sigstore/cosign customManager missing"); process.exit(1); }
+const defaultsContent = fs.readFileSync(process.argv[2], "utf8");
+const m = defaultsContent.match(new RegExp(mgr.matchStrings[0]));
+if (!m || m.groups.depName !== "sigstore/cosign" || m.groups.datasource !== "github-releases" || !m.groups.currentValue) {
+  console.error("Failed to match defaults/main.yml: " + JSON.stringify(m ? m.groups : null));
+  process.exit(1);
+}
+console.log("cosign customManager ok: " + m.groups.currentValue);
+' "$config" "$defaults_yml"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"cosign customManager ok"* ]] || false
 }
 
 @test ".github/renovate.json5 disables the terraform required_version depType" {

@@ -233,6 +233,7 @@ setup() {
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "configuration/roles/base_ubuntu_server/.cache/apt/archives"
   echo "$output" | grep -q "configuration/roles/restic_backup/.cache/apt/archives"
+  echo "$output" | grep -q "configuration/roles/docker_compose_service/.cache/apt/archives"
   echo "$output" | grep -q "configuration/.cache/apt/oci/archives"
   echo "$output" | grep -q "configuration/.cache/apt/gcp/archives"
   echo "$output" | grep -q "configuration/.cache/apt/homelab/archives"
@@ -427,13 +428,13 @@ setup() {
   [ "$output" = "0" ]
 
   run yq '[.jobs.molecule.steps[] | select(.name == "Run Molecule test (*)")] | length' "$WORKFLOW"
-  [ "$output" = "5" ]
+  [ "$output" = "6" ]
 
   run yq '[.jobs.molecule.steps[] | select(.env.SOPS_AGE_KEY != null)] | length' "$WORKFLOW"
-  [ "$output" = "5" ]
+  [ "$output" = "6" ]
 
   run yq '[.jobs.molecule.steps[] | select(.name == "Run Molecule test (*)" and .env.SOPS_AGE_KEY == "${{ secrets.SOPS_AGE_KEY_CI }}")] | length' "$WORKFLOW"
-  [ "$output" = "5" ]
+  [ "$output" = "6" ]
 }
 
 @test "lint-format job runs verify-git-crypt.sh --all (R2-CI-01)" {

@@ -1,0 +1,33 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    docker_compose_service_test_secret_token: >-
+      {{
+        lookup(
+          'ansible.builtin.password',
+          lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') ~ '/app_secret_token',
+          length=24,
+          chars=['ascii_letters', 'digits']
+        )
+      }}
+    docker_compose_service_enabled: true
+    docker_compose_service_manage_daemon_json: true
+    docker_compose_service_release_api_url: "http://127.0.0.1:18081/repos/busybeaver/homelab-services/releases/latest"
+    docker_compose_service_curl_proto: "=http,https"
+    docker_compose_service_cosign_public_key_src: "/tmp/molecule-fixtures/keys/cosign.pub"
+    docker_compose_service_cosign_public_key_remote_src: true
+    docker_compose_service_targets:
+      gcp:
+        env:
+          APP_MARKER: "molecule-healthy-v1"
+          APP_SECRET_TOKEN: "{{ docker_compose_service_test_secret_token }}"
+          SERVICE_DOMAIN: "app.example.test"
+    docker_compose_service_hosts:
+      - host: "{{ inventory_hostname }}"
+        target: gcp
+        healthchecks_ping_url: "http://127.0.0.1:18080/molecule-compose-check"
+  roles:
+    - role: docker_compose_service

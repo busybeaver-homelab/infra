@@ -1,0 +1,143 @@
+---
+argument_specs:
+  main:
+    short_description: Deploy signed GitOps Docker Compose reconciler, rollback engine, and weekly image cleanup
+    description:
+      - Installs pinned Sigstore cosign v3 binary and public verification key.
+      - Encrypts per-target Compose environment variables and Healthchecks.io ping URLs into systemd credstore.
+      - Deploys and manages systemd services and timers for 15-minute GitOps reconciliation and weekly rollback-safe image pruning.
+    author: homelab-infra
+    options:
+      docker_compose_service_enabled:
+        type: bool
+        default: false
+        description: Whether the GitOps Docker Compose reconciler and cleanup timers are enabled on this host.
+      docker_compose_service_manage_daemon_json:
+        type: bool
+        default: false
+        description: Whether this role manages /etc/docker/daemon.json directly (mutually exclusive with docker_daemon_options).
+      docker_compose_service_allow_macvlan:
+        type: bool
+        default: false
+        description: Whether macvlan/ipvlan network drivers and mac_address fields are permitted in Compose manifests.
+      docker_compose_service_hosts:
+        type: list
+        elements: dict
+        default: []
+        no_log: true
+        description: List of host-to-target mappings and per-host Healthchecks.io ping URLs from SOPS (compose.hosts).
+      docker_compose_service_targets:
+        type: dict
+        default: {}
+        no_log: true
+        description: Mapping of logical target IDs to target metadata and env dictionaries from SOPS (compose.targets).
+      docker_compose_service_target:
+        type: str
+        default: ""
+        description: Optional explicit logical target ID override (resolved from docker_compose_service_hosts by default).
+      docker_compose_service_env:
+        type: dict
+        default: {}
+        no_log: true
+        description: Optional explicit Compose interpolation environment dictionary (resolved from docker_compose_service_targets by default).
+      docker_compose_service_healthchecks_ping_url:
+        type: str
+        default: ""
+        no_log: true
+        description: Optional explicit Healthchecks.io ping URL override (resolved from docker_compose_service_hosts by default).
+      docker_compose_service_project_name:
+        type: str
+        default: "homelab"
+        description: Fixed Docker Compose project name passed via --project-name on every Compose invocation.
+      docker_compose_service_wait_timeout:
+        type: int
+        default: 180
+        description: Timeout in seconds for docker compose up --wait during convergence and rollback.
+      docker_compose_service_keep_releases:
+        type: int
+        default: 5
+        description: Number of verified release directories to retain under /opt/containers/releases.
+      docker_compose_service_release_api_url:
+        type: str
+        default: "https://api.github.com/repos/busybeaver/homelab-services/releases/latest"
+        description: GitHub Releases latest API endpoint queried by the reconciler.
+      docker_compose_service_curl_proto:
+        type: str
+        default: "=https"
+        description: Allowed curl --proto / --proto-redir protocols for release API and asset downloads.
+      docker_compose_service_cosign_version:
+        type: str
+        default: "v3.1.3"
+        description: Pinned Sigstore cosign release tag to install.
+      docker_compose_service_cosign_sha256:
+        type: dict
+        description: Per-architecture (x86_64, aarch64) SHA-256 digests for the pinned cosign binary.
+      docker_compose_service_cosign_bin:
+        type: str
+        default: "/usr/local/bin/cosign"
+        description: Filesystem path where the cosign binary is installed.
+      docker_compose_service_cosign_public_key_path:
+        type: str
+        default: "/etc/containers/cosign.pub"
+        description: Filesystem path where the primary cosign public key is installed.
+      docker_compose_service_cosign_public_key_src:
+        type: str
+        default: "cosign.pub"
+        description: Source path for the primary cosign public key.
+      docker_compose_service_cosign_public_key_remote_src:
+        type: bool
+        default: false
+        description: Whether docker_compose_service_cosign_public_key_src resides on the remote target host.
+      docker_compose_service_cosign_next_public_key_path:
+        type: str
+        default: "/etc/containers/cosign-next.pub"
+        description: Filesystem path for the secondary cosign public key used during key rotation.
+      docker_compose_service_cosign_next_public_key:
+        type: str
+        default: ""
+        description: Optional PEM content for the secondary cosign public key during key rotation.
+      docker_compose_service_env_file_path:
+        type: str
+        default: "/etc/default/homelab-compose"
+        description: Path for the non-secret reconciler environment configuration file.
+      docker_compose_service_credstore_dir:
+        type: str
+        default: "/etc/credstore.encrypted"
+        description: Directory holding systemd encrypted credentials (LoadCredentialEncrypted=).
+      docker_compose_service_credential_key:
+        type: str
+        default: "host"
+        choices: ["host", "tpm2", "host+tpm2", "auto"]
+        description: Key binding passed to systemd-creds encrypt --with-key.
+      docker_compose_service_base_dir:
+        type: str
+        default: "/opt/containers"
+        description: Base directory containing releases/ and the current/previous symlinks.
+      docker_compose_service_state_dir:
+        type: str
+        default: "/var/lib/homelab-compose"
+        description: Reconciler state directory holding the shared flock, quarantine file, and TUF/Docker caches.
+      docker_compose_service_libexec_dir:
+        type: str
+        default: "/usr/local/libexec"
+        description: Directory where reconciler, cleanup, notify, and credential-sync scripts are installed.
+      docker_compose_service_daemon_json_path:
+        type: str
+        default: "/etc/docker/daemon.json"
+        description: Path to Docker daemon configuration file when managed by this role.
+      docker_compose_service_reconcile_calendar:
+        type: str
+        default: "*:0/15"
+        description: Systemd OnCalendar expression for homelab-compose-reconcile.timer.
+      docker_compose_service_reconcile_randomized_delay_sec:
+        type: str
+        default: "3m"
+        description: Systemd RandomizedDelaySec value for homelab-compose-reconcile.timer.
+      docker_compose_service_cleanup_calendar:
+        type: str
+        default: "Sun *-*-* 03:30:00"
+        description: Systemd OnCalendar expression for homelab-docker-cleanup.timer.
+      docker_compose_service_cleanup_randomized_delay_sec:
+        type: str
+        default: "30m"
+        description: Systemd RandomizedDelaySec value for homelab-docker-cleanup.timer.

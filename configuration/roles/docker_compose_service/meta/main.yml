@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  role_name: docker_compose_service
+  author: homelab-infra
+  description: Signed GitOps Docker Compose reconciler, automatic rollback, and weekly cleanup for Ubuntu Server 26.04
+  license: MIT
+  min_ansible_version: "2.21"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - resolute # 26.04 LTS

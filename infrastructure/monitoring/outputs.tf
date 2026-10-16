@@ -33,3 +33,9 @@ output "backup_prune_ping_url" {
   description = "Unique ping URL for weekly Restic repository prune and integrity check dead-man switch."
   sensitive   = true
 }
+
+output "compose_ping_urls" {
+  value       = { for k, v in healthchecksio_check.compose : k => v.ping_url }
+  description = "Map of logical compose target IDs to their unique Healthchecks.io ping URLs."
+  sensitive   = true
+}

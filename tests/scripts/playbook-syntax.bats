@@ -112,6 +112,7 @@ setup() {
   local scenarios=(
     "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
     "configuration/roles/restic_backup/molecule/default/molecule.yml"
+    "configuration/roles/docker_compose_service/molecule/default/molecule.yml"
     "configuration/molecule/oci/molecule.yml"
     "configuration/molecule/gcp/molecule.yml"
     "configuration/molecule/homelab/molecule.yml"
@@ -176,6 +177,8 @@ setup() {
   run grep -E 'tasks\."test:ansible:base"' "$mise_config"
   [ "$status" -eq 0 ]
   run grep -E 'tasks\."test:ansible:restic"' "$mise_config"
+  [ "$status" -eq 0 ]
+  run grep -E 'tasks\."test:ansible:compose"' "$mise_config"
   [ "$status" -eq 0 ]
   run grep -E 'tasks\."test:ansible:oci"' "$mise_config"
   [ "$status" -eq 0 ]
@@ -259,6 +262,9 @@ setup() {
   [ "$status" -eq 0 ]
 
   run grep -E "restic_backup" "$doc"
+  [ "$status" -eq 0 ]
+
+  run grep -E "docker_compose_service" "$doc"
   [ "$status" -eq 0 ]
 
   run grep -E "molecule test -s oci" "$doc"
@@ -605,6 +611,7 @@ if unknown:
   local scenarios=(
     "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml:base-ubuntu-server-26"
     "configuration/roles/restic_backup/molecule/default/molecule.yml:restic-ubuntu-server-26"
+    "configuration/roles/docker_compose_service/molecule/default/molecule.yml:compose-ubuntu-server-26"
     "configuration/molecule/oci/molecule.yml:oci-ubuntu-server-26"
     "configuration/molecule/gcp/molecule.yml:gcp-ubuntu-server-26"
     "configuration/molecule/homelab/molecule.yml:homelab-ubuntu-server-26"
@@ -632,6 +639,7 @@ if unknown:
   local scenarios=(
     "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml"
     "configuration/roles/restic_backup/molecule/default/molecule.yml"
+    "configuration/roles/docker_compose_service/molecule/default/molecule.yml"
     "configuration/molecule/oci/molecule.yml"
     "configuration/molecule/gcp/molecule.yml"
     "configuration/molecule/homelab/molecule.yml"
@@ -655,6 +663,7 @@ if unknown:
   local scenarios=(
     "configuration/roles/base_ubuntu_server/molecule/default/molecule.yml:.cache/apt/archives"
     "configuration/roles/restic_backup/molecule/default/molecule.yml:.cache/apt/archives"
+    "configuration/roles/docker_compose_service/molecule/default/molecule.yml:.cache/apt/archives"
     "configuration/molecule/oci/molecule.yml:.cache/apt/oci/archives"
     "configuration/molecule/gcp/molecule.yml:.cache/apt/gcp/archives"
     "configuration/molecule/homelab/molecule.yml:.cache/apt/homelab/archives"
@@ -693,6 +702,7 @@ if unknown:
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "test:ansible:base"
   echo "$output" | grep -q "test:ansible:restic"
+  echo "$output" | grep -q "test:ansible:compose"
   echo "$output" | grep -q "test:ansible:oci"
   echo "$output" | grep -q "test:ansible:gcp"
   echo "$output" | grep -q "test:ansible:homelab"
@@ -757,4 +767,3 @@ if unknown:
   run grep -F -- '--max-unused 10%' "$drill_doc"
   [ "$status" -eq 0 ]
 }
-

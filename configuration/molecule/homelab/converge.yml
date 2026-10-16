@@ -7,3 +7,13 @@
 
 - name: Import homelab playbook
   ansible.builtin.import_playbook: ../../playbooks/homelab.yml
+  vars:
+    is_ci_environment: true
+    custom_sops_secrets_file: credentials.ci.sops.yaml
+    docker_compose_service_enabled: true
+    docker_compose_service_reconcile_on_converge: false
+    docker_compose_service_credential_key: "host"
+    docker_compose_service_hosts:
+      - host: "homelab-ubuntu-server-26"
+        target: "homelab"
+        healthchecks_ping_url: "https://hc-ping.com/00000000-0000-4000-8000-000000009001"

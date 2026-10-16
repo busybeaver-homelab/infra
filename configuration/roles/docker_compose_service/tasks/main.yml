@@ -1,0 +1,91 @@
+---
+# Tasks dispatcher for docker_compose_service role
+
+- name: Validate docker_compose_service role arguments
+  ansible.builtin.validate_argument_spec:
+    argument_spec: "{{ (lookup('ansible.builtin.file', role_path ~ '/meta/argument_specs.yml') | from_yaml).argument_specs.main.options }}"
+
+- name: Assert single owner for /etc/docker/daemon.json
+  ansible.builtin.assert:
+    that:
+      - not ((docker_compose_service_manage_daemon_json | bool) and ((docker_daemon_options | default({}) | length) > 0))
+    fail_msg: >-
+      docker_compose_service_manage_daemon_json and docker_daemon_options cannot both be active on the same host.
+      Use docker_daemon_options on cloud hosts managed by geerlingguy.docker, or docker_compose_service_manage_daemon_json
+      on hosts where geerlingguy.docker does not run.
+
+- name: Validate SOPS host-to-target mapping when docker_compose_service is enabled
+  ansible.builtin.assert:
+    that:
+      - >-
+        (docker_compose_service_hosts | map(attribute='target') | list | length)
+        == (docker_compose_service_hosts | map(attribute='target') | unique | list | length)
+      - >-
+        (docker_compose_service_hosts | map(attribute='host') | list | length)
+        == (docker_compose_service_hosts | map(attribute='host') | unique | list | length)
+      - >-
+        (docker_compose_service_target | length > 0)
+        or ((docker_compose_service_hosts | selectattr('host', 'equalto', inventory_hostname) | list | length) == 1)
+      - >-
+        (docker_compose_service_hosts | map(attribute='target') | reject('regex', '^[a-z0-9][a-z0-9-]*$') | list | length) == 0
+      - >-
+        (docker_compose_service_env | length > 0)
+        or ((docker_compose_service_hosts | map(attribute='target') | difference(docker_compose_service_targets.keys() | list) | length) == 0)
+    fail_msg: >-
+      Invalid compose.hosts / compose.targets configuration for {{ inventory_hostname }}:
+      targets and hosts in compose.hosts must be unique (1:1 host-to-target), inventory_hostname must have
+      exactly one entry in compose.hosts, and every target must match ^[a-z0-9][a-z0-9-]*$ and exist in compose.targets.
+  when: docker_compose_service_enabled | bool
+
+- name: Resolve effective target, environment dictionary, and Healthchecks ping URL
+  ansible.builtin.set_fact:
+    docker_compose_service_effective_target: >-
+      {{
+        docker_compose_service_target
+        if (docker_compose_service_target | length > 0)
+        else ((docker_compose_service_hosts | selectattr('host', 'equalto', inventory_hostname) | first).target)
+      }}
+    docker_compose_service_effective_ping_url: >-
+      {{
+        docker_compose_service_healthchecks_ping_url
+        if (docker_compose_service_healthchecks_ping_url | length > 0)
+        else ((docker_compose_service_hosts | selectattr('host', 'equalto', inventory_hostname) | first).healthchecks_ping_url | default(''))
+      }}
+  no_log: true
+  when: docker_compose_service_enabled | bool
+
+- name: Resolve effective Compose interpolation environment dictionary
+  ansible.builtin.set_fact:
+    docker_compose_service_effective_env: >-
+      {{
+        docker_compose_service_env
+        if (docker_compose_service_env | length > 0)
+        else (docker_compose_service_targets[docker_compose_service_effective_target].env | default({}))
+      }}
+  no_log: true
+  when: docker_compose_service_enabled | bool
+
+- name: Assert resolved target, ping URL, environment keys, and architecture support
+  ansible.builtin.assert:
+    that:
+      - docker_compose_service_effective_target is regex('^[a-z0-9][a-z0-9-]*$')
+      - docker_compose_service_effective_ping_url is string
+      - (docker_compose_service_effective_ping_url | trim | length) > 0
+      - docker_compose_service_effective_env is mapping
+      - (docker_compose_service_effective_env | length) > 0
+      - >-
+        (docker_compose_service_effective_env.keys() | map('string') | reject('regex', '^[A-Za-z_][A-Za-z0-9_]*$') | list | length) == 0
+      - ansible_facts['architecture'] in docker_compose_service_cosign_sha256
+    fail_msg: >-
+      Resolved docker_compose_service inputs for {{ inventory_hostname }} are invalid:
+      target must match ^[a-z0-9][a-z0-9-]*$, healthchecks_ping_url and env map must be non-empty,
+      all env keys must match ^[A-Za-z_][A-Za-z0-9_]*$, and host architecture must have a pinned cosign SHA-256.
+  when: docker_compose_service_enabled | bool
+
+- name: Enable docker_compose_service
+  ansible.builtin.include_tasks: enable.yml
+  when: docker_compose_service_enabled | bool
+
+- name: Disable docker_compose_service
+  ansible.builtin.include_tasks: disable.yml
+  when: not (docker_compose_service_enabled | bool)

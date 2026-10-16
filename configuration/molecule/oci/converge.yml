@@ -25,6 +25,13 @@
       bucket: "molecule-r2-backups-dr"
       s3_access_key_id: "molecule-r2-access-key-id"
       s3_secret_access_key: "molecule-r2-secret-access-key"
+    docker_compose_service_enabled: true
+    docker_compose_service_reconcile_on_converge: false
+    docker_compose_service_credential_key: "host"
+    docker_compose_service_hosts:
+      - host: "oci-ubuntu-server-26"
+        target: "oci-1"
+        healthchecks_ping_url: "https://hc-ping.com/00000000-0000-4000-8000-000000009003"
     users:
       - username: dockerapp
         name: Docker Application Service User
