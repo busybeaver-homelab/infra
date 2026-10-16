@@ -257,7 +257,7 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "ci.yml runs fail-closed ansible dry-run and includes homelab scenario in molecule matrix" {
+@test "ci.yml runs fail-closed ansible syntax check and includes homelab scenario in molecule matrix" {
   local ci="$REPO_ROOT/.github/workflows/ci.yml"
   [ -f "$ci" ]
 
@@ -267,14 +267,13 @@ setup() {
   run grep -E "true" <<<"$output"
   [ "$status" -ne 0 ]
 
-  # Ensure ephemeral target is used for check mode
-  run grep -E -- "-i \"localhost,\"" "$ci"
+  # Ensure ansible-check does not bind environment: ci
+  run yq eval '.jobs.ansible-check.environment // ""' "$ci"
   [ "$status" -eq 0 ]
-  run grep -E -- "-c local" "$ci"
-  [ "$status" -eq 0 ]
+  [ -z "$output" ]
 
-  # Ensure homelab scenario is in molecule matrix
-  run yq eval '.jobs.molecule.strategy.matrix.scenario[]' "$ci"
+  # Ensure homelab scenario is in molecule matrix.include
+  run yq eval '.jobs.molecule.strategy.matrix.include[].scenario' "$ci"
   [ "$status" -eq 0 ]
   run grep -E "^homelab$" <<<"$output"
   [ "$status" -eq 0 ]
@@ -338,7 +337,7 @@ setup() {
   run grep -E "\*\*OpenTofu\*\*.*\`1\.13\`" "$doc"
   [ "$status" -eq 0 ]
 
-  run grep -E "\*\*Ansible\*\*.*\`14\`" "$doc"
+  run grep -E "\*\*Ansible-Core\*\*.*\`2\.21\.5\`" "$doc"
   [ "$status" -eq 0 ]
 
   run grep -E "\*\*SOPS\*\*.*\`3\.13\`" "$doc"
@@ -750,4 +749,57 @@ if unknown:
   [ "$status" -eq 0 ]
   run grep -F -- '--max-unused 10%' "$drill_doc"
   [ "$status" -eq 0 ]
+}
+
+@test "cloud.yml and homelab.yml enforce unconditional SOPS load, XOR sentinel, and molecule-scoped unsafe_writes (R2-ANS-12, R2-ANS-13)" {
+  for pb in "$REPO_ROOT/configuration/playbooks/cloud.yml" "$REPO_ROOT/configuration/playbooks/homelab.yml"; do
+    local sops_when
+    sops_when=$(yq -r '.[] | select(has("pre_tasks")) | .pre_tasks[] | select(.name == "Load SOPS credentials") | .when // ""' "$pb")
+    [ -z "$sops_when" ]
+
+    local sentinel_that
+    sentinel_that=$(yq -r '.[] | select(has("pre_tasks")) | .pre_tasks[] | select(.name == "Validate environment sentinel") | .["ansible.builtin.assert"].that[]' "$pb")
+    [[ "$sentinel_that" == *"credentials.sops.yaml"* ]] || false
+    [[ "$sentinel_that" == *"!="* ]] || false
+    [[ "$sentinel_that" == *"ansible_connection"* ]] || false
+
+    local uw
+    uw=$(yq -r '.[] | select(has("module_defaults")) | .module_defaults["ansible.builtin.template"].unsafe_writes' "$pb")
+    [ "$uw" = "{{ molecule_unsafe_writes | default(false) | bool }}" ]
+  done
+
+  # Breakglass user task in cloud.yml must not have when: and must be preceded by an assertion
+  local bg_when
+  bg_when=$(yq -r '.[1].pre_tasks[] | select(.name == "Ensure breakglass user exists with active shadow password") | .when // ""' "$REPO_ROOT/configuration/playbooks/cloud.yml")
+  [ -z "$bg_when" ]
+  run yq -e '.[1].pre_tasks[] | select(.name == "Assert breakglass user credentials are defined and non-empty") | .no_log == true' "$REPO_ROOT/configuration/playbooks/cloud.yml"
+  [ "$status" -eq 0 ]
+}
+
+@test "handlers are role-namespaced, base.yml excludes cloud hosts, and min_ansible_version is 2.21 (R2-ANS-14, R2-ANS-16, R2-ANS-17, R2-ANS-18)" {
+  run yq -r '.[0].hosts' "$REPO_ROOT/configuration/playbooks/base.yml"
+  [ "$output" = "all:!unifi:!cloud:!oci:!gcp" ]
+
+  run yq -r '.[].name' "$REPO_ROOT/configuration/roles/base_ubuntu_server/handlers/main.yml"
+  [[ "$output" == *"Reload ufw for base_ubuntu_server"* ]] || false
+  [[ "$output" == *"Reload systemd for base_ubuntu_server units"* ]] || false
+  [[ "$output" != *"Restart sshd"* ]] || false
+
+  run yq -r '.[].name' "$REPO_ROOT/configuration/roles/restic_backup/handlers/main.yml"
+  [[ "$output" == *"Reload systemd for restic_backup units"* ]] || false
+  [[ "$output" == *"Restart restic backup timer for restic_backup"* ]] || false
+
+  for role in base_ubuntu_server restic_backup docker_compose_service; do
+    run yq -r '.galaxy_info.min_ansible_version' "$REPO_ROOT/configuration/roles/$role/meta/main.yml"
+    [ "$output" = "2.21" ]
+  done
+
+  run grep -E '^interpreter_python = /usr/bin/python3$' "$REPO_ROOT/ansible.cfg"
+  [ "$status" -eq 0 ]
+
+  run yq -r '.os_unused_filesystems | length' "$REPO_ROOT/configuration/group_vars/cloud.yml"
+  [ "$output" -ge 6 ]
+
+  run yq -e 'has("restic_backup_repository") or has("restic_backup_password")' "$REPO_ROOT/configuration/roles/restic_backup/defaults/main.yml"
+  [ "$status" -ne 0 ]
 }

@@ -33,9 +33,15 @@ security_fail2ban_enabled: true
 security_autoupdate_enabled: true
 
 # OS Hardening settings (devsec.hardening.os_hardening)
-# Set to empty list to prevent non-deterministic line order in /etc/modprobe.d/dev-sec.conf
-# caused by unordered set difference operations across runs.
-os_unused_filesystems: []
+# Explicit ordered list of CIS-recommended unused filesystems to blacklist in /etc/modprobe.d/dev-sec.conf
+# (avoiding devsec.hardening's internal unordered set difference while preserving CIS kernel module hardening).
+os_unused_filesystems:
+  - cramfs
+  - freevxfs
+  - hfs
+  - hfsplus
+  - jffs2
+  - udf
 sysctl_overwrite:
   # Enable IPv4 traffic forwarding - required for Docker bridge networking
   net.ipv4.ip_forward: 1

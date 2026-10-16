@@ -695,3 +695,33 @@ console.log("customManagers and mise lockFileMaintenance ok");
   [[ "$output" == *"customManagers and mise lockFileMaintenance ok"* ]] || false
 }
 
+@test ".github/renovate.json5 enables dependencyDashboard and repository module enables Issues while disabling Dependabot security update PRs (R2-REN-05)" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  local repo_tf="${REPO_ROOT}/infrastructure/github/modules/repository/main.tf"
+
+  run node -e '
+const fs = require("fs");
+const config = eval("(" + fs.readFileSync(process.argv[1], "utf8") + ")");
+if (config.dependencyDashboard !== true) {
+  console.error("dependencyDashboard must be true");
+  process.exit(1);
+}
+console.log("dependencyDashboard enabled");
+' "$config"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"dependencyDashboard enabled"* ]] || false
+
+  run grep -E '^[[:space:]]*has_issues[[:space:]]*=[[:space:]]*true' "$repo_tf"
+  [ "$status" -eq 0 ]
+
+  run grep -E 'resource "github_repository_vulnerability_alerts" "repo"' "$repo_tf"
+  [ "$status" -eq 0 ]
+
+  run awk '
+    /resource "github_repository_dependabot_security_updates" "repo"/ { in_block=1 }
+    in_block && /enabled[[:space:]]*=[[:space:]]*false/ { found=1 }
+    in_block && /^}/ { in_block=0 }
+    END { exit(found ? 0 : 1) }
+  ' "$repo_tf"
+  [ "$status" -eq 0 ]
+}

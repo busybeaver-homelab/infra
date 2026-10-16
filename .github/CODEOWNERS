@@ -19,6 +19,8 @@
 /infrastructure/github/             @busybeaver
 /AGENTS.md                          @busybeaver
 /LICENSE                            @busybeaver
+/SECURITY.md                        @busybeaver
+/skills-lock.json                   @busybeaver
 /.github/CODEOWNERS                 @busybeaver
 
 # Renovate-managed files inside owned directories: explicitly unowned (later rules win).

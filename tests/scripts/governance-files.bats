@@ -127,3 +127,61 @@ is_owned() {
   [ "$status" -ne 0 ]
   [ ! -e "${REPO_ROOT}/.agents/skills/terraform-style-guide" ]
 }
+
+@test "SECURITY.md documents private vulnerability reporting and supported scope (R2-GOV-03)" {
+  [ -f "${REPO_ROOT}/SECURITY.md" ]
+  run grep -F "GitHub Security Advisories" "${REPO_ROOT}/SECURITY.md"
+  [ "$status" -eq 0 ]
+  run grep -F "Supported Scope" "${REPO_ROOT}/SECURITY.md"
+  [ "$status" -eq 0 ]
+  run grep -F "Response Expectations" "${REPO_ROOT}/SECURITY.md"
+  [ "$status" -eq 0 ]
+}
+
+@test "pull_request_template.md requires diff stat, test exit codes, and file existence checklist (R2-GOV-03)" {
+  local tpl="${REPO_ROOT}/.github/pull_request_template.md"
+  [ -f "$tpl" ]
+  run grep -F "git diff --stat main...HEAD" "$tpl"
+  [ "$status" -eq 0 ]
+  run grep -F "Tests Run" "$tpl"
+  [ "$status" -eq 0 ]
+  run grep -F "Referenced Files Exist" "$tpl"
+  [ "$status" -eq 0 ]
+}
+
+@test "AGENTS.md enforces factual PR evidence, tracker Done evidence, and .agent vs .agents ownership (R2-GOV-03, R2-GOV-04)" {
+  run grep -F ".github/pull_request_template.md" "${REPO_ROOT}/AGENTS.md"
+  [ "$status" -eq 0 ]
+  run grep -F "commit SHA and verification command" "${REPO_ROOT}/AGENTS.md"
+  [ "$status" -eq 0 ]
+  run grep -F "Agent Directory Ownership" "${REPO_ROOT}/AGENTS.md"
+  [ "$status" -eq 0 ]
+}
+
+@test ".agent/INSTALL.md pins antigravity-superpowers version (R2-GOV-04)" {
+  run grep -E 'npx --yes antigravity-superpowers@[0-9]+\.[0-9]+\.[0-9]+ init' "${REPO_ROOT}/.agent/INSTALL.md"
+  [ "$status" -eq 0 ]
+}
+
+@test "verify-skills-lock.sh passes against repository skills-lock.json and .agents/skills (R2-GOV-04)" {
+  run bash "${REPO_ROOT}/scripts/verify-skills-lock.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "verify-skills-lock.sh fails on missing sourceRef or tampered computedHash (R2-GOV-04)" {
+  local tmp_lock
+  tmp_lock="$(mktemp)"
+
+  jq 'del(.skills["agent-ci"].sourceRef)' "${REPO_ROOT}/skills-lock.json" > "$tmp_lock"
+  run env SKILLS_LOCK_FILE="$tmp_lock" bash "${REPO_ROOT}/scripts/verify-skills-lock.sh"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"sourceRef"* ]] || false
+
+  jq '.skills["agent-ci"].computedHash = "0000000000000000000000000000000000000000000000000000000000000000"' "${REPO_ROOT}/skills-lock.json" > "$tmp_lock"
+  run env SKILLS_LOCK_FILE="$tmp_lock" bash "${REPO_ROOT}/scripts/verify-skills-lock.sh"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"hash mismatch"* ]] || false
+
+  rm -f "$tmp_lock"
+}
+

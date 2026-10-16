@@ -11,7 +11,8 @@
 #
 # Options:
 #   --repo <owner/repo>           GitHub repository in 'owner/name' format (default: auto-detected from SOPS)
-#   --token <token>               GitHub Personal Access Token (default: auto-detected from SOPS)
+#   --token <token>               GitHub Personal Access Token (prefer GITHUB_TOKEN env or SOPS)
+#   --env <prod|ci>               Target SOPS environment when --credentials-file is not set (default: prod)
 #   --credentials-file <file>     Path to canonical SOPS credentials file (default: secrets/credentials.sops.yaml)
 #   --dry-run                     Preview planned settings updates without making API requests
 #   -h, --help                    Display this help message and exit
@@ -23,12 +24,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Default parameter values
 REPO=""
-TOKEN=""
-CREDENTIALS_FILE="${SOPS_FILE:-$REPO_ROOT/secrets/credentials.sops.yaml}"
+TOKEN="${GITHUB_TOKEN:-}"
+TARGET_ENV="prod"
+CREDENTIALS_FILE="${SOPS_FILE:-}"
 DRY_RUN=false
 
 usage() {
-  sed -n '2,16p' "$0" | sed 's/^# *//'
+  sed -n '2,18p' "$0" | sed 's/^# *//'
   exit 0
 }
 
@@ -40,6 +42,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --token)
       TOKEN="$2"
+      shift 2
+      ;;
+    --env)
+      TARGET_ENV="${2:-}"
       shift 2
       ;;
     --credentials-file)
@@ -60,16 +66,24 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+case "$TARGET_ENV" in
+  prod)
+    : "${CREDENTIALS_FILE:=$REPO_ROOT/secrets/credentials.sops.yaml}"
+    ;;
+  ci)
+    : "${CREDENTIALS_FILE:=$REPO_ROOT/secrets/credentials.ci.sops.yaml}"
+    ;;
+  *)
+    echo "ERROR: Invalid --env '$TARGET_ENV' (expected 'prod' or 'ci')." >&2
+    exit 1
+    ;;
+esac
+
 # Resolve credentials and repository from SOPS if not provided explicitly
 if [[ -z "$TOKEN" ]]; then
   if [[ ! -f "$CREDENTIALS_FILE" ]]; then
-    # Fallback to CI credentials file if production file is not present
-    if [[ -f "$REPO_ROOT/secrets/credentials.ci.sops.yaml" ]]; then
-      CREDENTIALS_FILE="$REPO_ROOT/secrets/credentials.ci.sops.yaml"
-    else
-      echo "ERROR: Credentials file not found: $CREDENTIALS_FILE" >&2
-      exit 1
-    fi
+    echo "ERROR: Credentials file not found: $CREDENTIALS_FILE" >&2
+    exit 1
   fi
 
   if ! TOKEN="$(sops -d --extract '["github"]["token"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
@@ -130,8 +144,8 @@ call_api() {
   local curl_args=(
     -sS
     -X "$method"
+    --config -
     -H "Accept: application/vnd.github+json"
-    -H "Authorization: Bearer ${TOKEN}"
     -H "X-GitHub-Api-Version: ${API_VERSION}"
   )
 
@@ -139,7 +153,7 @@ call_api() {
     curl_args+=(-H "Content-Type: application/json" -d "$data")
   fi
 
-  curl "${curl_args[@]}" "$url" >/dev/null
+  printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" | curl "${curl_args[@]}" "$url" >/dev/null
   log_info "Response received for ${endpoint}"
 }
 

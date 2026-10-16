@@ -4,7 +4,7 @@ galaxy_info:
   author: homelab-infra
   description: Hardened encrypted restic backup role for Ubuntu Server 26.04
   license: MIT
-  min_ansible_version: "2.17"
+  min_ansible_version: "2.21"
   platforms:
     - name: Ubuntu
       versions:

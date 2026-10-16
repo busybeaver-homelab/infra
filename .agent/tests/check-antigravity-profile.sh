@@ -46,7 +46,6 @@ echo "Checking required files..."
 required_files=(
   "$AGENT_DIR/AGENTS.md"
   "$AGENT_DIR/INSTALL.md"
-  "$AGENT_DIR/task.md"
   "$AGENT_DIR/workflows/brainstorm.md"
   "$AGENT_DIR/workflows/write-plan.md"
   "$AGENT_DIR/workflows/execute-plan.md"
@@ -59,6 +58,7 @@ for file in "${required_files[@]}"; do
   require_file "$file"
 done
 
+require_absent "$AGENT_DIR/task.md"
 require_absent "$ROOT_DIR/docs/plans/task.md"
 
 required_skills=(

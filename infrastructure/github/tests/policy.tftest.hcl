@@ -49,6 +49,8 @@ run "policy_invariants" {
       module.repository["infra"].allow_merge_commit == false &&
       module.repository["infra"].allow_rebase_merge == false &&
       module.repository["infra"].delete_branch_on_merge == true &&
+      module.repository["infra"].has_issues == true &&
+      module.repository["infra"].dependabot_security_updates_enabled == false &&
       module.repository["infra"].ruleset_enforcement == "active" &&
       module.repository["infra"].merge_queue_enabled == true &&
       anytrue([

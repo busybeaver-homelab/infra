@@ -36,6 +36,16 @@ run "verify_repository_module_plan" {
   }
 
   assert {
+    condition     = github_repository.repo.has_issues == true
+    error_message = "GitHub Issues must be enabled for Renovate Dependency Dashboard (R2-REN-05)"
+  }
+
+  assert {
+    condition     = github_repository_vulnerability_alerts.repo.repository == "test-repo" && github_repository_dependabot_security_updates.repo.enabled == false
+    error_message = "Vulnerability alerts must stay enabled while duplicate Dependabot security update PRs are disabled (R2-REN-05)"
+  }
+
+  assert {
     condition     = length(github_repository_ruleset.main_protection.rules[0].merge_queue) == 1
     error_message = "Public repository must enable merge_queue in main_protection ruleset"
   }

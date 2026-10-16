@@ -8,18 +8,16 @@ age = "1.3"
 lefthook = "2.1"
 python = "3.14"
 "aqua:astral-sh/uv" = "0.13"
-ruff = "0.16"
 shellcheck = "0.11"
 "terraform-docs" = "0.24"
 act            = "0.2"
 trufflehog     = "3"
 bats           = "1.14"
-go             = "1.27"
 oxlint         = "1.84"
 oxfmt          = "0.71"
 shfmt          = "3.14"
 yq             = "4"
-node           = "lts"
+node           = "24"
 actionlint     = "1.7"
 trivy          = "0.75"
 gh             = "2.102"
@@ -49,7 +47,7 @@ run = "ansible-lint --write"
 
 [tasks."fmt:general"]
 description = "Format JSON, Markdown, YAML, and JS files"
-run = "oxfmt -c .oxfmtrc.json apps/"
+run = "oxfmt -c .oxfmtrc.json ."
 
 [tasks."fmt:shell"]
 description = "Format shell scripts"
@@ -57,7 +55,7 @@ run = "shfmt -w -i 2 -ci scripts/ tests/scripts/"
 
 [tasks."fmt:python"]
 description = "Format Python code"
-run = "ruff format"
+run = "uv run --locked ruff format"
 
 [tasks.check]
 description = "Run all linters and static checks"
@@ -83,11 +81,11 @@ run = "shellcheck scripts/*.sh"
 
 [tasks."check:python"]
 description = "Check Python code"
-run = "ruff check"
+run = "uv run --locked ruff check"
 
 [tasks."check:general"]
 description = "Check general files (JS/TS) with oxlint"
-run = "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern apps/"
+run = "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern ."
 
 [tasks."check:security:trivy"]
 description = "Run Trivy IaC, secret, and vulnerability scans (matches CI)"
@@ -264,8 +262,8 @@ env = { BATS_PARALLEL_BINARY_NAME = "rush" }
 run = "bats --parallel-binary-name rush -j 4 tests/scripts/"
 
 [tasks."ci:local"]
-description = "Run GitHub Actions workflows locally"
-run = "act -W .github/workflows/"
+description = "Run the full non-Docker local CI gate (linters, script tests, OpenTofu tests, Ansible lint)"
+depends = ["lint", "test:scripts", "test:infra", "check:ansible"]
 
 [tasks."drift:cloudflare"]
 description = "Detect drift in infrastructure/cloudflare locally (needs production SOPS; summary-only output)"
@@ -506,12 +504,22 @@ description = "Update AI agent skills and synchronize skills-lock.json"
 # renovate: datasource=npm depName=skills
 run = "npx --yes skills@1.7.2 update -p -y"
 
+[tasks."tofu:init"]
+description = "Initialize all OpenTofu root modules with -backend=false -lockfile=readonly"
+run = '''
+mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
+for m in infrastructure/*/; do
+  [ -f "${m}main.tf" ] || continue
+  tofu -chdir="$m" init -backend=false -lockfile=readonly
+done
+'''
+
 [tasks."test:infra"]
 description = "Run native OpenTofu tests concurrently across all infrastructure modules"
 run = '''
 mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
 printf "%s\n" oci cloudflare gcp azure github homelab monitoring mesh dns | \
-  rush -k 'tofu -chdir="infrastructure/{}" test -test-directory=tests'
+  rush -k 'tofu -chdir="infrastructure/{}" init -backend=false -lockfile=readonly >/dev/null && tofu -chdir="infrastructure/{}" test -test-directory=tests'
 '''
 
 [tasks."test:tofu:children"]
@@ -527,12 +535,8 @@ description = "Run OpenTofu lifecycle mutation tests across all modules concurre
 run = '''
 mkdir -p "${TF_PLUGIN_CACHE_DIR:-.cache/tofu/plugins}"
 printf "%s\n" cloudflare gcp github oci mesh dns | \
-  rush -k 'tofu -chdir="infrastructure/{}" test -filter=tests/mutation.tftest.hcl'
+  rush -k 'tofu -chdir="infrastructure/{}" init -backend=false -lockfile=readonly >/dev/null && tofu -chdir="infrastructure/{}" test -filter=tests/mutation.tftest.hcl'
 '''
-
-[tasks."test:tofu:checks"]
-description = "Verify that native OpenTofu policy check blocks evaluate cleanly across all modules"
-run = "mise run test:infra"
 
 [tasks."test:inventory:matrix"]
 description = "Run dynamic inventory topology matrix tests"

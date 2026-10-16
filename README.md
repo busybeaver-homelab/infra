@@ -100,7 +100,7 @@ Ansible targets **Ubuntu Server 26.04 LTS** across cloud and on-premises hosts u
 | **Dynamic & Static Inventories** | [`configuration/inventories/`](configuration/inventories/)                           | OpenTofu state dynamic inventories (`terraform.terraform_state.yml`, `gcp.terraform_state.yml`) and `scripts/generate-inventory.sh` synthesis                                                                      |
 | **`base_ubuntu_server` Role**    | [`configuration/roles/base_ubuntu_server/`](configuration/roles/base_ubuntu_server/) | OS hardening, sysctl tuning, unattended upgrades, Tailscale SSH enforcement, unconditional `ssh.service`/`ssh.socket` masking on cloud VMs, and `DOCKER-USER` firewall isolation                                   |
 | **`restic_backup` Role**         | [`configuration/roles/restic_backup/`](configuration/roles/restic_backup/)           | Dual-target encrypted Restic backups (Cloudflare R2 primary + OCI/GCS secondary), `systemd-creds` host-encrypted credentials (`/etc/credstore.encrypted`), pre-backup DB dump hooks, and Healthchecks.io telemetry |
-| **Molecule Test Matrix**         | [`configuration/molecule/`](configuration/molecule/)                                 | 5 automated Ubuntu 26.04 test scenarios (`base_ubuntu_server`, `restic_backup`, `oci`, `gcp`, and full-stack `homelab` with fault injection)                                                                       |
+| **Molecule Test Matrix**         | [`configuration/molecule/`](configuration/molecule/)                                 | 6 automated Ubuntu 26.04 test scenarios (`base_ubuntu_server`, `restic_backup`, `docker_compose_service`, `oci`, `gcp`, and full-stack `homelab` with fault injection)                                             |
 
 ---
 
@@ -108,36 +108,35 @@ Ansible targets **Ubuntu Server 26.04 LTS** across cloud and on-premises hosts u
 
 This repository pins CLI tools in [`mise.toml`](mise.toml) (locked via [`mise.lock`](mise.lock)) and Python packages in [`pyproject.toml`](pyproject.toml) (locked via [`uv.lock`](uv.lock)) so every administrator and CI runner executes identical binary versions:
 
-| Tool                  | Version              | Source           | Purpose                                                                                     |
-| :-------------------- | :------------------- | :--------------- | :------------------------------------------------------------------------------------------ |
-| **OpenTofu**          | `1.13`               | `mise.toml`      | Declarative cloud, SaaS, and homelab resource provisioning                                  |
-| **TFLint**            | `0.64`               | `mise.toml`      | OpenTofu/Terraform linter for provider rules and best practices                             |
-| **Terraform-Docs**    | `0.24`               | `mise.toml`      | Automated Markdown documentation generator for OpenTofu modules                             |
-| **Ansible**           | `14` (`core 2.21.5`) | `pyproject.toml` | Idempotent OS, service, and network configuration management                                |
-| **Ansible-Lint**      | `26.10.1`            | `pyproject.toml` | Strict `production`-profile linter for Ansible playbooks and roles                          |
-| **Molecule**          | `26.10.0`            | `pyproject.toml` | Containerized testing framework for Ansible roles and playbooks (`pytest-testinfra 10.2.2`) |
-| **SOPS**              | `3.13`               | `mise.toml`      | File-level encryption and runtime decryption of structured secrets                          |
-| **Age**               | `1.3`                | `mise.toml`      | Modern cryptographic file encryption for CI decoy and offline recovery keys                 |
-| **Restic**            | `0.18`               | `mise.toml`      | Encrypted, deduplicated backup client for cloud storage and retention pruning               |
-| **Lefthook**          | `2.1`                | `mise.toml`      | Parallel pre-commit, commit-msg, and pre-push Git hooks                                     |
-| **Python**            | `3.14`               | `mise.toml`      | Root runtime for Ansible, Testinfra, and repository helper scripts                          |
-| **uv**                | `0.13`               | `mise.toml`      | Fast Python package resolver and virtual environment manager (`.venv`)                      |
-| **Ruff**              | `0.16`               | `mise.toml`      | Fast Python linter and code formatter                                                       |
-| **ShellCheck**        | `0.11`               | `mise.toml`      | Bash/shell script static analyzer and SARIF linter                                          |
-| **Shfmt**             | `3.14`               | `mise.toml`      | Shell script formatter enforcing 2-space indentation style                                  |
-| **Bats**              | `1.14`               | `mise.toml`      | Bash Automated Testing System for unit, security gate, and CI verification                  |
-| **Rush**              | `0.11.0`             | `mise.toml`      | Parallel execution engine for concurrent OpenTofu, Molecule, and Bats suites                |
-| **Trivy**             | `0.75`               | `mise.toml`      | Vulnerability and IaC misconfiguration scanner for OpenTofu and Ansible                     |
-| **TruffleHog**        | `3`                  | `mise.toml`      | High-entropy secret and credential scanner in pre-commit and CI                             |
-| **Actionlint**        | `1.7`                | `mise.toml`      | Static checker and linter for GitHub Actions workflow files                                 |
-| **Act**               | `0.2`                | `mise.toml`      | Local runner for testing GitHub Actions workflows                                           |
-| **GitHub CLI (`gh`)** | `2.102`              | `mise.toml`      | GitHub CLI for pull request automation and REST API repository settings sync                |
-| **Oxlint**            | `1.84`               | `mise.toml`      | High-performance JavaScript/TypeScript linter for `apps/` assets                            |
-| **Oxfmt**             | `0.71`               | `mise.toml`      | Fast formatter for Markdown, JSON, YAML, and web assets                                     |
-| **Yq**                | `4`                  | `mise.toml`      | YAML and JSON command-line processor                                                        |
-| **Node**              | `lts`                | `mise.toml`      | JavaScript runtime for repository linters and skill tooling                                 |
-| **Go**                | `1.27`               | `mise.toml`      | Systems runtime for developer and testing utilities                                         |
-| **Git-Crypt**         | `0.7+`               | System           | Transparent Git filter encryption for sensitive `docs/` and `backups/` trees                |
+| Tool                  | Version   | Source           | Purpose                                                                                     |
+| :-------------------- | :-------- | :--------------- | :------------------------------------------------------------------------------------------ |
+| **OpenTofu**          | `1.13`    | `mise.toml`      | Declarative cloud, SaaS, and homelab resource provisioning                                  |
+| **TFLint**            | `0.64`    | `mise.toml`      | OpenTofu/Terraform linter for provider rules and best practices                             |
+| **Terraform-Docs**    | `0.24`    | `mise.toml`      | Automated Markdown documentation generator for OpenTofu modules                             |
+| **Ansible-Core**      | `2.21.5`  | `pyproject.toml` | Idempotent OS, service, and network configuration management                                |
+| **Ansible-Lint**      | `26.10.1` | `pyproject.toml` | Strict `production`-profile linter for Ansible playbooks and roles                          |
+| **Molecule**          | `26.10.0` | `pyproject.toml` | Containerized testing framework for Ansible roles and playbooks (`pytest-testinfra 10.2.2`) |
+| **SOPS**              | `3.13`    | `mise.toml`      | File-level encryption and runtime decryption of structured secrets                          |
+| **Age**               | `1.3`     | `mise.toml`      | Modern cryptographic file encryption for CI decoy and offline recovery keys                 |
+| **Restic**            | `0.18`    | `mise.toml`      | Encrypted, deduplicated backup client for cloud storage and retention pruning               |
+| **Lefthook**          | `2.1`     | `mise.toml`      | Parallel pre-commit, commit-msg, and pre-push Git hooks                                     |
+| **Python**            | `3.14`    | `mise.toml`      | Root runtime for Ansible, Testinfra, and repository helper scripts                          |
+| **uv**                | `0.13`    | `mise.toml`      | Fast Python package resolver and virtual environment manager (`.venv`)                      |
+| **Ruff**              | `0.17.0`  | `pyproject.toml` | Fast Python linter and code formatter                                                       |
+| **ShellCheck**        | `0.11`    | `mise.toml`      | Bash/shell script static analyzer and SARIF linter                                          |
+| **Shfmt**             | `3.14`    | `mise.toml`      | Shell script formatter enforcing 2-space indentation style                                  |
+| **Bats**              | `1.14`    | `mise.toml`      | Bash Automated Testing System for unit, security gate, and CI verification                  |
+| **Rush**              | `0.11.0`  | `mise.toml`      | Parallel execution engine for concurrent OpenTofu, Molecule, and Bats suites                |
+| **Trivy**             | `0.75`    | `mise.toml`      | Vulnerability and IaC misconfiguration scanner for OpenTofu and Ansible                     |
+| **TruffleHog**        | `3`       | `mise.toml`      | High-entropy secret and credential scanner in pre-commit and CI                             |
+| **Actionlint**        | `1.7`     | `mise.toml`      | Static checker and linter for GitHub Actions workflow files                                 |
+| **Act**               | `0.2`     | `mise.toml`      | Local runner for testing GitHub Actions workflows                                           |
+| **GitHub CLI (`gh`)** | `2.102`   | `mise.toml`      | GitHub CLI for pull request automation and REST API repository settings sync                |
+| **Oxlint**            | `1.84`    | `mise.toml`      | High-performance JavaScript/TypeScript linter for JavaScript/TypeScript assets              |
+| **Oxfmt**             | `0.71`    | `mise.toml`      | Fast formatter for Markdown, JSON, YAML, and web assets                                     |
+| **Yq**                | `4`       | `mise.toml`      | YAML and JSON command-line processor                                                        |
+| **Node**              | `24`      | `mise.toml`      | JavaScript runtime for repository linters and skill tooling                                 |
+| **Git-Crypt**         | `0.7+`    | System           | Transparent Git filter encryption for sensitive `docs/` and `backups/` trees                |
 
 ---
 
@@ -155,7 +154,7 @@ All day-to-day workflows are standardized as [`mise.toml`](mise.toml) tasks:
 | `mise run test:infra`             | Run native `tofu test` suites concurrently across all 9 infrastructure modules via `rush`                                |
 | `mise run test:tofu:children`     | Run isolated unit tests on child modules (`cloudflare/modules/zone`, `github/modules/repository`, `dns/modules/profile`) |
 | `mise run test:tofu:mutations`    | Run OpenTofu lifecycle mutation and `prevent_destroy` tests across modules                                               |
-| `mise run test:ansible`           | Run all 5 Molecule scenarios (`base`, `restic`, `oci`, `gcp`, `homelab`) concurrently via `rush`                         |
+| `mise run test:ansible`           | Run all 6 Molecule scenarios (`base`, `restic`, `compose`, `oci`, `gcp`, `homelab`) concurrently via `rush`              |
 | `mise run test:scripts`           | Run the Bats unit and security guard test suite (`tests/scripts/*.bats`) in parallel                                     |
 | `mise run state:snapshot`         | Snapshot encrypted OpenTofu remote state from R2 prior to production `tofu apply`                                        |
 | `mise run drift:all`              | Run summary-only OpenTofu drift detection locally across all modules using production SOPS                               |
@@ -241,7 +240,6 @@ The repository is structured into isolated domain directories:
 │   ├── actions/             # Composite environment setup action (setup-environment)
 │   ├── workflows/           # CI Gate (ci.yml), CodeQL, Drift Detection & Backup Prune
 │   └── renovate.json5       # Automated dependency policy with 3-day release-age cooldown
-├── apps/                    # Serverless edge functions (Cloudflare Workers) & bridge manifests
 ├── backups/                 # Offline backups and recovery archives (git-crypt encrypted)
 ├── configuration/           # Ansible inventories, group_vars, playbooks, roles, and Molecule suites
 │   ├── group_vars/          # Shared and provider-specific variables (cloud.yml, oci.yml, gcp.yml)

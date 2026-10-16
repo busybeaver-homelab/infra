@@ -74,3 +74,26 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+@test "lefthook.yml sets assert_lefthook_installed: true and bootstrap.sh has no python hook patch (R2-GATE-06)" {
+  run yq -e '.assert_lefthook_installed == true' "${REPO_ROOT}/lefthook.yml"
+  [ "$status" -eq 0 ]
+  run grep -F "Can't find lefthook in PATH" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -ne 0 ]
+}
+
+@test "lefthook install generates pre-commit hook that exits non-zero when lefthook is missing (R2-GATE-06)" {
+  local repo="${BATS_TMPDIR}/hook-test"
+  mkdir -p "${repo}"
+  git -C "${repo}" init -q
+  cp "${REPO_ROOT}/lefthook.yml" "${repo}/lefthook.yml"
+  (cd "${repo}" && lefthook install --force >/dev/null)
+  [ -x "${repo}/.git/hooks/pre-commit" ]
+  run grep -E "Can't find lefthook in PATH" -A 5 "${repo}/.git/hooks/pre-commit"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"exit 1"* ]]
+}
+
+@test "no scripts or configs pass secrets in process argv via curl -H Authorization, sops set positional value, or --authkey= (R2-SEC-07)" {
+  run git -C "${REPO_ROOT}" grep -nE 'curl [^|]*Authorization:[[:space:]]*Bearer|tailscale[[:space:]]+up[^\n]*--authkey=' -- 'scripts/' 'infrastructure/' 'configuration/' 'mise.toml'
+  [ "$status" -eq 1 ]
+}

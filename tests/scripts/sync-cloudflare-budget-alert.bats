@@ -228,3 +228,22 @@ STUB
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Failed to extract Cloudflare credentials from SOPS" ]]
 }
+
+@test "sync-cloudflare-budget-alert: passes Authorization header via curl --config - on stdin, never in argv (R2-SEC-07)" {
+  run "$SCRIPT" --credentials-file "$SOPS_FILE" --threshold "1"
+  [ "$status" -eq 0 ]
+  [ -f "$BATS_TEST_TMPDIR/curl.calls" ]
+  run grep -F -- "--config -" "$BATS_TEST_TMPDIR/curl.calls"
+  [ "$status" -eq 0 ]
+  run grep -F "cftoken_stub_secret_12345" "$BATS_TEST_TMPDIR/curl.calls"
+  [ "$status" -ne 0 ]
+  run grep -F "Authorization:" "$SCRIPT"
+  [[ ! "$output" =~ "-H \"Authorization:" ]]
+}
+
+@test "sync-cloudflare-budget-alert: fails closed when credentials file does not exist instead of falling back" {
+  run "$SCRIPT" --credentials-file "$BATS_TEST_TMPDIR/nonexistent.sops.yaml"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Credentials file not found" ]]
+}
+

@@ -121,15 +121,29 @@ setup() {
   [ -f "$REPO_ROOT/infrastructure/dns/tests/mutation.tftest.hcl" ]
 }
 
-@test "mise.toml configures test:tofu:children, test:tofu:mutations, test:tofu:checks, and test:inventory:matrix" {
+@test "mise.toml configures tofu:init, test:tofu:children, test:tofu:mutations, and test:inventory:matrix" {
   local mise_config="$REPO_ROOT/mise.toml"
   [ -f "$mise_config" ]
+  run grep -E 'tasks\."tofu:init"' "$mise_config"
+  [ "$status" -eq 0 ]
   run grep -E 'tasks\."test:tofu:children"' "$mise_config"
   [ "$status" -eq 0 ]
   run grep -E 'tasks\."test:tofu:mutations"' "$mise_config"
   [ "$status" -eq 0 ]
-  run grep -E 'tasks\."test:tofu:checks"' "$mise_config"
-  [ "$status" -eq 0 ]
   run grep -E 'tasks\."test:inventory:matrix"' "$mise_config"
   [ "$status" -eq 0 ]
+}
+
+@test "all 9 infrastructure backend.tf files use use_path_style and omit placeholder endpoint and deprecated force_path_style (R2-TF-11)" {
+  local modules=(oci cloudflare gcp azure github homelab monitoring mesh dns)
+  for mod in "${modules[@]}"; do
+    local bf="$REPO_ROOT/infrastructure/$mod/backend.tf"
+    [ -f "$bf" ]
+    run grep -E 'use_path_style[[:space:]]*=[[:space:]]*true' "$bf"
+    [ "$status" -eq 0 ]
+    run grep -E 'force_path_style' "$bf"
+    [ "$status" -ne 0 ]
+    run grep -E '<account_id>' "$bf"
+    [ "$status" -ne 0 ]
+  done
 }

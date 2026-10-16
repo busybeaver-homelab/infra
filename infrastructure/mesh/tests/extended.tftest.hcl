@@ -11,7 +11,73 @@ mock_provider "external" {
             "tailnet_name": "example.ts.net",
             "contact_account_email": "account@example.test",
             "contact_support_email": "support@example.test",
-            "contact_security_email": "security@example.test"
+            "contact_security_email": "security@example.test",
+            "monitored_device_hostnames": [
+              "example-device-10",
+              "example-device-01"
+            ],
+            "infrastructure_devices": [
+              {
+                "hostname": "example-device-01",
+                "tags": ["tag:hosting-onpremise", "tag:svc-example-01", "tag:type-docker"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              },
+              {
+                "hostname": "example-device-02",
+                "tags": ["tag:hosting-onpremise", "tag:svc-example-02", "tag:type-docker"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              },
+              {
+                "hostname": "example-device-03",
+                "tags": ["tag:env-gcp", "tag:hosting-cloud", "tag:location-us", "tag:os-linux", "tag:type-server"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              },
+              {
+                "hostname": "example-device-04",
+                "tags": ["tag:hosting-onpremise", "tag:location-ger", "tag:os-appletv"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              },
+              {
+                "hostname": "example-device-05",
+                "tags": ["tag:hosting-onpremise", "tag:svc-example-05", "tag:type-docker"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              },
+              {
+                "hostname": "example-device-06",
+                "tags": ["tag:hosting-onpremise", "tag:location-ger", "tag:os-linux"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              },
+              {
+                "hostname": "example-device-07",
+                "tags": ["tag:hosting-onpremise", "tag:location-ger", "tag:os-linux", "tag:type-server"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              },
+              {
+                "hostname": "example-device-08",
+                "tags": ["tag:hosting-onpremise", "tag:location-ger", "tag:os-windows", "tag:type-server"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              },
+              {
+                "hostname": "example-device-09",
+                "tags": ["tag:hosting-onpremise", "tag:os-linux", "tag:type-nas"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              },
+              {
+                "hostname": "example-device-10",
+                "tags": ["tag:hosting-onpremise", "tag:os-linux", "tag:type-network"],
+                "key_expiry_disabled": true,
+                "authorized": true
+              }
+            ]
           }
         EOT
       }
@@ -22,6 +88,18 @@ mock_provider "external" {
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
   policy_file_path            = "policy.ci.hujson.tftpl"
+  device_id_overrides = {
+    "example-device-01" = "id-device-01"
+    "example-device-02" = "id-device-02"
+    "example-device-03" = "id-device-03"
+    "example-device-04" = "id-device-04"
+    "example-device-05" = "id-device-05"
+    "example-device-06" = "id-device-06"
+    "example-device-07" = "id-device-07"
+    "example-device-08" = "id-device-08"
+    "example-device-09" = "id-device-09"
+    "example-device-10" = "id-device-10"
+  }
 }
 
 run "extended_default_plan" {
@@ -113,38 +191,38 @@ run "extended_default_plan" {
   }
 
   assert {
-    condition     = contains(tailscale_device_tags.nodes["unifi-gateway"].tags, "tag:type-network")
-    error_message = "unifi-gateway must have tag:type-network."
+    condition     = contains(tailscale_device_tags.nodes["example-device-10"].tags, "tag:type-network")
+    error_message = "example-device-10 must have tag:type-network."
   }
 
   assert {
-    condition     = tailscale_device_key.nodes["unifi-gateway"].key_expiry_disabled == true
-    error_message = "unifi-gateway key expiry must be disabled by default."
+    condition     = tailscale_device_key.nodes["example-device-10"].key_expiry_disabled == true
+    error_message = "example-device-10 key expiry must be disabled by default."
   }
 
   assert {
-    condition     = tailscale_device_authorization.nodes["unifi-gateway"].authorized == true
-    error_message = "unifi-gateway must be authorized by default."
+    condition     = tailscale_device_authorization.nodes["example-device-10"].authorized == true
+    error_message = "example-device-10 must be authorized by default."
   }
 
   assert {
-    condition     = contains(tailscale_device_tags.nodes["gcp-default-vm"].tags, "tag:env-gcp")
-    error_message = "gcp-default-vm must contain tag:env-gcp."
+    condition     = contains(tailscale_device_tags.nodes["example-device-03"].tags, "tag:env-gcp")
+    error_message = "example-device-03 must contain tag:env-gcp."
   }
 
   assert {
-    condition     = contains(tailscale_device_tags.nodes["adguard-home"].tags, "tag:svc-adguard")
-    error_message = "adguard-home must contain tag:svc-adguard."
+    condition     = contains(tailscale_device_tags.nodes["example-device-01"].tags, "tag:svc-example-01")
+    error_message = "example-device-01 must contain tag:svc-example-01."
   }
 
   assert {
-    condition     = contains(tailscale_device_tags.nodes["beszel"].tags, "tag:svc-beszel")
-    error_message = "beszel must contain tag:svc-beszel."
+    condition     = contains(tailscale_device_tags.nodes["example-device-02"].tags, "tag:svc-example-02")
+    error_message = "example-device-02 must contain tag:svc-example-02."
   }
 
   assert {
-    condition     = contains(tailscale_device_tags.nodes["synology-nas1"].tags, "tag:type-nas")
-    error_message = "synology-nas1 must contain tag:type-nas."
+    condition     = contains(tailscale_device_tags.nodes["example-device-09"].tags, "tag:type-nas")
+    error_message = "example-device-09 must contain tag:type-nas."
   }
 }
 
@@ -153,7 +231,7 @@ run "extended_custom_dns_and_keys" {
 
   variables {
     dns_nameservers  = ["1.1.1.1", "1.0.0.1"]
-    dns_search_paths = ["homelab.internal"]
+    dns_search_paths = ["example.internal"]
     dns_split_nameservers = {
       "corp.example.internal" = ["198.51.100.53"]
     }
@@ -168,7 +246,7 @@ run "extended_custom_dns_and_keys" {
       }
     }
     device_subnet_routes = {
-      "unifi-gateway" = ["198.51.100.0/24", "203.0.113.0/24"]
+      "example-device-10" = ["198.51.100.0/24", "203.0.113.0/24"]
     }
   }
 
@@ -183,7 +261,7 @@ run "extended_custom_dns_and_keys" {
   }
 
   assert {
-    condition     = tolist(tailscale_dns_search_paths.homelab.search_paths) == tolist(["homelab.internal"])
+    condition     = tolist(tailscale_dns_search_paths.homelab.search_paths) == tolist(["example.internal"])
     error_message = "Search paths must match configured value."
   }
 
@@ -213,8 +291,8 @@ run "extended_custom_dns_and_keys" {
   }
 
   assert {
-    condition     = toset(tailscale_device_subnet_routes.routes["unifi-gateway"].routes) == toset(["198.51.100.0/24", "203.0.113.0/24"])
-    error_message = "Subnet routes for unifi-gateway must match configured list."
+    condition     = toset(tailscale_device_subnet_routes.routes["example-device-10"].routes) == toset(["198.51.100.0/24", "203.0.113.0/24"])
+    error_message = "Subnet routes for example-device-10 must match configured list."
   }
 }
 
@@ -223,31 +301,31 @@ run "extended_device_id_overrides" {
 
   variables {
     device_id_overrides = {
-      "adguard-home"   = "id-adguard"
-      "beszel"         = "id-beszel"
-      "gcp-default-vm" = "id-gcp"
-      "heide-apple-tv" = "id-atv"
-      "node-red"       = "id-nodered"
-      "nuc-kvm"        = "id-nuckvm"
-      "nuc-linux"      = "id-nuclinux"
-      "nuc-windows"    = "id-nucwin"
-      "synology-nas1"  = "id-synology"
-      "unifi-gateway"  = "override-unifi-id"
+      "example-device-01" = "id-device-01"
+      "example-device-02" = "id-device-02"
+      "example-device-03" = "id-device-03"
+      "example-device-04" = "id-device-04"
+      "example-device-05" = "id-device-05"
+      "example-device-06" = "id-device-06"
+      "example-device-07" = "id-device-07"
+      "example-device-08" = "id-device-08"
+      "example-device-09" = "id-device-09"
+      "example-device-10" = "override-device-10-id"
     }
   }
 
   assert {
-    condition     = tailscale_device_tags.nodes["unifi-gateway"].device_id == "override-unifi-id"
+    condition     = tailscale_device_tags.nodes["example-device-10"].device_id == "override-device-10-id"
     error_message = "Device ID override must take precedence for tags."
   }
 
   assert {
-    condition     = tailscale_device_key.nodes["unifi-gateway"].device_id == "override-unifi-id"
+    condition     = tailscale_device_key.nodes["example-device-10"].device_id == "override-device-10-id"
     error_message = "Device ID override must take precedence for key expiry."
   }
 
   assert {
-    condition     = tailscale_device_authorization.nodes["unifi-gateway"].device_id == "override-unifi-id"
+    condition     = tailscale_device_authorization.nodes["example-device-10"].device_id == "override-device-10-id"
     error_message = "Device ID override must take precedence for authorization."
   }
 }
@@ -257,16 +335,16 @@ run "extended_apply_and_sensitive_outputs" {
 
   variables {
     device_id_overrides = {
-      "adguard-home"   = "id-adguard"
-      "beszel"         = "id-beszel"
-      "gcp-default-vm" = "id-gcp"
-      "heide-apple-tv" = "id-atv"
-      "node-red"       = "id-nodered"
-      "nuc-kvm"        = "id-nuckvm"
-      "nuc-linux"      = "id-nuclinux"
-      "nuc-windows"    = "id-nucwin"
-      "synology-nas1"  = "id-synology"
-      "unifi-gateway"  = "id-unifi"
+      "example-device-01" = "id-device-01"
+      "example-device-02" = "id-device-02"
+      "example-device-03" = "id-device-03"
+      "example-device-04" = "id-device-04"
+      "example-device-05" = "id-device-05"
+      "example-device-06" = "id-device-06"
+      "example-device-07" = "id-device-07"
+      "example-device-08" = "id-device-08"
+      "example-device-09" = "id-device-09"
+      "example-device-10" = "id-device-10"
     }
   }
 
@@ -368,7 +446,7 @@ run "reject_invalid_subnet_cidr" {
 
   variables {
     device_subnet_routes = {
-      "unifi-gateway" = ["999.999.999.999/99"]
+      "example-device-10" = ["999.999.999.999/99"]
     }
   }
 
@@ -382,7 +460,7 @@ run "reject_invalid_device_tags" {
 
   variables {
     infrastructure_devices = {
-      "unifi-gateway" = {
+      "example-device-10" = {
         tags = ["missing-tag-prefix"]
       }
     }

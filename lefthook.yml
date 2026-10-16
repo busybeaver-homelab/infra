@@ -1,6 +1,8 @@
 # Lefthook Configuration File
 # https://github.com/evilmartians/lefthook
 
+assert_lefthook_installed: true
+
 pre-commit:
   parallel: true
   commands:
@@ -43,9 +45,17 @@ pre-commit:
       run: bash scripts/run-oxfmt.sh {staged_files}
       stage_fixed: true
 
-    # Oxc Linter (Frontend/Apps)
+    # Oxc Linter (JavaScript/TypeScript)
     oxlint:
-      glob: "apps/**/*.{js,ts,jsx,tsx}"
+      glob: "*.{js,ts,jsx,tsx}"
+      exclude:
+        - "docs/**"
+        - "backups/**"
+        - ".agent/**"
+        - ".agents/**"
+        - ".ruff_cache/**"
+        - ".venv/**"
+        - ".worktrees/**"
       run: oxlint -c .oxlintrc.json {staged_files}
 
     # Shell Script Formatter (shfmt)
@@ -73,7 +83,7 @@ pre-commit:
         - ".ruff_cache/**"
         - ".venv/**"
         - ".worktrees/**"
-      run: ruff format --check {staged_files}
+      run: uv run --locked ruff format --check {staged_files}
       stage_fixed: true
     ruff-lint:
       glob: "*.py"
@@ -85,7 +95,7 @@ pre-commit:
         - ".ruff_cache/**"
         - ".venv/**"
         - ".worktrees/**"
-      run: ruff check {staged_files}
+      run: uv run --locked ruff check {staged_files}
 
     # Shell Linter (Shellcheck)
     shellcheck:
@@ -188,6 +198,11 @@ pre-commit:
     sops-disjointness:
       glob: "secrets/credentials*.sops.{yml,yaml}"
       run: bash scripts/check-sops-secret-leaks.sh --check-disjointness --all-files
+
+    # Skills Lockfile Integrity Verification (R2-GOV-04)
+    verify-skills-lock:
+      glob: "{skills-lock.json,.agents/skills/**}"
+      run: bash scripts/verify-skills-lock.sh
 
     # Mise Lockfile Synchronization Check
     mise-lock-check:

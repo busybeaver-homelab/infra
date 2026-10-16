@@ -3,6 +3,7 @@
   hosts: all
   gather_facts: true
   vars:
+    molecule_unsafe_writes: true
     base_ubuntu_server_healthchecks_ping_url: "https://hc-ping.example.com/00000000-0000-0000-0000-000000000000"
   roles:
     - role: base_ubuntu_server

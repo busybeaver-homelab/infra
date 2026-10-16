@@ -52,26 +52,10 @@ fi
 log_info "Running 'mise install' to configure global tools..."
 mise install
 
-# 3b. Install git hooks with lefthook
+# 3b. Install git hooks with lefthook (assert_lefthook_installed: true in lefthook.yml enforces fail-closed behavior)
 log_info "Installing git hooks with lefthook..."
 mise exec lefthook -- lefthook install --force
-HOOK_PATH="$(git rev-parse --git-path hooks)/pre-commit"
-if [ -f "$HOOK_PATH" ]; then
-  # Ensure pre-commit hook fails closed if lefthook cannot be located
-  python3 -c "
-import sys
-p = sys.argv[1]
-with open(p, 'r') as f:
-    content = f.read()
-target = 'echo \"Can\'t find lefthook in PATH\"'
-replacement = '''echo \"ERROR: Can\'t find lefthook in PATH or mise! Hooks cannot run.\" >&2
-      echo \"Run ./scripts/bootstrap.sh or \'mise install\' to configure environment.\" >&2
-      exit 1'''
-if target in content:
-    with open(p, 'w') as f:
-        f.write(content.replace(target, replacement))
-" "$HOOK_PATH"
-fi
+rm -f "$(git rev-parse --git-path hooks)/prepare-commit-msg"
 
 # 3c. Ensure git-crypt is installed and unlock if locked
 if ! command -v git-crypt &>/dev/null; then
@@ -145,8 +129,8 @@ if [ ! -d ".venv" ]; then
   uv venv
 fi
 
-log_info "Syncing Python dependencies from pyproject.toml..."
-uv pip install -e .
+log_info "Syncing Python dependencies from pyproject.toml and uv.lock..."
+uv sync --frozen
 
 log_info "Bootstrap complete!"
 log_info "To enable mise in your shell, add this to your rc file (~/.zshrc, ~/.bashrc, etc.):"

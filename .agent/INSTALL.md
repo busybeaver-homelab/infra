@@ -13,7 +13,7 @@ This package is a standalone Antigravity profile. It does not modify the origina
 From your project root:
 
 ```bash
-npx antigravity-superpowers init
+npx --yes antigravity-superpowers@0.1.0 init
 ```
 
 Or manually:
@@ -25,10 +25,11 @@ cp -R /path/to/antigravity-superpowers-cli/templates/.agent/* .agent/
 
 If your project already has `.agent/skills`, merge carefully and keep the versions you want.
 
+> **Note:** `.agent/` is managed by `antigravity-superpowers@0.1.0`. Domain skills in `.agents/skills/` are managed separately via `npx --yes skills@1.7.2` and verified against `skills-lock.json` by `scripts/verify-skills-lock.sh`.
+
 ## What Gets Installed
 
 - `.agent/AGENTS.md`
-- `.agent/task.md` (template only)
 - `.agent/skills/*`
 - `.agent/workflows/*`
 - `.agent/agents/*`

@@ -130,7 +130,7 @@ teardown() {
   run grep -F "dest: /etc/hosts" "$tasks"
   [ "$status" -eq 0 ]
 
-  run grep -F "unsafe_writes: true" "$tasks"
+  run grep -F "molecule_unsafe_writes" "$tasks"
   [ "$status" -eq 0 ]
 }
 

@@ -12,7 +12,7 @@ The infrastructure is decomposed into modular, isolated domains to enforce least
 | --------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`cloudflare`](cloudflare/) | Cloudflare (Edge & Storage)  | Account settings, Zero Trust baseline, notifications, frozen IAM docs, R2 (incl. **State Storage Bucket** `homelab-infra-tfstate`), and per-zone DNS/settings/Email Routing/WAF via `modules/zone` |
 | [`oci`](oci/)               | Oracle Cloud (OCI Free Tier) | Free-tier Ampere A1 (ARM64) and AMD E2.1 compute instances, VCN, subnet, security groups, and Tailscale mesh                                                                                       |
-| [`homelab`](homelab/)       | Proxmox VE (On-Premises)     | Local virtual machines, LXC containers, and internal network configurations                                                                                                                        |
+| [`homelab`](homelab/)       | Proxmox VE (On-Premises)     | Placeholder module (0 managed resources until Proxmox VE VMs/LXC containers are added; excluded from drift detection)                                                                              |
 | [`gcp`](gcp/)               | Google Cloud Platform        | GCP project baseline, service accounts, and Always Free cloud services                                                                                                                             |
 | [`azure`](azure/)           | Microsoft Azure              | Azure resource groups and boundary identities                                                                                                                                                      |
 | [`github`](github/)         | GitHub                       | Repository security settings, branch protection rules, environments, and secrets management                                                                                                        |
@@ -164,7 +164,7 @@ Our remote state backend follows industry-standard cloud engineering and data so
 
 - **Native S3 Lockfile (`use_lockfile = true`):** OpenTofu 1.7+ supports native distributed locking on S3-compatible backends using a lockfile (`.tflock`) stored alongside the state object. This eliminates the need for an external lock provider (such as AWS DynamoDB) while preventing concurrent apply collisions.
 - **Compatibility Flags:** To ensure optimal reliability with Cloudflare R2's S3 API:
-  - `force_path_style = true`
+  - `use_path_style = true`
   - `skip_credentials_validation = true`
   - `skip_region_validation = true`
   - `skip_requesting_account_id = true`

@@ -1,16 +1,10 @@
 ---
-- name: Restart sshd
-  ansible.builtin.service:
-    name: sshd
-    state: restarted
-  become: true
-
-- name: Reload ufw
+- name: Reload ufw for base_ubuntu_server
   community.general.ufw:
     state: reloaded
   become: true
 
-- name: Reload systemd daemon
+- name: Reload systemd for base_ubuntu_server units
   ansible.builtin.systemd:
     daemon_reload: true
   become: true

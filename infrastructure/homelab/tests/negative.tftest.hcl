@@ -2,7 +2,7 @@ mock_provider "proxmox" {}
 
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
-  proxmox_api_endpoint        = "https://proxmox.internal:8006/api2/json"
+  proxmox_api_endpoint        = "https://proxmox.example.internal:8006/api2/json"
   proxmox_api_token           = "mock-user@pam!mocktoken=mock-secret"
   proxmox_insecure            = false
 }
@@ -23,7 +23,7 @@ run "reject_insecure_http_api_endpoint" {
   command = plan
 
   variables {
-    proxmox_api_endpoint = "http://proxmox.internal:8006/api2/json"
+    proxmox_api_endpoint = "http://proxmox.example.internal:8006/api2/json"
   }
 
   expect_failures = [

@@ -20,6 +20,6 @@ data "tailscale_users" "all" {}
 
 # Parameterized specific device lookup by hostname
 data "tailscale_device" "monitored" {
-  for_each = toset(var.monitored_device_hostnames)
+  for_each = nonsensitive(toset(local.monitored_device_hostnames))
   name     = "${each.value}.${local.tailnet_name}"
 }

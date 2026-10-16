@@ -2,9 +2,12 @@
 
 set -euo pipefail
 
-# Script to verify that staged files do not contain unencrypted RFC1918 or CGNAT IPv4 addresses:
+# Script to verify that staged files do not contain unencrypted private network literals:
 # - RFC1918: 10.x.x.x/8, 172.16-31.x.x/12, 192.168.x.x/16
 # - CGNAT (Tailscale): 100.64-127.x.x/10
+# - IPv6 ULA: fc00::/7
+# - Internal/Tailnet hostnames: *.ts.net, *.internal, *.lan, *.home.arpa
+#   (allowlisting RFC 2606 / RFC 6761 reserved test domains: *.example.*, *.test.*, *.invalid.*, *.localhost.*)
 #
 # Exemptions:
 # - *.sops.* (SOPS-encrypted files)
@@ -28,8 +31,46 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   repo_root=$(git rev-parse --show-toplevel)
 fi
 
-# Regex matching RFC1918, CGNAT (100.64-127.x.x/10), and IPv6 ULA (fc00::/7) addresses or CIDRs
-NETWORK_REGEX='(\b(10\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|172\.(1[6-9]|2[0-9]|3[01])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|192\.168\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?)\b|\b[fF][cdCD][0-9a-fA-F]{2}:[0-9a-fA-F:]+\b)'
+# Regex matching RFC1918, CGNAT (100.64-127.x.x/10), IPv6 ULA (fc00::/7), and internal/tailnet hostnames
+IP_CORE_REGEX='(10\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|172\.(1[6-9]|2[0-9]|3[01])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|192\.168\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(/(3[0-2]|[12]?[0-9]))?|[fF][cdCD][0-9a-fA-F]{2}:[0-9a-fA-F:]+)'
+HOSTNAME_CORE_REGEX='(?<![a-zA-Z0-9-])[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.(ts\.net|internal|lan|home\.arpa)(?!\.[a-zA-Z0-9-]|[a-zA-Z0-9-])'
+NETWORK_REGEX="(\b${IP_CORE_REGEX}\b|${HOSTNAME_CORE_REGEX})"
+ALLOWLIST_HOSTNAME_REGEX='^([a-z0-9-]+\.)*(example|test|invalid|localhost)\.(ts\.net|internal|lan|home\.arpa)$'
+
+# Redact violating tokens on a line; returns 0 and prints redacted token list if violations exist, 1 if all matches are allowlisted.
+redact_line_violations() {
+  local content="$1"
+  local tok tok_lc masked
+  local masked_list=()
+
+  while IFS= read -r tok; do
+    [ -z "$tok" ] && continue
+    tok_lc=$(printf '%s' "$tok" | tr '[:upper:]' '[:lower:]')
+    if [[ "$tok_lc" =~ $ALLOWLIST_HOSTNAME_REGEX ]]; then
+      continue
+    fi
+    case "$tok_lc" in
+      10.*) masked="10.x.x.x" ;;
+      172.*) masked="172.x.x.x" ;;
+      192.168.*) masked="192.168.x.x" ;;
+      100.*) masked="100.x.x.x" ;;
+      fc* | fd*) masked="fdxx:..." ;;
+      *.ts.net) masked="<redacted>.ts.net" ;;
+      *.internal) masked="<redacted>.internal" ;;
+      *.lan) masked="<redacted>.lan" ;;
+      *.home.arpa) masked="<redacted>.home.arpa" ;;
+      *) masked="<redacted>" ;;
+    esac
+    masked_list+=("$masked")
+  done < <(NET_RE="$NETWORK_REGEX" perl -ne 'while (m{$ENV{NET_RE}}g) { print "$&\n"; }' <<<"$content" 2>/dev/null || true)
+
+  if [ ${#masked_list[@]} -eq 0 ]; then
+    return 1
+  fi
+  local IFS=", "
+  printf '%s' "${masked_list[*]}"
+  return 0
+}
 
 # Collect targets: positional arguments or staged files
 targets=("$@")
@@ -149,17 +190,23 @@ if [ ${#scannable_staged_targets[@]} -gt 0 ]; then
     while IFS= read -r line; do
       [ -z "$line" ] && continue
       matched_file="${line%%:*}"
-      line_info="${line#*:}"
+      rest="${line#*:}"
+      line_num="${rest%%:*}"
+      line_content="${rest#*:}"
+      masked_tokens=""
+      if ! masked_tokens=$(redact_line_violations "$line_content"); then
+        continue
+      fi
       if [ "$matched_file" != "$current_file" ]; then
         if [ -n "$current_file" ]; then
           echo "" >&2
         fi
         current_file="$matched_file"
-        echo -e "${RED}[ERROR] Network masking violation: RFC1918 or CGNAT private IP detected in $matched_file!${NC}" >&2
-        echo -e "All internal IPs, subnets, and CIDRs must be treated as sensitive and encrypted via SOPS." >&2
-        echo -e "Violating lines:" >&2
+        echo -e "${RED}[ERROR] Network masking violation: private IP or internal hostname detected in $matched_file!${NC}" >&2
+        echo -e "All internal IPs, subnets, CIDRs, and internal hostnames must be treated as sensitive and encrypted via SOPS." >&2
+        echo -e "Violating lines (redacted):" >&2
       fi
-      echo "$line_info" >&2
+      echo "${line_num}: ${masked_tokens}" >&2
       exit_code=1
     done <<<"$network_matches"
     if [ -n "$current_file" ]; then
@@ -177,14 +224,29 @@ if [ ${#disk_targets[@]} -gt 0 ]; then
       continue
     fi
 
-    disk_matches=$(grep -a -n -E -e "$NETWORK_REGEX" "$file" 2>/dev/null || true)
+    disk_matches=$(NET_RE="$NETWORK_REGEX" perl -ne 'if (m{$ENV{NET_RE}}) { print "$.:$_"; }' "$file" 2>/dev/null || true)
     if [ -n "$disk_matches" ]; then
-      echo -e "${RED}[ERROR] Network masking violation: RFC1918 or CGNAT private IP detected in $file!${NC}" >&2
-      echo -e "All internal IPs, subnets, and CIDRs must be treated as sensitive and encrypted via SOPS." >&2
-      echo -e "Violating lines:" >&2
-      echo "$disk_matches" >&2
-      echo "" >&2
-      exit_code=1
+      file_has_violation=false
+      while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        line_num="${line%%:*}"
+        line_content="${line#*:}"
+        masked_tokens=""
+        if ! masked_tokens=$(redact_line_violations "$line_content"); then
+          continue
+        fi
+        if [ "$file_has_violation" = false ]; then
+          file_has_violation=true
+          echo -e "${RED}[ERROR] Network masking violation: private IP or internal hostname detected in $file!${NC}" >&2
+          echo -e "All internal IPs, subnets, CIDRs, and internal hostnames must be treated as sensitive and encrypted via SOPS." >&2
+          echo -e "Violating lines (redacted):" >&2
+        fi
+        echo "${line_num}: ${masked_tokens}" >&2
+        exit_code=1
+      done <<<"$disk_matches"
+      if [ "$file_has_violation" = true ]; then
+        echo "" >&2
+      fi
     fi
   done
 fi

@@ -8,8 +8,9 @@
 # Options:
 #   --threshold <dollars>         Monthly spend threshold in USD (positive integer, default: 1)
 #   --dry-run                     Preview planned alert configuration without making API requests
+#   --env <prod|ci>               Target SOPS environment when --credentials-file is not set (default: prod)
 #   --credentials-file <file>     Path to canonical SOPS credentials file (default: secrets/credentials.sops.yaml)
-#   --token <token>               Cloudflare API Token (default: auto-detected from SOPS)
+#   --token <token>               Cloudflare API Token (prefer CLOUDFLARE_API_TOKEN env or SOPS)
 #   --account-id <id>             Cloudflare Account ID (default: auto-detected from SOPS)
 #   --email <email>               Notification email address (default: auto-detected from SOPS)
 #   -h, --help                    Display this help message and exit
@@ -32,13 +33,14 @@ fi
 # Default parameter values
 THRESHOLD="1"
 DRY_RUN=false
-CREDENTIALS_FILE="${SOPS_FILE:-$REPO_ROOT/secrets/credentials.sops.yaml}"
-TOKEN=""
+TARGET_ENV="prod"
+CREDENTIALS_FILE="${SOPS_FILE:-}"
+TOKEN="${CLOUDFLARE_API_TOKEN:-}"
 ACCOUNT_ID=""
 EMAIL=""
 
 usage() {
-  sed -n '2,14p' "$0" | sed 's/^# *//'
+  sed -n '2,16p' "$0" | sed 's/^# *//'
   exit 0
 }
 
@@ -51,6 +53,10 @@ while [[ $# -gt 0 ]]; do
     --dry-run)
       DRY_RUN=true
       shift
+      ;;
+    --env)
+      TARGET_ENV="${2:-}"
+      shift 2
       ;;
     --credentials-file)
       CREDENTIALS_FILE="${2:-}"
@@ -78,6 +84,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+case "$TARGET_ENV" in
+  prod)
+    : "${CREDENTIALS_FILE:=$REPO_ROOT/secrets/credentials.sops.yaml}"
+    ;;
+  ci)
+    : "${CREDENTIALS_FILE:=$REPO_ROOT/secrets/credentials.ci.sops.yaml}"
+    ;;
+  *)
+    echo "ERROR: Invalid --env '$TARGET_ENV' (expected 'prod' or 'ci')." >&2
+    exit 1
+    ;;
+esac
+
 # Validate threshold (must be positive integer >= 1)
 if ! [[ "$THRESHOLD" =~ ^[1-9][0-9]*$ ]]; then
   echo "ERROR: Invalid threshold: '$THRESHOLD'. Must be a positive integer >= 1." >&2
@@ -87,12 +106,8 @@ fi
 # Resolve credentials and account details from SOPS if not provided explicitly
 if [[ -z "$TOKEN" || -z "$ACCOUNT_ID" || -z "$EMAIL" ]]; then
   if [[ ! -f "$CREDENTIALS_FILE" ]]; then
-    if [[ -f "$REPO_ROOT/secrets/credentials.ci.sops.yaml" ]]; then
-      CREDENTIALS_FILE="$REPO_ROOT/secrets/credentials.ci.sops.yaml"
-    else
-      echo "ERROR: Credentials file not found: $CREDENTIALS_FILE" >&2
-      exit 1
-    fi
+    echo "ERROR: Credentials file not found: $CREDENTIALS_FILE" >&2
+    exit 1
   fi
 
   if [[ -z "$TOKEN" ]]; then
@@ -144,9 +159,9 @@ log_dry_run() {
 
 API_BASE="https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/alerting/v3/policies"
 
-# Query existing alerting policies
-POLICIES_RESPONSE=$(curl -sS \
-  -H "Authorization: Bearer ${TOKEN}" \
+# Query existing alerting policies (pass Authorization header via stdin --config - to keep token out of process argv)
+POLICIES_RESPONSE=$(printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" | curl -sS \
+  --config - \
   -H "Content-Type: application/json" \
   "${API_BASE}") || {
   echo "ERROR: Failed to query Cloudflare alerting policies" >&2
@@ -199,8 +214,8 @@ if [[ -n "$EXISTING_POLICY" ]]; then
       }
     }')
 
-  UPDATE_RESPONSE=$(curl -sS -X PUT \
-    -H "Authorization: Bearer ${TOKEN}" \
+  UPDATE_RESPONSE=$(printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" | curl -sS -X PUT \
+    --config - \
     -H "Content-Type: application/json" \
     -d "$PAYLOAD" \
     "${API_BASE}/${POLICY_ID}")
@@ -237,8 +252,8 @@ else
       }
     }')
 
-  CREATE_RESPONSE=$(curl -sS -X POST \
-    -H "Authorization: Bearer ${TOKEN}" \
+  CREATE_RESPONSE=$(printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" | curl -sS -X POST \
+    --config - \
     -H "Content-Type: application/json" \
     -d "$PAYLOAD" \
     "${API_BASE}")

@@ -27,11 +27,11 @@ jobs:
         # cloudflare and dns read identifying configuration from production SOPS (GPG),
         # which CI cannot decrypt. Run `mise run drift:cloudflare`, `mise run drift:dns`,
         # or `mise run drift:all` (with HEALTHCHECKS_DRIFT_PING_URL) locally.
+        # homelab is excluded because it is a placeholder module with 0 managed resources (R2-OPS-06).
         module:
           - oci
           - gcp
           - azure
-          - homelab
           - github
           - monitoring
           - mesh
