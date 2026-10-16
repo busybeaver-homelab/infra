@@ -22,12 +22,18 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   [ "$output" = "true" ]
 }
 
-@test "backup-prune workflow uses scoped secret decryption and cleanup" {
-  run grep -F 'umask 077 && mise exec -- sops --decrypt' "${WORKFLOW_FILE}"
+@test "backup-prune workflow consumes ops environment prune secrets without decrypting CI decoy file" {
+  run grep -F 'secrets.OCI_RESTIC_PRUNE_ACCESS_KEY_ID' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 
-  run grep -F 'rm -f "${RUNNER_TEMP}/credentials.ci.yaml"' "${WORKFLOW_FILE}"
+  run grep -F 'secrets.GCP_RESTIC_PRUNE_ACCESS_KEY_ID' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
+
+  run grep -F 'secrets.R2_RESTIC_PRUNE_ACCESS_KEY_ID' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'credentials.ci.sops.yaml' "${WORKFLOW_FILE}"
+  [ "$status" -ne 0 ]
 }
 
 @test "backup-prune workflow performs retention prune on OCI and R2 repositories" {
@@ -91,10 +97,10 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   run grep -F 'Prune primary GCP backup repository' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 
-  run grep -F '.gcp_restic.s3_endpoint' "${WORKFLOW_FILE}"
+  run grep -F 'secrets.GCP_RESTIC_S3_ENDPOINT' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 
-  run grep -F '.gcp_restic.bucket' "${WORKFLOW_FILE}"
+  run grep -F 'secrets.GCP_RESTIC_BUCKET' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 }
 
@@ -154,7 +160,7 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   run grep -F 's3:${R2_ENDPOINT}/${R2_BUCKET}/${host}' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 
-  run grep -F '.cloudflare_restic.s3_endpoint' "${WORKFLOW_FILE}"
+  run grep -F 'secrets.R2_RESTIC_S3_ENDPOINT' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 
   run grep -F 'exit 1' "${WORKFLOW_FILE}"

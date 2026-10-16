@@ -29,26 +29,16 @@ jobs:
       - name: Setup Environment
         uses: $/.github/actions/setup-environment
 
-      - name: Decrypt CI secrets (scoped permissions)
-        env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
-        run: |
-          if [ -z "${SOPS_AGE_KEY:-}" ]; then
-            echo "::error::SOPS_AGE_KEY is required to decrypt backup credentials"
-            exit 1
-          fi
-          (umask 077 && mise exec -- sops --decrypt secrets/credentials.ci.sops.yaml > "${RUNNER_TEMP}/credentials.ci.yaml")
-
       - name: Prune primary OCI backup repository
+        env:
+          OCI_ENDPOINT: ${{ secrets.OCI_RESTIC_S3_ENDPOINT }}
+          OCI_BUCKET: ${{ secrets.OCI_RESTIC_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.OCI_RESTIC_PRUNE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY }}
+          RESTIC_PASSWORD: ${{ secrets.OCI_RESTIC_PASSWORD }}
         run: |
-          RESTIC_PASSWORD=$(mise exec -- yq -r '.oci_restic.password // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          AWS_ACCESS_KEY_ID=$(mise exec -- yq -r '.oci_restic.s3_access_key_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          AWS_SECRET_ACCESS_KEY=$(mise exec -- yq -r '.oci_restic.s3_secret_access_key // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          OCI_ENDPOINT=$(mise exec -- yq -r '.oci_restic.s3_endpoint // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          OCI_BUCKET=$(mise exec -- yq -r '.oci_restic.bucket // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-
           if [ -z "${RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${OCI_ENDPOINT}" ] || [ -z "${OCI_BUCKET}" ]; then
-            echo "::error::Primary OCI backup repository credentials are missing or incomplete"
+            echo "::error::Primary OCI backup repository credentials are missing or incomplete in the ops environment (run 'mise run github:sync:ops')"
             exit 1
           fi
 
@@ -67,15 +57,15 @@ jobs:
           done
 
       - name: Prune primary GCP backup repository
+        env:
+          GCP_ENDPOINT: ${{ secrets.GCP_RESTIC_S3_ENDPOINT }}
+          GCP_BUCKET: ${{ secrets.GCP_RESTIC_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.GCP_RESTIC_PRUNE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY }}
+          RESTIC_PASSWORD: ${{ secrets.GCP_RESTIC_PASSWORD }}
         run: |
-          RESTIC_PASSWORD=$(mise exec -- yq -r '.gcp_restic.password // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          AWS_ACCESS_KEY_ID=$(mise exec -- yq -r '.gcp_restic.s3_access_key_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          AWS_SECRET_ACCESS_KEY=$(mise exec -- yq -r '.gcp_restic.s3_secret_access_key // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          GCP_ENDPOINT=$(mise exec -- yq -r '.gcp_restic.s3_endpoint // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          GCP_BUCKET=$(mise exec -- yq -r '.gcp_restic.bucket // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-
           if [ -z "${RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${GCP_ENDPOINT}" ] || [ -z "${GCP_BUCKET}" ]; then
-            echo "::error::Primary GCP backup repository credentials are missing or incomplete"
+            echo "::error::Primary GCP backup repository credentials are missing or incomplete in the ops environment (run 'mise run github:sync:ops')"
             exit 1
           fi
 
@@ -94,15 +84,15 @@ jobs:
           done
 
       - name: Prune secondary Cloudflare R2 DR backup repository
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_RESTIC_S3_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_RESTIC_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_RESTIC_PRUNE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_RESTIC_PRUNE_SECRET_ACCESS_KEY }}
+          R2_RESTIC_PASSWORD: ${{ secrets.R2_RESTIC_PASSWORD }}
         run: |
-          R2_RESTIC_PASSWORD=$(mise exec -- yq -r '.cloudflare_restic.password // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          AWS_ACCESS_KEY_ID=$(mise exec -- yq -r '.cloudflare_restic.s3_access_key_id // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          AWS_SECRET_ACCESS_KEY=$(mise exec -- yq -r '.cloudflare_restic.s3_secret_access_key // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          R2_ENDPOINT=$(mise exec -- yq -r '.cloudflare_restic.s3_endpoint // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-          R2_BUCKET=$(mise exec -- yq -r '.cloudflare_restic.bucket // ""' "${RUNNER_TEMP}/credentials.ci.yaml")
-
           if [ -z "${R2_RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${R2_ENDPOINT}" ] || [ -z "${R2_BUCKET}" ]; then
-            echo "::error::Secondary Cloudflare R2 DR backup repository credentials are missing or incomplete"
+            echo "::error::Secondary Cloudflare R2 DR backup repository credentials are missing or incomplete in the ops environment (run 'mise run github:sync:ops')"
             exit 1
           fi
 
@@ -119,10 +109,6 @@ jobs:
             mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-last 2 --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --prune --max-unused 10%
             mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h check --read-data-subset=5%
           done
-
-      - name: Remove decrypted secrets
-        if: always()
-        run: rm -f "${RUNNER_TEMP}/credentials.ci.yaml"
 
       - name: Report Backup Prune Heartbeat
         if: always()
