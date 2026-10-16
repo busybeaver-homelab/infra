@@ -1,0 +1,398 @@
+#!/usr/bin/env bash
+# Managed by Ansible (docker_compose_service role). Do not edit manually.
+# GitOps Docker Compose reconciler:
+#   - Acquires shared flock with cleanup job
+#   - Quarantines interrupted in-flight deployments and restores current stack
+#   - Queries latest GitHub Release and verifies Cosign bundle + SHA256SUMS offline
+#   - Enforces compose manifest security constraints and required env vars
+#   - Performs health-gated deployment with automatic rollback and release quarantine
+set -Eeuo pipefail
+umask 077
+
+readonly BASE_DIR="{{ docker_compose_service_base_dir }}"
+readonly RELEASES_DIR="${BASE_DIR}/releases"
+readonly STATE_DIR="{{ docker_compose_service_state_dir }}"
+readonly NOTIFY_BIN="{{ docker_compose_service_libexec_dir }}/homelab-compose-notify"
+readonly COSIGN_BIN="{{ docker_compose_service_cosign_bin }}"
+readonly COSIGN_PUB="{{ docker_compose_service_cosign_public_key_path }}"
+readonly COSIGN_NEXT_PUB="{{ docker_compose_service_cosign_next_public_key_path }}"
+readonly ALLOW_MACVLAN="{{ docker_compose_service_allow_macvlan | lower }}"
+readonly CURL_PROTO="{{ docker_compose_service_curl_proto }}"
+
+readonly COMPOSE_RELEASE_API_URL="${COMPOSE_RELEASE_API_URL:-{{ docker_compose_service_release_api_url }}}"
+readonly COMPOSE_TARGET="${COMPOSE_TARGET:-{{ docker_compose_service_target }}}"
+readonly COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-{{ docker_compose_service_project_name }}}"
+readonly COMPOSE_WAIT_TIMEOUT="${COMPOSE_WAIT_TIMEOUT:-{{ docker_compose_service_wait_timeout }}}"
+readonly KEEP_RELEASES="${KEEP_RELEASES:-{{ docker_compose_service_keep_releases }}}"
+
+log() {
+  printf 'homelab-compose-reconcile: %s\n' "$*" >&2
+}
+
+if [ -z "${CREDENTIALS_DIRECTORY:-}" ]; then
+  log "ERROR: CREDENTIALS_DIRECTORY is not set"
+  exit 1
+fi
+
+readonly ENV_CRED="${CREDENTIALS_DIRECTORY}/homelab_compose_env"
+if [ ! -r "${ENV_CRED}" ]; then
+  log "ERROR: credential file ${ENV_CRED} is not readable"
+  exit 1
+fi
+
+if [[ ! "${COMPOSE_TARGET}" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+  log "ERROR: invalid COMPOSE_TARGET '${COMPOSE_TARGET}'"
+  exit 1
+fi
+
+mkdir -p "${RELEASES_DIR}" "${STATE_DIR}/staging"
+
+STAGING_DIR=""
+# shellcheck disable=SC2329
+cleanup_staging() {
+  if [ -n "${STAGING_DIR:-}" ] && [ -d "${STAGING_DIR}" ]; then
+    rm -rf "${STAGING_DIR}"
+  fi
+}
+trap cleanup_staging EXIT
+
+compose_cmd() {
+  local compose_file="$1"
+  shift
+  docker compose \
+    --project-name "${COMPOSE_PROJECT_NAME}" \
+    --env-file "${ENV_CRED}" \
+    -f "${compose_file}" \
+    "$@" || return $?
+}
+
+verify_stack_health() {
+  local compose_file="$1"
+  local expected actual
+  expected="$(compose_cmd "${compose_file}" config --services | LC_ALL=C sort)" || return $?
+  if [ -z "${expected}" ]; then
+    return 1
+  fi
+
+  actual="$(compose_cmd "${compose_file}" ps --all --format json | jq -rs '
+    (if length == 1 and (.[0] | type) == "array" then .[0] else . end)
+    | map(select(
+        (.State == "running" and ((.Health // "") == "" or .Health == "healthy"))
+        or (.State == "exited" and (.ExitCode // 1) == 0 and ((.Labels // "") | test("(^|,)homelab\\.compose\\.oneshot=true(,|$)")))
+      ))
+    | map(.Service) | unique | sort | .[]
+  ')" || return $?
+
+  [ "${expected}" = "${actual}" ] || return 1
+}
+
+verify_cosign_signature() {
+  local bundle_file="$1"
+  local sums_file="$2"
+  if "${COSIGN_BIN}" verify-blob \
+    --key "${COSIGN_PUB}" \
+    --bundle "${bundle_file}" \
+    --offline \
+    "${sums_file}" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [ -r "${COSIGN_NEXT_PUB}" ] && [ -s "${COSIGN_NEXT_PUB}" ]; then
+    if "${COSIGN_BIN}" verify-blob \
+      --key "${COSIGN_NEXT_PUB}" \
+      --bundle "${bundle_file}" \
+      --offline \
+      "${sums_file}" >/dev/null 2>&1; then
+      log "Verified release bundle using fallback key ${COSIGN_NEXT_PUB}"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+validate_compose_manifest() {
+  local compose_file="$1"
+  local rendered_json vars_json required_vars var_name
+
+  compose_cmd "${compose_file}" config -q >/dev/null || return $?
+  rendered_json="$(compose_cmd "${compose_file}" config --format json)" || return $?
+
+  jq -e --arg allow_macvlan "${ALLOW_MACVLAN}" '
+    def has_build:
+      ([.services // {} | to_entries[] | select(.value.build != null)] | length) > 0;
+    def has_relative_bind:
+      ([.services // {} | .[].volumes // [] | .[] | select(
+        if type == "object" then
+          (.type == "bind") and (((.source // "") | startswith("/")) | not)
+        elif type == "string" then
+          ((split(":")[0] | startswith("/")) | not)
+        else
+          false
+        end
+      )] | length) > 0;
+    def has_relative_files:
+      ([
+        (.services // {} | .[].env_file // [] | (if type == "array" then .[] else . end) | if type == "object" then .path // "" else tostring end),
+        (.secrets // {} | .[].file // empty),
+        (.configs // {} | .[].file // empty)
+      ] | map(select(length > 0 and (startswith("/") | not))) | length) > 0;
+    def has_forbidden_network:
+      if $allow_macvlan == "true" then
+        false
+      else
+        (([.services // {} | .[] | select((.network_mode // "") == "host" or (.mac_address // "") != "")] | length) > 0)
+        or (([.services // {} | .[].networks // {} | select(type == "object") | .[] | select(type == "object" and (.mac_address // "") != "")] | length) > 0)
+        or (([.networks // {} | .[] | select((.driver // "") == "macvlan" or (.driver // "") == "ipvlan")] | length) > 0)
+      end;
+    (has_build | not)
+    and (has_relative_bind | not)
+    and (has_relative_files | not)
+    and (has_forbidden_network | not)
+  ' <<<"${rendered_json}" >/dev/null || return $?
+
+  vars_json="$(docker compose -f "${compose_file}" config --variables --format json)" || return $?
+  required_vars="$(jq -r '
+    (if type == "object" then [to_entries[].value] else . end)
+    | map(select(
+        ((.DefaultValue // .default_value // "") == "")
+        and ((.PresenceValue // .presence_value // "") == "")
+        and ((.Required // .required // true) == true)
+      ))
+    | map(.Name // .name)
+    | .[]
+  ' <<<"${vars_json}")" || return $?
+
+  if [ -n "${required_vars}" ]; then
+    while IFS= read -r var_name; do
+      [ -z "${var_name}" ] && continue
+      if ! grep -qE "^${var_name}=.+" "${ENV_CRED}"; then
+        log "ERROR: required variable '${var_name}' is missing or empty in ${ENV_CRED}"
+        return 1
+      fi
+    done <<<"${required_vars}"
+  fi
+  return 0
+}
+
+prune_old_releases() {
+  local current_target previous_target rel_name rel_path count total to_delete
+  current_target="$(readlink "${BASE_DIR}/current" 2>/dev/null || true)"
+  previous_target="$(readlink "${BASE_DIR}/previous" 2>/dev/null || true)"
+
+  local releases=()
+  while IFS= read -r rel_name; do
+    [ -z "${rel_name}" ] && continue
+    releases+=("${rel_name}")
+  done < <(
+    for d in "${RELEASES_DIR}"/*; do
+      [ -d "${d}" ] && basename "${d}"
+    done | LC_ALL=C sort -V
+  )
+
+  total="{% raw %}${#releases[@]}{% endraw %}"
+  if [ "${total}" -le "${KEEP_RELEASES}" ]; then
+    return 0
+  fi
+
+  to_delete=$((total - KEEP_RELEASES))
+  count=0
+  for rel_name in "${releases[@]}"; do
+    if [ "${count}" -ge "${to_delete}" ]; then
+      break
+    fi
+    rel_path="${RELEASES_DIR}/${rel_name}"
+    if [ "${rel_path}" = "${current_target}" ] || [ "${rel_path}" = "${previous_target}" ]; then
+      continue
+    fi
+    rm -rf "${rel_path}"
+    count=$((count + 1))
+  done
+}
+
+notify_success() {
+  if [ -x "${NOTIFY_BIN}" ]; then
+    "${NOTIFY_BIN}" success "homelab-compose-reconcile.service" || true
+  fi
+}
+
+# 1. Acquire exclusive lock shared with homelab-docker-cleanup
+exec 9>"${STATE_DIR}/lock"
+flock --wait 900 9
+
+# 2. Check for interrupted in-flight deployment marker
+current_dir=""
+current_tag=""
+if [ -L "${BASE_DIR}/current" ]; then
+  current_dir="$(readlink "${BASE_DIR}/current")"
+  current_tag="$(basename "${current_dir}")"
+fi
+
+if [ -s "${STATE_DIR}/deploying" ]; then
+  interrupted_tag="$(tr -d '\r\n' < "${STATE_DIR}/deploying")"
+  log "WARNING: detected interrupted deployment of '${interrupted_tag}'; quarantining and restoring current"
+  printf '%s\n' "${interrupted_tag}" > "${STATE_DIR}/quarantined-release"
+  chmod 0600 "${STATE_DIR}/quarantined-release"
+  rm -f "${STATE_DIR}/deploying"
+  if [ -n "${current_dir}" ] && [ -f "${current_dir}/docker-compose.yaml" ]; then
+    compose_cmd "${current_dir}/docker-compose.yaml" up -d --wait --wait-timeout "${COMPOSE_WAIT_TIMEOUT}" --remove-orphans || true
+  fi
+fi
+
+# 3. Query GitHub Releases latest endpoint
+release_json="$(curl --proto "${CURL_PROTO}" --proto-redir "${CURL_PROTO}" -fsSL --max-time 30 \
+  -H "Accept: application/vnd.github+json" \
+  "${COMPOSE_RELEASE_API_URL}")"
+
+tag="$(jq -r '.tag_name // empty' <<<"${release_json}")"
+if [[ ! "${tag}" =~ ^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]+$ ]]; then
+  log "ERROR: release tag '${tag}' does not match ^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}-[0-9]+$"
+  exit 1
+fi
+
+# 4. Check quarantine state
+if [ -s "${STATE_DIR}/quarantined-release" ]; then
+  quarantined_tag="$(tr -d '\r\n' < "${STATE_DIR}/quarantined-release")"
+  if [ "${tag}" = "${quarantined_tag}" ]; then
+    log "ERROR: latest release '${tag}' is quarantined; awaiting a newer release"
+    if [ -n "${current_dir}" ] && [ -f "${current_dir}/docker-compose.yaml" ]; then
+      verify_stack_health "${current_dir}/docker-compose.yaml" || true
+    fi
+    exit 1
+  fi
+fi
+
+# 5. Steady-state check when latest tag is already deployed
+if [ -n "${current_tag}" ] && [ "${tag}" = "${current_tag}" ]; then
+  if verify_stack_health "${current_dir}/docker-compose.yaml"; then
+    notify_success
+    exit 0
+  fi
+  log "ERROR: steady-state health check failed for current release '${current_tag}'; attempting single repair up"
+  compose_cmd "${current_dir}/docker-compose.yaml" up -d --wait --wait-timeout "${COMPOSE_WAIT_TIMEOUT}" --remove-orphans || true
+  exit 1
+fi
+
+# 6. Anti-rollback / monotonic version check against current_tag
+if [ -n "${current_tag}" ]; then
+  highest_tag="$(printf '%s\n%s\n' "${current_tag}" "${tag}" | LC_ALL=C sort -V | tail -n 1)"
+  if [ "${highest_tag}" != "${tag}" ]; then
+    log "ERROR: refusing downgrade from '${current_tag}' to '${tag}'"
+    exit 1
+  fi
+fi
+
+# 7. Stage and verify release artifacts before touching running containers
+STAGING_DIR="$(mktemp -d "${STATE_DIR}/staging/tmp.XXXXXX")"
+target_asset="docker-compose.${COMPOSE_TARGET}.yaml"
+
+for asset in "RELEASE" "SHA256SUMS" "SHA256SUMS.sigstore.json" "${target_asset}"; do
+  asset_url="$(jq -r --arg name "${asset}" '.assets[]? | select(.name == $name) | .browser_download_url' <<<"${release_json}")"
+  if [ -z "${asset_url}" ] || [ "${asset_url}" = "null" ]; then
+    log "ERROR: missing required release asset '${asset}' in release '${tag}'"
+    exit 1
+  fi
+  curl --proto "${CURL_PROTO}" --proto-redir "${CURL_PROTO}" -fsSL --max-time 60 \
+    -o "${STAGING_DIR}/${asset}" "${asset_url}"
+done
+
+if ! verify_cosign_signature "${STAGING_DIR}/SHA256SUMS.sigstore.json" "${STAGING_DIR}/SHA256SUMS"; then
+  log "ERROR: Cosign signature verification failed for release '${tag}'"
+  exit 1
+fi
+
+release_file_tag="$(tr -d '\r\n' < "${STAGING_DIR}/RELEASE")"
+if [ "${release_file_tag}" != "${tag}" ]; then
+  log "ERROR: RELEASE file content '${release_file_tag}' does not match release tag '${tag}'"
+  exit 1
+fi
+
+release_matches="$(grep -E "^[0-9a-f]{64}  RELEASE$" "${STAGING_DIR}/SHA256SUMS" || true)"
+target_matches="$(grep -E "^[0-9a-f]{64}  docker-compose\\.${COMPOSE_TARGET}\\.yaml$" "${STAGING_DIR}/SHA256SUMS" || true)"
+
+if [ -z "${release_matches}" ] || [ "$(printf '%s\n' "${release_matches}" | wc -l | tr -d ' ')" -ne 1 ]; then
+  log "ERROR: SHA256SUMS must contain exactly one entry for RELEASE"
+  exit 1
+fi
+if [ -z "${target_matches}" ] || [ "$(printf '%s\n' "${target_matches}" | wc -l | tr -d ' ')" -ne 1 ]; then
+  log "ERROR: SHA256SUMS must contain exactly one entry for ${target_asset}"
+  exit 1
+fi
+
+(
+  cd "${STAGING_DIR}"
+  printf '%s\n%s\n' "${release_matches}" "${target_matches}" | sha256sum -c - >/dev/null
+)
+
+cp "${STAGING_DIR}/${target_asset}" "${STAGING_DIR}/docker-compose.yaml"
+
+if ! validate_compose_manifest "${STAGING_DIR}/docker-compose.yaml"; then
+  log "ERROR: compose manifest validation failed for release '${tag}'"
+  exit 1
+fi
+
+# 8. Unchanged-manifest fast path
+if [ -n "${current_dir}" ] && [ -f "${current_dir}/docker-compose.yaml" ] && \
+   cmp -s "${STAGING_DIR}/docker-compose.yaml" "${current_dir}/docker-compose.yaml"; then
+  rm -rf "${RELEASES_DIR:?}/${tag}"
+  mv "${STAGING_DIR}" "${RELEASES_DIR}/${tag}"
+  STAGING_DIR=""
+
+  if ! verify_stack_health "${RELEASES_DIR}/${tag}/docker-compose.yaml"; then
+    log "ERROR: current stack unhealthy during unchanged-manifest fast path for '${tag}'"
+    compose_cmd "${current_dir}/docker-compose.yaml" up -d --wait --wait-timeout "${COMPOSE_WAIT_TIMEOUT}" --remove-orphans || true
+    exit 1
+  fi
+
+  ln -sfn "${RELEASES_DIR}/${tag}" "${BASE_DIR}/current"
+  rm -f "${STATE_DIR}/quarantined-release" "${STATE_DIR}/deploying"
+  prune_old_releases
+  notify_success
+  exit 0
+fi
+
+# 9. Pull images while current stack remains untouched
+if ! compose_cmd "${STAGING_DIR}/docker-compose.yaml" pull --quiet; then
+  log "ERROR: image pull failed for release '${tag}' (transient failure; not quarantining)"
+  exit 1
+fi
+
+# 10. Promote staging directory and execute health-gated deployment
+rm -rf "${RELEASES_DIR:?}/${tag}"
+mv "${STAGING_DIR}" "${RELEASES_DIR}/${tag}"
+STAGING_DIR=""
+
+printf '%s\n' "${tag}" > "${STATE_DIR}/deploying"
+chmod 0600 "${STATE_DIR}/deploying"
+
+deploy_ok=false
+if compose_cmd "${RELEASES_DIR}/${tag}/docker-compose.yaml" up -d --wait --wait-timeout "${COMPOSE_WAIT_TIMEOUT}" --remove-orphans; then
+  if verify_stack_health "${RELEASES_DIR}/${tag}/docker-compose.yaml"; then
+    deploy_ok=true
+  fi
+fi
+
+if [ "${deploy_ok}" = "true" ]; then
+  if [ -n "${current_dir}" ]; then
+    ln -sfn "${current_dir}" "${BASE_DIR}/previous"
+  fi
+  ln -sfn "${RELEASES_DIR}/${tag}" "${BASE_DIR}/current"
+  rm -f "${STATE_DIR}/deploying" "${STATE_DIR}/quarantined-release"
+  prune_old_releases
+  notify_success
+  exit 0
+fi
+
+# 11. Rollback & Quarantine on deployment failure
+log "ERROR: deployment of release '${tag}' failed health verification; capturing logs and rolling back"
+compose_cmd "${RELEASES_DIR}/${tag}/docker-compose.yaml" logs --no-color --tail=50 >&2 || true
+
+printf '%s\n' "${tag}" > "${STATE_DIR}/quarantined-release"
+chmod 0600 "${STATE_DIR}/quarantined-release"
+rm -f "${STATE_DIR}/deploying"
+
+if [ -n "${current_dir}" ] && [ -f "${current_dir}/docker-compose.yaml" ]; then
+  if ! compose_cmd "${current_dir}/docker-compose.yaml" up -d --wait --wait-timeout "${COMPOSE_WAIT_TIMEOUT}" --remove-orphans; then
+    log "ERROR: rollback to current release '${current_tag}' also failed"
+  fi
+fi
+
+exit 1

@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Managed by Ansible (docker_compose_service role). Do not edit manually.
+# Rollback-safe weekly Docker cleanup job:
+#   - Acquires shared flock with homelab-compose-reconcile
+#   - Removes stale temporary hold containers from any interrupted run
+#   - Prunes stopped containers older than 7 days (168h)
+#   - Protects images referenced by current and previous releases via temporary hold containers
+#   - Prunes unused images (720h), networks (168h), and build cache (720h)
+#   - Never prunes Docker volumes
+set -Eeuo pipefail
+umask 077
+
+readonly BASE_DIR="{{ docker_compose_service_base_dir }}"
+readonly STATE_DIR="{{ docker_compose_service_state_dir }}"
+readonly COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-{{ docker_compose_service_project_name }}}"
+
+log() {
+  printf 'homelab-docker-cleanup: %s\n' "$*" >&2
+}
+
+if [ -z "${CREDENTIALS_DIRECTORY:-}" ]; then
+  log "ERROR: CREDENTIALS_DIRECTORY is not set"
+  exit 1
+fi
+
+readonly ENV_CRED="${CREDENTIALS_DIRECTORY}/homelab_compose_env"
+if [ ! -r "${ENV_CRED}" ]; then
+  log "ERROR: credential file ${ENV_CRED} is not readable"
+  exit 1
+fi
+
+mkdir -p "${STATE_DIR}"
+
+# 1. Acquire exclusive lock shared with homelab-compose-reconcile
+exec 9>"${STATE_DIR}/lock"
+flock --wait 900 9
+
+# 2. Remove any stale hold containers left behind by a previously interrupted cleanup run
+stale_holds="$(docker ps -aq --filter "label=homelab.compose.hold=true" || true)"
+if [ -n "${stale_holds}" ]; then
+  # shellcheck disable=SC2086
+  docker rm -f ${stale_holds} >/dev/null 2>&1 || true
+fi
+
+# 3. Prune stopped containers older than 7 days
+docker container prune --force --filter "until=168h"
+
+# 4. Register EXIT trap to remove temporary hold containers even if prune fails
+hold_containers=()
+# shellcheck disable=SC2329
+cleanup_holds() {
+  if [ "{% raw %}${#hold_containers[@]}{% endraw %}" -gt 0 ]; then
+    docker rm -f "${hold_containers[@]}" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup_holds EXIT
+
+# 5. Create temporary created-state hold containers for images in current and previous
+idx=0
+protected_images="$(
+  for symlink_name in current previous; do
+    compose_file="${BASE_DIR}/${symlink_name}/docker-compose.yaml"
+    if [ -f "${compose_file}" ]; then
+      docker compose \
+        --project-name "${COMPOSE_PROJECT_NAME}" \
+        --env-file "${ENV_CRED}" \
+        -f "${compose_file}" \
+        config --images 2>/dev/null || true
+    fi
+  done | LC_ALL=C sort -u
+)"
+
+if [ -n "${protected_images}" ]; then
+  while IFS= read -r img; do
+    [ -z "${img}" ] && continue
+    idx=$((idx + 1))
+    hold_name="homelab-hold-${idx}"
+    if docker create --pull=never --label "homelab.compose.hold=true" --name "${hold_name}" "${img}" /bin/true >/dev/null 2>&1; then
+      hold_containers+=("${hold_name}")
+    fi
+  done <<<"${protected_images}"
+fi
+
+# 6. Prune unused images older than 30 days (720h) while hold containers protect current + previous
+docker image prune --all --force --filter "until=720h"
+
+# 7. Prune unused networks (7d) and builder cache (30d); never prune volumes
+docker network prune --force --filter "until=168h"
+docker builder prune --all --force --filter "until=720h"
