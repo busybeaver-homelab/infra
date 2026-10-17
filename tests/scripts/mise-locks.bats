@@ -196,7 +196,7 @@ load 'helpers/test_helper'
 @test "gh cli executes cleanly via mise and outputs expected version" {
   run mise exec -- gh --version
   [ "$status" -eq 0 ]
-  run grep -E '^gh version 2\.102\.' <<< "$output"
+  run grep -E '^gh version 2\.102\.' <<<"$output"
   [ "$status" -eq 0 ]
 }
 
@@ -219,8 +219,29 @@ load 'helpers/test_helper'
 @test "rush parallel runner executes cleanly via mise and outputs expected version" {
   run mise exec -- rush --version
   [ "$status" -eq 0 ]
-  run grep -E '^rush v0\.11\.0' <<< "$output"
+  run grep -E '^rush v0\.11\.0' <<<"$output"
   [ "$status" -eq 0 ]
 }
 
+@test "every aqua: tool in mise.toml specifies at least major.minor version (including trufflehog and yq)" {
+  local mise_config="${REPO_ROOT}/mise.toml"
+  [ -f "$mise_config" ]
 
+  run grep -E '^"aqua:trufflesecurity/trufflehog"\s*=\s*"3\.97"' "$mise_config"
+  [ "$status" -eq 0 ]
+
+  run grep -E '^"aqua:mikefarah/yq"\s*=\s*"4\.54"' "$mise_config"
+  [ "$status" -eq 0 ]
+
+  local entries
+  entries="$(yq -p toml -oy '.tools | to_entries | .[] | select(.key | test("^aqua:")) | .key + "=" + .value' "$mise_config")"
+  [ -n "$entries" ]
+
+  while IFS='=' read -r key ver; do
+    [ -n "$key" ] || continue
+    if [[ ! "$ver" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+      echo "Aqua tool '$key' has major-only or invalid version specifier '$ver' in mise.toml (expected major.minor or major.minor.patch)" >&2
+      return 1
+    fi
+  done <<<"$entries"
+}

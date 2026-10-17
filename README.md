@@ -128,13 +128,13 @@ This repository pins CLI tools in [`mise.toml`](mise.toml) (locked via [`mise.lo
 | **Bats**              | `1.14`    | `mise.toml`      | Bash Automated Testing System for unit, security gate, and CI verification                  |
 | **Rush**              | `0.11.0`  | `mise.toml`      | Parallel execution engine for concurrent OpenTofu, Molecule, and Bats suites                |
 | **Trivy**             | `0.75`    | `mise.toml`      | Vulnerability and IaC misconfiguration scanner for OpenTofu and Ansible                     |
-| **TruffleHog**        | `3`       | `mise.toml`      | High-entropy secret and credential scanner in pre-commit and CI                             |
+| **TruffleHog**        | `3.97`    | `mise.toml`      | High-entropy secret and credential scanner in pre-commit and CI                             |
 | **Actionlint**        | `1.7`     | `mise.toml`      | Static checker and linter for GitHub Actions workflow files                                 |
 | **Act**               | `0.2`     | `mise.toml`      | Local runner for testing GitHub Actions workflows                                           |
 | **GitHub CLI (`gh`)** | `2.102`   | `mise.toml`      | GitHub CLI for pull request automation and REST API repository settings sync                |
 | **Oxlint**            | `1.84`    | `mise.toml`      | High-performance JavaScript/TypeScript linter for JavaScript/TypeScript assets              |
 | **Oxfmt**             | `0.73`    | `mise.toml`      | Fast formatter for Markdown, JSON, YAML, and web assets                                     |
-| **Yq**                | `4`       | `mise.toml`      | YAML and JSON command-line processor                                                        |
+| **Yq**                | `4.54`    | `mise.toml`      | YAML and JSON command-line processor                                                        |
 | **Node**              | `24`      | `mise.toml`      | JavaScript runtime for repository linters and skill tooling                                 |
 | **Git-Crypt**         | `0.7+`    | System           | Transparent Git filter encryption for sensitive `docs/` and `backups/` trees                |
 
