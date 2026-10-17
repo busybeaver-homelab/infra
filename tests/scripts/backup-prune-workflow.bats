@@ -142,7 +142,7 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   [ "$status" -eq 0 ]
   [ "$output" = "ops" ]
 
-  run yq -r '.tools.restic' "${REPO_ROOT}/mise.toml"
+  run yq -r '.tools."aqua:restic/restic"' "${REPO_ROOT}/mise.toml"
   [ "$status" -eq 0 ]
   [[ "$output" == 0.18* ]] || false
 

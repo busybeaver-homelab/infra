@@ -466,12 +466,12 @@ const runtimeGroupRule = config.packageRules.find(r =>
   r.matchManagers.includes("mise") &&
   r.matchManagers.includes("pep621") &&
   Array.isArray(r.matchPackageNames) &&
-  r.matchPackageNames.includes("python") &&
+  ["python", "core:python"].every(pkg => r.matchPackageNames.includes(pkg)) &&
   r.groupSlug === "python-runtime"
 );
 
 if (!runtimeGroupRule) {
-  console.error("Unified python runtime group rule not found");
+  console.error("Unified python runtime group rule (including core:python) not found");
   process.exit(1);
 }
 
@@ -522,11 +522,11 @@ const runtimeRule = config.packageRules.find(r =>
   Array.isArray(r.matchManagers) &&
   r.matchManagers.includes("mise") &&
   Array.isArray(r.matchPackageNames) &&
-  ["python", "node", "go"].every(pkg => r.matchPackageNames.includes(pkg))
+  ["python", "core:python", "node", "core:node", "go", "core:go"].every(pkg => r.matchPackageNames.includes(pkg))
 );
 
 if (!runtimeRule) {
-  console.error("Package rule for mise language runtimes not found");
+  console.error("Package rule for mise language runtimes (including core: prefixes) not found");
   process.exit(1);
 }
 

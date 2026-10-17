@@ -133,7 +133,7 @@ This repository pins CLI tools in [`mise.toml`](mise.toml) (locked via [`mise.lo
 | **Act**               | `0.2`     | `mise.toml`      | Local runner for testing GitHub Actions workflows                                           |
 | **GitHub CLI (`gh`)** | `2.102`   | `mise.toml`      | GitHub CLI for pull request automation and REST API repository settings sync                |
 | **Oxlint**            | `1.84`    | `mise.toml`      | High-performance JavaScript/TypeScript linter for JavaScript/TypeScript assets              |
-| **Oxfmt**             | `0.71`    | `mise.toml`      | Fast formatter for Markdown, JSON, YAML, and web assets                                     |
+| **Oxfmt**             | `0.73`    | `mise.toml`      | Fast formatter for Markdown, JSON, YAML, and web assets                                     |
 | **Yq**                | `4`       | `mise.toml`      | YAML and JSON command-line processor                                                        |
 | **Node**              | `24`      | `mise.toml`      | JavaScript runtime for repository linters and skill tooling                                 |
 | **Git-Crypt**         | `0.7+`    | System           | Transparent Git filter encryption for sensitive `docs/` and `backups/` trees                |
