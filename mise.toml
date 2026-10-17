@@ -15,12 +15,12 @@ min_version = "2026.10.8" # renovate: datasource=github-releases depName=jdx/mis
 "aqua:bats-core/bats-core" = "1.14"
 "aqua:oxc-project/oxc/oxlint" = "1.84"
 "aqua:oxc-project/oxc/oxfmt" = "0.73"
-"aqua:mvdan/sh" = "3.14"
+"aqua:mvdan/sh" = "3.14" # shfmt
 "aqua:mikefarah/yq" = "4.54"
 "core:node" = "24"
 "aqua:rhysd/actionlint" = "1.7"
 "aqua:aquasecurity/trivy" = "0.75"
-"aqua:cli/cli" = "2.102"
+"aqua:cli/cli" = "2.102" # gh
 "aqua:restic/restic" = "0.18"
 "aqua:shenwei356/rush" = "0.11.0"
 

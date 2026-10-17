@@ -233,6 +233,12 @@ load 'helpers/test_helper'
   run grep -E '^"aqua:mikefarah/yq"\s*=\s*"4\.54"' "$mise_config"
   [ "$status" -eq 0 ]
 
+  run grep -E '^"aqua:mvdan/sh"\s*=\s*"3\.14"\s*#\s*shfmt' "$mise_config"
+  [ "$status" -eq 0 ]
+
+  run grep -E '^"aqua:cli/cli"\s*=\s*"2\.102"\s*#\s*gh' "$mise_config"
+  [ "$status" -eq 0 ]
+
   local entries
   entries="$(yq -p toml -oy '.tools | to_entries | .[] | select(.key | test("^aqua:")) | .key + "=" + .value' "$mise_config")"
   [ -n "$entries" ]
