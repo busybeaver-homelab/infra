@@ -135,7 +135,7 @@ url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/2790
 [[tools."aqua:mikefarah/yq"]]
 version = "4.54.1"
 backend = "aqua:mikefarah/yq"
-specifiers = ["4"]
+specifiers = ["4.54"]
 
 [tools."aqua:mikefarah/yq"."platforms.linux-x64"]
 checksum = "sha256:8e34fc298390875de416e6a4afcb8cabeceb25d9aa8506c1a2f9353cf702ea5f"
@@ -306,7 +306,7 @@ provenance = "github-attestations"
 [[tools."aqua:trufflesecurity/trufflehog"]]
 version = "3.97.9"
 backend = "aqua:trufflesecurity/trufflehog"
-specifiers = ["3"]
+specifiers = ["3.97"]
 
 [tools."aqua:trufflesecurity/trufflehog"."platforms.linux-x64"]
 checksum = "sha256:40377e6572495412fb9ba0bc21c9401f73b72f1d2afd11b9931bc4a5ed622866"
