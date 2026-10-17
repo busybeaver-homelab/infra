@@ -1,27 +1,27 @@
 min_version = "2026.10.8" # renovate: datasource=github-releases depName=jdx/mise
 
 [tools]
-opentofu = "1.13"
-tflint = "0.64"
-sops = "3.13"
-age = "1.3"
-lefthook = "2.1"
-python = "3.14"
+"aqua:opentofu/opentofu" = "1.13"
+"aqua:terraform-linters/tflint" = "0.64"
+"aqua:getsops/sops" = "3.13"
+"aqua:FiloSottile/age" = "1.3"
+"aqua:evilmartians/lefthook" = "2.1"
+"core:python" = "3.14"
 "aqua:astral-sh/uv" = "0.13"
-shellcheck = "0.11"
-"terraform-docs" = "0.24"
-act            = "0.2"
-trufflehog     = "3"
-bats           = "1.14"
-oxlint         = "1.84"
-oxfmt          = "0.71"
-shfmt          = "3.14"
-yq             = "4"
-node           = "24"
-actionlint     = "1.7"
-trivy          = "0.75"
-gh             = "2.102"
-restic         = "0.18"
+"aqua:koalaman/shellcheck" = "0.11"
+"aqua:terraform-docs/terraform-docs" = "0.24"
+"aqua:nektos/act" = "0.2"
+"aqua:trufflesecurity/trufflehog" = "3"
+"aqua:bats-core/bats-core" = "1.14"
+"aqua:oxc-project/oxc/oxlint" = "1.84"
+"aqua:oxc-project/oxc/oxfmt" = "0.73"
+"aqua:mvdan/sh" = "3.14"
+"aqua:mikefarah/yq" = "4"
+"core:node" = "24"
+"aqua:rhysd/actionlint" = "1.7"
+"aqua:aquasecurity/trivy" = "0.75"
+"aqua:cli/cli" = "2.102"
+"aqua:restic/restic" = "0.18"
 "aqua:shenwei356/rush" = "0.11.0"
 
 
@@ -545,3 +545,7 @@ run = "bats tests/scripts/dynamic-inventory.bats"
 [settings]
 lockfile = true
 lockfile_platforms = ["macos-arm64", "linux-x64"]
+disable_backends = ["asdf", "vfox", "cargo", "dotnet", "gem", "go", "npm", "pipx", "spm"]
+
+[settings.aqua]
+baked_registry = false

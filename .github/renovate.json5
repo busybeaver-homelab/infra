@@ -275,7 +275,7 @@
     {
       description: "Group Python runtime updates across Mise and PEP 621 pyproject.toml",
       matchManagers: ["mise", "pep621"],
-      matchPackageNames: ["python"],
+      matchPackageNames: ["python", "core:python"],
       semanticCommitType: "chore",
       semanticCommitScope: "toolchain",
       groupName: "python runtime",
@@ -323,7 +323,7 @@
     {
       description: "Require human review for language runtime upgrades in mise and PEP 621",
       matchManagers: ["mise", "pep621"],
-      matchPackageNames: ["python", "node", "go"],
+      matchPackageNames: ["python", "core:python", "node", "core:node", "go", "core:go"],
       automerge: false,
     },
 

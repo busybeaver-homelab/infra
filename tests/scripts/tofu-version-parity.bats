@@ -41,7 +41,7 @@ teardown() {
 
 @test "every opentofu.tofu required_version matches mise.toml opentofu major.minor (STD-OT-08)" {
   local mise_version
-  mise_version="$(sed -nE 's/^opentofu[[:space:]]*=[[:space:]]*"([0-9]+\.[0-9]+).*"/\1/p' "${REPO_ROOT}/mise.toml")"
+  mise_version="$(sed -nE 's/^"aqua:opentofu\/opentofu"[[:space:]]*=[[:space:]]*"([0-9]+\.[0-9]+).*"/\1/p' "${REPO_ROOT}/mise.toml")"
   [[ -n "$mise_version" ]] || false
 
   local checked=0

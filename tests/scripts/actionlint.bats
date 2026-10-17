@@ -14,7 +14,7 @@ teardown() {
 @test "mise.toml specifies actionlint in toolchain" {
   local mise_config="${REPO_ROOT}/mise.toml"
   [ -f "$mise_config" ]
-  run grep -E 'actionlint\s*=\s*"1\.7"' "$mise_config"
+  run grep -E '^"aqua:rhysd/actionlint"\s*=\s*"1\.7"' "$mise_config"
   [ "$status" -eq 0 ]
 }
 

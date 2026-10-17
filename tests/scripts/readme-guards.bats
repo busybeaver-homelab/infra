@@ -94,6 +94,7 @@ teardown() {
     '\*\*Restic\*\*.*`0\.18`' \
     '\*\*Rush\*\*.*`0\.11\.0`' \
     '\*\*GitHub CLI \(`gh`\)\*\*.*`2\.102`' \
+    '\*\*Oxfmt\*\*.*`0\.73`' \
     '\*\*Ansible-Lint\*\*.*`26\.10\.1`' \
     '\*\*Molecule\*\*.*`26\.10\.0`'; do
     run grep -E "$tool_pattern" "$readme"

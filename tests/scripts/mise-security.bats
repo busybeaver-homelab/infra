@@ -6,7 +6,7 @@ load 'helpers/test_helper'
 @test "mise.toml specifies trivy in toolchain" {
   local mise_config="${REPO_ROOT}/mise.toml"
   [ -f "$mise_config" ]
-  run grep -E 'trivy\s*=\s*"0\.75"' "$mise_config"
+  run grep -E '^"aqua:aquasecurity/trivy"\s*=\s*"0\.75"' "$mise_config"
   [ "$status" -eq 0 ]
 }
 

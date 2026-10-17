@@ -53,9 +53,8 @@ load 'helpers/test_helper'
   [ "$status" -eq 1 ]
 }
 
-@test "lock sidecar files exist for oxfmt and ansible sidecar is removed" {
-  [ -f "${REPO_ROOT}/.mise/locks/oxfmt/0.71.0/package.json" ]
-  [ -f "${REPO_ROOT}/.mise/locks/oxfmt/0.71.0/aube-lock.yaml" ]
+@test "legacy npm/pipx lock sidecars for oxfmt and ansible are removed" {
+  [ ! -d "${REPO_ROOT}/.mise/locks/oxfmt" ]
   [ ! -d "${REPO_ROOT}/.mise/locks/ansible" ]
 }
 
@@ -66,13 +65,21 @@ load 'helpers/test_helper'
   [ "$status" -ne 0 ]
 }
 
-@test "mise.toml configures min_version and lockfile_platforms" {
+@test "mise.toml configures min_version, lockfile_platforms, and disable_backends" {
   local mise_config="${REPO_ROOT}/mise.toml"
   [ -f "$mise_config" ]
   run grep -E '^min_version\s*=\s*"2026\.10\.8"' "$mise_config"
   [ "$status" -eq 0 ]
   run grep -E 'lockfile_platforms\s*=\s*\["macos-arm64",\s*"linux-x64"\]' "$mise_config"
   [ "$status" -eq 0 ]
+  run yq -p toml -oy '.settings.disable_backends' "$mise_config"
+  [ "$status" -eq 0 ]
+  for backend in asdf vfox cargo dotnet gem go npm pipx spm; do
+    grep -Fq "$backend" <<<"$output"
+  done
+  run yq -p toml -oy '.settings.aqua.baked_registry' "$mise_config"
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
 }
 
 @test "setup-environment composite action pins matching Mise CLI version" {
@@ -82,20 +89,64 @@ load 'helpers/test_helper'
   [ "$status" -eq 0 ]
 }
 
-@test "mise.lock references oxfmt sidecar and does not reference ansible" {
+@test "mise.toml and mise.lock use aqua:oxc-project/oxc/oxfmt without npm/aube sidecars or ansible" {
+  local mise_config="${REPO_ROOT}/mise.toml"
   local mise_lock="${REPO_ROOT}/mise.lock"
+  [ -f "$mise_config" ]
   [ -f "$mise_lock" ]
-  run grep -E '\.mise/locks/oxfmt/0\.71\.0' "$mise_lock"
+  run grep -E '^"aqua:oxc-project/oxc/oxfmt"\s*=\s*"0\.73"' "$mise_config"
   [ "$status" -eq 0 ]
+  run grep -E '\[\[tools\."aqua:oxc-project/oxc/oxfmt"\]\]' "$mise_lock"
+  [ "$status" -eq 0 ]
+  run grep -E 'backend = "aqua:oxc-project/oxc/oxfmt"' "$mise_lock"
+  [ "$status" -eq 0 ]
+  run grep -E 'npm:oxfmt|\.mise/locks/oxfmt' "$mise_lock"
+  [ "$status" -ne 0 ]
   run grep -i 'ansible' "$mise_lock"
   [ "$status" -ne 0 ]
 }
 
-@test "mise.lock oxfmt aube digest matches CI Linux digest" {
+@test "every tool in mise.toml [tools] is explicitly prefixed with aqua: or core: and locked in mise.lock" {
+  local mise_config="${REPO_ROOT}/mise.toml"
   local mise_lock="${REPO_ROOT}/mise.lock"
+  [ -f "$mise_config" ]
   [ -f "$mise_lock" ]
-  run grep -E 'digest = "sha256:98e4ad5fda0b7ae3ae05abd1809e4764bc290c131db8df6fe4f66d9f0252f913"' "$mise_lock"
+
+  local keys
+  keys="$(yq -p toml -oy '.tools | keys' "$mise_config" | sed -nE 's/^- "?([^"]+)"?$/\1/p')"
+  [ -n "$keys" ]
+
+  local count=0
+  while IFS= read -r key; do
+    [ -n "$key" ] || continue
+    count=$((count + 1))
+    if [[ ! "$key" =~ ^(aqua:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)?|core:(python|go|node))$ ]]; then
+      echo "Tool key '$key' in mise.toml is not explicitly prefixed with aqua: or core:" >&2
+      return 1
+    fi
+    local lock_header
+    if [[ "$key" == core:* ]]; then
+      lock_header="[[tools.${key#core:}]]"
+    else
+      lock_header="[[tools.\"${key}\"]]"
+    fi
+    if ! grep -Fq "$lock_header" "$mise_lock"; then
+      echo "Missing ${lock_header} entry in mise.lock" >&2
+      return 1
+    fi
+    if ! grep -Fq "backend = \"${key}\"" "$mise_lock"; then
+      echo "Missing backend = \"${key}\" entry in mise.lock" >&2
+      return 1
+    fi
+  done <<<"$keys"
+
+  [ "$count" -ge 22 ]
+
+  # Ensure no unprefixed [[tools.<bare>]] headers remain in mise.lock other than core runtimes (go, node, python)
+  run grep -E '^\[\[tools\.[a-z0-9_-]+\]\]$' "$mise_lock"
   [ "$status" -eq 0 ]
+  run grep -Ev '^\[\[tools\.(go|node|python)\]\]$' <<<"$output"
+  [ "$status" -ne 0 ]
 }
 
 @test "lefthook.yml defines mise-lock-check hook" {
@@ -126,17 +177,17 @@ load 'helpers/test_helper'
   [ "$status" -ne 0 ]
 }
 
-@test "mise.toml specifies gh in toolchain" {
+@test "mise.toml specifies aqua:cli/cli (gh) in toolchain" {
   local mise_config="${REPO_ROOT}/mise.toml"
   [ -f "$mise_config" ]
-  run grep -E '^gh\s*=\s*"2\.102"' "$mise_config"
+  run grep -E '^"aqua:cli/cli"\s*=\s*"2\.102"' "$mise_config"
   [ "$status" -eq 0 ]
 }
 
-@test "mise.lock contains gh tool entry with aqua backend" {
+@test "mise.lock contains aqua:cli/cli tool entry with aqua backend" {
   local mise_lock="${REPO_ROOT}/mise.lock"
   [ -f "$mise_lock" ]
-  run grep -E '\[\[tools\.gh\]\]' "$mise_lock"
+  run grep -E '\[\[tools\."aqua:cli/cli"\]\]' "$mise_lock"
   [ "$status" -eq 0 ]
   run grep -E 'backend = "aqua:cli/cli"' "$mise_lock"
   [ "$status" -eq 0 ]
