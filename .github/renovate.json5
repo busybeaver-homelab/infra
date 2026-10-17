@@ -13,9 +13,9 @@
     ":labels(dependencies)",
   ],
 
-  // Global repository controls
+  // Global repository controls (R2-REN-05: Dependency Dashboard enabled via GitHub Issues)
   timezone: "UTC",
-  dependencyDashboard: false,
+  dependencyDashboard: true,
   prConcurrentLimit: 10,
   prHourlyLimit: 2,
 

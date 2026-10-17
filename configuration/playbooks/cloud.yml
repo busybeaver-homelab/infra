@@ -20,22 +20,22 @@
   become: true
   module_defaults:
     ansible.builtin.template:
-      unsafe_writes: true
-    template:
-      unsafe_writes: true
+      unsafe_writes: "{{ molecule_unsafe_writes | default(false) | bool }}"
   pre_tasks:
     - name: Load SOPS credentials
       community.sops.load_vars:
         file: "{{ playbook_dir }}/../../secrets/{{ custom_sops_secrets_file | default('credentials.sops.yaml') }}"
-      when: (oci is not defined) or (gcp is not defined) or (compose is not defined)
 
     - name: Validate environment sentinel
       ansible.builtin.assert:
         that:
-          - (is_production | default(false) | bool) or (is_ci_environment | default(false) | bool)
+          - (custom_sops_secrets_file | default('credentials.sops.yaml')) in ['credentials.sops.yaml', 'credentials.ci.sops.yaml']
+          - (is_production | default(false) | bool) != (is_ci_environment | default(false) | bool)
+          - not (is_ci_environment | default(false) | bool) or (ansible_connection | default('ssh')) in ['docker', 'local', 'community.docker.docker']
         fail_msg: >-
-          Refusing to execute playbook: Loaded secrets file does not have is_production: true,
-          and is_ci_environment is not set to true. Verify credentials and decryption keys.
+          Refusing to execute playbook: custom_sops_secrets_file must be one of the two canonical files,
+          exactly one of is_production or is_ci_environment must be true (XOR), and CI mode is restricted
+          to container/local test connections.
         success_msg: "Environment sentinel verified successfully."
 
     - name: Load Restic backup variables from OpenTofu outputs
@@ -109,6 +109,18 @@
           }}
       no_log: true
 
+    - name: Assert breakglass user credentials are defined and non-empty
+      ansible.builtin.assert:
+        that:
+          - cloud_provider_config is defined
+          - cloud_provider_config.breakglass_user is defined
+          - cloud_provider_config.breakglass_user | string | length > 0
+          - cloud_provider_config.breakglass_password_hash is defined
+          - cloud_provider_config.breakglass_password_hash | string | length > 0
+        fail_msg: "Breakglass user credentials (breakglass_user, breakglass_password_hash) are missing or empty in SOPS."
+        quiet: true
+      no_log: true
+
     - name: Ensure breakglass user exists with active shadow password
       ansible.builtin.user:
         name: "{{ cloud_provider_config.breakglass_user }}"
@@ -120,21 +132,26 @@
         shell: /bin/bash
         state: present
       no_log: true
-      when:
-        - cloud_provider_config is defined
-        - cloud_provider_config.breakglass_user is defined
-        - cloud_provider_config.breakglass_password_hash is defined
 
   roles:
-    - base_ubuntu_server
-    - geerlingguy.swap
-    - geerlingguy.ntp
-    - devsec.hardening.os_hardening
-    - geerlingguy.security
-    - geerlingguy.firewall
-    - geerlingguy.docker
-    - restic_backup
-    - docker_compose_service
+    - role: base_ubuntu_server
+      tags: [base]
+    - role: geerlingguy.swap
+      tags: [swap]
+    - role: geerlingguy.ntp
+      tags: [ntp]
+    - role: devsec.hardening.os_hardening
+      tags: [hardening]
+    - role: geerlingguy.security
+      tags: [security, hardening]
+    - role: geerlingguy.firewall
+      tags: [firewall]
+    - role: geerlingguy.docker
+      tags: [docker]
+    - role: restic_backup
+      tags: [backup]
+    - role: docker_compose_service
+      tags: [compose]
 
   post_tasks:
     - name: Stop, disable, and mask OpenSSH socket and service

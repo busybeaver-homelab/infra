@@ -12,6 +12,27 @@ locals {
   contact_support_email  = try(local.sops_config.contact_support_email, "")
   contact_security_email = try(local.sops_config.contact_security_email, "")
 
+  # Monitored device hostnames and managed infrastructure devices: use variable override if set, else read from SOPS config.
+  monitored_device_hostnames = length(var.monitored_device_hostnames) > 0 ? var.monitored_device_hostnames : [
+    for h in try(local.sops_config.monitored_device_hostnames, []) : tostring(h)
+  ]
+
+  sops_infrastructure_devices = can(keys(local.sops_config.infrastructure_devices)) ? {
+    for k, v in try(local.sops_config.infrastructure_devices, {}) : k => {
+      tags                = [for t in v.tags : tostring(t)]
+      key_expiry_disabled = try(tobool(v.key_expiry_disabled), true)
+      authorized          = try(tobool(v.authorized), true)
+    }
+    } : {
+    for item in try(local.sops_config.infrastructure_devices, []) : tostring(item.hostname) => {
+      tags                = [for t in item.tags : tostring(t)]
+      key_expiry_disabled = try(tobool(item.key_expiry_disabled), true)
+      authorized          = try(tobool(item.authorized), true)
+    }
+  }
+
+  infrastructure_devices = length(var.infrastructure_devices) > 0 ? var.infrastructure_devices : local.sops_infrastructure_devices
+
   # Maps hostname (short name before first dot) to node ID
   discovered_device_ids = {
     for d in try(data.tailscale_devices.all.devices, []) :
@@ -23,8 +44,7 @@ locals {
     var.device_id_overrides
   )
 
-  # Single source of truth for tailnet tag ownership (max 50 tags on Always Free Tier)
-  tag_owners = {
+  base_tag_owners = {
     "tag:type-server"       = ["autogroup:owner"]
     "tag:type-client"       = ["autogroup:owner"]
     "tag:type-nas"          = ["autogroup:owner"]
@@ -46,9 +66,16 @@ locals {
     "tag:env-aws"           = ["autogroup:owner"]
     "tag:env-oci"           = ["autogroup:owner"]
     "tag:env-cloudflare"    = ["autogroup:owner"]
-    "tag:svc-beszel"        = ["autogroup:owner"]
-    "tag:svc-node-red"      = ["autogroup:owner"]
-    "tag:svc-adguard"       = ["autogroup:owner"]
   }
-}
 
+  device_tag_owners = {
+    for tag in distinct(flatten([for d in values(local.infrastructure_devices) : d.tags])) :
+    tag => ["autogroup:owner"]
+  }
+
+  # Single source of truth for tailnet tag ownership (max 50 tags on Always Free Tier)
+  tag_owners = merge(
+    local.base_tag_owners,
+    local.device_tag_owners
+  )
+}

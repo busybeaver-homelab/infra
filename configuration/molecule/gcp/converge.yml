@@ -3,6 +3,7 @@
   ansible.builtin.import_playbook: ../../playbooks/gcp.yml
   vars:
     is_ci_environment: true
+    molecule_unsafe_writes: true
     custom_sops_secrets_file: credentials.ci.sops.yaml
     restic_backup_auto_init: true
     swap_test_mode: true

@@ -143,3 +143,37 @@ run "reject_too_long_bootstrap_key_expiry" {
     var.bootstrap_key_expiry,
   ]
 }
+
+run "reject_unresolvable_infrastructure_device" {
+  command = plan
+
+  variables {
+    infrastructure_devices = {
+      "example-missing-device" = {
+        tags = ["tag:type-server"]
+      }
+    }
+    device_id_overrides = {}
+  }
+
+  expect_failures = [
+    tailscale_device_tags.nodes,
+    tailscale_device_key.nodes,
+    tailscale_device_authorization.nodes,
+  ]
+}
+
+run "reject_unresolvable_subnet_route_device" {
+  command = plan
+
+  variables {
+    device_subnet_routes = {
+      "example-missing-router" = ["198.51.100.0/24"]
+    }
+    device_id_overrides = {}
+  }
+
+  expect_failures = [
+    tailscale_device_subnet_routes.routes,
+  ]
+}

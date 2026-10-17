@@ -172,9 +172,28 @@ venv/
 
 ### Secrets & SOPS ###
 .sops/
+.env
+.env.*
+*.dec.*
 *.decrypted.*
 *.key
 *.age
+*.pem
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_ed25519*
+keys.txt
+*credentials*.json
+*service-account*.json
+*.swp
+*.swo
+secrets/*
+!secrets/README.md
+!secrets/credentials.sops.yaml
+!secrets/credentials.ci.sops.yaml
+!secrets/gpg-production.pub
 
 ### Mise ###
 .mise.local.toml
@@ -195,5 +214,3 @@ worktrees/
 ### Task Tracking ###
 # Ephemeral task tracker for local session/worktree execution (archived to docs/plans/archive/ upon completion)
 docs/plans/task.md
-
-

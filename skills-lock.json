@@ -4,42 +4,49 @@
     "agent-ci": {
       "source": "redwoodjs/agent-ci",
       "sourceType": "github",
+      "sourceRef": "c8597bb695a4cab84002f5977dd22ec56156cbab",
       "skillPath": "skills/agent-ci/SKILL.md",
       "computedHash": "cb70ff1e30519819f8f93edc59ee0e7e96cdbb26b716c4bd4d3c098331ed3638"
     },
     "ansible-automation": {
       "source": "aj-geddes/useful-ai-prompts",
       "sourceType": "github",
+      "sourceRef": "3f5182cfd739fc113f4af5244a1cf342ad7f7911",
       "skillPath": "skills/ansible-automation/SKILL.md",
-      "computedHash": "2f6b7fc42258730ea802f64f80c63ba140e3a601c25b9423babe9ab61b140b21"
+      "computedHash": "e524bd9fc7ff01add5b05cbd8825f67cf62d606b2d09666525e532e0591d9c2e"
     },
     "bash-defensive-patterns": {
       "source": "wshobson/agents",
       "sourceType": "github",
+      "sourceRef": "044b4b21f083948e69ec878a7b07c8d0951a6ffa",
       "skillPath": "plugins/shell-scripting/skills/bash-defensive-patterns/SKILL.md",
       "computedHash": "9c63659b9130b214b75f84ec11ac715b647250ca8e0cde2357f4c578d43cfc24"
     },
     "mise-configuration": {
       "source": "terrylica/cc-skills",
       "sourceType": "github",
+      "sourceRef": "0801d3372946abc97668fd8a69ab1f643e745bf6",
       "skillPath": "plugins/itp/skills/mise-configuration/SKILL.md",
       "computedHash": "2d092be3414df1fd19b77629161e5cfc1fc2b9ea469376870bfa450eaf7ee8ad"
     },
     "mise-tasks": {
       "source": "terrylica/cc-skills",
       "sourceType": "github",
+      "sourceRef": "0801d3372946abc97668fd8a69ab1f643e745bf6",
       "skillPath": "plugins/itp/skills/mise-tasks/SKILL.md",
       "computedHash": "50fb390a3b4a6a4286fcc57d4f25216ce8dcc410a94ec15909d6291f01a59dcf"
     },
     "opentofu": {
       "source": "oakoss/agent-skills",
       "sourceType": "github",
+      "sourceRef": "85e3a3919d9e0ec7f7302a5143ec4b3e66f5f6ad",
       "skillPath": "skills/opentofu/SKILL.md",
-      "computedHash": "e7a65e81641a311498d1fa56165122ee0e6b8bf6a0c1d8f01023d34c014b96ab"
+      "computedHash": "c0ce36f04205813921527af8a15eb8c583745ce29e08138b286bc7edebcf07cd"
     },
     "uv-package-manager": {
       "source": "wshobson/agents",
       "sourceType": "github",
+      "sourceRef": "044b4b21f083948e69ec878a7b07c8d0951a6ffa",
       "skillPath": "plugins/python-development/skills/uv-package-manager/SKILL.md",
       "computedHash": "c2bf8833d6c3ffa283171ef3b8da90274451605e170077f1ee6529cc38aa6438"
     }

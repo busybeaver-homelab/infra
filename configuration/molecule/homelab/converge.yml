@@ -1,6 +1,8 @@
 ---
 - name: Import base playbook
   ansible.builtin.import_playbook: ../../playbooks/base.yml
+  vars:
+    molecule_unsafe_writes: true
 
 - name: Import common playbook
   ansible.builtin.import_playbook: ../../playbooks/common.yml
@@ -9,6 +11,7 @@
   ansible.builtin.import_playbook: ../../playbooks/homelab.yml
   vars:
     is_ci_environment: true
+    molecule_unsafe_writes: true
     custom_sops_secrets_file: credentials.ci.sops.yaml
     docker_compose_service_enabled: true
     docker_compose_service_reconcile_on_converge: false

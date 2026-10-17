@@ -24,7 +24,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-ALL_MODULES=(cloudflare dns oci gcp azure homelab github monitoring mesh)
+# Note: homelab is excluded until Proxmox VE resources are added (placeholder module, R2-OPS-06).
+ALL_MODULES=(cloudflare dns oci gcp azure github monitoring mesh)
 RUN_INIT=1
 RUN_ALL=0
 TARGET_MODULE=""
@@ -37,7 +38,7 @@ Usage: ${DRIFT_INVOKED_AS:-scripts/drift.sh} [--module <name> | --all] [--module
 
 Options:
   --module <name>      Run drift check for a single module:
-                       cloudflare, dns, oci, gcp, azure, homelab, github, monitoring, mesh
+                       cloudflare, dns, oci, gcp, azure, github, monitoring, mesh
   --all                Run drift check across all modules
   --module-dir <path>  Override module directory path (single-module mode)
   --init               Run \`tofu init -input=false\` before planning (default)
@@ -270,18 +271,6 @@ run_single_module() {
                 .azure.tenant_id,
                 .azure.client_id,
                 .azure.client_secret
-              ] | .[] | select(type == "string" and length >= 6)
-            ' <<<"${sops_json}")"
-            ;;
-          homelab)
-            extracted_secrets="$(jq -r '
-              [
-                .opentofu.cloudflare_r2_access_key_id,
-                .opentofu.cloudflare_r2_secret_access_key,
-                .opentofu.state_encryption_passphrase,
-                .unifi_service_account.host,
-                .unifi_service_account.username,
-                .unifi_service_account.password
               ] | .[] | select(type == "string" and length >= 6)
             ' <<<"${sops_json}")"
             ;;

@@ -125,8 +125,13 @@ run "verify_repository_child_module" {
   }
 
   assert {
-    condition     = github_repository_dependabot_security_updates.repo.enabled == true
-    error_message = "Dependabot security updates must be enabled"
+    condition     = github_repository.repo.has_issues == true
+    error_message = "GitHub Issues must be enabled for Renovate Dependency Dashboard (R2-REN-05)"
+  }
+
+  assert {
+    condition     = github_repository_vulnerability_alerts.repo.repository == "infra" && github_repository_dependabot_security_updates.repo.enabled == false
+    error_message = "Dependabot security update PRs must be disabled in favor of Renovate while vulnerability alerts stay enabled (R2-REN-05)"
   }
 
   assert {

@@ -23,12 +23,20 @@ setup() {
   [ "$output" = "workflow_dispatch" ]
 }
 
-@test "drift detection workflow defines matrix across the 7 CI-plannable modules" {
-  for mod in oci gcp azure homelab github monitoring mesh; do
+@test "drift detection workflow defines matrix across the 6 active CI-plannable modules and excludes homelab placeholder (R2-OPS-06)" {
+  for mod in oci gcp azure github monitoring mesh; do
     run yq eval ".jobs.drift-detect.strategy.matrix.module[] | select(. == \"$mod\")" "$WORKFLOW"
     [ "$status" -eq 0 ]
     [ "$output" = "$mod" ]
   done
+
+  run yq eval '.jobs.drift-detect.strategy.matrix.module[] | select(. == "homelab")' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+
+  run grep -E '^ALL_MODULES=\(' "$REPO_ROOT/scripts/drift.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *homelab* ]] || false
 }
 
 @test "cloudflare drift runs locally, not in the CI matrix (needs production SOPS)" {

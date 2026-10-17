@@ -37,7 +37,7 @@
     group: root
     mode: "0644"
   become: true
-  notify: Reload systemd daemon
+  notify: Reload systemd for base_ubuntu_server units
 
 - name: Deploy homelab-healthcheck systemd timer unit
   ansible.builtin.template:
@@ -47,7 +47,7 @@
     group: root
     mode: "0644"
   become: true
-  notify: Reload systemd daemon
+  notify: Reload systemd for base_ubuntu_server units
 
 - name: Flush handlers before enabling homelab-healthcheck timer
   ansible.builtin.meta: flush_handlers

@@ -89,9 +89,9 @@ variable "bootstrap_key_expiry" {
 }
 
 variable "monitored_device_hostnames" {
-  description = "List of device hostnames (without domain suffix) to retrieve via data.tailscale_device."
+  description = "List of device hostnames (without domain suffix) to retrieve via data.tailscale_device (sourced from SOPS tailscale.config.monitored_device_hostnames when empty)."
   type        = list(string)
-  default     = ["unifi-gateway", "adguard-home"]
+  default     = []
 }
 
 variable "dns_nameservers" {
@@ -148,24 +148,13 @@ variable "auth_keys" {
 }
 
 variable "infrastructure_devices" {
-  description = "Declarative specification of managed infrastructure nodes and their tags."
+  description = "Declarative specification of managed infrastructure nodes and their tags (sourced from SOPS tailscale.config.infrastructure_devices when empty)."
   type = map(object({
     tags                = list(string)
     key_expiry_disabled = optional(bool, true)
     authorized          = optional(bool, true)
   }))
-  default = {
-    "adguard-home"   = { tags = ["tag:hosting-onpremise", "tag:svc-adguard", "tag:type-docker"] }
-    "beszel"         = { tags = ["tag:hosting-onpremise", "tag:svc-beszel", "tag:type-docker"] }
-    "gcp-default-vm" = { tags = ["tag:env-gcp", "tag:hosting-cloud", "tag:location-us", "tag:os-linux", "tag:type-server"] }
-    "heide-apple-tv" = { tags = ["tag:hosting-onpremise", "tag:location-ger", "tag:os-appletv"] }
-    "node-red"       = { tags = ["tag:hosting-onpremise", "tag:svc-node-red", "tag:type-docker"] }
-    "nuc-kvm"        = { tags = ["tag:hosting-onpremise", "tag:location-ger", "tag:os-linux"] }
-    "nuc-linux"      = { tags = ["tag:hosting-onpremise", "tag:location-ger", "tag:os-linux", "tag:type-server"] }
-    "nuc-windows"    = { tags = ["tag:hosting-onpremise", "tag:location-ger", "tag:os-windows", "tag:type-server"] }
-    "synology-nas1"  = { tags = ["tag:hosting-onpremise", "tag:os-linux", "tag:type-nas"] }
-    "unifi-gateway"  = { tags = ["tag:hosting-onpremise", "tag:os-linux", "tag:type-network"] }
-  }
+  default = {}
 
   validation {
     condition = alltrue([

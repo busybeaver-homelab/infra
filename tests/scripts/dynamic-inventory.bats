@@ -40,7 +40,7 @@ teardown() {
 @test "dynamic inventory composes MagicDNS FQDN for ansible_host and maps tailscale_ip" {
   run ansible-inventory -i "${TEST_INV}" --host oci-amd-1
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "oci-amd-1.homelab.ts.net" ]] || false
+  [[ "$output" =~ "oci-amd-1.example.ts.net" ]] || false
   [[ "$output" =~ "198.51.100.10" ]]
 }
 
@@ -114,7 +114,7 @@ EOF
 
   run ansible-inventory -i "${test_inv}" --host storage-1
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "storage-1.homelab.ts.net" ]] || false
+  [[ "$output" =~ "storage-1.example.ts.net" ]] || false
   [[ "$output" =~ "198.51.100.50" ]]
 }
 
@@ -168,7 +168,7 @@ EOF
 
   run ansible-inventory -i "${test_inv}" --host gcp-default-vm
   [ "$status" -eq 0 ]
-  grep -q "gcp-default-vm.homelab.ts.net" <<< "$output"
+  grep -q "gcp-default-vm.example.ts.net" <<< "$output"
   grep -q "198.51.100.40" <<< "$output"
 }
 
@@ -206,7 +206,7 @@ EOF
 
   run ansible-inventory -i "${test_gcp_inv}" --host gcp-default-vm
   [ "$status" -eq 0 ]
-  grep -q "gcp-default-vm.homelab.ts.net" <<< "$output"
+  grep -q "gcp-default-vm.example.ts.net" <<< "$output"
   grep -q "198.51.100.40" <<< "$output"
 }
 

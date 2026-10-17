@@ -14,7 +14,7 @@ Below are the **decoy age keys** generated for CI/CD testing, local evaluation, 
 ### CI/CD Environment Key (Decoy CI Actions)
 
 - **Public Key:** `age1e0pws4km4hd9ecasjlscn9d5kzsz69fuxdn5udf57wgktjz3jcnsjz8gvr`
-- **Private Key:** Generated locally at `~/.config/sops/age/keys.txt` and injected via GitHub Actions secret `SOPS_AGE_KEY`. Plaintext keys are strictly forbidden in this repository.
+- **Private Key:** Generated locally at `~/.config/sops/age/keys.txt` and injected via GitHub Actions `ci` environment secret `SOPS_AGE_KEY_CI` (managed by `infrastructure/github`). Plaintext keys are strictly forbidden in this repository.
 
 ---
 
@@ -52,15 +52,12 @@ Both production secrets (`secrets/credentials.sops.yaml`) and CI secrets (`secre
 
 ### Generating a New Recovery Keypair
 
-If rotating the recovery key:
+If rotating the recovery key, write directly to an encrypted offline volume or hardware security token (never `/tmp`):
 
 ```bash
-# On an air-gapped machine:
-mise exec -- age-keygen -o /tmp/recovery-age-key.txt
-# Public key is printed to stderr/header; copy public key to .sops.yaml
-# Print or transfer private key to hardware token / safe paper backup
-# Securely shred the temporary file:
-shred -u /tmp/recovery-age-key.txt
+# On an air-gapped machine with an encrypted offline volume mounted:
+(umask 077 && mise exec -- age-keygen -o /Volumes/offline-escrow/recovery-age-key.txt)
+# Public key is printed to stderr/header; copy public key to .sops.yaml and .sops-recipients.allowlist
 ```
 
 ### Offline `git-crypt` Key Escrow
@@ -89,58 +86,30 @@ Maintain a 1-page plaintext disaster-recovery card stored **outside** the reposi
 If the primary GPG key is lost, corrupted, or inaccessible during an emergency (or during the annual clean-container recovery drill):
 
 1. Retrieve the physical paper backup or hardware security token from the safe.
-2. Unlock `git-crypt` and decrypt `secrets/credentials.sops.yaml` into a strictly ephemeral, restricted subshell:
+2. Unlock `git-crypt`, import the replacement primary GPG key, update `.sops.yaml` and `.sops-recipients.allowlist`, and rotate recipients in-place without writing decrypted secrets to `/tmp`:
    ```bash
    read -rs RECOVERY_KEY # type or paste private key safely
    age -d -i <(printf '%s\n' "$RECOVERY_KEY") ~/offline-escrow/homelab-infra-git-crypt.key.age | git-crypt unlock -
-   SOPS_AGE_KEY="$RECOVERY_KEY" mise exec -- sops -d secrets/credentials.sops.yaml > /tmp/recovered-credentials.yaml
+   SOPS_AGE_KEY="$RECOVERY_KEY" mise exec -- sops updatekeys -y secrets/credentials.sops.yaml
+   SOPS_AGE_KEY="$RECOVERY_KEY" mise exec -- sops rotate -i secrets/credentials.sops.yaml
    unset RECOVERY_KEY
    ```
-3. Generate a new primary administrative keypair, update `.sops.yaml`, re-encrypt the credentials file, and securely wipe `/tmp/recovered-credentials.yaml`.
 
 ---
 
 ## 🚀 GitHub Actions Secret Injection
 
-To run automated checks (like Ansible syntax tests or OpenTofu validations) against encrypted decoy configuration files in CI/CD pipelines, you must inject the private key safely via **GitHub Secrets**.
+Automated checks against encrypted CI decoy configuration files (`secrets/credentials.ci.sops.yaml`) use the `SOPS_AGE_KEY_CI` secret scoped strictly to the **`ci` GitHub Actions environment** (provisioned declaratively by `infrastructure/github`).
 
-### Step 1: Add the Secret to GitHub
+### Injecting `SOPS_AGE_KEY_CI` in GitHub Actions Workflows
 
-1. In your GitHub repository, navigate to **Settings > Secrets and variables > Actions**.
-2. Click **New repository secret**.
-3. Configure the secret:
-   - **Name:** `SOPS_AGE_KEY`
-   - **Secret:** _(Paste the private key from `~/.config/sops/age/keys.txt`)_
-     ```text
-     <paste-contents-of-~/.config/sops/age/keys.txt>
-     ```
-
-### Step 2: Use the Secret in GitHub Actions Workflow
-
-In your GitHub Actions workflow files (`.github/workflows/*.yml`), inject the secret as an environment variable or write it to the default path before executing SOPS/OpenTofu/Ansible tasks.
-
-#### Option A: Inject via Env Variable (Recommended)
-
-This is the simplest way. Pass the secret as `SOPS_AGE_KEY` directly to steps that execute OpenTofu or Ansible:
+In GitHub Actions workflow files (`.github/workflows/*.yml`), bind the job to `environment: ci` and pass `SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}` **exclusively in the step-level `env:` block** of the specific step that needs to decrypt `secrets/credentials.ci.sops.yaml`. Never write `SOPS_AGE_KEY_CI` to `~/.config/sops/age/keys.txt` on runner disk (`R2-CI-01`, `STD-CI-28`):
 
 ```yaml
-- name: OpenTofu Plan
-  run: tofu plan
+- name: Scan for SOPS secret leaks
   env:
-    SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
-```
-
-#### Option B: Write Secret to File
-
-If a tool strictly requires a physical key file on disk:
-
-```yaml
-- name: Set up SOPS Age Key
-  run: |
-    mkdir -p ~/.config/sops/age
-    echo "${{ secrets.SOPS_AGE_KEY }}" > ~/.config/sops/age/keys.txt
-  env:
-    SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+    SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
+  run: mise exec -- bash scripts/check-sops-secret-leaks.sh --check-disjointness --all-files
 ```
 
 ---
@@ -294,7 +263,7 @@ mise run secret:ci:set "opentofu.state_encryption_passphrase"
 
 ### Cloudflare Configuration Data (`cloudflare.config`)
 
-Identifying Cloudflare configuration consumed by `infrastructure/cloudflare` via `data.sops_file`.
+Identifying Cloudflare configuration consumed by `infrastructure/cloudflare` via `ephemeral.sops_file` and `data.external` (`scripts/sops-subtree.sh`).
 Map keys are logical and non-identifying (SOPS does not encrypt keys). CI holds decoy leaves with identical key paths.
 
 | Key                                                         | Description                                                                                           |
@@ -310,7 +279,7 @@ Map keys are logical and non-identifying (SOPS does not encrypt keys). CI holds 
 
 ### NextDNS Credentials & Configuration Data (`nextdns`)
 
-Multi-account NextDNS credentials and profile configuration consumed by `infrastructure/dns` via `data.sops_file`.
+Multi-account NextDNS credentials and profile configuration consumed by `infrastructure/dns` via `ephemeral.sops_file` and `data.external` (`scripts/sops-subtree.sh`).
 Map keys (`account_1`..`account_5`) are generic and non-identifying (SOPS does not encrypt YAML keys). CI holds decoy leaves with identical key paths.
 
 | Key                                                                                            | Description                                                                           |

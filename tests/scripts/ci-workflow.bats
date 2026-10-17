@@ -247,7 +247,7 @@ setup() {
 }
 
 @test "ci.yml includes gcp scenario in molecule matrix and ansible-check syntax check" {
-  run yq eval '.jobs.molecule.strategy.matrix.scenario[]' "$WORKFLOW"
+  run yq eval '.jobs.molecule.strategy.matrix.include[].scenario' "$WORKFLOW"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^gcp$"
 
@@ -427,30 +427,61 @@ setup() {
   [ "$output" = "\${{ github.event_name == 'pull_request' }}" ]
 }
 
-@test "molecule job passes SOPS_AGE_KEY via step env and never writes keys.txt to disk (R2-CI-01, STD-CI-28)" {
+@test "molecule job passes SOPS_AGE_KEY via step env and never writes keys.txt to disk (R2-CI-01, R2-CI-14, STD-CI-28)" {
   run grep -F "keys.txt" "$WORKFLOW"
   [ "$status" -ne 0 ]
 
   run yq '.jobs.molecule.env // {} | length' "$WORKFLOW"
   [ "$output" = "0" ]
 
-  run yq '[.jobs.molecule.steps[] | select(.name == "Run Molecule test (*)")] | length' "$WORKFLOW"
+  run yq '.jobs.molecule.strategy.matrix.include | length' "$WORKFLOW"
   [ "$output" = "6" ]
+
+  run yq '[.jobs.molecule.steps[] | select(.name == "Run Molecule (${{ matrix.scenario }})")] | length' "$WORKFLOW"
+  [ "$output" = "1" ]
 
   run yq '[.jobs.molecule.steps[] | select(.env.SOPS_AGE_KEY != null)] | length' "$WORKFLOW"
-  [ "$output" = "6" ]
+  [ "$output" = "1" ]
 
-  run yq '[.jobs.molecule.steps[] | select(.name == "Run Molecule test (*)" and .env.SOPS_AGE_KEY == "${{ secrets.SOPS_AGE_KEY_CI }}")] | length' "$WORKFLOW"
-  [ "$output" = "6" ]
+  run yq '[.jobs.molecule.steps[] | select(.name == "Run Molecule (${{ matrix.scenario }})" and .env.SOPS_AGE_KEY == "${{ secrets.SOPS_AGE_KEY_CI }}")] | length' "$WORKFLOW"
+  [ "$output" = "1" ]
 }
 
-@test "lint-format job runs verify-git-crypt.sh --all (R2-CI-01)" {
+@test "ansible-check job does not bind environment: ci or run no-op localhost dry-run (R2-CI-14)" {
+  run yq '.jobs["ansible-check"].environment // "none"' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "none" ]
+
+  run grep -F "Dry-Run Playbooks against Mock Inventory" "$WORKFLOW"
+  [ "$status" -ne 0 ]
+}
+
+@test "setup-environment composite action exposes tools input and caches uv wheel cache (R2-CI-13)" {
+  local action="${REPO_ROOT}/.github/actions/setup-environment/action.yml"
+  run yq '.inputs.tools.default' "$action"
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+
+  run yq '.runs.steps[] | select(.name == "Install Mise") | .with.install_args' "$action"
+  [ "$status" -eq 0 ]
+  [ "$output" = '${{ inputs.tools }}' ]
+
+  run yq '.runs.steps[] | select(.name == "Cache uv packages") | .with.path' "$action"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "~/.cache/uv"
+}
+
+@test "lint-format job runs verify-git-crypt.sh --all and verify-skills-lock.sh (R2-CI-01, R2-GOV-04)" {
   run yq '.jobs.lint-format.steps[] | select(.name == "Verify git-crypt Encryption") | .run' "$WORKFLOW"
   [ "$status" -eq 0 ]
   [ "$output" = "mise exec -- bash scripts/verify-git-crypt.sh --all" ]
+
+  run yq '.jobs.lint-format.steps[] | select(.name == "Verify skills-lock.json integrity") | .run' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "mise exec -- bash scripts/verify-skills-lock.sh" ]
 }
 
-@test "lefthook.yml passes --no-update to trufflehog and wires verify-git-crypt (R2-GATE-01, R2-GATE-02)" {
+@test "lefthook.yml passes --no-update to trufflehog and wires verify-git-crypt and verify-skills-lock (R2-GATE-01, R2-GATE-02, R2-GOV-04)" {
   local lefthook="${REPO_ROOT}/lefthook.yml"
   run yq '.pre-commit.commands.trufflehog.run' "$lefthook"
   [ "$status" -eq 0 ]
@@ -458,13 +489,21 @@ setup() {
 
   run yq '.pre-commit.commands["verify-git-crypt"].run' "$lefthook"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"scripts/verify-git-crypt.sh"* ]]
+  [[ "$output" == *"scripts/verify-git-crypt.sh"* ]] || false
+
+  run yq '.pre-commit.commands["verify-skills-lock"].run' "$lefthook"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"scripts/verify-skills-lock.sh"* ]] || false
+
+  run yq '.assert_lefthook_installed' "$lefthook"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
 }
 
 @test "lefthook.yml removes exclude from all security guards and uses glob lists on linters/formatters (R2-GATE-07, R2-GOV-04)" {
   local lefthook="${REPO_ROOT}/lefthook.yml"
   local guard
-  for guard in trufflehog verify-sops-encryption verify-git-crypt block-ansible-vault detect-private-keys network-masking secrets-schema-parity sops-secret-leaks sops-recipients sops-disjointness; do
+  for guard in trufflehog verify-sops-encryption verify-git-crypt verify-skills-lock block-ansible-vault detect-private-keys network-masking secrets-schema-parity sops-secret-leaks sops-recipients sops-disjointness; do
     run yq ".pre-commit.commands[\"${guard}\"].exclude // \"none\"" "$lefthook"
     [ "$status" -eq 0 ]
     [ "$output" = "none" ]

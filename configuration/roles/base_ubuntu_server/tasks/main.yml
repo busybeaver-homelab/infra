@@ -33,7 +33,7 @@
     owner: root
     group: root
     mode: "0644"
-    unsafe_writes: true
+    unsafe_writes: "{{ molecule_unsafe_writes | default(false) | bool }}"
   become: true
   when: base_ubuntu_server_manage_hosts | bool
 

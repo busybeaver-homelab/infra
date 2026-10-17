@@ -4,7 +4,7 @@ resource "github_repository" "repo" {
   description = var.description != null ? var.description : ""
   # kics-scan ignore-line
   visibility             = var.visibility
-  has_issues             = false
+  has_issues             = true
   has_wiki               = false
   has_discussions        = false
   has_projects           = false
@@ -241,9 +241,11 @@ resource "github_workflow_repository_permissions" "repo" {
   can_approve_pull_request_reviews = false
 }
 
+# R2-REN-05: Keep github_repository_vulnerability_alerts.repo enabled for Renovate's
+# :enableVulnerabilityAlerts preset, but disable duplicate Dependabot security update PRs.
 resource "github_repository_dependabot_security_updates" "repo" {
   repository = github_repository.repo.name
-  enabled    = true
+  enabled    = false
 }
 
 resource "github_repository_deploy_key" "deploy_keys" {

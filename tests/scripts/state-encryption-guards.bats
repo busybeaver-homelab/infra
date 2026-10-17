@@ -87,7 +87,7 @@ ROOT_MODULES=(oci cloudflare gcp azure github homelab monitoring mesh dns)
 
 @test ".gitignore keeps local state, state backups, plans and lock info out of git" {
   for path in infrastructure/oci/terraform.tfstate infrastructure/oci/terraform.tfstate.backup \
-    infrastructure/github/saved.tfplan infrastructure/mesh/.terraform.tfstate.lock.info; do
+    infrastructure/github/saved.tfplan infrastructure/oci/tfplan infrastructure/mesh/.terraform.tfstate.lock.info; do
     run git -C "${REPO_ROOT}" check-ignore -q "$path"
     [ "$status" -eq 0 ] || {
       echo "not ignored: $path"
@@ -95,3 +95,24 @@ ROOT_MODULES=(oci cloudflare gcp azure github homelab monitoring mesh dns)
     }
   done
 }
+
+@test ".gitignore ignores env files, key files, swap files and non-canonical secrets/* while allowing canonical secrets files (R2-SEC-06)" {
+  for path in .env .env.local cert.pem keystore.p12 keystore.pfx keystore.jks \
+    id_rsa id_ed25519 keys.txt .foo.swp .foo.swo secrets.dec.yaml secrets.decrypted.yaml \
+    gcp-credentials.json service-account-key.json secrets/ad-hoc.sops.yaml; do
+    run git -C "${REPO_ROOT}" check-ignore -q "$path"
+    [ "$status" -eq 0 ] || {
+      echo "not ignored: $path"
+      return 1
+    }
+  done
+
+  for allowed in secrets/README.md secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml secrets/gpg-production.pub; do
+    run git -C "${REPO_ROOT}" check-ignore -q "$allowed"
+    [ "$status" -eq 1 ] || {
+      echo "unexpectedly ignored canonical file: $allowed"
+      return 1
+    }
+  done
+}
+

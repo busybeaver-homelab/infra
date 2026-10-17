@@ -41,11 +41,11 @@ Manages four NextDNS accounts (`account_1`..`account_4`, 1 profile per account) 
 
 ## Inputs
 
-| Name                                                                                                                 | Description                                                                                                                                        | Type     | Default                                 | Required |
-| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------- | :------: |
-| <a name="input_enable_prevent_destroy"></a> [enable\_prevent\_destroy](#input_enable_prevent_destroy)                | Whether to enforce prevent\_destroy on NextDNS profiles (STD-OT-44).                                                                               | `bool`   | `true`                                  |    no    |
-| <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input_secrets_file_path)                               | Path to the canonical SOPS credentials file holding NextDNS credentials and sensitive profile config.                                              | `string` | `"../../secrets/credentials.sops.yaml"` |    no    |
-| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | State and plan encryption passphrase. Source: production SOPS opentofu.state\_encryption\_passphrase. No default, so a missing value fails closed. | `string` | n/a                                     |   yes    |
+| Name                                                                                                                 | Description                                                                                                                                        | Type     | Required |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | :------: |
+| <a name="input_enable_prevent_destroy"></a> [enable\_prevent\_destroy](#input_enable_prevent_destroy)                | Whether to enforce prevent\_destroy on NextDNS profiles (STD-OT-44).                                                                               | `bool`   |    no    |
+| <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input_secrets_file_path)                               | Path to the canonical SOPS credentials file holding NextDNS credentials and sensitive profile config.                                              | `string` |    no    |
+| <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | State and plan encryption passphrase. Source: production SOPS opentofu.state\_encryption\_passphrase. No default, so a missing value fails closed. | `string` |   yes    |
 
 ## Outputs
 

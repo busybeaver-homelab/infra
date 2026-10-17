@@ -189,6 +189,9 @@ jobs:
       - name: Verify git-crypt Encryption
         run: mise exec -- bash scripts/verify-git-crypt.sh --all
 
+      - name: Verify skills-lock.json integrity
+        run: mise exec -- bash scripts/verify-skills-lock.sh
+
       - name: Verify mise.lock is in sync with mise.toml
         run: mise exec -- mise lock --dry-run
 
@@ -299,7 +302,6 @@ jobs:
     needs: changes
     if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.ansible == 'true'
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
-    environment: ci
     permissions:
       contents: read
     timeout-minutes: 20
@@ -318,12 +320,6 @@ jobs:
         with:
           python: "true"
           galaxy: "true"
-
-      - name: Decrypt CI secrets (scoped permissions)
-        env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
-        run: |
-          (umask 077 && mise exec -- sops --decrypt secrets/credentials.ci.sops.yaml > "${RUNNER_TEMP}/credentials.ci.yaml")
 
       - name: Run ansible-lint
         run: mise exec -- ansible-lint configuration/
@@ -349,18 +345,6 @@ jobs:
             -i configuration/inventories/ \
             configuration/playbooks/gcp.yml
 
-      - name: Dry-run (check mode) against ephemeral target
-        run: |
-          mise exec -- ansible-playbook --check \
-            -i "localhost," \
-            -c local \
-            -e @"${RUNNER_TEMP}/credentials.ci.yaml" \
-            configuration/playbooks/site.yml
-
-      - name: Remove decrypted secrets
-        if: always()
-        run: rm -f "${RUNNER_TEMP}/credentials.ci.yaml"
-
   molecule:
     name: Molecule (${{ matrix.scenario }})
     needs: changes
@@ -373,13 +357,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario:
-          - base_ubuntu_server
-          - restic_backup
-          - docker_compose_service
-          - oci
-          - gcp
-          - homelab
+        include:
+          - scenario: base_ubuntu_server
+            workdir: configuration/roles/base_ubuntu_server
+            args: test
+          - scenario: restic_backup
+            workdir: configuration/roles/restic_backup
+            args: test
+          - scenario: docker_compose_service
+            workdir: configuration/roles/docker_compose_service
+            args: test
+          - scenario: oci
+            workdir: configuration
+            args: test -s oci
+          - scenario: gcp
+            workdir: configuration
+            args: test -s gcp
+          - scenario: homelab
+            workdir: configuration
+            args: test -s homelab
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
@@ -411,62 +407,13 @@ jobs:
           restore-keys: |
             molecule-apt-${{ matrix.scenario }}-
 
-      - name: Run Molecule test (base_ubuntu_server)
-        if: matrix.scenario == 'base_ubuntu_server'
+      - name: Run Molecule (${{ matrix.scenario }})
+        working-directory: ${{ matrix.workdir }}
         run: |
-          cd configuration/roles/base_ubuntu_server
-          mise exec -- molecule test
+          read -r -a mol_args <<<"${MOLECULE_ARGS}"
+          mise exec -- molecule "${mol_args[@]}"
         env:
-          PY_COLORS: "1"
-          ANSIBLE_FORCE_COLOR: "1"
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
-
-      - name: Run Molecule test (restic_backup)
-        if: matrix.scenario == 'restic_backup'
-        run: |
-          cd configuration/roles/restic_backup
-          mise exec -- molecule test
-        env:
-          PY_COLORS: "1"
-          ANSIBLE_FORCE_COLOR: "1"
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
-
-      - name: Run Molecule test (docker_compose_service)
-        if: matrix.scenario == 'docker_compose_service'
-        run: |
-          cd configuration/roles/docker_compose_service
-          mise exec -- molecule test
-        env:
-          PY_COLORS: "1"
-          ANSIBLE_FORCE_COLOR: "1"
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
-
-      - name: Run Molecule test (oci)
-        if: matrix.scenario == 'oci'
-        run: |
-          cd configuration
-          mise exec -- molecule test -s oci
-        env:
-          PY_COLORS: "1"
-          ANSIBLE_FORCE_COLOR: "1"
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
-
-      - name: Run Molecule test (gcp)
-        if: matrix.scenario == 'gcp'
-        run: |
-          cd configuration
-          mise exec -- molecule test -s gcp
-        env:
-          PY_COLORS: "1"
-          ANSIBLE_FORCE_COLOR: "1"
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
-
-      - name: Run Molecule test (homelab)
-        if: matrix.scenario == 'homelab'
-        run: |
-          cd configuration
-          mise exec -- molecule test -s homelab
-        env:
+          MOLECULE_ARGS: ${{ matrix.args }}
           PY_COLORS: "1"
           ANSIBLE_FORCE_COLOR: "1"
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}

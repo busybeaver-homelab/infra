@@ -9,7 +9,7 @@ This directory houses application-layer definitions, serverless edge functions, 
 In accordance with repository separation of concerns:
 
 1. **Docker Compose Stacks:**
-   - Multi-container application workloads (e.g., AdGuard Home, Beszel, Node-RED, LiteLLM, Open-WebUI) are maintained in external dedicated service repositories (e.g., `homelab-services`).
+   - Multi-container application workloads (e.g., DNS filtering, monitoring hubs, workflow automation, LLM gateways) are maintained in external dedicated service repositories (e.g., `homelab-services`).
    - This keeps infrastructure provisioning and day-to-day application compose updates decoupled.
 2. **Serverless Edge Code (Cloudflare Workers):**
    - Cloudflare Workers, edge routes, and lightweight serverless functions deployed alongside Cloudflare DNS/WAF infrastructure reside in this directory (`apps/`).

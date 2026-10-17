@@ -138,4 +138,12 @@ output "visibility" {
   description = "The visibility of the managed repository."
 }
 
+output "has_issues" {
+  value       = github_repository.repo.has_issues
+  description = "Whether GitHub Issues are enabled on the repository (required for Renovate Dependency Dashboard)."
+}
 
+output "dependabot_security_updates_enabled" {
+  value       = github_repository_dependabot_security_updates.repo.enabled
+  description = "Whether Dependabot automated security update PRs are enabled (disabled in favor of Renovate)."
+}

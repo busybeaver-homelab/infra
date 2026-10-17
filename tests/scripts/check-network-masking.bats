@@ -284,3 +284,55 @@ teardown() {
   GIT_DIR="${BATS_TMPDIR}/nonexistent-git-dir" run bash "${MASK_SCRIPT}"
   [ "$status" -eq 2 ]
 }
+
+@test "check-network-masking.sh rejects non-RFC internal/tailnet hostnames (.ts.net, .internal, .lan, .home.arpa) and redacts output (R2-TF-10)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  local h_ts="node-alpha.tail99"".ts.net"
+  local h_int="pve-core.corp"".internal"
+  local h_lan="switch-01.office"".lan"
+  local h_arpa="nas-box.local"".home.arpa"
+  local ip_secret="10"".99.88.77"
+  cat > hosts.tf <<EOF
+ts = "${h_ts}"
+int = "${h_int}"
+lan = "${h_lan}"
+arpa = "${h_arpa}"
+ip = "${ip_secret}"
+EOF
+  git add hosts.tf
+
+  run bash "${MASK_SCRIPT}" "hosts.tf"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Network masking violation" ]] || false
+  [[ "$output" =~ "<redacted>.ts.net" ]] || false
+  [[ "$output" =~ "<redacted>.internal" ]] || false
+  [[ "$output" =~ "<redacted>.lan" ]] || false
+  [[ "$output" =~ "<redacted>.home.arpa" ]] || false
+  [[ "$output" =~ "10.x.x.x" ]] || false
+  ! [[ "$output" =~ "node-alpha" ]] || false
+  ! [[ "$output" =~ "pve-core" ]] || false
+  ! [[ "$output" =~ "switch-01" ]] || false
+  ! [[ "$output" =~ "nas-box" ]] || false
+  ! [[ "$output" =~ "99.88.77" ]] || false
+}
+
+@test "check-network-masking.sh allows RFC 2606/6761 reserved test hostnames (*.example.*, *.test.*, *.invalid.*, *.localhost.*) (R2-TF-10)" {
+  local mock_repo="${BATS_TMPDIR}/mock-repo"
+  mkdir -p "${mock_repo}"
+  cd "${mock_repo}"
+  git init -q
+  cat > test_fixtures.tf <<'EOF'
+ts_host = "oci-amd-1.example.ts.net"
+int_host = "proxmox.example.internal"
+lan_host = "router.test.lan"
+arpa_host = "gateway.localhost.home.arpa"
+invalid_host = "node.invalid.ts.net"
+EOF
+  git add test_fixtures.tf
+
+  run bash "${MASK_SCRIPT}" "test_fixtures.tf"
+  [ "$status" -eq 0 ]
+}

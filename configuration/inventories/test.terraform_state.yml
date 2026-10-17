@@ -21,7 +21,7 @@ hostnames:
   - id
 
 compose:
-  ansible_host: (display_name | default(name)) ~ '.homelab.ts.net'
+  ansible_host: (display_name | default(name)) ~ '.example.ts.net'
   tailscale_ip: private_ip if (private_ip is defined) else network_interface[0].network_ip
 
 groups:

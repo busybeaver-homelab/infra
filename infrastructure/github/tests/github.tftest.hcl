@@ -72,6 +72,11 @@ run "verify_github_root_hardening" {
   }
 
   assert {
+    condition     = module.repository["infra"].has_issues == true && module.repository["infra"].dependabot_security_updates_enabled == false
+    error_message = "GitHub Issues must be enabled for Renovate Dependency Dashboard and Dependabot security PRs disabled (R2-REN-05)"
+  }
+
+  assert {
     condition     = module.repository["infra"].ruleset_enforcement == "active"
     error_message = "Main branch ruleset must be actively enforced"
   }

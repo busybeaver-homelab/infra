@@ -81,11 +81,11 @@ run "mutate_tailnet_name_override" {
   command = plan
 
   variables {
-    tailnet_name = "custom.ts.net"
+    tailnet_name = "custom.example.ts.net"
   }
 
   assert {
-    condition     = var.tailnet_name == "custom.ts.net"
+    condition     = var.tailnet_name == "custom.example.ts.net"
     error_message = "Explicit tailnet name variable override must be preserved."
   }
 }
