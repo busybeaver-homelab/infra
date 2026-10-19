@@ -114,10 +114,13 @@ resource "github_repository_ruleset" "main_protection" {
     }
 
     required_code_scanning {
-      required_code_scanning_tool {
-        tool                      = "CodeQL"
-        alerts_threshold          = "errors"
-        security_alerts_threshold = "high_or_higher"
+      dynamic "required_code_scanning_tool" {
+        for_each = local.required_code_scanning_tools
+        content {
+          tool                      = required_code_scanning_tool.value
+          alerts_threshold          = "errors"
+          security_alerts_threshold = "high_or_higher"
+        }
       }
     }
 

@@ -10,4 +10,14 @@ locals {
     ["main", "refs/pull/*/merge"],
     local.enable_merge_queue ? ["gh-readonly-queue/main/*"] : [],
   ))
+
+  # SARIF code-scanning tools that report on every pull request via `.github/workflows/codeql.yml`
+  # (`gh api repos/<owner>/<repo>/code-scanning/analyses --jq '[.[].tool.name] | unique'`, R2-CI-07 / STD-CI-59).
+  required_code_scanning_tools = toset([
+    "CodeQL",
+    "Trivy",
+    "checkov",
+    "shellcheck",
+    "zizmor",
+  ])
 }

@@ -59,12 +59,16 @@ run "policy_invariants" {
       module.repository["infra"].dependabot_security_updates_enabled == false &&
       module.repository["infra"].ruleset_enforcement == "active" &&
       module.repository["infra"].merge_queue_enabled == true &&
-      anytrue([
+      toset([
         for t in module.repository["infra"].ruleset_required_code_scanning_tools :
-        t.tool == "CodeQL" && t.alerts_threshold == "errors" && t.security_alerts_threshold == "high_or_higher"
+        t.tool
+      ]) == toset(["CodeQL", "Trivy", "checkov", "shellcheck", "zizmor"]) &&
+      alltrue([
+        for t in module.repository["infra"].ruleset_required_code_scanning_tools :
+        t.alerts_threshold == "errors" && t.security_alerts_threshold == "high_or_higher"
       ])
     )
-    error_message = "GitHub repository ruleset must stay active with squash-only merges, merge queue, and CodeQL code scanning gate (STD-OT-52, STD-OT-59)."
+    error_message = "GitHub repository ruleset must stay active with squash-only merges, merge queue, and all SARIF code scanning gates (STD-OT-52, STD-OT-59)."
   }
 
   assert {

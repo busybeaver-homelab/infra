@@ -98,11 +98,17 @@ run "verify_github_root_hardening" {
   }
 
   assert {
-    condition = anytrue([
-      for t in module.repository["infra"].ruleset_required_code_scanning_tools :
-      t.tool == "CodeQL" && t.alerts_threshold == "errors" && t.security_alerts_threshold == "high_or_higher"
-    ])
-    error_message = "Main branch ruleset must require CodeQL code scanning with alerts_threshold = errors and security_alerts_threshold = high_or_higher (R2-CI-07)"
+    condition = (
+      toset([
+        for t in module.repository["infra"].ruleset_required_code_scanning_tools :
+        t.tool
+      ]) == toset(["CodeQL", "Trivy", "checkov", "shellcheck", "zizmor"]) &&
+      alltrue([
+        for t in module.repository["infra"].ruleset_required_code_scanning_tools :
+        t.alerts_threshold == "errors" && t.security_alerts_threshold == "high_or_higher"
+      ])
+    )
+    error_message = "Main branch ruleset must require all SARIF code scanning tools (CodeQL, Trivy, checkov, shellcheck, zizmor) with alerts_threshold = errors and security_alerts_threshold = high_or_higher (R2-CI-07)"
   }
 
   assert {
