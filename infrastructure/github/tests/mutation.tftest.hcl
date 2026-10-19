@@ -3,30 +3,36 @@ mock_provider "sops" {}
 mock_provider "external" {}
 
 override_data {
-  target = data.external.sops_github
+  target = data.external.sops_github_config
   values = {
     result = {
       json = <<-EOT
         {
-          "owner": "mock-owner",
-          "config": {
-            "repositories": {
-              "infra": {
-                "name": "infra",
-                "description": "Infrastructure as Code for my homelab environment",
-                "topics": ["homelab", "infrastructure-as-code", "iac"]
-              }
-            },
-            "deploy_keys": {
-              "work-laptop": {
-                "title": "work-laptop",
-                "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
-                "read_only": true
-              }
+          "repositories": {
+            "infra": {
+              "name": "infra",
+              "description": "Infrastructure as Code for my homelab environment",
+              "topics": ["homelab", "infrastructure-as-code", "iac"]
+            }
+          },
+          "deploy_keys": {
+            "work-laptop": {
+              "title": "work-laptop",
+              "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
+              "read_only": true
             }
           }
         }
       EOT
+    }
+  }
+}
+
+override_data {
+  target = data.external.sops_github_ci_age_key
+  values = {
+    result = {
+      json = "\"\""
     }
   }
 }

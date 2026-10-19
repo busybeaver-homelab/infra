@@ -116,9 +116,10 @@ See `variables.tf` for full descriptions. All variables are `sensitive = true`.
 
 ## Resources
 
-| Name                                                                                                                         | Type        |
-| ---------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| [external_external.sops_github](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external) | data source |
+| Name                                                                                                                                    | Type        |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| [external_external.sops_github_ci_age_key](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external) | data source |
+| [external_external.sops_github_config](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)     | data source |
 
 ## Inputs
 
