@@ -9,6 +9,7 @@ setup() {
   STUB_BIN="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$STUB_BIN" "$BATS_TEST_TMPDIR/module"
   export SOPS_FILE="$BATS_TEST_TMPDIR/fake.sops.yaml"
+  export DRIFT_SKIP_STATE_SNAPSHOT=true
   : >"$SOPS_FILE"
 
   cat >"$STUB_BIN/sops" <<'STUB'

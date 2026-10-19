@@ -10,6 +10,59 @@ resource "cloudflare_r2_bucket" "tfstate" {
   }
 }
 
+resource "cloudflare_r2_bucket_lock" "tfstate_snapshots" {
+  account_id   = var.cloudflare_account_id
+  bucket_name  = cloudflare_r2_bucket.tfstate.name
+  jurisdiction = "default"
+
+  rules = [
+    {
+      id      = "lock-tfstate-snapshots-90d"
+      enabled = true
+      prefix  = "homelab-infra/snapshots/"
+      condition = {
+        type            = "Age"
+        max_age_seconds = 7776000
+      }
+    },
+  ]
+}
+
+resource "cloudflare_r2_bucket_lifecycle" "tfstate" {
+  account_id   = var.cloudflare_account_id
+  bucket_name  = cloudflare_r2_bucket.tfstate.name
+  jurisdiction = "default"
+
+  rules = [
+    {
+      id      = "expire-tfstate-snapshots-180d"
+      enabled = true
+      conditions = {
+        prefix = "homelab-infra/snapshots/"
+      }
+      delete_objects_transition = {
+        condition = {
+          max_age = 15552000
+          type    = "Age"
+        }
+      }
+    },
+    {
+      id      = "abort-incomplete-multipart-uploads"
+      enabled = true
+      conditions = {
+        prefix = ""
+      }
+      abort_multipart_uploads_transition = {
+        condition = {
+          max_age = 604800
+          type    = "Age"
+        }
+      }
+    },
+  ]
+}
+
 # --- Secondary disaster recovery (DR) backup bucket ---
 # Location hint weur for EU data residency and geographic dispersion from the primary
 # backup repository in OCI Frankfurt (eu-frankfurt-1).

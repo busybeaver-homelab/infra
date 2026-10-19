@@ -109,6 +109,8 @@ addresses only and exits `0` (no drift), `2` (drift) or `1` (error).
 | [cloudflare_r2_bucket.backups_dr](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/r2_bucket)                                                           | resource    |
 | [cloudflare_r2_bucket.tfstate](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/r2_bucket)                                                              | resource    |
 | [cloudflare_r2_bucket_lifecycle.backups_dr](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/r2_bucket_lifecycle)                                       | resource    |
+| [cloudflare_r2_bucket_lifecycle.tfstate](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/r2_bucket_lifecycle)                                          | resource    |
+| [cloudflare_r2_bucket_lock.tfstate_snapshots](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/r2_bucket_lock)                                          | resource    |
 | [cloudflare_zero_trust_access_identity_provider.otp](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/zero_trust_access_identity_provider)              | resource    |
 | [cloudflare_zero_trust_device_default_profile.this](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/zero_trust_device_default_profile)                 | resource    |
 | [cloudflare_zero_trust_dns_location.default](https://registry.terraform.io/providers/cloudflare/cloudflare/5.28.0/docs/resources/zero_trust_dns_location)                                  | resource    |

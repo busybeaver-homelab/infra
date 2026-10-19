@@ -434,6 +434,15 @@ run_single_module() {
   esac
 }
 
+if [[ "${DRIFT_SKIP_STATE_SNAPSHOT:-}" != "true" ]]; then
+  snapshot_script="${SNAPSHOT_STATE_SCRIPT:-${SCRIPT_DIR}/snapshot-state.sh}"
+  if [[ "${RUN_ALL}" -eq 1 ]]; then
+    SOPS_SECRETS_FILE="${SOPS_FILE}" "${snapshot_script}" --all >/dev/null
+  else
+    SOPS_SECRETS_FILE="${SOPS_FILE}" "${snapshot_script}" --module "${TARGET_MODULE}" >/dev/null
+  fi
+fi
+
 if [[ "${RUN_ALL}" -eq 1 ]]; then
   read -r -a modules_to_run <<<"${DRIFT_MODULES:-${ALL_MODULES[*]}}"
 else
