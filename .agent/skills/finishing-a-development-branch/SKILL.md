@@ -60,9 +60,11 @@ git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null
 
 Or ask: "This branch split from main - is that correct?"
 
-### Step 3: Present Options
+### Step 3: Present Options (or Execute Option 2 Automatically per `AGENTS.md` §4)
 
-Present exactly these 4 options:
+> **Repository Policy (`AGENTS.md` §4):** Unless the repository owner explicitly asked for a local merge (Option 1), keeping the branch (Option 3), or discarding (Option 4) in the current session, agents **must** execute **Option 2** automatically without waiting for manual prompting—and **must** automatically add the single PR to the Merge Queue or automatically add Stacked PRs to the stack, submit them, and queue the stack for merge.
+
+If asking interactively, present these 4 options:
 
 ```
 Implementation complete. What would you like to do?
@@ -100,37 +102,40 @@ git branch -d <feature-branch>
 
 Then: Cleanup worktree (Step 5)
 
-#### Option 2: Push and Create PR (Single PR or Stacked PRs + Merge Queue)
+#### Option 2: Push and Create PR (Automatic Merge Queue & Stack Enrollment)
 
-**Case A — Single Pull Request (default for single-concern tasks):**
+**Case A — Single Pull Request (automatically add the single PR to the Merge Queue):**
 
 ```bash
 # Push branch
 git push -u origin <feature-branch>
 
 # Create PR using .github/pull_request_template.md with session-verified diff stat and test exit codes
-gh pr create --base main --head <feature-branch> --title "<type>(<scope>): <description>" --body-file <populated-pr-body-file>
+mise exec gh -- gh pr create --base main --head <feature-branch> --title "<type>(<scope>): <description>" --body-file <populated-pr-body-file>
 
-# Queue PR in the GitHub Merge Queue (squash merge once CI Gate passes)
-gh pr merge <pr-number> --auto --squash
+# Immediately and automatically add the single PR to the Merge Queue (squash merge once CI Gate passes)
+mise exec gh -- gh pr merge <pr-number> --auto --squash
 ```
 
-**Case B — Stacked Pull Requests (multi-layer tasks via `gh-stack` skill):**
+**Case B — Stacked Pull Requests (automatically add Stacked PRs to the stack and queue via `gh-stack`):**
 
 ```bash
-# Ensure every layer branch uses <type>/<scope>/<short-desc> naming before submitting
-gh stack view
+# Automatically add Stacked PRs to the stack as each layer is created (explicit <type>/<scope>/<short-desc> names)
+mise exec gh -- gh stack create <first-branch>
+# ... commit layer 1, then add subsequent layers to the stack automatically:
+mise exec gh -- gh stack add <next-branch>
+mise exec gh -- gh stack view
 
-# Push all stack branches and open/retarget PRs automatically
-gh stack submit --auto
+# Automatically push all stack branches and open/link stacked PRs on GitHub
+mise exec gh -- gh stack submit --auto
 
 # Populate each layer PR's Conventional Commit title and .github/pull_request_template.md body
 # (using git diff --no-textconv --stat <parent-branch>...<layer-branch> for each layer)
-gh pr edit <layer-pr-number> --title "<type>(<scope>): <layer-description>" --body-file <layer-pr-body-file>
+mise exec gh -- gh pr edit <layer-pr-number> --title "<type>(<scope>): <layer-description>" --body-file <layer-pr-body-file>
 
-# Queue the stack (or bottom-up subset) into the GitHub Merge Queue
+# Immediately and automatically queue the stack (or bottom-up subset) into the GitHub Merge Queue
 # (Note: gh pr merge --auto is not supported on stacked PRs; always use gh stack merge)
-gh stack merge [<pr-or-stack>] --yes
+mise exec gh -- gh stack merge [<pr-or-stack>] --yes
 ```
 
 Then: Keep worktree until queued PR(s) merge (Step 5)

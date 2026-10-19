@@ -194,4 +194,8 @@ is_owned() {
   [ "$status" -eq 0 ]
   run grep -F "gh stack merge" "$skill"
   [ "$status" -eq 0 ]
+  run grep -F "automatically add the single PR to the Merge Queue" "$skill"
+  [ "$status" -eq 0 ]
+  run grep -F "automatically add Stacked PRs to the stack" "$skill"
+  [ "$status" -eq 0 ]
 }
