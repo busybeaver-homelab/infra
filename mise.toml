@@ -63,9 +63,12 @@ depends = ["check:python", "check:ansible", "check:shell", "check:general"]
 
 [tasks."deps:galaxy"]
 description = "Install pinned Ansible Galaxy roles and collections into configuration/.galaxy"
+sources = ["configuration/roles/requirements.yml"]
+outputs = ["configuration/.galaxy/.installed"]
 run = """
 ansible-galaxy role install -r configuration/roles/requirements.yml --force -p configuration/.galaxy/roles
 ansible-galaxy collection install -r configuration/roles/requirements.yml --force --no-cache -p configuration/.galaxy/collections
+touch configuration/.galaxy/.installed
 """
 
 [tasks."check:ansible"]
@@ -130,36 +133,43 @@ depends = ["test:infra", "test:tofu:children", "test:tofu:mutations", "test:ansi
 
 [tasks."test:ansible:base"]
 description = "Run Molecule tests for base_ubuntu_server role"
+depends = ["deps:galaxy"]
 dir = "configuration/roles/base_ubuntu_server"
 run = "molecule test"
 
 [tasks."test:ansible:restic"]
 description = "Run Molecule tests for restic_backup role"
+depends = ["deps:galaxy"]
 dir = "configuration/roles/restic_backup"
 run = "molecule test"
 
 [tasks."test:ansible:compose"]
 description = "Run Molecule tests for docker_compose_service role"
+depends = ["deps:galaxy"]
 dir = "configuration/roles/docker_compose_service"
 run = "molecule test"
 
 [tasks."test:ansible:oci"]
 description = "Run Molecule tests for OCI scenario"
+depends = ["deps:galaxy"]
 dir = "configuration"
 run = "molecule test -s oci"
 
 [tasks."test:ansible:gcp"]
 description = "Run Molecule tests for GCP scenario"
+depends = ["deps:galaxy"]
 dir = "configuration"
 run = "molecule test -s gcp"
 
 [tasks."test:ansible:homelab"]
 description = "Run Molecule tests for homelab scenario"
+depends = ["deps:galaxy"]
 dir = "configuration"
 run = "molecule test -s homelab"
 
 [tasks."test:ansible"]
 description = "Run full Molecule test matrix concurrently across all Ansible roles and scenarios via rush"
+depends = ["deps:galaxy"]
 run = '''
 printf "%s\n" \
   "base:configuration/roles/base_ubuntu_server:molecule test" \
@@ -173,7 +183,7 @@ printf "%s\n" \
 
 [tasks."test:ansible:serial"]
 description = "Run all Molecule test scenarios sequentially"
-depends = ["test:ansible:base", "test:ansible:restic", "test:ansible:compose", "test:ansible:oci", "test:ansible:gcp", "test:ansible:homelab"]
+depends = ["deps:galaxy", "test:ansible:base", "test:ansible:restic", "test:ansible:compose", "test:ansible:oci", "test:ansible:gcp", "test:ansible:homelab"]
 
 [tasks."test:molecule"]
 description = "Run full Molecule test matrix across all Ansible roles and scenarios (alias for test:ansible)"
@@ -181,36 +191,43 @@ depends = ["test:ansible"]
 
 [tasks."test:ansible:fast:base"]
 description = "Fast iterate on base_ubuntu_server role (converge and verify)"
+depends = ["deps:galaxy"]
 dir = "configuration/roles/base_ubuntu_server"
 run = "molecule converge && molecule verify"
 
 [tasks."test:ansible:fast:restic"]
 description = "Fast iterate on restic_backup role (converge and verify)"
+depends = ["deps:galaxy"]
 dir = "configuration/roles/restic_backup"
 run = "molecule converge && molecule verify"
 
 [tasks."test:ansible:fast:compose"]
 description = "Fast iterate on docker_compose_service role (converge and verify)"
+depends = ["deps:galaxy"]
 dir = "configuration/roles/docker_compose_service"
 run = "molecule converge && molecule verify"
 
 [tasks."test:ansible:fast:oci"]
 description = "Fast iterate on OCI scenario (converge and verify)"
+depends = ["deps:galaxy"]
 dir = "configuration"
 run = "molecule converge -s oci && molecule verify -s oci"
 
 [tasks."test:ansible:fast:gcp"]
 description = "Fast iterate on GCP scenario (converge and verify)"
+depends = ["deps:galaxy"]
 dir = "configuration"
 run = "molecule converge -s gcp && molecule verify -s gcp"
 
 [tasks."test:ansible:fast:homelab"]
 description = "Fast iterate on homelab scenario (converge and verify)"
+depends = ["deps:galaxy"]
 dir = "configuration"
 run = "molecule converge -s homelab && molecule verify -s homelab"
 
 [tasks."test:ansible:fast"]
 description = "Fast iterate concurrently across all Ansible roles and scenarios (converge and verify without rebuild) via rush"
+depends = ["deps:galaxy"]
 run = '''
 printf "%s\n" \
   "base:configuration/roles/base_ubuntu_server:molecule converge && molecule verify" \

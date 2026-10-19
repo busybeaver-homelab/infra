@@ -285,3 +285,121 @@ EOF
   [ "$status" -ne 0 ]
   [ ! -f "${out_yml}" ]
 }
+
+@test "configuration/inventories/README.md documents hosts.yml and hosts.generated.yml and names only existing files (R2-ANS-03)" {
+  local readme="${REPO_ROOT}/configuration/inventories/README.md"
+  local gen_script="${REPO_ROOT}/scripts/generate-inventory.sh"
+  [ -f "${readme}" ]
+  [ -f "${gen_script}" ]
+
+  run grep -F "hosts.yml" "${readme}"
+  [ "$status" -eq 0 ]
+
+  run grep -F "hosts.generated.yml" "${readme}"
+  [ "$status" -eq 0 ]
+
+  run grep -F "scripts/generate-inventory.sh" "${readme}"
+  [ "$status" -eq 0 ]
+
+  for stale in "01-Homelab-Static.yml" "02-Cloud-Dynamic.yml" "99-Dynamic-Inventory.ini" "--allow-sops-fallback"; do
+    run grep -F "${stale}" "${readme}"
+    [ "$status" -ne 0 ]
+  done
+
+  run grep -F "configuration/inventory/hosts.generated.yml" "${gen_script}"
+  [ "$status" -ne 0 ]
+  run grep -F "configuration/inventories/hosts.generated.yml" "${gen_script}"
+  [ "$status" -eq 0 ]
+
+  local token
+  while IFS= read -r token; do
+    [ -n "${token}" ] || continue
+    if [ "${token}" = "hosts.generated.yml" ] || [ "${token}" = "configuration/inventories/hosts.generated.yml" ]; then
+      continue
+    fi
+    [ -f "${REPO_ROOT}/configuration/inventories/${token}" ] || [ -f "${REPO_ROOT}/${token}" ]
+  done < <(grep -Eo '`[A-Za-z0-9_./-]+\.(yml|yaml|ini|sh)`' "${readme}" | tr -d '`' | sort -u)
+}
+
+@test "cloud.yml, homelab.yml, unifi.yml, and site.yml enforce per-group preflight assertions citing STD-AN-29 (R2-ANS-03)" {
+  local cloud_pb="${REPO_ROOT}/configuration/playbooks/cloud.yml"
+  local homelab_pb="${REPO_ROOT}/configuration/playbooks/homelab.yml"
+  local unifi_pb="${REPO_ROOT}/configuration/playbooks/unifi.yml"
+  local site_pb="${REPO_ROOT}/configuration/playbooks/site.yml"
+
+  local cloud_that
+  cloud_that="$(yq -r '.[0].tasks[0]["ansible.builtin.assert"].that[0]' "${cloud_pb}")"
+  [[ "${cloud_that}" == *"groups['oci']"* ]] || false
+  [[ "${cloud_that}" == *"groups['gcp']"* ]] || false
+  local cloud_msg
+  cloud_msg="$(yq -r '.[0].tasks[0]["ansible.builtin.assert"].fail_msg' "${cloud_pb}")"
+  [[ "${cloud_msg}" == *"STD-AN-29"* ]] || false
+
+  local homelab_that
+  homelab_that="$(yq -r '.[0].tasks[0]["ansible.builtin.assert"].that[0]' "${homelab_pb}")"
+  [[ "${homelab_that}" == *"groups['homelab']"* ]] || false
+  local homelab_msg
+  homelab_msg="$(yq -r '.[0].tasks[0]["ansible.builtin.assert"].fail_msg' "${homelab_pb}")"
+  [[ "${homelab_msg}" == *"STD-AN-29"* ]] || false
+
+  local unifi_that
+  unifi_that="$(yq -r '.[0].tasks[0]["ansible.builtin.assert"].that[0]' "${unifi_pb}")"
+  [[ "${unifi_that}" == *"groups['unifi']"* ]] || false
+  local unifi_msg
+  unifi_msg="$(yq -r '.[0].tasks[0]["ansible.builtin.assert"].fail_msg' "${unifi_pb}")"
+  [[ "${unifi_msg}" == *"STD-AN-29"* ]] || false
+
+  run yq -r '.[] | select(.["ansible.builtin.import_playbook"] == "homelab.yml") | .vars.allow_empty_inventory' "${site_pb}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+
+  run yq -r '.[] | select(.["ansible.builtin.import_playbook"] == "unifi.yml") | .vars.allow_empty_inventory' "${site_pb}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "homelab.yml alone fails on an empty homelab inventory while site.yml succeeds across preflights (R2-ANS-03)" {
+  local hosts_yml="${REPO_ROOT}/configuration/inventories/hosts.yml"
+  local homelab_pb="${REPO_ROOT}/configuration/playbooks/homelab.yml"
+  local unifi_pb="${REPO_ROOT}/configuration/playbooks/unifi.yml"
+  local cloud_pb="${REPO_ROOT}/configuration/playbooks/cloud.yml"
+  local site_pb="${REPO_ROOT}/configuration/playbooks/site.yml"
+  local script="${REPO_ROOT}/scripts/generate-inventory.sh"
+
+  run ansible-playbook -i "${hosts_yml}" "${homelab_pb}"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"STD-AN-29"* ]] || false
+
+  run ansible-playbook -i "${hosts_yml}" "${unifi_pb}"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"STD-AN-29"* ]] || false
+
+  run ansible-playbook -i "${hosts_yml}" "${cloud_pb}"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"STD-AN-29"* ]] || false
+
+  local oci_json="${BATS_TEST_TMPDIR}/oci_inventory.json"
+  local out_yml="${BATS_TEST_TMPDIR}/hosts.generated.yml"
+  cat > "${oci_json}" <<'EOF'
+{
+  "group": "oci",
+  "hosts": {
+    "oci-amd-1": {
+      "ansible_host": "192.0.2.10",
+      "private_ip": "192.0.2.10",
+      "role": "compute"
+    }
+  }
+}
+EOF
+  run "${script}" --output "${out_yml}" --from-json "${oci_json}"
+  [ "$status" -eq 0 ]
+
+  run ansible-playbook -i "${hosts_yml}" -i "${out_yml}" --tags preflight --skip-tags always "${homelab_pb}"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"STD-AN-29"* ]] || false
+
+  run ansible-playbook -i "${hosts_yml}" -i "${out_yml}" --tags preflight --skip-tags always "${site_pb}"
+  [ "$status" -eq 0 ]
+}
+

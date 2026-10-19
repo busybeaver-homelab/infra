@@ -1,4 +1,23 @@
 ---
+- name: Preflight — assert non-empty homelab inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - preflight
+  tasks:
+    - name: Assert inventory contains at least one homelab host
+      ansible.builtin.assert:
+        that:
+          - (groups['homelab'] | default([])) | length > 0
+        fail_msg: >-
+          STD-AN-29 / STD-AN-49: Inventory resolved zero target hosts in groups['homelab'].
+          Populate homelab hosts in configuration/inventories/hosts.generated.yml or pass
+          -e allow_empty_inventory=true for syntax/dry checks.
+      when:
+        - not ansible_check_mode
+        - not (allow_empty_inventory | default(false) | bool)
+
 - name: Configure homelab servers and services
   hosts: homelab
   become: true

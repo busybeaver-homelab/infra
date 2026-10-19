@@ -3,14 +3,18 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags:
+    - preflight
   tasks:
     - name: Assert inventory contains at least one target host
       ansible.builtin.assert:
         that:
-          - groups['all'] | default([]) | length > 0
+          - ((groups['oci'] | default([])) + (groups['gcp'] | default([]))) | length > 0
         fail_msg: >-
-          Inventory resolved zero target hosts. Populate Tailscale MagicDNS
-          hostnames in SOPS or pass -e allow_empty_inventory=true for syntax/dry checks.
+          STD-AN-29 / STD-AN-49: Inventory resolved zero cloud target hosts in groups['oci']
+          or groups['gcp']. Run scripts/generate-inventory.sh (mise run ansible:inventory) to
+          materialize configuration/inventories/hosts.generated.yml or pass
+          -e allow_empty_inventory=true for syntax/dry checks.
       when:
         - not ansible_check_mode
         - not (allow_empty_inventory | default(false) | bool)
