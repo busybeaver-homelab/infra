@@ -102,3 +102,21 @@ EOF
   [[ "$status" -ne 0 ]] || false
   [[ "$output" == *"Unsupported"* || "$output" == *"Incompatible"* || "$output" == *"required_version"* ]] || false
 }
+
+@test "lefthook globs for tofu-fmt, tofu-lint, and tofu-validate include both .tf and .tofu files" {
+  local lefthook_file="${REPO_ROOT}/lefthook.yml"
+  run awk '
+    /^    tofu-fmt:/ { in_fmt=1; next }
+    in_fmt && /^    [a-z]/ { in_fmt=0 }
+    in_fmt && /glob:[[:space:]]*"\*\.{tf,tofu}"/ { fmt_ok=1 }
+    /^    tofu-lint:/ { in_lint=1; next }
+    in_lint && /^    [a-z]/ { in_lint=0 }
+    in_lint && /glob:[[:space:]]*"infrastructure\/\*\*\/\*\.{tf,tofu}"/ { lint_ok=1 }
+    /^    tofu-validate:/ { in_val=1; next }
+    in_val && /^    [a-z]/ { in_val=0 }
+    in_val && /glob:[[:space:]]*"infrastructure\/\*\*\/\*\.{tf,tofu}"/ { val_ok=1 }
+    END { exit(fmt_ok && lint_ok && val_ok ? 0 : 1) }
+  ' "$lefthook_file"
+  [[ "$status" -eq 0 ]] || false
+}
+

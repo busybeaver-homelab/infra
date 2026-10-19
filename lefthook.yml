@@ -9,7 +9,7 @@ pre-commit:
     # OpenTofu Formatter
     tofu-fmt:
       root: "infrastructure/"
-      glob: "*.tf"
+      glob: "*.{tf,tofu}"
       run: tofu fmt -recursive {staged_files}
       stage_fixed: true
 
@@ -228,10 +228,10 @@ pre-push:
       use_stdin: true
       run: bash scripts/guard-main-push.sh
     tofu-lint:
-      glob: "infrastructure/**/*.tf"
+      glob: "infrastructure/**/*.{tf,tofu}"
       run: mise exec -- tflint --recursive --config "$PWD/.tflint.hcl"
     tofu-validate:
-      glob: "infrastructure/**/*.tf"
+      glob: "infrastructure/**/*.{tf,tofu}"
       run: |
         for d in infrastructure/*/; do
           [[ -f "${d}main.tf" ]] || continue
