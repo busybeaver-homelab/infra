@@ -6,11 +6,12 @@
 #   - secrets/credentials.sops.yaml (production, GPG-encrypted)
 #   - secrets/credentials.ci.sops.yaml (CI decoy, Age-encrypted)
 #
-# Usage: check-sops-secret-leaks.sh [--check-files] [--all-files] [--check-disjointness] [--] [file ...]
-#   --check-files         scan the given files (default: staged files)
-#   --all-files           scan every file in the index
-#   --check-disjointness  fail if the CI file shares any sensitive value with production
-#   (no mode flag)        --check-files + --check-disjointness
+# Usage: check-sops-secret-leaks.sh [--check-files] [--all-files] [--check-disjointness] [--check-synthetic <file>] [--] [file ...]
+#   --check-files            scan the given files (default: staged files)
+#   --all-files              scan every file in the index
+#   --check-disjointness     fail if the CI file shares any sensitive value with production
+#   --check-synthetic <file> fail if <file> contains non-synthetic email, domain, or IP literals
+#   (no mode flag)           --check-files + --check-disjointness
 #
 # What is scanned:
 #   - Files in the index are scanned as their staged blobs (git grep --cached), so
@@ -61,6 +62,8 @@ CI_LABEL="secrets/credentials.ci.sops.yaml"
 
 do_check_files=false
 do_check_disjointness=false
+do_check_synthetic=false
+synthetic_file=""
 do_all_files=false
 file_args=()
 
@@ -78,6 +81,15 @@ while [ $# -gt 0 ]; do
     --check-disjointness)
       do_check_disjointness=true
       shift
+      ;;
+    --check-synthetic)
+      if [ $# -lt 2 ] || [ -z "${2:-}" ]; then
+        echo -e "${RED}[ERROR] --check-synthetic requires a SOPS file argument.${NC}" >&2
+        exit 1
+      fi
+      do_check_synthetic=true
+      synthetic_file="$2"
+      shift 2
       ;;
     --)
       shift
@@ -97,7 +109,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-if [ "$do_check_files" = false ] && [ "$do_check_disjointness" = false ]; then
+if [ "$do_check_files" = false ] && [ "$do_check_disjointness" = false ] && [ "$do_check_synthetic" = false ]; then
   do_check_files=true
   do_check_disjointness=true
 fi
@@ -164,7 +176,7 @@ if [ "$do_check_files" = true ] && [ "$do_all_files" = false ]; then
 fi
 
 # Fast exit if only checking files and no eligible files are staged/passed
-if [ "$do_check_disjointness" = false ] && [ "$do_all_files" = false ] &&
+if [ "$do_check_disjointness" = false ] && [ "$do_check_synthetic" = false ] && [ "$do_all_files" = false ] &&
   [ ${#index_targets[@]} -eq 0 ] && [ ${#disk_targets[@]} -eq 0 ]; then
   exit 0
 fi
@@ -217,6 +229,91 @@ decrypt_or_fail() {
   fi
   printf '%s\n' "$leaves"
 }
+
+check_synthetic_sops_file() {
+  local target_file="$1"
+  local target_leaves violations
+  target_leaves=$(decrypt_or_fail "$target_file" "$target_file") || return 1
+
+  violations=$(
+    printf '%s\n' "$target_leaves" | perl -ne '
+      chomp;
+      my ($src, $path, $multi, $val) = split(/\t/, $_, 4);
+      next unless defined $val;
+      $path =~ s/%2E/./g;
+      $val =~ s/\r//g;
+      $val =~ s/^\s+|\s+$//g;
+      next if $val eq "";
+      next if $val =~ /<[^>]+>/;
+      next if lc($val) eq "https://storage.googleapis.com";
+
+      while ($val =~ /\b([A-Za-z0-9._%+-]+)\@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)\b/g) {
+        my $dom = lc($2);
+        if ($dom !~ /^example\.(?:com|org|net|test)$/) {
+          print "$path: email outside \@example.(com|org|net|test)\n";
+        }
+      }
+
+      while ($val =~ /(?<![0-9.])((?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})(?:\/([0-9]{1,2}))?(?![0-9.])/g) {
+        my $ip = $1;
+        if ($ip !~ /^(?:192\.0\.2|198\.51\.100|203\.0\.113)\./) {
+          print "$path: ip literal outside RFC 5737/3849\n";
+        }
+      }
+
+      while ($val =~ /(?<![0-9A-Za-z:])([0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7})(?:\/([0-9]{1,3}))?(?![0-9A-Za-z:])/g) {
+        my $ip6 = lc($1);
+        next unless $ip6 =~ /[0-9a-f]/;
+        my $colons = ($ip6 =~ tr/://);
+        next unless ($ip6 =~ /::/ || $colons == 7);
+        if ($ip6 !~ /^2001:0*db8(?::|$)/) {
+          print "$path: ip literal outside RFC 5737/3849\n";
+        }
+      }
+
+      my $val_no_email = $val;
+      $val_no_email =~ s/[A-Za-z0-9._%+-]+\@[A-Za-z0-9.-]+//g;
+      my @doms;
+      while ($val_no_email =~ m{[a-zA-Z][a-zA-Z0-9+.-]*://((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63})(?=[:/?#\s"\x27)]|$)}g) {
+        push @doms, lc($1);
+      }
+      while ($val_no_email =~ m{(?:^|[\s"\x27(,=])((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63})(?=$|[\s"\x27),;])}g) {
+        push @doms, lc($1);
+      }
+      my %seen;
+      for my $d (@doms) {
+        next if $seen{$d}++;
+        next if $d =~ /^com\.cloudflare\./;
+        next if $d =~ /^(?:http|ip|cf|ssl)\./;
+        next if $d =~ /^(?:[a-z0-9-]+\.)*(?:example|test|invalid|localhost|decoy)(?:-[a-z0-9-]+)*\.(?:cloudflareaccess\.com|ts\.net|internal|lan|home\.arpa)$/;
+        if ($d !~ /(?:^|\.)example\.(?:com|org|net|test)$/ && $d !~ /\.(?:test|example|invalid|localhost)$/) {
+          print "$path: domain outside RFC 2606/6761\n";
+        }
+      }
+    ' | sort -u
+  )
+
+  if [ -n "$violations" ]; then
+    echo -e "${RED}[ERROR] Non-synthetic value(s) detected in ${target_file}!${NC}" >&2
+    echo "Violating key path(s) (values redacted per STD-CI-33):" >&2
+    while IFS= read -r vline; do
+      [ -n "$vline" ] && echo "  - ${vline}" >&2
+    done < <(printf '%s\n' "$violations")
+    return 1
+  fi
+  return 0
+}
+
+exit_code=0
+
+if [ "$do_check_synthetic" = true ]; then
+  if ! check_synthetic_sops_file "$synthetic_file"; then
+    exit_code=1
+  fi
+  if [ "$do_check_files" = false ] && [ "$do_check_disjointness" = false ]; then
+    exit "$exit_code"
+  fi
+fi
 
 prod_decrypted=false
 prod_leaves=""
@@ -356,8 +453,6 @@ END {
 records() {
   printf '%s\n' "$analysis" | awk -F'\t' -v kind="$1" '$1 == kind { sub(/^[^\t]*\t/, ""); print }'
 }
-
-exit_code=0
 
 # 1. Prod-vs-CI SOPS disjointness
 if [ "$do_check_disjointness" = true ]; then

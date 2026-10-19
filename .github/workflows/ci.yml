@@ -192,7 +192,9 @@ jobs:
       - name: Scan for SOPS secret leaks
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY_CI }}
-        run: mise exec -- bash scripts/check-sops-secret-leaks.sh --check-disjointness --all-files
+        run: |
+          mise exec -- bash scripts/check-sops-secret-leaks.sh --check-disjointness --all-files
+          mise exec -- bash scripts/check-sops-secret-leaks.sh --check-synthetic secrets/credentials.ci.sops.yaml
 
       - name: Verify SOPS secrets schema parity
         run: mise exec -- bash scripts/check-secrets-schema-parity.sh secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml

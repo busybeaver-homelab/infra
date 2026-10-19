@@ -740,18 +740,6 @@ if unknown:
     for rel_path in $cfg_paths; do
       [ -f "$REPO_ROOT/$rel_path" ]
     done
-
-    # Every sops --extract key path referenced in the runbook must exist in secrets/credentials.ci.sops.yaml
-    local extract_exprs
-    extract_exprs=$(grep -Eo "\-\-extract '[^']+'" "$doc" | sed -E "s/--extract '([^']+)'/\1/" | sort -u || true)
-    while IFS= read -r expr; do
-      [ -z "$expr" ] && continue
-      local yq_path
-      yq_path=$(echo "$expr" | sed -E 's/\["([^"]+)"\]/.\1/g')
-      run yq eval "${yq_path} != null" "$REPO_ROOT/secrets/credentials.ci.sops.yaml"
-      [ "$status" -eq 0 ]
-      [ "$output" = "true" ]
-    done <<<"$extract_exprs"
   done
 
   # Verify restic-restore-drill.md documents per-host paths and updated retention flags

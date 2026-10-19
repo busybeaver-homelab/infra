@@ -126,10 +126,8 @@ if [[ -z "$TOKEN" || -z "$ACCOUNT_ID" || -z "$EMAIL" ]]; then
 
   if [[ -z "$EMAIL" ]]; then
     if ! EMAIL="$(sops -d --extract '["cloudflare"]["config"]["notification_email"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
-      if ! EMAIL="$(sops -d --extract '["cloudflare"]["notification_email"]' "$CREDENTIALS_FILE" 2>/dev/null)"; then
-        echo "ERROR: Failed to extract Cloudflare credentials from SOPS: $CREDENTIALS_FILE" >&2
-        exit 1
-      fi
+      echo "ERROR: Failed to extract Cloudflare credentials from SOPS: $CREDENTIALS_FILE" >&2
+      exit 1
     fi
   fi
 fi
