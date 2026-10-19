@@ -3,30 +3,36 @@ mock_provider "sops" {}
 mock_provider "external" {}
 
 override_data {
-  target = data.external.sops_github
+  target = data.external.sops_github_config
   values = {
     result = {
       json = <<-EOT
         {
-          "owner": "mock-owner",
-          "config": {
-            "repositories": {
-              "infra": {
-                "name": "infra",
-                "description": "Infrastructure as Code for my homelab environment",
-                "topics": ["homelab", "infrastructure-as-code", "iac"]
-              }
-            },
-            "deploy_keys": {
-              "work-laptop": {
-                "title": "work-laptop",
-                "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
-                "read_only": true
-              }
+          "repositories": {
+            "infra": {
+              "name": "infra",
+              "description": "Infrastructure as Code for my homelab environment",
+              "topics": ["homelab", "infrastructure-as-code", "iac"]
+            }
+          },
+          "deploy_keys": {
+            "work-laptop": {
+              "title": "work-laptop",
+              "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
+              "read_only": true
             }
           }
         }
       EOT
+    }
+  }
+}
+
+override_data {
+  target = data.external.sops_github_ci_age_key
+  values = {
+    result = {
+      json = "\"\""
     }
   }
 }
@@ -40,6 +46,11 @@ variables {
 
 run "verify_github_root_hardening" {
   command = plan
+
+  assert {
+    condition     = !contains(keys(local.github_config), "token") && !contains(keys(local.github_config), "owner") && !contains(keys(local.github_config), "ci_age_key")
+    error_message = "local.github_config (backed by data.external) must never carry token, owner, or ci_age_key (R2-TF-02)"
+  }
 
   assert {
     condition     = module.repository["infra"].repository_name == "infra"
@@ -127,6 +138,11 @@ run "verify_github_root_hardening" {
   assert {
     condition     = module.repository["infra"].environments.code_quality == "code_quality"
     error_message = "Code quality environment must be defined in outputs"
+  }
+
+  assert {
+    condition     = !contains(module.repository["infra"].managed_secret_environments, "code_quality")
+    error_message = "No github_actions_environment_secret resource may target the code_quality environment (R2-TF-02)"
   }
 
   assert {

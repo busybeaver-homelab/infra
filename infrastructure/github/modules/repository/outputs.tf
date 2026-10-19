@@ -98,6 +98,15 @@ output "ops_environment_name" {
   description = "The name of the ops GitHub Actions environment."
 }
 
+output "managed_secret_environments" {
+  value = distinct(concat(
+    [for s in github_actions_environment_secret.ci_secrets : s.environment],
+    [for s in github_actions_environment_secret.backup_secrets : s.environment],
+    [for s in github_actions_environment_secret.ops_secrets : s.environment],
+  ))
+  description = "Distinct GitHub Actions environments targeted by managed github_actions_environment_secret resources."
+}
+
 output "backup_deployment_branch_pattern" {
   value       = github_repository_environment_deployment_policy.backup_main.branch_pattern
   description = "Branch pattern allowed to deploy to the 'backup' environment."
