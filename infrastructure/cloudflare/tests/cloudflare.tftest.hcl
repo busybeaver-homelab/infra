@@ -99,6 +99,38 @@ run "verify_r2_state_bucket" {
     condition     = cloudflare_r2_bucket.tfstate.jurisdiction == "default"
     error_message = "OpenTofu state R2 bucket must stay in the default jurisdiction"
   }
+
+  assert {
+    condition = (
+      cloudflare_r2_bucket_lock.tfstate_snapshots.bucket_name == "homelab-infra-tfstate" &&
+      cloudflare_r2_bucket_lock.tfstate_snapshots.rules[0].enabled == true &&
+      cloudflare_r2_bucket_lock.tfstate_snapshots.rules[0].prefix == "homelab-infra/snapshots/" &&
+      cloudflare_r2_bucket_lock.tfstate_snapshots.rules[0].condition.type == "Age" &&
+      cloudflare_r2_bucket_lock.tfstate_snapshots.rules[0].condition.max_age_seconds == 7776000
+    )
+    error_message = "OpenTofu state snapshots prefix homelab-infra/snapshots/ must be locked for 90 days (7776000 seconds)"
+  }
+
+  assert {
+    condition = (
+      cloudflare_r2_bucket_lifecycle.tfstate.bucket_name == "homelab-infra-tfstate" &&
+      anytrue([
+        for r in cloudflare_r2_bucket_lifecycle.tfstate.rules :
+        r.enabled == true &&
+        r.conditions.prefix == "homelab-infra/snapshots/" &&
+        r.delete_objects_transition.condition.type == "Age" &&
+        r.delete_objects_transition.condition.max_age == 15552000
+      ]) &&
+      anytrue([
+        for r in cloudflare_r2_bucket_lifecycle.tfstate.rules :
+        r.enabled == true &&
+        r.conditions.prefix == "" &&
+        r.abort_multipart_uploads_transition.condition.type == "Age" &&
+        r.abort_multipart_uploads_transition.condition.max_age == 604800
+      ])
+    )
+    error_message = "OpenTofu state bucket lifecycle must expire homelab-infra/snapshots/ after 180 days (15552000s) and abort multipart uploads after 7 days (604800s)"
+  }
 }
 
 run "verify_r2_backup_bucket" {

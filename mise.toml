@@ -279,7 +279,7 @@ run = "bash scripts/drift.sh --all"
 
 [tasks."state:snapshot"]
 description = "Snapshot OpenTofu remote state from R2 to homelab-infra/snapshots/<module>/<timestamp>.tfstate"
-run = "bash scripts/snapshot-state.sh"
+run = "bash scripts/snapshot-state.sh --all"
 
 [tasks."ansible:inventory"]
 description = "Generate static Ansible YAML inventory from OpenTofu ansible_inventory outputs"
