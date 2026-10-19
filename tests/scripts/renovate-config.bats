@@ -725,3 +725,70 @@ console.log("dependencyDashboard enabled");
   ' "$repo_tf"
   [ "$status" -eq 0 ]
 }
+
+@test "the opentofu custom manager matches versions.tf and opentofu.tofu" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  local oci_tofu="${REPO_ROOT}/infrastructure/oci/opentofu.tofu"
+  local oci_versions="${REPO_ROOT}/infrastructure/oci/versions.tf"
+
+  run node -e '
+const fs = require("fs");
+const cfg = eval("(" + fs.readFileSync(process.argv[1], "utf8") + ")");
+const mgr = cfg.customManagers.find(m =>
+  (m.depNameTemplate || "").includes("opentofu/opentofu")
+);
+if (!mgr) {
+  console.error("missing opentofu customManager");
+  process.exit(1);
+}
+const pats = mgr.managerFilePatterns || [];
+const matchesFile = (filePath) => pats.some(p => new RegExp(p.replace(/^\/|\/$/g, "")).test(filePath));
+const hasTofu = matchesFile("infrastructure/oci/opentofu.tofu");
+const hasVersions = matchesFile("infrastructure/oci/versions.tf") &&
+  matchesFile("infrastructure/github/modules/repository/versions.tf");
+if (!hasTofu || !hasVersions) {
+  console.error("managerFilePatterns must match both opentofu.tofu and versions.tf, got: " + JSON.stringify(pats));
+  process.exit(1);
+}
+const re = new RegExp(mgr.matchStrings[0]);
+const mTofu = fs.readFileSync(process.argv[2], "utf8").match(re);
+const mVers = fs.readFileSync(process.argv[3], "utf8").match(re);
+if (!mTofu || !mTofu.groups.currentValue || !mVers || !mVers.groups.currentValue) {
+  console.error("matchStrings[0] failed to extract currentValue from opentofu.tofu or versions.tf");
+  process.exit(1);
+}
+console.log("opentofu customManager matches both opentofu.tofu and versions.tf: " + mVers.groups.currentValue);
+' "$config" "$oci_tofu" "$oci_versions"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"opentofu customManager matches both opentofu.tofu and versions.tf"* ]] || false
+}
+
+@test "OpenTofu core deps share one group placed after mise toolchain and before the gates" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  run node -e '
+const cfg = eval("(" + require("fs").readFileSync(process.argv[1], "utf8") + ")");
+const rules = cfg.packageRules;
+const idx = rules.findIndex(r => r.groupName === "opentofu core" && r.groupSlug === "opentofu-core");
+const miseIdxs = rules.map((r, i) => r.groupName === "mise toolchain" ? i : -1).filter(i => i >= 0);
+const lastMiseIdx = miseIdxs.length > 0 ? miseIdxs[miseIdxs.length - 1] : -1;
+const automergeIdx = rules.findIndex(r => r.automerge === true && r.platformAutomerge === true);
+const gateIdx = rules.findIndex((r, i) => i > automergeIdx && r.automerge === false);
+if (idx < 0) {
+  console.error("missing opentofu core group rule");
+  process.exit(1);
+}
+if (!(idx > lastMiseIdx && idx < automergeIdx && idx < gateIdx)) {
+  console.error(`bad rule order: idx=${idx} lastMise=${lastMiseIdx} automerge=${automergeIdx} gate=${gateIdx}`);
+  process.exit(1);
+}
+const names = rules[idx].matchDepNames || rules[idx].matchPackageNames || [];
+if (!names.includes("opentofu/opentofu") || !names.includes("aqua:opentofu/opentofu")) {
+  console.error("rule must match both opentofu/opentofu and aqua:opentofu/opentofu, got: " + JSON.stringify(names));
+  process.exit(1);
+}
+console.log("opentofu core group rule ordered and configured properly");
+' "$config"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"opentofu core group rule ordered and configured properly"* ]] || false
+}
+
