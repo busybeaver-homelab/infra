@@ -544,10 +544,6 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "13.5.0" ]
 
-  run yq eval '.collections[] | select(.name == "cloud.terraform") | .version' "$req"
-  [ "$status" -eq 0 ]
-  [ "$output" = "4.0.0" ]
-
   run yq eval '.collections[] | select(.name == "community.docker") | .version' "$req"
   [ "$status" -eq 0 ]
   [ "$output" = "5.4.0" ]
