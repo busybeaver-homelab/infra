@@ -20,7 +20,8 @@ setup() {
   "backup_s3_access_key_id": { "sensitive": true, "value": "oci-writer-akid-example" },
   "backup_s3_secret_access_key": { "sensitive": true, "value": "oci-writer-secret-example" },
   "backup_prune_s3_access_key_id": { "sensitive": true, "value": "oci-prune-akid-example" },
-  "backup_prune_s3_secret_access_key": { "sensitive": true, "value": "oci-prune-secret-example" }
+  "backup_prune_s3_secret_access_key": { "sensitive": true, "value": "oci-prune-secret-example" },
+  "ansible_inventory": { "sensitive": true, "value": { "h1": { "ansible_host": "192.0.2.10" }, "h2": { "ansible_host": "192.0.2.11" } } }
 }
 EOF
 
@@ -31,7 +32,8 @@ EOF
   "backup_hmac_access_id": { "sensitive": true, "value": "GOOG1EWRITEREXAMPLE" },
   "backup_hmac_secret": { "sensitive": true, "value": "gcp-writer-hmac-secret-example" },
   "backup_prune_hmac_access_id": { "sensitive": true, "value": "GOOG1EPRUNEREXAMPLE" },
-  "backup_prune_hmac_secret": { "sensitive": true, "value": "gcp-prune-hmac-secret-example" }
+  "backup_prune_hmac_secret": { "sensitive": true, "value": "gcp-prune-hmac-secret-example" },
+  "ansible_inventory": { "sensitive": true, "value": { "h1": { "ansible_host": "198.51.100.10" }, "h2": { "ansible_host": "198.51.100.11" } } }
 }
 EOF
 
@@ -150,6 +152,26 @@ STUB
   [ "$(jq -r '.tofu_cloudflare_restic.s3_secret_access_key' <<<"${output}")" = "cf-r2-prune-secret-example" ]
   [ "$(jq -r '.backup_prune_ping_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000003" ]
   [ "$(jq -r '.tofu_oci_restic | has("healthcheck_url")' <<<"${output}")" = "false" ]
+}
+
+@test "prune mode emits oci_hosts and gcp_hosts from ansible_inventory keys" {
+  run --separate-stderr "${SCRIPT}" --mode prune "${FIXTURE_ARGS[@]}"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.oci_hosts' <<<"${output}")" = "h1 h2" ]
+  [ "$(jq -r '.gcp_hosts' <<<"${output}")" = "h1 h2" ]
+}
+
+@test "prune mode fails when ansible_inventory is empty" {
+  jq '.ansible_inventory.value = {}' "${FIXTURE_DIR}/oci.json" >"${FIXTURE_DIR}/empty-inv-oci.json"
+
+  run --separate-stderr "${SCRIPT}" --mode prune \
+    --oci-json "${FIXTURE_DIR}/empty-inv-oci.json" \
+    --gcp-json "${FIXTURE_DIR}/gcp.json" \
+    --cloudflare-json "${FIXTURE_DIR}/cloudflare.json" \
+    --monitoring-json "${FIXTURE_DIR}/monitoring.json"
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *"ansible_inventory"* && "$stderr" == *"oci"* ]] || false
 }
 
 @test "get-tofu-restic-vars.sh rejects an unknown --mode and options without a value" {

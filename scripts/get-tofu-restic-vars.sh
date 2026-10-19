@@ -197,6 +197,13 @@ printf '%s\n%s\n%s\n%s\n' "${oci_raw}" "${gcp_raw}" "${cf_raw}" "${mon_raw}" |
       else
         "ERROR: Missing required OpenTofu output \($key) in module \($mod). Run tofu apply for infrastructure/\($mod).\n" | halt_error(1)
       end;
+  def req_hosts($obj; $mod):
+    ($obj["ansible_inventory"].value? // $obj["ansible_inventory"]? // null) as $inv
+    | if ($inv | type) == "object" and ($inv | length) > 0 then
+        ($inv | keys_unsorted | join(" "))
+      else
+        "ERROR: Missing or empty required OpenTofu output ansible_inventory in module \($mod). Run tofu apply for infrastructure/\($mod).\n" | halt_error(1)
+      end;
 
   if $mode == "writer" then
     {
@@ -241,6 +248,8 @@ printf '%s\n%s\n%s\n%s\n' "${oci_raw}" "${gcp_raw}" "${cf_raw}" "${mon_raw}" |
         s3_access_key_id: req($cf; "cloudflare"; "r2_restic_prune_s3_access_key_id"),
         s3_secret_access_key: req($cf; "cloudflare"; "r2_restic_prune_s3_secret_access_key")
       },
+      oci_hosts: req_hosts($oci; "oci"),
+      gcp_hosts: req_hosts($gcp; "gcp"),
       backup_prune_ping_url: req($mon; "monitoring"; "backup_prune_ping_url")
     }
   end

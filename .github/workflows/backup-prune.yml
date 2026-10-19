@@ -40,9 +40,10 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.OCI_RESTIC_PRUNE_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY }}
           RESTIC_PASSWORD: ${{ secrets.OCI_RESTIC_PASSWORD }}
+          OCI_BACKUP_HOSTS: ${{ secrets.OCI_BACKUP_HOSTS }}
         run: |
-          if [ -z "${RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${OCI_ENDPOINT}" ] || [ -z "${OCI_BUCKET}" ]; then
-            echo "::error::Primary OCI backup repository credentials are missing or incomplete in the ops environment (run 'mise run github:sync:ops')"
+          if [ -z "${RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${OCI_ENDPOINT}" ] || [ -z "${OCI_BUCKET}" ] || [ -z "${OCI_BACKUP_HOSTS}" ]; then
+            echo "::error::Primary OCI backup repository credentials or OCI_BACKUP_HOSTS are missing in the ops environment (run 'mise run github:sync:ops')"
             exit 1
           fi
 
@@ -53,10 +54,11 @@ jobs:
           echo "::add-mask::${OCI_BUCKET}"
 
           export RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-          for host in ${OCI_HOSTS:-oci-amd-1}; do
+          for host in ${OCI_BACKUP_HOSTS}; do
+            echo "::add-mask::${host}"
             RESTIC_REPOSITORY="s3:${OCI_ENDPOINT}/${OCI_BUCKET}/${host}"
             export RESTIC_REPOSITORY
-            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --prune --max-unused 10%
+            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --group-by host,tags --prune --max-unused 10%
             mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h check --read-data-subset=5%
           done
 
@@ -67,9 +69,10 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.GCP_RESTIC_PRUNE_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY }}
           RESTIC_PASSWORD: ${{ secrets.GCP_RESTIC_PASSWORD }}
+          GCP_BACKUP_HOSTS: ${{ secrets.GCP_BACKUP_HOSTS }}
         run: |
-          if [ -z "${RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${GCP_ENDPOINT}" ] || [ -z "${GCP_BUCKET}" ]; then
-            echo "::error::Primary GCP backup repository credentials are missing or incomplete in the ops environment (run 'mise run github:sync:ops')"
+          if [ -z "${RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${GCP_ENDPOINT}" ] || [ -z "${GCP_BUCKET}" ] || [ -z "${GCP_BACKUP_HOSTS}" ]; then
+            echo "::error::Primary GCP backup repository credentials or GCP_BACKUP_HOSTS are missing in the ops environment (run 'mise run github:sync:ops')"
             exit 1
           fi
 
@@ -80,10 +83,11 @@ jobs:
           echo "::add-mask::${GCP_BUCKET}"
 
           export RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-          for host in ${GCP_HOSTS:-gcp-default-vm}; do
+          for host in ${GCP_BACKUP_HOSTS}; do
+            echo "::add-mask::${host}"
             RESTIC_REPOSITORY="s3:${GCP_ENDPOINT}/${GCP_BUCKET}/${host}"
             export RESTIC_REPOSITORY
-            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --prune --max-unused 10%
+            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --group-by host,tags --prune --max-unused 10%
             mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h check --read-data-subset=5%
           done
 
@@ -94,9 +98,11 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_RESTIC_PRUNE_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_RESTIC_PRUNE_SECRET_ACCESS_KEY }}
           R2_RESTIC_PASSWORD: ${{ secrets.R2_RESTIC_PASSWORD }}
+          OCI_BACKUP_HOSTS: ${{ secrets.OCI_BACKUP_HOSTS }}
+          GCP_BACKUP_HOSTS: ${{ secrets.GCP_BACKUP_HOSTS }}
         run: |
-          if [ -z "${R2_RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${R2_ENDPOINT}" ] || [ -z "${R2_BUCKET}" ]; then
-            echo "::error::Secondary Cloudflare R2 DR backup repository credentials are missing or incomplete in the ops environment (run 'mise run github:sync:ops')"
+          if [ -z "${R2_RESTIC_PASSWORD}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ] || [ -z "${R2_ENDPOINT}" ] || [ -z "${R2_BUCKET}" ] || [ -z "${OCI_BACKUP_HOSTS}" ] || [ -z "${GCP_BACKUP_HOSTS}" ]; then
+            echo "::error::Secondary Cloudflare R2 DR backup repository credentials or host lists are missing in the ops environment (run 'mise run github:sync:ops')"
             exit 1
           fi
 
@@ -107,10 +113,11 @@ jobs:
           echo "::add-mask::${R2_BUCKET}"
 
           export RESTIC_PASSWORD="${R2_RESTIC_PASSWORD}" AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-          for host in oci-amd-1 gcp-default-vm; do
+          for host in ${OCI_BACKUP_HOSTS} ${GCP_BACKUP_HOSTS}; do
+            echo "::add-mask::${host}"
             RESTIC_REPOSITORY="s3:${R2_ENDPOINT}/${R2_BUCKET}/${host}"
             export RESTIC_REPOSITORY
-            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-last 2 --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --prune --max-unused 10%
+            mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-daily 7 --keep-weekly 4 --group-by host,tags --prune --max-unused 10%
             mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h check --read-data-subset=5%
           done
 
@@ -121,8 +128,8 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         run: |
           if [ -z "${HEALTHCHECKS_BACKUP_PRUNE_PING_URL:-}" ]; then
-            echo "HEALTHCHECKS_BACKUP_PRUNE_PING_URL not configured; skipping heartbeat ping."
-            exit 0
+            echo "::error::HEALTHCHECKS_BACKUP_PRUNE_PING_URL is missing in the ops environment (run 'mise run github:sync:ops')"
+            exit 1
           fi
           echo "::add-mask::${HEALTHCHECKS_BACKUP_PRUNE_PING_URL}"
           PING_URL="${HEALTHCHECKS_BACKUP_PRUNE_PING_URL%/}"
