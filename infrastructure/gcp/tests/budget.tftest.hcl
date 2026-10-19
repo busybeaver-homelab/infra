@@ -8,6 +8,7 @@ mock_provider "google" {
 }
 
 mock_provider "sops" {}
+mock_provider "tailscale" {}
 
 mock_provider "external" {
   override_data {
@@ -20,15 +21,6 @@ mock_provider "external" {
             "budget_alert_recipients": "ci-alerts@example.test,secops@example.test"
           }
         EOT
-      }
-    }
-  }
-
-  override_data {
-    target = data.external.sops_tailscale_auth_key
-    values = {
-      result = {
-        json = "\"tskey-auth-gcp-decoy\""
       }
     }
   }

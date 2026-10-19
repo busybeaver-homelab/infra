@@ -14,6 +14,10 @@ terraform {
       source  = "carlpett/sops"
       version = "1.4.1"
     }
+    tailscale = {
+      source  = "tailscale/tailscale"
+      version = "0.29.2"
+    }
   }
 }
 

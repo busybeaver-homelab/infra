@@ -12,15 +12,28 @@ data "external" "sops_config" {
   }
 }
 
-data "external" "sops_tailscale_auth_key" {
-  program = ["bash", "${path.module}/../../scripts/sops-subtree.sh"]
-  query = {
-    file    = var.secrets_file_path
-    extract = "[\"oci\"][\"tailscale_auth_key\"]"
-  }
+# --- Per-Instance Single-Use Tailscale Bootstrap Keys ---
+
+resource "tailscale_tailnet_key" "bootstrap_amd" {
+  count               = 2
+  reusable            = false
+  ephemeral           = false
+  preauthorized       = true
+  expiry              = var.tailscale_bootstrap_key_expiry
+  recreate_if_invalid = "never"
+  description         = "Homelab OCI AMD-${count.index + 1} bootstrap key"
+  tags                = var.tailscale_bootstrap_tags
 }
 
-
+resource "tailscale_tailnet_key" "bootstrap_ampere" {
+  reusable            = false
+  ephemeral           = false
+  preauthorized       = true
+  expiry              = var.tailscale_bootstrap_key_expiry
+  recreate_if_invalid = "never"
+  description         = "Homelab OCI Ampere bootstrap key"
+  tags                = var.tailscale_bootstrap_tags
+}
 
 # --- Compute Instances (Always Free Tier) ---
 
@@ -61,14 +74,20 @@ resource "oci_core_instance" "amd" {
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
     user_data = base64encode(templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
-      tailscale_auth_key = local.tailscale_auth_key
-      hostname           = "oci-amd-${count.index + 1}"
-      tailscale_tags     = local.tailscale_tags
+      tailscale_auth_key  = tailscale_tailnet_key.bootstrap_amd[count.index].key
+      tailscale_client_id = ""
+      tailscale_audience  = ""
+      hostname            = "oci-amd-${count.index + 1}"
+      tailscale_tags      = local.tailscale_tags
     }))
   }
 
   lifecycle {
     prevent_destroy = var.enable_prevent_destroy
+
+    replace_triggered_by = [
+      tailscale_tailnet_key.bootstrap_amd[count.index].id,
+    ]
 
     precondition {
       condition     = 2 * var.amd_boot_volume_size_gb + var.arm_boot_volume_size_gb <= 200
@@ -126,14 +145,20 @@ resource "oci_core_instance" "ampere" {
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
     user_data = base64encode(templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
-      tailscale_auth_key = local.tailscale_auth_key
-      hostname           = "oci-arm-1"
-      tailscale_tags     = local.tailscale_tags
+      tailscale_auth_key  = tailscale_tailnet_key.bootstrap_ampere.key
+      tailscale_client_id = ""
+      tailscale_audience  = ""
+      hostname            = "oci-arm-1"
+      tailscale_tags      = local.tailscale_tags
     }))
   }
 
   lifecycle {
     prevent_destroy = var.enable_prevent_destroy
+
+    replace_triggered_by = [
+      tailscale_tailnet_key.bootstrap_ampere.id,
+    ]
 
     precondition {
       condition     = var.ampere_ocpus <= 2 && var.ampere_memory_in_gbs <= 12

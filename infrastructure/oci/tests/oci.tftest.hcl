@@ -1,5 +1,28 @@
 mock_provider "oci" {}
 mock_provider "sops" {}
+mock_provider "tailscale" {
+  override_resource {
+    target = tailscale_tailnet_key.bootstrap_amd[0]
+    values = {
+      id  = "mock-ts-key-id-amd-0"
+      key = "tskey-auth-mock-amd-0"
+    }
+  }
+  override_resource {
+    target = tailscale_tailnet_key.bootstrap_amd[1]
+    values = {
+      id  = "mock-ts-key-id-amd-1"
+      key = "tskey-auth-mock-amd-1"
+    }
+  }
+  override_resource {
+    target = tailscale_tailnet_key.bootstrap_ampere
+    values = {
+      id  = "mock-ts-key-id-ampere"
+      key = "tskey-auth-mock-ampere"
+    }
+  }
+}
 
 mock_provider "external" {
   override_data {
@@ -7,15 +30,6 @@ mock_provider "external" {
     values = {
       result = {
         json = "{\"budget_alert_recipients\":\"alerts@example.test\"}"
-      }
-    }
-  }
-
-  override_data {
-    target = data.external.sops_tailscale_auth_key
-    values = {
-      result = {
-        json = "\"tskey-auth-oci-decoy\""
       }
     }
   }
@@ -35,7 +49,6 @@ variables {
   availability_domain         = "test-ad"
   instance_image_ocid_amd     = "ocid1.image.oc1..amd"
   instance_image_ocid_arm     = "ocid1.image.oc1..arm"
-  tailscale_auth_key          = "tskey-auth-test"
   ssh_public_key              = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey user@test"
   enable_prevent_destroy      = false
 }
@@ -46,6 +59,30 @@ run "verify_compute_instances_and_free_tier" {
   assert {
     condition     = length(oci_core_instance.amd) == 2
     error_message = "Must configure exactly 2 AMD micro instances"
+  }
+
+  assert {
+    condition     = length(tailscale_tailnet_key.bootstrap_amd) == length(oci_core_instance.amd)
+    error_message = "AMD Tailscale bootstrap key count must equal AMD instance count (R2-TF-04)"
+  }
+
+  assert {
+    condition = (
+      alltrue([
+        for k in tailscale_tailnet_key.bootstrap_amd :
+        k.reusable == false &&
+        k.ephemeral == false &&
+        k.preauthorized == true &&
+        k.expiry <= 3600 &&
+        k.recreate_if_invalid == "never"
+      ]) &&
+      tailscale_tailnet_key.bootstrap_ampere.reusable == false &&
+      tailscale_tailnet_key.bootstrap_ampere.ephemeral == false &&
+      tailscale_tailnet_key.bootstrap_ampere.preauthorized == true &&
+      tailscale_tailnet_key.bootstrap_ampere.expiry <= 3600 &&
+      tailscale_tailnet_key.bootstrap_ampere.recreate_if_invalid == "never"
+    )
+    error_message = "Every OCI Tailscale bootstrap key must be single-use (!reusable), non-ephemeral, preauthorized, expire within 3600s, and set recreate_if_invalid == \"never\" (R2-TF-04)"
   }
 
   assert {
@@ -102,6 +139,10 @@ run "verify_compute_instances_and_free_tier" {
     condition     = oci_core_instance.ampere.launch_options[0].is_pv_encryption_in_transit_enabled == true
     error_message = "ARM instance must have in-transit encryption enabled on launch options"
   }
+}
+
+run "verify_computed_outputs_on_apply" {
+  command = apply
 
   assert {
     condition     = strcontains(base64decode(oci_core_instance.amd[0].metadata["user_data"]), "--hostname=\"oci-amd-1\"")
@@ -117,10 +158,53 @@ run "verify_compute_instances_and_free_tier" {
     condition     = strcontains(base64decode(oci_core_instance.ampere.metadata["user_data"]), "--hostname=\"oci-arm-1\"")
     error_message = "ARM instance user_data must render shared cloud-init template with hostname oci-arm-1"
   }
-}
 
-run "verify_computed_outputs_on_apply" {
-  command = apply
+  assert {
+    condition = (
+      strcontains(base64decode(oci_core_instance.amd[0].metadata["user_data"]), "content: \"${tailscale_tailnet_key.bootstrap_amd[0].key}\"") &&
+      !strcontains(base64decode(oci_core_instance.amd[0].metadata["user_data"]), "content: \"${tailscale_tailnet_key.bootstrap_amd[1].key}\"") &&
+      !strcontains(base64decode(oci_core_instance.amd[0].metadata["user_data"]), "content: \"${tailscale_tailnet_key.bootstrap_ampere.key}\"") &&
+      strcontains(base64decode(oci_core_instance.amd[1].metadata["user_data"]), "content: \"${tailscale_tailnet_key.bootstrap_amd[1].key}\"") &&
+      !strcontains(base64decode(oci_core_instance.amd[1].metadata["user_data"]), "content: \"${tailscale_tailnet_key.bootstrap_amd[0].key}\"") &&
+      !strcontains(base64decode(oci_core_instance.amd[1].metadata["user_data"]), "content: \"${tailscale_tailnet_key.bootstrap_ampere.key}\"") &&
+      strcontains(base64decode(oci_core_instance.ampere.metadata["user_data"]), "content: \"${tailscale_tailnet_key.bootstrap_ampere.key}\"") &&
+      !strcontains(base64decode(oci_core_instance.ampere.metadata["user_data"]), "content: \"${tailscale_tailnet_key.bootstrap_amd[0].key}\"") &&
+      !strcontains(base64decode(oci_core_instance.ampere.metadata["user_data"]), "content: \"${tailscale_tailnet_key.bootstrap_amd[1].key}\"")
+    )
+    error_message = "Each OCI instance user_data must hold its own dedicated single-use Tailscale bootstrap key only (R2-TF-04)"
+  }
+
+  assert {
+    condition = (
+      !strcontains(
+        templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
+          hostname                 = "test-empty"
+          breakglass_user          = "testadmin"
+          breakglass_password_hash = "$6$rounds=4096$testsalt$testhash"
+          ssh_public_key           = ""
+          tailscale_auth_key       = ""
+          tailscale_client_id      = ""
+          tailscale_audience       = ""
+          tailscale_tags           = ""
+        }),
+        "tailscale up"
+      ) &&
+      !strcontains(
+        templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
+          hostname                 = "test-empty"
+          breakglass_user          = "testadmin"
+          breakglass_password_hash = "$6$rounds=4096$testsalt$testhash"
+          ssh_public_key           = ""
+          tailscale_auth_key       = ""
+          tailscale_client_id      = ""
+          tailscale_audience       = ""
+          tailscale_tags           = ""
+        }),
+        "shred"
+      )
+    )
+    error_message = "cloud-init template with empty tailscale_auth_key and empty tailscale_client_id must render no tailscale up and no shred commands (R2-TF-04)"
+  }
 
   assert {
     condition     = output.vcn_id != ""

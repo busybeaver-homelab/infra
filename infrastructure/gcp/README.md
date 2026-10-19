@@ -9,13 +9,15 @@
 | <a name="requirement_external"></a> [external](#requirement_external)    | 2.4.2     |
 | <a name="requirement_google"></a> [google](#requirement_google)          | 8.7.0     |
 | <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1     |
+| <a name="requirement_tailscale"></a> [tailscale](#requirement_tailscale) | 0.29.2    |
 
 ## Providers
 
-| Name                                                            | Version |
-| --------------------------------------------------------------- | ------- |
-| <a name="provider_external"></a> [external](#provider_external) | 2.4.2   |
-| <a name="provider_google"></a> [google](#provider_google)       | 8.7.0   |
+| Name                                                               | Version |
+| ------------------------------------------------------------------ | ------- |
+| <a name="provider_external"></a> [external](#provider_external)    | 2.4.2   |
+| <a name="provider_google"></a> [google](#provider_google)          | 8.7.0   |
+| <a name="provider_tailscale"></a> [tailscale](#provider_tailscale) | 0.29.2  |
 
 ## Resources
 
@@ -40,8 +42,8 @@
 | [google_storage_bucket_iam_member.backup_writer_append_only](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_bucket_iam_member) | resource    |
 | [google_storage_hmac_key.backup_pruner](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_hmac_key)                               | resource    |
 | [google_storage_hmac_key.backup_writer](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_hmac_key)                               | resource    |
+| [tailscale_federated_identity.gcp_vm](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/federated_identity)                           | resource    |
 | [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                                          | data source |
-| [external_external.sops_tailscale_auth_key](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                              | data source |
 | [google_compute_image.ubuntu_2604](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/data-sources/compute_image)                                    | data source |
 
 ## Inputs
@@ -62,9 +64,7 @@
 | <a name="input_gcp_zone"></a> [gcp\_zone](#input_gcp_zone)                                                           | The Google Cloud availability zone within gcp\_region (e.g., us-central1-a).                                                                       | `string`       |    no    |
 | <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input_secrets_file_path)                               | Path to the canonical SOPS credentials file (defaults to production credentials).                                                                  | `string`       |    no    |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | State and plan encryption passphrase. Source: production SOPS opentofu.state\_encryption\_passphrase. No default, so a missing value fails closed. | `string`       |   yes    |
-| <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input_tailscale_auth_key)                            | Tailscale authentication key for instance bootstrapping (sourced from SOPS gcp.tailscale\_auth\_key when null).                                    | `string`       |    no    |
-| <a name="input_tailscale_common_tags"></a> [tailscale\_common\_tags](#input_tailscale_common_tags)                   | Common Tailscale tags applied across all cloud instances.                                                                                          | `list(string)` |    no    |
-| <a name="input_tailscale_extra_tags_gcp"></a> [tailscale\_extra\_tags\_gcp](#input_tailscale_extra_tags_gcp)         | GCP-specific Tailscale tags applied to the GCP compute instance.                                                                                   | `list(string)` |    no    |
+| <a name="input_tailscale_bootstrap_tags"></a> [tailscale\_bootstrap\_tags](#input_tailscale_bootstrap_tags)          | Tailscale tags assigned to the GCP workload identity federation trust for gcp-default-vm.                                                          | `list(string)` |    no    |
 | <a name="input_vpc_subnet_cidr"></a> [vpc\_subnet\_cidr](#input_vpc_subnet_cidr)                                     | IPv4 CIDR block for the private GCP compute subnetwork (sourced from SOPS gcp.subnet\_cidr when null).                                             | `string`       |    no    |
 
 ## Outputs

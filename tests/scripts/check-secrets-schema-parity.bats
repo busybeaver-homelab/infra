@@ -116,7 +116,7 @@ EOF
 }
 
 @test "canonical secrets files define tailscale schema keys" {
-  local keys=("client_id" "client_secret")
+  local keys=("client_id" "client_secret" "bootstrap_client_id" "bootstrap_client_secret")
   for key in "${keys[@]}"; do
     run yq eval "has(\"tailscale\") and (.tailscale | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
     [ "$status" -eq 0 ]
@@ -140,7 +140,7 @@ EOF
 }
 
 @test "canonical secrets files define gcp schema keys" {
-  local keys=("project_id" "region" "zone" "billing_account_id" "config" "tailscale_auth_key" "breakglass_user" "breakglass_password" "breakglass_password_hash")
+  local keys=("project_id" "region" "zone" "billing_account_id" "config" "breakglass_user" "breakglass_password" "breakglass_password_hash")
   for key in "${keys[@]}"; do
     run yq eval "has(\"gcp\") and (.gcp | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
     [ "$status" -eq 0 ]

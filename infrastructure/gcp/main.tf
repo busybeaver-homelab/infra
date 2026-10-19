@@ -12,15 +12,6 @@ data "external" "sops_config" {
   }
 }
 
-data "external" "sops_tailscale_auth_key" {
-  program = ["bash", "${path.module}/../../scripts/sops-subtree.sh"]
-  query = {
-    file    = var.secrets_file_path
-    extract = "[\"gcp\"][\"tailscale_auth_key\"]"
-  }
-}
-
-
 data "google_compute_image" "ubuntu_2604" {
   family  = "ubuntu-2604-lts-amd64"
   project = "ubuntu-os-cloud"
@@ -31,6 +22,14 @@ resource "google_service_account" "vm" {
   display_name = "Homelab GCP Default VM Service Account"
   description  = "Dedicated least-privilege service account for gcp-default-vm"
   project      = var.gcp_project_id
+}
+
+resource "tailscale_federated_identity" "gcp_vm" {
+  description = "gcp-default-vm workload identity"
+  issuer      = "https://accounts.google.com"
+  subject     = google_service_account.vm.unique_id
+  scopes      = ["auth_keys"]
+  tags        = var.tailscale_bootstrap_tags
 }
 
 #trivy:ignore:AVD-GCP-0031 Approved STD-OT-49 Always-Free exception (Cloud NAT is paid; VPC/host firewalls drop unsolicited ingress)
@@ -92,9 +91,11 @@ resource "google_compute_instance" "default" {
     serial-port-enable     = "FALSE"
     enable-oslogin         = "TRUE"
     user-data = templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
-      hostname           = "gcp-default-vm"
-      tailscale_auth_key = local.tailscale_auth_key
-      tailscale_tags     = local.tailscale_tags
+      hostname            = "gcp-default-vm"
+      tailscale_auth_key  = ""
+      tailscale_client_id = sensitive(tailscale_federated_identity.gcp_vm.id)
+      tailscale_audience  = sensitive(tailscale_federated_identity.gcp_vm.audience)
+      tailscale_tags      = local.tailscale_tags
     })
   }
 

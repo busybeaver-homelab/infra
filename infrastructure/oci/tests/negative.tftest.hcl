@@ -1,5 +1,6 @@
 mock_provider "oci" {}
 mock_provider "sops" {}
+mock_provider "tailscale" {}
 
 mock_provider "external" {
   override_data {
@@ -7,15 +8,6 @@ mock_provider "external" {
     values = {
       result = {
         json = "{\"budget_alert_recipients\":\"alerts@example.test\"}"
-      }
-    }
-  }
-
-  override_data {
-    target = data.external.sops_tailscale_auth_key
-    values = {
-      result = {
-        json = "\"tskey-auth-oci-decoy\""
       }
     }
   }
@@ -35,7 +27,6 @@ variables {
   availability_domain         = "test-ad"
   instance_image_ocid_amd     = "ocid1.image.oc1..amd"
   instance_image_ocid_arm     = "ocid1.image.oc1..arm"
-  tailscale_auth_key          = "tskey-auth-test"
   ssh_public_key              = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey user@test"
 }
 
@@ -337,5 +328,53 @@ run "reject_empty_resolved_budget_alert_recipients" {
   expect_failures = [
     oci_budget_alert_rule.threshold_alert,
     oci_budget_alert_rule.forecast_budget_alert,
+  ]
+}
+
+run "reject_tailscale_bootstrap_key_expiry_too_long" {
+  command = plan
+
+  variables {
+    tailscale_bootstrap_key_expiry = 90000
+  }
+
+  expect_failures = [
+    var.tailscale_bootstrap_key_expiry,
+  ]
+}
+
+run "reject_tailscale_bootstrap_key_expiry_too_short" {
+  command = plan
+
+  variables {
+    tailscale_bootstrap_key_expiry = 30
+  }
+
+  expect_failures = [
+    var.tailscale_bootstrap_key_expiry,
+  ]
+}
+
+run "reject_empty_tailscale_bootstrap_tags" {
+  command = plan
+
+  variables {
+    tailscale_bootstrap_tags = []
+  }
+
+  expect_failures = [
+    var.tailscale_bootstrap_tags,
+  ]
+}
+
+run "reject_malformed_tailscale_bootstrap_tags" {
+  command = plan
+
+  variables {
+    tailscale_bootstrap_tags = ["invalid-tag-no-prefix"]
+  }
+
+  expect_failures = [
+    var.tailscale_bootstrap_tags,
   ]
 }
