@@ -2,6 +2,5 @@
 
 This directory contains inventory configurations for managing both homelab and cloud servers:
 
-- `01-Homelab-Static.yml` — Static inventory for on-premises homelab hosts and network equipment (`unifi`).
-- `02-Cloud-Dynamic.yml` — Base group hierarchy (`cloud` -> `oci`, `gcp`) populated at runtime by `99-Dynamic-Inventory.ini`.
-- `99-Dynamic-Inventory.ini` (gitignored) — Materialized by `scripts/generate-inventory.sh` (`mise run ansible:inventory`), which reads the encrypted OpenTofu `ansible_inventory` outputs from `infrastructure/oci` and `infrastructure/gcp` (with SOPS MagicDNS fallback when `--allow-sops-fallback` is passed).
+- `hosts.yml` — Static base group hierarchy (`cloud` -> `oci`, `gcp`, plus `homelab` and `unifi`) and connection defaults (`ansible_user: ubuntu`, `ansible_port: 22`, SOPS-derived SSH key path).
+- `hosts.generated.yml` (gitignored) — Materialized by `scripts/generate-inventory.sh` (`mise run ansible:inventory`), which reads the encrypted OpenTofu `ansible_inventory` outputs from `infrastructure/oci` and `infrastructure/gcp` (or offline `--from-json` / `--input-json` fixtures) and fails closed if zero hosts are discovered (`STD-AN-20`, `STD-AN-29`, `STD-AN-49`).

@@ -197,3 +197,42 @@ teardown() {
   run grep -F "credentials.ci.sops.yaml" "$fault"
   [ "$status" -eq 0 ]
 }
+
+@test "mise.toml configures deps:galaxy sources/outputs and every test:ansible* task depends on deps:galaxy (R2-ANS-08)" {
+  local mise_cfg="${REPO_ROOT}/mise.toml"
+  [ -f "${mise_cfg}" ]
+
+  run yq -p toml -r '.tasks["deps:galaxy"].sources[]' "${mise_cfg}"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"requirements.yml"* ]] || false
+
+  run yq -p toml -r '.tasks["deps:galaxy"].outputs[]' "${mise_cfg}"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"configuration/.galaxy/"* ]] || false
+
+  local tasks_to_check=(
+    "test:ansible:base"
+    "test:ansible:restic"
+    "test:ansible:compose"
+    "test:ansible:oci"
+    "test:ansible:gcp"
+    "test:ansible:homelab"
+    "test:ansible"
+    "test:ansible:serial"
+    "test:ansible:fast:base"
+    "test:ansible:fast:restic"
+    "test:ansible:fast:compose"
+    "test:ansible:fast:oci"
+    "test:ansible:fast:gcp"
+    "test:ansible:fast:homelab"
+    "test:ansible:fast"
+  )
+
+  local t
+  for t in "${tasks_to_check[@]}"; do
+    run yq -p toml -r ".tasks[\"${t}\"].depends[]" "${mise_cfg}"
+    [ "$status" -eq 0 ]
+    grep -Fxq "deps:galaxy" <<<"$output"
+  done
+}
+

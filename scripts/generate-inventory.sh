@@ -4,7 +4,7 @@
 # ==============================================================================
 # Translates OpenTofu `ansible_inventory` JSON outputs (from live `tofu output`
 # or offline `--from-json` / `--input-json` fixtures) into a gitignored YAML
-# inventory at `configuration/inventory/hosts.generated.yml`.
+# inventory at `configuration/inventories/hosts.generated.yml`.
 #
 # Fails closed (exit 1) if zero hosts are discovered or required host attributes
 # are missing.
