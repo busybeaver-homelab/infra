@@ -53,7 +53,7 @@ run "verify_forecast_budget_alert" {
   }
 
   assert {
-    condition     = oci_ons_notification_topic.budget_alerts.name == "homelab-budget-alerts"
-    error_message = "Budget alerts notification topic must be named homelab-budget-alerts"
+    condition     = oci_budget_alert_rule.threshold_alert.recipients == "alerts@example.test" && oci_budget_alert_rule.forecast_budget_alert.recipients == "alerts@example.test"
+    error_message = "Both budget alert rules must resolve recipients from SOPS oci.config.budget_alert_recipients when var.budget_alert_recipients is null"
   }
 }

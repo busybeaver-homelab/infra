@@ -11,6 +11,7 @@ locals {
     try(local.oci_config.admin_cidr, null),
     var.vcn_cidr,
   )
+  budget_alert_recipients = var.budget_alert_recipients != null && trimspace(var.budget_alert_recipients) != "" ? var.budget_alert_recipients : try(tostring(local.oci_config.budget_alert_recipients), "")
 
   # Identity-domain tenancies reject IAM users without an email (HTTP 400). Each user needs a
   # unique address, so the base address is plus-addressed per user; empty omits the attribute.

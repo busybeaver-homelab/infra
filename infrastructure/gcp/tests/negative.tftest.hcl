@@ -105,7 +105,7 @@ run "reject_non_free_instance_type" {
   }
 
   expect_failures = [
-    var.gcp_instance_type,
+    google_compute_instance.default,
   ]
 }
 
@@ -117,7 +117,7 @@ run "reject_disk_size_too_large" {
   }
 
   expect_failures = [
-    var.gcp_boot_disk_size_gb,
+    google_compute_instance.default,
   ]
 }
 
@@ -141,7 +141,7 @@ run "reject_non_standard_disk_type" {
   }
 
   expect_failures = [
-    var.gcp_boot_disk_type,
+    google_compute_instance.default,
   ]
 }
 
@@ -153,7 +153,7 @@ run "reject_premium_network_tier" {
   }
 
   expect_failures = [
-    var.gcp_network_tier,
+    google_compute_instance.default,
   ]
 }
 
@@ -226,5 +226,38 @@ run "reject_placeholder_state_encryption_passphrase" {
 
   expect_failures = [
     var.state_encryption_passphrase,
+  ]
+}
+
+run "reject_example_domain_budget_recipient" {
+  command = plan
+
+  variables {
+    budget_alert_recipients = ["ops@example.com"]
+  }
+
+  expect_failures = [
+    var.budget_alert_recipients,
+  ]
+}
+
+run "reject_empty_resolved_budget_alert_recipients" {
+  command = plan
+
+  override_data {
+    target = data.external.sops_config
+    values = {
+      result = {
+        json = <<-EOT
+          {
+            "subnet_cidr": "198.51.100.0/24"
+          }
+        EOT
+      }
+    }
+  }
+
+  expect_failures = [
+    google_billing_budget.monthly_spend_limit,
   ]
 }
