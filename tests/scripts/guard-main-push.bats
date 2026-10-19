@@ -49,3 +49,60 @@ SHA_B="2222222222222222222222222222222222222222"
   run grep -F 'lefthook install' "$doc"
   [ "$status" -eq 0 ]
 }
+
+@test "blocks pushing a feature branch that is behind refs/remotes/origin/main" {
+  local repo="${BATS_TEST_TMPDIR}/stale-repo"
+  git init -q -b main "$repo"
+  git -C "$repo" config user.email "test@example.com"
+  git -C "$repo" config user.name "Test"
+  echo "base" > "${repo}/file.txt"
+  git -C "$repo" add file.txt
+  git -C "$repo" commit -q -m "chore: initial"
+
+  git -C "$repo" checkout -q -b feat/ci/stale-branch
+  echo "feature" > "${repo}/feature.txt"
+  git -C "$repo" add feature.txt
+  git -C "$repo" commit -q -m "feat: add feature"
+  local feat_sha
+  feat_sha="$(git -C "$repo" rev-parse HEAD)"
+
+  git -C "$repo" checkout -q main
+  echo "upstream change" >> "${repo}/file.txt"
+  git -C "$repo" add file.txt
+  git -C "$repo" commit -q -m "feat: upstream commit on main"
+  local main_sha
+  main_sha="$(git -C "$repo" rev-parse HEAD)"
+  git -C "$repo" update-ref refs/remotes/origin/main "$main_sha"
+
+  run bash -c "cd '$repo' && printf 'refs/heads/feat/ci/stale-branch %s refs/heads/feat/ci/stale-branch 0000000000000000000000000000000000000000\n' '$feat_sha' | env -u ALLOW_MAIN_PUSH bash '$GUARD'"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"behind origin/main"* ]] || false
+}
+
+@test "allows pushing a feature branch that includes refs/remotes/origin/main" {
+  local repo="${BATS_TEST_TMPDIR}/rebased-repo"
+  git init -q -b main "$repo"
+  git -C "$repo" config user.email "test@example.com"
+  git -C "$repo" config user.name "Test"
+  echo "base" > "${repo}/file.txt"
+  git -C "$repo" add file.txt
+  git -C "$repo" commit -q -m "chore: initial"
+
+  echo "upstream change" >> "${repo}/file.txt"
+  git -C "$repo" add file.txt
+  git -C "$repo" commit -q -m "feat: upstream commit on main"
+  local main_sha
+  main_sha="$(git -C "$repo" rev-parse HEAD)"
+  git -C "$repo" update-ref refs/remotes/origin/main "$main_sha"
+
+  git -C "$repo" checkout -q -b feat/ci/fresh-branch refs/remotes/origin/main
+  echo "feature" > "${repo}/feature.txt"
+  git -C "$repo" add feature.txt
+  git -C "$repo" commit -q -m "feat: add feature"
+  local feat_sha
+  feat_sha="$(git -C "$repo" rev-parse HEAD)"
+
+  run bash -c "cd '$repo' && printf 'refs/heads/feat/ci/fresh-branch %s refs/heads/feat/ci/fresh-branch 0000000000000000000000000000000000000000\n' '$feat_sha' | env -u ALLOW_MAIN_PUSH bash '$GUARD'"
+  [ "$status" -eq 0 ]
+}
+

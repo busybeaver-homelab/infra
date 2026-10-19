@@ -104,20 +104,26 @@ Then: Cleanup worktree (Step 5)
 
 #### Option 2: Push and Create PR (Automatic Merge Queue & Stack Enrollment)
 
-**Case A — Single Pull Request (automatically add the single PR to the Merge Queue):**
+**Case A — Single Pull Request (pull/rebase `origin/main`, open PR, and automatically add the single PR to the Merge Queue):**
 
 ```bash
+# Pull/rebase all latest changes from the default branch so the PR is never outdated or conflicted
+git fetch origin main && git rebase origin/main
+
 # Push branch
 git push -u origin <feature-branch>
 
 # Create PR using .github/pull_request_template.md with session-verified diff stat and test exit codes
 mise exec gh -- gh pr create --base main --head <feature-branch> --title "<type>(<scope>): <description>" --body-file <populated-pr-body-file>
 
+# If origin/main advanced while opening the PR, immediately rebase the PR branch on GitHub
+mise exec gh -- gh pr update-branch <pr-number> --rebase
+
 # Immediately and automatically add the single PR to the Merge Queue (squash merge once CI Gate passes)
 mise exec gh -- gh pr merge <pr-number> --auto --squash
 ```
 
-**Case B — Stacked Pull Requests (automatically add Stacked PRs to the stack and queue via `gh-stack`):**
+**Case B — Stacked Pull Requests (automatically add Stacked PRs to the stack, sync with `origin/main`, and queue via `gh-stack`):**
 
 ```bash
 # Automatically add Stacked PRs to the stack as each layer is created (explicit <type>/<scope>/<short-desc> names)
@@ -125,6 +131,9 @@ mise exec gh -- gh stack create <first-branch>
 # ... commit layer 1, then add subsequent layers to the stack automatically:
 mise exec gh -- gh stack add <next-branch>
 mise exec gh -- gh stack view
+
+# Pull/rebase all latest changes from the default branch into the stack so no layer is outdated or conflicted
+git fetch origin main && mise exec gh -- gh stack sync
 
 # Automatically push all stack branches and open/link stacked PRs on GitHub
 mise exec gh -- gh stack submit --auto
