@@ -141,7 +141,7 @@ ping_healthchecks() {
   if [[ "${overall_rc}" -ne 0 ]]; then
     suffix="/fail"
   fi
-  curl -fsS -m 10 --retry 3 "${ping_url}${suffix}" >/dev/null 2>&1 || true
+  curl -fsS -m 10 --retry 3 "${ping_url}${suffix}" >/dev/null 2>&1 || echo "WARNING: Healthchecks.io drift heartbeat ping failed." >&2
 }
 
 run_single_module() {

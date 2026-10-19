@@ -64,7 +64,9 @@ EOF
       "h2": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000012"
     }
   },
-  "backup_prune_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000003" }
+  "backup_prune_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000003" },
+  "ci_schedule_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000004" },
+  "codeql_schedule_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000005" }
 }
 EOF
 
@@ -167,6 +169,8 @@ STUB
   [ "$(jq -r '.tofu_gcp_restic.s3_access_key_id' <<<"${output}")" = "GOOG1EPRUNEREXAMPLE" ]
   [ "$(jq -r '.tofu_cloudflare_restic.s3_secret_access_key' <<<"${output}")" = "cf-r2-prune-secret-example" ]
   [ "$(jq -r '.backup_prune_ping_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000003" ]
+  [ "$(jq -r '.ci_schedule_ping_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000004" ]
+  [ "$(jq -r '.codeql_schedule_ping_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000005" ]
   [ "$(jq -r '.tofu_oci_restic | has("healthcheck_url")' <<<"${output}")" = "false" ]
 }
 

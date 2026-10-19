@@ -59,7 +59,9 @@ JSON
   */monitoring)
     cat <<'JSON'
 {
-  "backup_prune_ping_url": {"sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000099"}
+  "backup_prune_ping_url": {"sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000099"},
+  "ci_schedule_ping_url": {"sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000100"},
+  "codeql_schedule_ping_url": {"sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000101"}
 }
 JSON
     ;;
@@ -141,13 +143,15 @@ STUB
   [[ "$output" =~ "OCI_BACKUP_HOSTS" ]] || false
   [[ "$output" =~ "GCP_BACKUP_HOSTS" ]] || false
   [[ "$output" =~ "HEALTHCHECKS_BACKUP_PRUNE_PING_URL" ]] || false
+  [[ "$output" =~ "HEALTHCHECKS_CI_SCHEDULE_PING_URL" ]] || false
+  [[ "$output" =~ "HEALTHCHECKS_CODEQL_SCHEDULE_PING_URL" ]] || false
   [[ ! "$output" =~ "oci-prune-sk-synthetic" ]] || false
   [[ ! "$output" =~ "oci-restic-pass-synthetic" ]] || false
   [[ ! "$output" =~ "oci-h1" ]] || false
   [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
 }
 
-@test "sync-ops-secrets.sh syncs all 18 restic secrets, backup host lists, and healthchecks ping url to ops environment" {
+@test "sync-ops-secrets.sh syncs all 20 restic secrets, backup host lists, and healthchecks ping urls to ops environment" {
   run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE"
   [ "$status" -eq 0 ]
   [ -f "$BATS_TEST_TMPDIR/gh.calls" ]
@@ -182,12 +186,18 @@ STUB
   run grep -F "secret set HEALTHCHECKS_BACKUP_PRUNE_PING_URL --env ops --repo example-owner/infra | stdin=https://hc-ping.example.test/00000000-0000-0000-0000-000000000099" "$BATS_TEST_TMPDIR/gh.calls"
   [ "$status" -eq 0 ]
 
+  run grep -F "secret set HEALTHCHECKS_CI_SCHEDULE_PING_URL --env ops --repo example-owner/infra | stdin=https://hc-ping.example.test/00000000-0000-0000-0000-000000000100" "$BATS_TEST_TMPDIR/gh.calls"
+  [ "$status" -eq 0 ]
+
+  run grep -F "secret set HEALTHCHECKS_CODEQL_SCHEDULE_PING_URL --env ops --repo example-owner/infra | stdin=https://hc-ping.example.test/00000000-0000-0000-0000-000000000101" "$BATS_TEST_TMPDIR/gh.calls"
+  [ "$status" -eq 0 ]
+
   # Ensure secret values are never echoed to stdout/stderr
   [[ ! "$output" =~ "oci-prune-sk-synthetic" ]] || false
   [[ ! "$output" =~ "r2-restic-pass-synthetic" ]] || false
   [[ ! "$output" =~ "oci-h1" ]] || false
 
-  [ "$(wc -l <"$BATS_TEST_TMPDIR/gh.calls" | tr -d ' ')" -eq 18 ]
+  [ "$(wc -l <"$BATS_TEST_TMPDIR/gh.calls" | tr -d ' ')" -eq 20 ]
 }
 
 @test "sync-ops-secrets.sh validates OCI_BACKUP_HOSTS and GCP_BACKUP_HOSTS before the first gh secret write" {

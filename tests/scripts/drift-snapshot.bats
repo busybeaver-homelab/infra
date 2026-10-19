@@ -83,3 +83,16 @@ teardown() {
   [ "$status" -eq 0 ]
   [ "$output" = "bash scripts/snapshot-state.sh --all" ]
 }
+
+@test "scripts/drift.sh logs a stderr warning if the Healthchecks.io ping fails (R2-CI-06)" {
+  cat >"${STUB_BIN}/curl" <<'EOF'
+#!/usr/bin/env bash
+exit 22
+EOF
+  chmod +x "${STUB_BIN}/curl"
+  HEALTHCHECKS_DRIFT_PING_URL="https://hc-ping.example.test/00000000-0000-0000-0000-000000000099" \
+    DRIFT_MODULES="cloudflare" \
+    run "${REPO_ROOT}/scripts/drift.sh" --all --no-init
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"WARNING: Healthchecks.io drift heartbeat ping failed"* ]] || false
+}

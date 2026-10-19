@@ -530,3 +530,15 @@ setup() {
     [ "$output" = "$pattern" ]
   done
 }
+
+@test "ci.yml and codeql.yml report heartbeats on scheduled runs via environment: ops (R2-CI-06)" {
+  for wf in .github/workflows/ci.yml .github/workflows/codeql.yml; do
+    run yq -r '.jobs.heartbeat.if' "${REPO_ROOT}/${wf}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"always()"* && "$output" == *"github.event_name == 'schedule'"* ]] || false
+
+    run yq -r '.jobs.heartbeat.environment' "${REPO_ROOT}/${wf}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "ops" ]
+  done
+}

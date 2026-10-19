@@ -77,6 +77,8 @@ run "verify_healthchecks_check" {
       contains(healthchecksio_check.restic_backup.channels, data.healthchecksio_channel.email.id) &&
       contains(healthchecksio_check.drift_detection.channels, data.healthchecksio_channel.email.id) &&
       contains(healthchecksio_check.backup_prune.channels, data.healthchecksio_channel.email.id) &&
+      contains(healthchecksio_check.ci_schedule.channels, data.healthchecksio_channel.email.id) &&
+      contains(healthchecksio_check.codeql_schedule.channels, data.healthchecksio_channel.email.id) &&
       alltrue([for c in healthchecksio_check.compose : contains(c.channels, data.healthchecksio_channel.email.id)]) &&
       alltrue([for c in healthchecksio_check.host_backup : contains(c.channels, data.healthchecksio_channel.email.id)]) &&
       alltrue([for c in healthchecksio_check.host_alive : contains(c.channels, data.healthchecksio_channel.email.id)])
@@ -92,6 +94,16 @@ run "verify_healthchecks_check" {
   assert {
     condition     = healthchecksio_check.backup_prune.name == "homelab-restic-prune" && healthchecksio_check.backup_prune.timeout == 604800 && healthchecksio_check.backup_prune.grace == 14400 && contains(healthchecksio_check.backup_prune.tags, "homelab")
     error_message = "Backup prune check must be configured with 604800s timeout, 14400s grace, and homelab tag"
+  }
+
+  assert {
+    condition     = healthchecksio_check.ci_schedule.name == "homelab-ci-schedule" && healthchecksio_check.ci_schedule.timeout == 604800 && healthchecksio_check.ci_schedule.grace == 7200 && contains(healthchecksio_check.ci_schedule.tags, "homelab")
+    error_message = "CI schedule check must be configured with 604800s timeout, 7200s grace, and homelab tag (R2-CI-06)"
+  }
+
+  assert {
+    condition     = healthchecksio_check.codeql_schedule.name == "homelab-codeql-schedule" && healthchecksio_check.codeql_schedule.timeout == 604800 && healthchecksio_check.codeql_schedule.grace == 7200 && contains(healthchecksio_check.codeql_schedule.tags, "homelab")
+    error_message = "CodeQL schedule check must be configured with 604800s timeout, 7200s grace, and homelab tag (R2-CI-06)"
   }
 
   assert {
@@ -165,6 +177,11 @@ run "verify_computed_outputs_on_apply" {
   assert {
     condition     = output.backup_prune_ping_url != ""
     error_message = "Backup prune ping URL output must be computed on apply"
+  }
+
+  assert {
+    condition     = output.ci_schedule_ping_url != "" && output.codeql_schedule_ping_url != ""
+    error_message = "Scheduled CI and CodeQL ping URL outputs must be computed on apply (R2-CI-06)"
   }
 
   assert {
