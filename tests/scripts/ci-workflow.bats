@@ -253,9 +253,6 @@ setup() {
 
   run grep -F "configuration/playbooks/gcp.yml" "$WORKFLOW"
   [ "$status" -eq 0 ]
-
-  run grep -F "configuration/inventories/fixtures/gcp_state.json" "$WORKFLOW"
-  [ "$status" -eq 0 ]
 }
 
 @test "ci.yml caches OpenTofu plugins in tofu-validate job" {

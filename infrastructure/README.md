@@ -191,14 +191,14 @@ Our remote state backend follows industry-standard cloud engineering and data so
 
 ---
 
-## 🔍 Dynamic Inventory & State Encryption
+## 🔍 Inventory Synthesis & State Encryption
 
-Ansible dynamically discovers OCI compute instances and networking details using the [`configuration/inventories/oci.terraform_state.yml`](../configuration/inventories/oci.terraform_state.yml) plugin:
+Ansible discovers cloud compute instances (`oci` and `gcp`) using [`scripts/generate-inventory.sh`](../scripts/generate-inventory.sh), which queries encrypted OpenTofu outputs and writes the gitignored [`configuration/inventories/hosts.generated.yml`](../configuration/inventories/README.md):
 
-- **State Encryption at Rest:** The OCI state file read by Ansible resides encrypted in Cloudflare R2.
+- **State Encryption at Rest:** OpenTofu state files (`oci` and `gcp`) reside PBKDF2 + AES-GCM encrypted in Cloudflare R2.
 - **Transit Security:** State queries are encrypted in transit via TLS 1.3.
-- **Dynamic In-Memory Synthesis:** The inventory plugin parses state data in memory during playbook execution to compose MagicDNS FQDNs and Tailscale IPs. Unencrypted network topology or host details are never written to static files on disk.
-- **Credential Separation:** The dynamic inventory plugin retrieves R2 S3 access keys and secrets dynamically, keeping all credentials protected in SOPS.
+- **Gitignored Synthesis:** `scripts/generate-inventory.sh` reads the `ansible_inventory` outputs from `infrastructure/oci` and `infrastructure/gcp` and writes `configuration/inventories/hosts.generated.yml` (`0600`, gitignored) so network topology and host details are never committed to Git.
+- **Credential Separation:** OpenTofu and `scripts/generate-inventory.sh` retrieve backend and passphrase secrets at runtime from SOPS (`secrets/credentials.sops.yaml`).
 
 ---
 
