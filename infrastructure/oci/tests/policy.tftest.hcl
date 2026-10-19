@@ -6,7 +6,16 @@ mock_provider "external" {
     target = data.external.sops_config
     values = {
       result = {
-        json = "{}"
+        json = "{\"budget_alert_recipients\":\"alerts@example.test\"}"
+      }
+    }
+  }
+
+  override_data {
+    target = data.external.sops_tailscale_auth_key
+    values = {
+      result = {
+        json = "\"tskey-auth-oci-decoy\""
       }
     }
   }
@@ -118,4 +127,16 @@ run "policy_invariants" {
     )
     error_message = "All taggable OCI resources must carry freeform_tags[\"project\"] == \"homelab\" (STD-OT-37, STD-OT-59)."
   }
+
+  assert {
+    condition = (
+      data.external.sops_config.query["extract"] == "[\"oci\"][\"config\"]" &&
+      alltrue([
+        for k in keys(local.oci_config) :
+        !contains(["private_key", "breakglass_password", "breakglass_password_hash"], k)
+      ])
+    )
+    error_message = "OCI SOPS config data source must extract only [\"oci\"][\"config\"] and exclude credential keys from state (R2-TF-02, STD-OT-16)."
+  }
 }
+

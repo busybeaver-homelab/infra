@@ -17,10 +17,18 @@ mock_provider "external" {
         json = <<-EOT
           {
             "subnet_cidr": "198.51.100.0/24",
-            "tailscale_auth_key": "tskey-auth-gcp-decoy",
             "budget_alert_recipients": "ci-alerts@example.test"
           }
         EOT
+      }
+    }
+  }
+
+  override_data {
+    target = data.external.sops_tailscale_auth_key
+    values = {
+      result = {
+        json = "\"tskey-auth-gcp-decoy\""
       }
     }
   }

@@ -140,12 +140,21 @@ EOF
 }
 
 @test "canonical secrets files define gcp schema keys" {
-  local keys=("project_id" "region" "zone" "billing_account_id" "budget_alert_recipients" "tailscale_auth_key" "breakglass_user" "breakglass_password" "breakglass_password_hash")
+  local keys=("project_id" "region" "zone" "billing_account_id" "config" "tailscale_auth_key" "breakglass_user" "breakglass_password" "breakglass_password_hash")
   for key in "${keys[@]}"; do
     run yq eval "has(\"gcp\") and (.gcp | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
     run yq eval "has(\"gcp\") and (.gcp | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+  done
+
+  for section in gcp oci; do
+    run yq eval "has(\"${section}\") and (.${section} | has(\"config\")) and (.${section}.config | has(\"budget_alert_recipients\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+    run yq eval "has(\"${section}\") and (.${section} | has(\"config\")) and (.${section}.config | has(\"budget_alert_recipients\"))" "${REPO_ROOT}/secrets/credentials.sops.yaml"
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
   done

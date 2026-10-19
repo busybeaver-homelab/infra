@@ -41,6 +41,7 @@
 | [google_storage_hmac_key.backup_pruner](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_hmac_key)                               | resource    |
 | [google_storage_hmac_key.backup_writer](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/resources/storage_hmac_key)                               | resource    |
 | [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                                          | data source |
+| [external_external.sops_tailscale_auth_key](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                              | data source |
 | [google_compute_image.ubuntu_2604](https://registry.terraform.io/providers/hashicorp/google/8.7.0/docs/data-sources/compute_image)                                    | data source |
 
 ## Inputs

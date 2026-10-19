@@ -8,9 +8,18 @@ data "external" "sops_config" {
   program = ["bash", "${path.module}/../../scripts/sops-subtree.sh"]
   query = {
     file    = var.secrets_file_path
-    extract = "[\"gcp\"]"
+    extract = "[\"gcp\"][\"config\"]"
   }
 }
+
+data "external" "sops_tailscale_auth_key" {
+  program = ["bash", "${path.module}/../../scripts/sops-subtree.sh"]
+  query = {
+    file    = var.secrets_file_path
+    extract = "[\"gcp\"][\"tailscale_auth_key\"]"
+  }
+}
+
 
 data "google_compute_image" "ubuntu_2604" {
   family  = "ubuntu-2604-lts-amd64"

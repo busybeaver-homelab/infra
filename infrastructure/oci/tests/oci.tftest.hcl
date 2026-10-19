@@ -6,7 +6,16 @@ mock_provider "external" {
     target = data.external.sops_config
     values = {
       result = {
-        json = "{}"
+        json = "{\"budget_alert_recipients\":\"alerts@example.test\"}"
+      }
+    }
+  }
+
+  override_data {
+    target = data.external.sops_tailscale_auth_key
+    values = {
+      result = {
+        json = "\"tskey-auth-oci-decoy\""
       }
     }
   }

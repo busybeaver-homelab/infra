@@ -55,6 +55,7 @@
 | [oci_ons_notification_topic.budget_alerts](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_notification_topic)                                                     | resource    |
 | [oci_ons_subscription.budget_alerts_email](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/ons_subscription)                                                           | resource    |
 | [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                                                                   | data source |
+| [external_external.sops_tailscale_auth_key](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                                                       | data source |
 | [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/data-sources/objectstorage_namespace)                                                         | data source |
 
 ## Inputs

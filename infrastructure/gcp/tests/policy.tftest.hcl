@@ -17,10 +17,18 @@ mock_provider "external" {
         json = <<-EOT
           {
             "subnet_cidr": "198.51.100.0/24",
-            "tailscale_auth_key": "tskey-auth-gcp-decoy",
             "budget_alert_recipients": "ci-alerts@example.test"
           }
         EOT
+      }
+    }
+  }
+
+  override_data {
+    target = data.external.sops_tailscale_auth_key
+    values = {
+      result = {
+        json = "\"tskey-auth-gcp-decoy\""
       }
     }
   }
@@ -101,4 +109,16 @@ run "policy_invariants" {
     )
     error_message = "All labelable GCP resources must carry labels[\"project\"] == \"homelab\" (STD-OT-37, STD-OT-59)."
   }
+
+  assert {
+    condition = (
+      data.external.sops_config.query["extract"] == "[\"gcp\"][\"config\"]" &&
+      alltrue([
+        for k in keys(local.gcp_config) :
+        !contains(["private_key", "breakglass_password", "breakglass_password_hash"], k)
+      ])
+    )
+    error_message = "GCP SOPS config data source must extract only [\"gcp\"][\"config\"] and exclude credential keys from state (R2-TF-02, STD-OT-16)."
+  }
 }
+

@@ -13,6 +13,7 @@ variable "user_ocid" {
   type        = string
   description = "OCID of the OCI user for authentication."
   sensitive   = true
+  ephemeral   = true
 
   validation {
     condition     = can(regex("^ocid1\\.user\\.oc1\\..*", var.user_ocid))
@@ -24,6 +25,7 @@ variable "fingerprint" {
   type        = string
   description = "Fingerprint of the OCI API key."
   sensitive   = true
+  ephemeral   = true
 
   validation {
     condition     = can(regex("^([0-9a-fA-F]{2}:){15}[0-9a-fA-F]{2}$", var.fingerprint))
@@ -35,6 +37,7 @@ variable "private_key" {
   type        = string
   description = "PEM-encoded private key for OCI API authentication."
   sensitive   = true
+  ephemeral   = true
   nullable    = false
 
   validation {
@@ -42,6 +45,7 @@ variable "private_key" {
     error_message = "private_key is required for OCI API authentication (source: SOPS oci.private_key)."
   }
 }
+
 
 variable "region" {
   type        = string
