@@ -365,11 +365,13 @@ EOF
 }
 
 @test ".sops.yaml enforces disjoint CI recipient and exact prod rule structure (R2-SEC-04)" {
-  local prod_pgp_count prod_age_count ci_only_in_prod
+  local prod_pgp_count prod_age_count ci_age_count ci_only_in_prod
   prod_pgp_count=$(mise exec -- yq eval '.creation_rules[] | select(.path_regex == "^secrets/credentials\.sops\.ya?ml$") | .key_groups[0].pgp | length' "${REPO_ROOT}/.sops.yaml")
   prod_age_count=$(mise exec -- yq eval '.creation_rules[] | select(.path_regex == "^secrets/credentials\.sops\.ya?ml$") | .key_groups[0].age | length' "${REPO_ROOT}/.sops.yaml")
+  ci_age_count=$(mise exec -- yq eval '.creation_rules[] | select(.path_regex == "^secrets/credentials\.ci\.sops\.ya?ml$") | .key_groups[0].age | length' "${REPO_ROOT}/.sops.yaml")
   [ "$prod_pgp_count" -eq 1 ]
   [ "$prod_age_count" -eq 1 ]
+  [ "$ci_age_count" -eq 2 ]
 
   # The recovery age key is shared, but the CI-only age key must never appear in the prod rule
   ci_only_in_prod=$(mise exec -- yq eval -r '
@@ -378,5 +380,9 @@ EOF
     | length
   ' "${REPO_ROOT}/.sops.yaml")
   [ "$ci_only_in_prod" -eq 1 ]
+
+  # Both canonical SOPS files and .sops-recipients.allowlist pass recipient check (R2-OPS-04)
+  run bash "${REPO_ROOT}/scripts/check-sops-recipients.sh"
+  [ "$status" -eq 0 ]
 }
 
