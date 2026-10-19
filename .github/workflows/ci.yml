@@ -199,6 +199,9 @@ jobs:
       - name: Verify SOPS secrets schema parity
         run: mise exec -- bash scripts/check-secrets-schema-parity.sh secrets/credentials.sops.yaml secrets/credentials.ci.sops.yaml
 
+      - name: Check production GPG key expiry
+        run: mise exec -- bash scripts/check-gpg-expiry.sh secrets/gpg-production.pub --warn-days 60
+
       - name: Verify git-crypt Encryption
         run: mise exec -- bash scripts/verify-git-crypt.sh --all
 
