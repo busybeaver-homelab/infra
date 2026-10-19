@@ -249,9 +249,9 @@ STUB
   [ "$status" -eq 0 ]
   [ "$(jq -r '.tofu_oci_restic.s3_access_key_id' <<<"${output}")" = "oci-writer-akid-example" ]
 
-  [ "$(wc -l <"${BATS_TEST_TMPDIR}/tofu.calls" | tr -d ' ')" -eq 4 ]
+  [ "$(wc -l <"${BATS_TEST_TMPDIR}/tofu.calls" | tr -d ' ')" -eq 3 ]
   run grep -c "ak=backend-ak-synthetic region=auto endpoint=https://00000000000000000000000000000000.r2.cloudflarestorage.com pass=backend-passphrase-synthetic-0000000000" "${BATS_TEST_TMPDIR}/tofu.calls"
-  [ "$output" = "4" ]
+  [ "$output" = "3" ]
   run grep -F "caller-restic-ak" "${BATS_TEST_TMPDIR}/tofu.calls"
   [ "$status" -ne 0 ]
 

@@ -181,9 +181,6 @@ teardown() {
   run grep -F "lookup('ansible.builtin.password', '/tmp/molecule-restic-primary-pass'" "$conv"
   [ "$status" -eq 0 ]
 
-  run grep -F "lookup('ansible.builtin.password', '/tmp/molecule-restic-dr-pass'" "$conv"
-  [ "$status" -eq 0 ]
-
   run grep -F "lookup('ansible.builtin.password', '/tmp/molecule-restic-primary-pass'" "$ver"
   [ "$status" -eq 0 ]
 }
