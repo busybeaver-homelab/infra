@@ -36,12 +36,17 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   [ "$status" -ne 0 ]
 }
 
-@test "backup-prune workflow performs retention prune on OCI and R2 repositories" {
-  run grep -E 'restic.*forget.*--keep-daily 7.*--keep-weekly 4.*--keep-monthly 3.*--prune.*--max-unused 10%' "${WORKFLOW_FILE}"
-  [ "$status" -eq 0 ]
+@test "backup-prune workflow performs retention prune on OCI, GCP, and R2 repositories per OD-4" {
+  local oci_run gcp_run r2_run
+  oci_run="$(yq -r '.jobs.prune.steps[] | select(.name == "Prune primary OCI backup repository") | .run' "${WORKFLOW_FILE}")"
+  gcp_run="$(yq -r '.jobs.prune.steps[] | select(.name == "Prune primary GCP backup repository") | .run' "${WORKFLOW_FILE}")"
+  r2_run="$(yq -r '.jobs.prune.steps[] | select(.name == "Prune secondary Cloudflare R2 DR backup repository") | .run' "${WORKFLOW_FILE}")"
 
-  run grep -E 'restic.*forget.*--keep-last 2.*--keep-daily 7.*--keep-weekly 4.*--keep-monthly 3.*--prune.*--max-unused 10%' "${WORKFLOW_FILE}"
-  [ "$status" -eq 0 ]
+  [[ "${oci_run}" =~ restic[[:space:]].*forget[[:space:]]+--keep-daily[[:space:]]+7[[:space:]]+--keep-weekly[[:space:]]+4[[:space:]]+--keep-monthly[[:space:]]+3[[:space:]]+--group-by[[:space:]]+host,tags[[:space:]]+--prune[[:space:]]+--max-unused[[:space:]]+10% ]] || false
+  [[ "${gcp_run}" =~ restic[[:space:]].*forget[[:space:]]+--keep-daily[[:space:]]+7[[:space:]]+--keep-weekly[[:space:]]+4[[:space:]]+--keep-monthly[[:space:]]+3[[:space:]]+--group-by[[:space:]]+host,tags[[:space:]]+--prune[[:space:]]+--max-unused[[:space:]]+10% ]] || false
+  [[ "${r2_run}" =~ restic[[:space:]].*forget[[:space:]]+--keep-daily[[:space:]]+7[[:space:]]+--keep-weekly[[:space:]]+4[[:space:]]+--group-by[[:space:]]+host,tags[[:space:]]+--prune[[:space:]]+--max-unused[[:space:]]+10% ]] || false
+  [[ ! "${r2_run}" =~ --keep-monthly ]] || false
+  [[ ! "${r2_run}" =~ --keep-last ]] || false
 }
 
 @test "backup-prune workflow performs subset integrity check" {
@@ -167,11 +172,48 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   [ "$status" -eq 0 ]
 }
 
-@test "backup-prune workflow reports Healthchecks heartbeat with if: always()" {
+@test "backup-prune workflow consumes OCI_BACKUP_HOSTS and GCP_BACKUP_HOSTS without fallback defaults and masks every host" {
+  run grep -F 'secrets.OCI_BACKUP_HOSTS' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'secrets.GCP_BACKUP_HOSTS' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
+
+  run grep -E '\$\{[A-Z_]*HOSTS:-' "${WORKFLOW_FILE}"
+  [ "$status" -ne 0 ]
+
+  run grep -E 'oci-amd-1|gcp-default-vm' "${WORKFLOW_FILE}"
+  [ "$status" -ne 0 ]
+
+  local mask_count
+  mask_count="$(grep -cF 'echo "::add-mask::${host}"' "${WORKFLOW_FILE}")"
+  [ "${mask_count}" -eq 3 ]
+
+  local oci_run gcp_run r2_run
+  oci_run="$(yq -r '.jobs.prune.steps[] | select(.name == "Prune primary OCI backup repository") | .run' "${WORKFLOW_FILE}")"
+  gcp_run="$(yq -r '.jobs.prune.steps[] | select(.name == "Prune primary GCP backup repository") | .run' "${WORKFLOW_FILE}")"
+  r2_run="$(yq -r '.jobs.prune.steps[] | select(.name == "Prune secondary Cloudflare R2 DR backup repository") | .run' "${WORKFLOW_FILE}")"
+
+  [[ "${oci_run}" == *'[ -z "${OCI_BACKUP_HOSTS}" ]'* ]] || false
+  [[ "${oci_run}" == *'::error::'* ]] || false
+  [[ "${gcp_run}" == *'[ -z "${GCP_BACKUP_HOSTS}" ]'* ]] || false
+  [[ "${gcp_run}" == *'::error::'* ]] || false
+  [[ "${r2_run}" == *'[ -z "${OCI_BACKUP_HOSTS}" ]'* ]] || false
+  [[ "${r2_run}" == *'[ -z "${GCP_BACKUP_HOSTS}" ]'* ]] || false
+  [[ "${r2_run}" == *'::error::'* ]] || false
+}
+
+@test "backup-prune workflow reports Healthchecks heartbeat with if: always() and fails closed when ping URL is missing" {
   run yq -r '.jobs.prune.steps[] | select(.name == "Report Backup Prune Heartbeat") | .if' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
   [ "$output" = "always()" ]
 
   run grep -F 'HEALTHCHECKS_BACKUP_PRUNE_PING_URL' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
+
+  local hb_run
+  hb_run="$(yq -r '.jobs.prune.steps[] | select(.name == "Report Backup Prune Heartbeat") | .run' "${WORKFLOW_FILE}")"
+  [[ "${hb_run}" == *'::error::HEALTHCHECKS_BACKUP_PRUNE_PING_URL'* ]] || false
+  [[ "${hb_run}" == *'exit 1'* ]] || false
+  [[ "${hb_run}" != *'exit 0'* ]] || false
 }

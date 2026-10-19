@@ -30,7 +30,8 @@ case "$chdir" in
   "backup_s3_endpoint": {"sensitive": true, "value": "https://ns.compat.objectstorage.eu-frankfurt-1.example.test"},
   "backup_bucket_name": {"sensitive": true, "value": "homelab-backup-oci-test"},
   "backup_prune_s3_access_key_id": {"sensitive": true, "value": "oci-prune-ak-synthetic"},
-  "backup_prune_s3_secret_access_key": {"sensitive": true, "value": "oci-prune-sk-synthetic"}
+  "backup_prune_s3_secret_access_key": {"sensitive": true, "value": "oci-prune-sk-synthetic"},
+  "ansible_inventory": {"sensitive": true, "value": {"oci-h1": {"ansible_host": "192.0.2.10"}, "oci-h2": {"ansible_host": "192.0.2.11"}}}
 }
 JSON
     ;;
@@ -40,7 +41,8 @@ JSON
   "backup_s3_endpoint": {"sensitive": true, "value": "https://storage.example.test"},
   "backup_bucket_name": {"sensitive": true, "value": "homelab-backup-gcp-test"},
   "backup_prune_hmac_access_id": {"sensitive": true, "value": "GOOG1EPRUNESYNTHETIC"},
-  "backup_prune_hmac_secret": {"sensitive": true, "value": "gcp-prune-sk-synthetic"}
+  "backup_prune_hmac_secret": {"sensitive": true, "value": "gcp-prune-sk-synthetic"},
+  "ansible_inventory": {"sensitive": true, "value": {"gcp-h1": {"ansible_host": "198.51.100.10"}}}
 }
 JSON
     ;;
@@ -136,13 +138,16 @@ STUB
   [[ "$output" =~ "OCI_RESTIC_PRUNE_ACCESS_KEY_ID" ]] || false
   [[ "$output" =~ "GCP_RESTIC_PRUNE_ACCESS_KEY_ID" ]] || false
   [[ "$output" =~ "R2_RESTIC_PRUNE_ACCESS_KEY_ID" ]] || false
+  [[ "$output" =~ "OCI_BACKUP_HOSTS" ]] || false
+  [[ "$output" =~ "GCP_BACKUP_HOSTS" ]] || false
   [[ "$output" =~ "HEALTHCHECKS_BACKUP_PRUNE_PING_URL" ]] || false
   [[ ! "$output" =~ "oci-prune-sk-synthetic" ]] || false
   [[ ! "$output" =~ "oci-restic-pass-synthetic" ]] || false
+  [[ ! "$output" =~ "oci-h1" ]] || false
   [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
 }
 
-@test "sync-ops-secrets.sh syncs all 16 restic secrets and healthchecks ping url to ops environment" {
+@test "sync-ops-secrets.sh syncs all 18 restic secrets, backup host lists, and healthchecks ping url to ops environment" {
   run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE"
   [ "$status" -eq 0 ]
   [ -f "$BATS_TEST_TMPDIR/gh.calls" ]
@@ -168,14 +173,49 @@ STUB
   run grep -F "secret set R2_RESTIC_PASSWORD --env ops --repo example-owner/infra | stdin=r2-restic-pass-synthetic" "$BATS_TEST_TMPDIR/gh.calls"
   [ "$status" -eq 0 ]
 
+  run grep -F "secret set OCI_BACKUP_HOSTS --env ops --repo example-owner/infra | stdin=oci-h1 oci-h2" "$BATS_TEST_TMPDIR/gh.calls"
+  [ "$status" -eq 0 ]
+
+  run grep -F "secret set GCP_BACKUP_HOSTS --env ops --repo example-owner/infra | stdin=gcp-h1" "$BATS_TEST_TMPDIR/gh.calls"
+  [ "$status" -eq 0 ]
+
   run grep -F "secret set HEALTHCHECKS_BACKUP_PRUNE_PING_URL --env ops --repo example-owner/infra | stdin=https://hc-ping.example.test/00000000-0000-0000-0000-000000000099" "$BATS_TEST_TMPDIR/gh.calls"
   [ "$status" -eq 0 ]
 
   # Ensure secret values are never echoed to stdout/stderr
   [[ ! "$output" =~ "oci-prune-sk-synthetic" ]] || false
   [[ ! "$output" =~ "r2-restic-pass-synthetic" ]] || false
+  [[ ! "$output" =~ "oci-h1" ]] || false
 
-  [ "$(wc -l <"$BATS_TEST_TMPDIR/gh.calls" | tr -d ' ')" -eq 16 ]
+  [ "$(wc -l <"$BATS_TEST_TMPDIR/gh.calls" | tr -d ' ')" -eq 18 ]
+}
+
+@test "sync-ops-secrets.sh validates OCI_BACKUP_HOSTS and GCP_BACKUP_HOSTS before the first gh secret write" {
+  mv "$STUB_BIN/tofu" "$STUB_BIN/tofu-real"
+  cat >"$STUB_BIN/tofu" <<'STUB'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [[ "$arg" == -chdir=*/gcp ]]; then
+    cat <<'JSON'
+{
+  "backup_s3_endpoint": {"sensitive": true, "value": "https://storage.example.test"},
+  "backup_bucket_name": {"sensitive": true, "value": "homelab-backup-gcp-test"},
+  "backup_prune_hmac_access_id": {"sensitive": true, "value": "GOOG1EPRUNESYNTHETIC"},
+  "backup_prune_hmac_secret": {"sensitive": true, "value": "gcp-prune-sk-synthetic"},
+  "ansible_inventory": {"sensitive": true, "value": {}}
+}
+JSON
+    exit 0
+  fi
+done
+exec "$(dirname "$0")/tofu-real" "$@"
+STUB
+  chmod +x "$STUB_BIN/tofu"
+
+  run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE" --repo "example-owner/infra"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "ansible_inventory" ]] || false
+  [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
 }
 
 @test "sync-ops-secrets.sh fails closed without partial sync when the prune heartbeat URL is missing" {
