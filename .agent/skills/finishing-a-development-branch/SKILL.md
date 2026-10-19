@@ -63,6 +63,8 @@ Or ask: "This branch split from main - is that correct?"
 ### Step 3: Present Options (or Execute Option 2 Automatically per `AGENTS.md` §4)
 
 > **Repository Policy (`AGENTS.md` §4):** Unless the repository owner explicitly asked for a local merge (Option 1), keeping the branch (Option 3), or discarding (Option 4) in the current session, agents **must** execute **Option 2** automatically without waiting for manual prompting—and **must** automatically add the single PR to the Merge Queue or automatically add Stacked PRs to the stack, submit them, and queue the stack for merge.
+>
+> **Owner-Review Exception:** before queueing, run `git diff --name-only origin/main...HEAD` and compare it with `.github/CODEOWNERS`. If any changed path is owner-reviewed, open the PR but do **not** queue it; tell the owner it awaits their review. For a stack, queue only the layers below the first owned layer.
 
 If asking interactively, present these 4 options:
 
@@ -116,11 +118,16 @@ git push -u origin <feature-branch>
 # Create PR using .github/pull_request_template.md with session-verified diff stat and test exit codes
 mise exec gh -- gh pr create --base main --head <feature-branch> --title "<type>(<scope>): <description>" --body-file <populated-pr-body-file>
 
-# If origin/main advanced while opening the PR, immediately rebase the PR branch on GitHub
-mise exec gh -- gh pr update-branch <pr-number> --rebase
-
-# Immediately and automatically add the single PR to the Merge Queue (squash merge once CI Gate passes)
+# Immediately and automatically add the single PR to the Merge Queue (squash merge once CI Gate passes),
+# unless it changes a .github/CODEOWNERS path (Owner-Review Exception: leave queueing to the owner)
 mise exec gh -- gh pr merge <pr-number> --auto --squash
+```
+
+The Merge Queue tests every entry against the latest `main`, so do not rebase an open PR just because `main` moved. Only when GitHub reports a merge conflict, rebase locally and update the PR:
+
+```bash
+git fetch origin main && git rebase origin/main
+git push --force-with-lease
 ```
 
 **Case B — Stacked Pull Requests (automatically add Stacked PRs to the stack, sync with `origin/main`, and queue via `gh-stack`):**
@@ -142,7 +149,8 @@ mise exec gh -- gh stack submit --auto
 # (using git diff --no-textconv --stat <parent-branch>...<layer-branch> for each layer)
 mise exec gh -- gh pr edit <layer-pr-number> --title "<type>(<scope>): <layer-description>" --body-file <layer-pr-body-file>
 
-# Immediately and automatically queue the stack (or bottom-up subset) into the GitHub Merge Queue
+# Immediately and automatically queue the stack (or bottom-up subset) into the GitHub Merge Queue;
+# stop below the first layer that changes a .github/CODEOWNERS path (Owner-Review Exception)
 # (Note: gh pr merge --auto is not supported on stacked PRs; always use gh stack merge)
 mise exec gh -- gh stack merge [<pr-or-stack>] --yes
 ```
