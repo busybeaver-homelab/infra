@@ -430,14 +430,23 @@ setup() {
   [ "$status" -eq 0 ]
   run grep "oci_restic.password" "$oci_vars"
   [ "$status" -eq 0 ]
+  run grep 'tofu_host_backup_ping_urls\[inventory_hostname\]' "$oci_vars"
+  [ "$status" -eq 0 ]
+  run grep 'tofu_host_alive_ping_urls\[inventory_hostname\]' "$oci_vars"
+  [ "$status" -eq 0 ]
 
   run grep "tofu_gcp_restic.bucket" "$gcp_vars"
   [ "$status" -eq 0 ]
   run grep "gcp_restic.password" "$gcp_vars"
   [ "$status" -eq 0 ]
+  run grep 'tofu_host_backup_ping_urls\[inventory_hostname\]' "$gcp_vars"
+  [ "$status" -eq 0 ]
+  run grep 'tofu_host_alive_ping_urls\[inventory_hostname\]' "$gcp_vars"
+  [ "$status" -eq 0 ]
   run grep 'restic_backup_credential_key: "host+tpm2"' "$gcp_vars"
   [ "$status" -eq 0 ]
 }
+
 
 @test "configuration/playbooks/cloud.yml loads OpenTofu restic outputs once on localhost with no_log and fails explicitly" {
   local cloud_pb="$REPO_ROOT/configuration/playbooks/cloud.yml"

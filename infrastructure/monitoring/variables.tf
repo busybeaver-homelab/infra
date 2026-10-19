@@ -81,3 +81,21 @@ variable "compose_targets" {
     error_message = "compose_targets must not contain duplicate target IDs."
   }
 }
+
+variable "backup_hosts" {
+  type        = list(string)
+  description = "Per-host Restic backup and host-alive target IDs matching Ansible inventory_hostname keys."
+  default     = ["oci-amd-1", "oci-amd-2", "oci-arm-1", "gcp-default-vm"]
+  sensitive   = true
+
+  validation {
+    condition     = length(var.backup_hosts) > 0 && alltrue([for h in var.backup_hosts : length(trimspace(h)) > 0 && can(regex("^[a-z0-9][a-z0-9-]*$", h))])
+    error_message = "backup_hosts must be non-empty and every host ID must match ^[a-z0-9][a-z0-9-]*$."
+  }
+
+  validation {
+    condition     = length(distinct(var.backup_hosts)) == length(var.backup_hosts)
+    error_message = "backup_hosts must not contain duplicate host IDs."
+  }
+}
+

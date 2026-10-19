@@ -62,7 +62,7 @@ Ansible role for configuring automated, encrypted, and deduplicated nightly back
         restic_backup_s3_access_key: "{{ tofu_oci_restic.s3_access_key_id }}"
         restic_backup_s3_secret_key: "{{ tofu_oci_restic.s3_secret_access_key }}"
         restic_backup_password: "{{ oci_restic.password }}"
-        restic_backup_healthchecks_ping_url: "{{ tofu_oci_restic.healthcheck_url | default('') }}"
+        restic_backup_healthchecks_ping_url: "{{ tofu_host_backup_ping_urls[inventory_hostname] | default('') }}"
 
         # Secondary DR Target (Cloudflare R2 — endpoint, bucket, and S3 keys from OpenTofu; password from SOPS)
         restic_backup_secondary_enabled: true
@@ -74,7 +74,7 @@ Ansible role for configuring automated, encrypted, and deduplicated nightly back
 
 ## Security & Secrets
 
-Object storage endpoints, bucket names, append-only S3 writer credentials, and Healthchecks ping URLs are provisioned by OpenTofu (`infrastructure/oci`, `infrastructure/gcp`, `infrastructure/cloudflare`, and `infrastructure/monitoring`) and loaded into memory at playbook runtime via `scripts/get-tofu-restic-vars.sh` (`tofu_oci_restic`, `tofu_gcp_restic`, `tofu_cloudflare_restic`). Client-side Restic repository encryption passwords (`oci_restic.password`, `gcp_restic.password`, `cloudflare_restic.password`) are supplied from the canonical SOPS files (`secrets/credentials.sops.yaml` for production, `secrets/credentials.ci.sops.yaml` for CI and Molecule) through group variables.
+Object storage endpoints, bucket names, append-only S3 writer credentials, and per-host Healthchecks ping URLs are provisioned by OpenTofu (`infrastructure/oci`, `infrastructure/gcp`, `infrastructure/cloudflare`, and `infrastructure/monitoring`) and loaded into memory at playbook runtime via `scripts/get-tofu-restic-vars.sh` (`tofu_oci_restic`, `tofu_gcp_restic`, `tofu_cloudflare_restic`, `tofu_host_backup_ping_urls`, `tofu_host_alive_ping_urls`). Client-side Restic repository encryption passwords (`oci_restic.password`, `gcp_restic.password`, `cloudflare_restic.password`) are supplied from the canonical SOPS files (`secrets/credentials.sops.yaml` for production, `secrets/credentials.ci.sops.yaml` for CI and Molecule) through group variables.
 
 Secrets (repository passwords, S3 secret keys, the Healthchecks ping URL) are stored as **systemd encrypted credentials**:
 

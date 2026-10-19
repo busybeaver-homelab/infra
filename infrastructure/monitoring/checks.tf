@@ -2,20 +2,20 @@ check "enforce_healthcheck_cadence_and_tags" {
   assert {
     condition = (
       healthchecksio_check.restic_backup.timeout <= 86400 &&
-      healthchecksio_check.oci_restic_backup.timeout <= 86400 &&
-      healthchecksio_check.gcp_restic_backup.timeout <= 86400 &&
+      alltrue([for c in healthchecksio_check.host_backup : c.timeout <= 86400]) &&
+      alltrue([for c in healthchecksio_check.host_alive : c.timeout == 1800 && c.grace == 900]) &&
       healthchecksio_check.drift_detection.timeout == 86400 &&
       healthchecksio_check.backup_prune.timeout == 604800 &&
       alltrue([for c in healthchecksio_check.compose : c.timeout == 900 && c.grace == 2700])
     )
-    error_message = "Healthcheck timeouts must adhere to 15m compose (900s), daily (<=86400s), or weekly (604800s) cadence requirements"
+    error_message = "Healthcheck timeouts must adhere to 15m compose (900s), 30m host-alive (1800s), daily (<=86400s), or weekly (604800s) cadence requirements"
   }
 
   assert {
     condition = (
       contains(healthchecksio_check.restic_backup.tags, "homelab") &&
-      contains(healthchecksio_check.oci_restic_backup.tags, "homelab") &&
-      contains(healthchecksio_check.gcp_restic_backup.tags, "homelab") &&
+      alltrue([for c in healthchecksio_check.host_backup : contains(c.tags, "homelab") && contains(c.tags, "backup") && contains(c.tags, "restic")]) &&
+      alltrue([for c in healthchecksio_check.host_alive : contains(c.tags, "homelab") && contains(c.tags, "alive")]) &&
       contains(healthchecksio_check.drift_detection.tags, "homelab") &&
       contains(healthchecksio_check.backup_prune.tags, "homelab") &&
       alltrue([for c in healthchecksio_check.compose : contains(c.tags, "homelab") && contains(c.tags, "compose")])
@@ -23,3 +23,4 @@ check "enforce_healthcheck_cadence_and_tags" {
     error_message = "Mandatory tag 'homelab' must be present on all healthchecks"
   }
 }
+

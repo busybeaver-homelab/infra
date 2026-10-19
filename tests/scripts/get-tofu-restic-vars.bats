@@ -50,8 +50,20 @@ EOF
 
   cat >"${FIXTURE_DIR}/monitoring.json" <<'EOF'
 {
-  "oci_restic_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000001" },
-  "gcp_restic_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000002" },
+  "host_backup_ping_urls": {
+    "sensitive": true,
+    "value": {
+      "h1": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000001",
+      "h2": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000002"
+    }
+  },
+  "host_alive_ping_urls": {
+    "sensitive": true,
+    "value": {
+      "h1": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000011",
+      "h2": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000012"
+    }
+  },
   "backup_prune_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000003" }
 }
 EOF
@@ -130,11 +142,15 @@ STUB
   [ "$(jq -r '.tofu_oci_restic.bucket' <<<"${output}")" = "homelab-backups-example" ]
   [ "$(jq -r '.tofu_oci_restic.s3_access_key_id' <<<"${output}")" = "oci-writer-akid-example" ]
   [ "$(jq -r '.tofu_oci_restic.s3_secret_access_key' <<<"${output}")" = "oci-writer-secret-example" ]
-  [ "$(jq -r '.tofu_oci_restic.healthcheck_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000001" ]
+  [ "$(jq -r '.tofu_oci_restic | has("healthcheck_url")' <<<"${output}")" = "false" ]
   [ "$(jq -r '.tofu_gcp_restic.s3_access_key_id' <<<"${output}")" = "GOOG1EWRITEREXAMPLE" ]
-  [ "$(jq -r '.tofu_gcp_restic.healthcheck_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000002" ]
+  [ "$(jq -r '.tofu_gcp_restic | has("healthcheck_url")' <<<"${output}")" = "false" ]
   [ "$(jq -r '.tofu_cloudflare_restic.bucket' <<<"${output}")" = "homelab-backups-dr-example" ]
   [ "$(jq -r '.tofu_cloudflare_restic.s3_access_key_id' <<<"${output}")" = "cf-r2-writer-akid-example" ]
+  [ "$(jq -r '.tofu_host_backup_ping_urls.h1' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000001" ]
+  [ "$(jq -r '.tofu_host_backup_ping_urls.h2' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000002" ]
+  [ "$(jq -r '.tofu_host_alive_ping_urls.h1' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000011" ]
+  [ "$(jq -r '.tofu_host_alive_ping_urls.h2' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000012" ]
   [ "$(jq -r 'has("backup_prune_ping_url")' <<<"${output}")" = "false" ]
 
   # Fixture mode never touches SOPS or tofu.
@@ -197,17 +213,28 @@ STUB
   [[ "$stderr" == *"ERROR: Missing required OpenTofu output backup_s3_access_key_id in module oci"* ]] || false
 }
 
-@test "get-tofu-restic-vars.sh fails closed when a Healthchecks ping URL output is missing" {
-  jq 'del(.gcp_restic_ping_url)' "${FIXTURE_DIR}/monitoring.json" >"${FIXTURE_DIR}/broken-monitoring.json"
+@test "get-tofu-restic-vars.sh fails closed when a host is missing from host_backup_ping_urls or host_alive_ping_urls" {
+  jq 'del(.host_backup_ping_urls.value.h2)' "${FIXTURE_DIR}/monitoring.json" >"${FIXTURE_DIR}/missing-host-backup.json"
 
   run --separate-stderr "${SCRIPT}" \
     --oci-json "${FIXTURE_DIR}/oci.json" \
     --gcp-json "${FIXTURE_DIR}/gcp.json" \
     --cloudflare-json "${FIXTURE_DIR}/cloudflare.json" \
-    --monitoring-json "${FIXTURE_DIR}/broken-monitoring.json"
+    --monitoring-json "${FIXTURE_DIR}/missing-host-backup.json"
   [ "$status" -ne 0 ]
   [ -z "$output" ]
-  [[ "$stderr" == *"gcp_restic_ping_url in module monitoring"* ]] || false
+  [[ "$stderr" == *"host_backup_ping_urls"* && "$stderr" == *"h2"* ]] || false
+
+  jq '.host_alive_ping_urls.value.h1 = ""' "${FIXTURE_DIR}/monitoring.json" >"${FIXTURE_DIR}/empty-host-alive.json"
+
+  run --separate-stderr "${SCRIPT}" \
+    --oci-json "${FIXTURE_DIR}/oci.json" \
+    --gcp-json "${FIXTURE_DIR}/gcp.json" \
+    --cloudflare-json "${FIXTURE_DIR}/cloudflare.json" \
+    --monitoring-json "${FIXTURE_DIR}/empty-host-alive.json"
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *"host_alive_ping_urls"* && "$stderr" == *"h1"* ]] || false
 }
 
 @test "get-tofu-restic-vars.sh live mode reads tofu outputs with SOPS backend credentials, ignoring caller AWS_* keys" {

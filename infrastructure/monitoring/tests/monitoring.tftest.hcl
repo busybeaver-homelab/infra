@@ -1,4 +1,10 @@
-mock_provider "healthchecksio" {}
+mock_provider "healthchecksio" {
+  mock_data "healthchecksio_channel" {
+    defaults = {
+      id = "00000000-0000-0000-0000-000000000001"
+    }
+  }
+}
 
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
@@ -29,13 +35,53 @@ run "verify_healthchecks_check" {
   }
 
   assert {
-    condition     = healthchecksio_check.oci_restic_backup.name == "homelab-oci-restic-backup" && contains(healthchecksio_check.oci_restic_backup.tags, "homelab") && contains(healthchecksio_check.oci_restic_backup.tags, "oci")
-    error_message = "OCI restic backup check must be configured with homelab and oci tags"
+    condition     = length(healthchecksio_check.host_backup) == 4
+    error_message = "host_backup check map must declare one check per default backup_hosts entry (4 hosts)"
   }
 
   assert {
-    condition     = healthchecksio_check.gcp_restic_backup.name == "homelab-gcp-restic-backup" && contains(healthchecksio_check.gcp_restic_backup.tags, "homelab") && contains(healthchecksio_check.gcp_restic_backup.tags, "gcp")
-    error_message = "GCP restic backup check must be configured with homelab and gcp tags"
+    condition = alltrue([
+      for h, c in healthchecksio_check.host_backup :
+      c.name == "homelab-restic-backup-${h}" &&
+      c.timeout == 86400 &&
+      c.grace == 7200 &&
+      contains(c.tags, "homelab") &&
+      contains(c.tags, "backup") &&
+      contains(c.tags, "restic") &&
+      contains(c.tags, h)
+    ])
+    error_message = "Each host_backup check must be named homelab-restic-backup-<host> with 86400s timeout, 7200s grace, and homelab/backup/restic/<host> tags"
+  }
+
+  assert {
+    condition     = length(healthchecksio_check.host_alive) == 4
+    error_message = "host_alive check map must declare one check per default backup_hosts entry (4 hosts)"
+  }
+
+  assert {
+    condition = alltrue([
+      for h, c in healthchecksio_check.host_alive :
+      c.name == "homelab-host-alive-${h}" &&
+      c.timeout == 1800 &&
+      c.grace == 900 &&
+      contains(c.tags, "homelab") &&
+      contains(c.tags, "alive") &&
+      contains(c.tags, h)
+    ])
+    error_message = "Each host_alive check must be named homelab-host-alive-<host> with 1800s timeout, 900s grace, and homelab/alive/<host> tags"
+  }
+
+  assert {
+    condition = (
+      data.healthchecksio_channel.email.kind == "email" &&
+      contains(healthchecksio_check.restic_backup.channels, data.healthchecksio_channel.email.id) &&
+      contains(healthchecksio_check.drift_detection.channels, data.healthchecksio_channel.email.id) &&
+      contains(healthchecksio_check.backup_prune.channels, data.healthchecksio_channel.email.id) &&
+      alltrue([for c in healthchecksio_check.compose : contains(c.channels, data.healthchecksio_channel.email.id)]) &&
+      alltrue([for c in healthchecksio_check.host_backup : contains(c.channels, data.healthchecksio_channel.email.id)]) &&
+      alltrue([for c in healthchecksio_check.host_alive : contains(c.channels, data.healthchecksio_channel.email.id)])
+    )
+    error_message = "Every Healthchecks.io check must wire data.healthchecksio_channel.email.id in channels (R2-OPS-03)"
   }
 
   assert {
@@ -69,6 +115,19 @@ run "verify_healthchecks_check" {
   }
 }
 
+run "verify_n_checks_for_n_backup_hosts" {
+  command = plan
+
+  variables {
+    backup_hosts = ["host-a", "host-b"]
+  }
+
+  assert {
+    condition     = length(healthchecksio_check.host_backup) == 2 && length(healthchecksio_check.host_alive) == 2
+    error_message = "N backup_hosts must produce N host_backup checks and N host_alive checks"
+  }
+}
+
 run "verify_computed_outputs_on_apply" {
   command = apply
 
@@ -83,13 +142,19 @@ run "verify_computed_outputs_on_apply" {
   }
 
   assert {
-    condition     = output.oci_restic_ping_url != ""
-    error_message = "OCI restic ping URL output must be computed on apply"
+    condition = (
+      length(output.host_backup_ping_urls) == 4 &&
+      alltrue([for k, v in output.host_backup_ping_urls : v != ""])
+    )
+    error_message = "Per-host backup ping URLs map must be computed on apply for all 4 backup_hosts"
   }
 
   assert {
-    condition     = output.gcp_restic_ping_url != ""
-    error_message = "GCP restic ping URL output must be computed on apply"
+    condition = (
+      length(output.host_alive_ping_urls) == 4 &&
+      alltrue([for k, v in output.host_alive_ping_urls : v != ""])
+    )
+    error_message = "Per-host alive ping URLs map must be computed on apply for all 4 backup_hosts"
   }
 
   assert {

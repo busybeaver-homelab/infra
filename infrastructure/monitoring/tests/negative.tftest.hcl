@@ -1,4 +1,10 @@
-mock_provider "healthchecksio" {}
+mock_provider "healthchecksio" {
+  mock_data "healthchecksio_channel" {
+    defaults = {
+      id = "00000000-0000-0000-0000-000000000001"
+    }
+  }
+}
 
 variables {
   state_encryption_passphrase = "test-only-passphrase-not-a-secret-0001"
@@ -122,5 +128,41 @@ run "reject_duplicate_compose_target_id" {
 
   expect_failures = [
     var.compose_targets,
+  ]
+}
+
+run "reject_empty_backup_hosts_list" {
+  command = plan
+
+  variables {
+    backup_hosts = []
+  }
+
+  expect_failures = [
+    var.backup_hosts,
+  ]
+}
+
+run "reject_invalid_backup_host_id" {
+  command = plan
+
+  variables {
+    backup_hosts = ["oci-amd-1", "Invalid_Host"]
+  }
+
+  expect_failures = [
+    var.backup_hosts,
+  ]
+}
+
+run "reject_duplicate_backup_host_id" {
+  command = plan
+
+  variables {
+    backup_hosts = ["oci-amd-1", "gcp-default-vm", "oci-amd-1"]
+  }
+
+  expect_failures = [
+    var.backup_hosts,
   ]
 }
