@@ -111,6 +111,12 @@ is_encrypted() {
   [ "$status" -eq 0 ]
   run grep -F ".agents/skills/gh-stack/SKILL.md" "$agents"
   [ "$status" -eq 0 ]
+  run grep -F "Automated Pull Request Creation, Stacking, and Merge Queue Enrollment:" "$agents"
+  [ "$status" -eq 0 ]
+  run grep -F "Single PR — Automatic Merge Queue Enrollment:" "$agents"
+  [ "$status" -eq 0 ]
+  run grep -F "Stacked PRs — Automatic Stack Registration, Submission, and Queueing:" "$agents"
+  [ "$status" -eq 0 ]
 
   local ci_rb="${REPO_ROOT}/docs/runbooks/ci-workflows-standards.md"
   if is_encrypted "$ci_rb"; then
@@ -119,5 +125,9 @@ is_encrypted() {
   run grep -E "^(#{3,4} |\*\*)STD-CI-73" "$ci_rb"
   [ "$status" -eq 0 ]
   run grep -F "gh stack merge" "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "automatically add the single PR to the Merge Queue" "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "automatically add Stacked PRs to the stack" "$ci_rb"
   [ "$status" -eq 0 ]
 }
