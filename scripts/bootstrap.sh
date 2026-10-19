@@ -89,6 +89,19 @@ if [ -d ".git-crypt" ] && command -v git-crypt &>/dev/null; then
   fi
 fi
 
+# 3d. Ensure github/gh-stack CLI extension is installed for Stacked Pull Requests (STD-CI-73)
+log_info "Checking GitHub CLI 'github/gh-stack' extension..."
+if mise exec gh -- gh extension list 2>/dev/null | grep -Fq "github/gh-stack"; then
+  log_info "GitHub CLI extension 'github/gh-stack' is already installed."
+else
+  log_info "Installing GitHub CLI extension 'github/gh-stack'..."
+  if mise exec gh -- gh extension install github/gh-stack &>/dev/null; then
+    log_info "Successfully installed 'github/gh-stack' extension."
+  else
+    log_warn "Could not install 'github/gh-stack' (ensure 'gh auth login' is configured, then run 'mise exec gh -- gh extension install github/gh-stack')."
+  fi
+fi
+
 # 4. Generate initial age key for SOPS
 AGE_KEY_DIR="$HOME/.config/sops/age"
 AGE_KEY_FILE="$AGE_KEY_DIR/keys.txt"

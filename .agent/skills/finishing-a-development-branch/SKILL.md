@@ -100,24 +100,40 @@ git branch -d <feature-branch>
 
 Then: Cleanup worktree (Step 5)
 
-#### Option 2: Push and Create PR
+#### Option 2: Push and Create PR (Single PR or Stacked PRs + Merge Queue)
+
+**Case A — Single Pull Request (default for single-concern tasks):**
 
 ```bash
 # Push branch
 git push -u origin <feature-branch>
 
-# Create PR
-gh pr create --title "<title>" --body "$(cat <<'EOF'
-## Summary
-<2-3 bullets of what changed>
+# Create PR using .github/pull_request_template.md with session-verified diff stat and test exit codes
+gh pr create --base main --head <feature-branch> --title "<type>(<scope>): <description>" --body-file <populated-pr-body-file>
 
-## Test Plan
-- [ ] <verification steps>
-EOF
-)"
+# Queue PR in the GitHub Merge Queue (squash merge once CI Gate passes)
+gh pr merge <pr-number> --auto --squash
 ```
 
-Then: Cleanup worktree (Step 5)
+**Case B — Stacked Pull Requests (multi-layer tasks via `gh-stack` skill):**
+
+```bash
+# Ensure every layer branch uses <type>/<scope>/<short-desc> naming before submitting
+gh stack view
+
+# Push all stack branches and open/retarget PRs automatically
+gh stack submit --auto
+
+# Populate each layer PR's Conventional Commit title and .github/pull_request_template.md body
+# (using git diff --no-textconv --stat <parent-branch>...<layer-branch> for each layer)
+gh pr edit <layer-pr-number> --title "<type>(<scope>): <layer-description>" --body-file <layer-pr-body-file>
+
+# Queue the stack (or bottom-up subset) into the GitHub Merge Queue
+# (Note: gh pr merge --auto is not supported on stacked PRs; always use gh stack merge)
+gh stack merge [<pr-or-stack>] --yes
+```
+
+Then: Keep worktree until queued PR(s) merge (Step 5)
 
 #### Option 3: Keep As-Is
 

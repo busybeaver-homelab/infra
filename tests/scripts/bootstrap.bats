@@ -97,3 +97,10 @@ teardown() {
   run git -C "${REPO_ROOT}" grep -nE 'curl [^|]*Authorization:[[:space:]]*Bearer|tailscale[[:space:]]+up[^\n]*--authkey=' -- 'scripts/' 'infrastructure/' 'configuration/' 'mise.toml'
   [ "$status" -eq 1 ]
 }
+
+@test "bootstrap.sh checks and installs github/gh-stack CLI extension (STD-CI-73)" {
+  run grep -F "github/gh-stack" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -eq 0 ]
+  run grep -F "gh extension install github/gh-stack" "${BOOTSTRAP_SCRIPT}"
+  [ "$status" -eq 0 ]
+}

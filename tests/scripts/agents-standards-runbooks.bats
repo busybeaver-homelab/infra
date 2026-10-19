@@ -102,3 +102,22 @@ is_encrypted() {
     [ "$status" -eq 1 ]
   done
 }
+
+@test "AGENTS.md and ci-workflows-standards.md document Merge Queues and Stacked Pull Requests (STD-CI-73)" {
+  local agents="${REPO_ROOT}/AGENTS.md"
+  run grep -F "gh pr merge" "$agents"
+  [ "$status" -eq 0 ]
+  run grep -F "gh stack merge" "$agents"
+  [ "$status" -eq 0 ]
+  run grep -F ".agents/skills/gh-stack/SKILL.md" "$agents"
+  [ "$status" -eq 0 ]
+
+  local ci_rb="${REPO_ROOT}/docs/runbooks/ci-workflows-standards.md"
+  if is_encrypted "$ci_rb"; then
+    skip "runbooks are git-crypt encrypted in this checkout"
+  fi
+  run grep -E "^(#{3,4} |\*\*)STD-CI-73" "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "gh stack merge" "$ci_rb"
+  [ "$status" -eq 0 ]
+}

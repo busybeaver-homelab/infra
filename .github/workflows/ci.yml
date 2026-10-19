@@ -6,7 +6,18 @@ on:
     branches: [main]
   pull_request:
     types: [opened, edited, synchronize, reopened]
-    branches: [main]
+    branches:
+      - main
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "docs/**"
+      - "refactor/**"
+      - "test/**"
+      - "ci/**"
+      - "perf/**"
+      - "style/**"
+      - "build/**"
   merge_group:
     types: [checks_requested]
     branches: [main]
