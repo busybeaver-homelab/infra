@@ -49,6 +49,11 @@ run "verify_backup_bucket_and_lifecycle" {
   }
 
   assert {
+    condition     = oci_objectstorage_bucket.backups.versioning == "Disabled"
+    error_message = "Backup bucket versioning must remain Disabled for append-only uploader posture (OD-4)"
+  }
+
+  assert {
     condition     = length(oci_objectstorage_object_lifecycle_policy.backups.rules) > 0
     error_message = "Backup bucket must have at least one lifecycle rule"
   }

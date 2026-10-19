@@ -1,0 +1,167 @@
+---
+name: Restic DR Copy
+
+on:
+  schedule:
+    # Run daily at 04:30 UTC (after nightly 03:00 UTC + 30m jitter host backups finish)
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+    inputs:
+      init:
+        description: "Initialize missing R2 DR repositories (--copy-chunker-params) before copying"
+        required: false
+        default: false
+        type: boolean
+
+# Explicitly restrict default GITHUB_TOKEN permissions to empty at the top-level
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dr-copy:
+    name: Restic Primary-to-R2 DR Copy
+    runs-on: ubuntu-26.04
+    environment: ops
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Environment
+        uses: $/.github/actions/setup-environment
+
+      - name: Cache Restic Repository Metadata
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/restic
+          key: restic-dr-copy-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            restic-dr-copy-${{ runner.os }}-
+
+      - name: Copy Latest Primary Snapshots to Cloudflare R2 DR
+        id: copy
+        env:
+          INIT_REPOS: ${{ github.event_name == 'workflow_dispatch' && inputs.init && 'true' || 'false' }}
+          OCI_BACKUP_HOSTS: ${{ secrets.OCI_BACKUP_HOSTS }}
+          GCP_BACKUP_HOSTS: ${{ secrets.GCP_BACKUP_HOSTS }}
+          OCI_ENDPOINT: ${{ secrets.OCI_RESTIC_S3_ENDPOINT }}
+          OCI_BUCKET: ${{ secrets.OCI_RESTIC_BUCKET }}
+          OCI_ACCESS_KEY: ${{ secrets.OCI_RESTIC_PRUNE_ACCESS_KEY_ID }}
+          OCI_SECRET_KEY: ${{ secrets.OCI_RESTIC_PRUNE_SECRET_ACCESS_KEY }}
+          OCI_PASS: ${{ secrets.OCI_RESTIC_PASSWORD }}
+          GCP_ENDPOINT: ${{ secrets.GCP_RESTIC_S3_ENDPOINT }}
+          GCP_BUCKET: ${{ secrets.GCP_RESTIC_BUCKET }}
+          GCP_ACCESS_KEY: ${{ secrets.GCP_RESTIC_PRUNE_ACCESS_KEY_ID }}
+          GCP_SECRET_KEY: ${{ secrets.GCP_RESTIC_PRUNE_SECRET_ACCESS_KEY }}
+          GCP_PASS: ${{ secrets.GCP_RESTIC_PASSWORD }}
+          R2_ENDPOINT: ${{ secrets.R2_RESTIC_S3_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_RESTIC_BUCKET }}
+          R2_ACCESS_KEY: ${{ secrets.R2_RESTIC_PRUNE_ACCESS_KEY_ID }}
+          R2_SECRET_KEY: ${{ secrets.R2_RESTIC_PRUNE_SECRET_ACCESS_KEY }}
+          R2_PASS: ${{ secrets.R2_RESTIC_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          # Fail closed if any required credential or repository coordinate is missing
+          required_vars=(
+            OCI_BACKUP_HOSTS GCP_BACKUP_HOSTS
+            OCI_ENDPOINT OCI_BUCKET OCI_ACCESS_KEY OCI_SECRET_KEY OCI_PASS
+            GCP_ENDPOINT GCP_BUCKET GCP_ACCESS_KEY GCP_SECRET_KEY GCP_PASS
+            R2_ENDPOINT R2_BUCKET R2_ACCESS_KEY R2_SECRET_KEY R2_PASS
+          )
+          for var_name in "${required_vars[@]}"; do
+            if [[ -z "${!var_name:-}" ]]; then
+              echo "::error::Required secret ${var_name} is empty or unset (run 'mise run github:sync:ops')."
+              exit 1
+            fi
+            echo "::add-mask::${!var_name}"
+          done
+
+          read -r -a oci_hosts <<< "${OCI_BACKUP_HOSTS}"
+          read -r -a gcp_hosts <<< "${GCP_BACKUP_HOSTS}"
+          if [[ ${#oci_hosts[@]} -eq 0 || ${#gcp_hosts[@]} -eq 0 ]]; then
+            echo "::error::OCI_BACKUP_HOSTS and GCP_BACKUP_HOSTS must each contain at least one host."
+            exit 1
+          fi
+
+          # Mask internal hostnames so they never appear in public GitHub Actions logs
+          for host in "${oci_hosts[@]}" "${gcp_hosts[@]}"; do
+            echo "::add-mask::${host}"
+          done
+
+          copy_latest() {
+            local src_repo="$1"
+            local src_key_id="$2"
+            local src_secret_key="$3"
+            local src_password="$4"
+            local dst_repo="$5"
+
+            (
+              export RESTIC_REPOSITORY="${dst_repo}"
+              export RESTIC_PASSWORD="${R2_PASS}"
+              export RESTIC_FROM_REPOSITORY="${src_repo}"
+              export RESTIC_FROM_PASSWORD="${src_password}"
+              export AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY}"
+              export AWS_SECRET_ACCESS_KEY="${R2_SECRET_KEY}"
+
+              if [[ "${INIT_REPOS}" == "true" ]]; then
+                local cat_rc=0
+                mise exec -- restic -r "${dst_repo}" --retry-lock 5m cat config >/dev/null 2>&1 || cat_rc=$?
+                if [[ ${cat_rc} -eq 10 ]]; then
+                  AWS_ACCESS_KEY_ID="${src_key_id}" \
+                  AWS_SECRET_ACCESS_KEY="${src_secret_key}" \
+                  mise exec -- restic -r "${dst_repo}" --retry-lock 2h init --from-repo "${src_repo}" --copy-chunker-params
+                elif [[ ${cat_rc} -ne 0 ]]; then
+                  echo "::error::Failed to inspect destination R2 DR repository (exit ${cat_rc})."
+                  exit "${cat_rc}"
+                fi
+              fi
+
+              AWS_ACCESS_KEY_ID="${src_key_id}" \
+              AWS_SECRET_ACCESS_KEY="${src_secret_key}" \
+              mise exec -- restic -r "${dst_repo}" --retry-lock 2h copy --from-repo "${src_repo}" latest
+            )
+          }
+
+          for host in "${oci_hosts[@]}"; do
+            copy_latest "s3:${OCI_ENDPOINT}/${OCI_BUCKET}/${host}" \
+              "${OCI_ACCESS_KEY}" "${OCI_SECRET_KEY}" "${OCI_PASS}" \
+              "s3:${R2_ENDPOINT}/${R2_BUCKET}/dr/${host}"
+          done
+
+          for host in "${gcp_hosts[@]}"; do
+            copy_latest "s3:${GCP_ENDPOINT}/${GCP_BUCKET}/${host}" \
+              "${GCP_ACCESS_KEY}" "${GCP_SECRET_KEY}" "${GCP_PASS}" \
+              "s3:${R2_ENDPOINT}/${R2_BUCKET}/dr/${host}"
+          done
+
+      - name: Report DR Copy Heartbeat
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          PING_URL: ${{ secrets.HEALTHCHECKS_DR_COPY_PING_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${PING_URL:-}" ]]; then
+            echo "::error::HEALTHCHECKS_DR_COPY_PING_URL secret is not configured in the ops environment (run 'mise run github:sync:ops')"
+            exit 1
+          fi
+          echo "::add-mask::${PING_URL}"
+          PING_URL="${PING_URL%/}"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            curl -fsS -m 10 --retry 3 "${PING_URL}" >/dev/null
+          else
+            curl -fsS -m 10 --retry 3 "${PING_URL}/fail" >/dev/null
+          fi

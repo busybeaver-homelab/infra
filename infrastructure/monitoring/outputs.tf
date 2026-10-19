@@ -34,6 +34,12 @@ output "backup_prune_ping_url" {
   sensitive   = true
 }
 
+output "dr_copy_ping_url" {
+  value       = healthchecksio_check.dr_copy.ping_url
+  description = "Unique ping URL for daily Restic pull-model DR copy workflow dead-man switch."
+  sensitive   = true
+}
+
 output "ci_schedule_ping_url" {
   value       = healthchecksio_check.ci_schedule.ping_url
   description = "Unique ping URL for weekly scheduled CI workflow dead-man switch."

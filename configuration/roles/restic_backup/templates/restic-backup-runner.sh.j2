@@ -155,13 +155,6 @@ if ! execute_target "primary" "{{ restic_backup_config_dir }}/primary.env" resti
   FAILED_TARGETS+=("primary")
 fi
 
-{% if restic_backup_secondary_enabled %}
-if ! execute_target "secondary" "{{ restic_backup_config_dir }}/secondary.env" restic_secondary_password cloudflare_s3_secret_key; then
-  log "Error: Target 'secondary' failed" >&2
-  FAILED_TARGETS+=("secondary")
-fi
-{% endif %}
-
 if [ {{ '${#' }}FAILED_TARGETS[@]} -ne 0 ]; then
   log "Backup finished with failure(s) in: ${FAILED_TARGETS[*]}" >&2
   exit 1

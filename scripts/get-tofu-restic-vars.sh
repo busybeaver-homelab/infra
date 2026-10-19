@@ -4,13 +4,17 @@
 # ==============================================================================
 # Reads sensitive OpenTofu outputs from infrastructure/{oci,gcp,cloudflare,monitoring}
 # in memory (or from JSON fixture files during testing) and emits a single JSON
-# object on stdout with keys `tofu_oci_restic`, `tofu_gcp_restic`,
-# `tofu_cloudflare_restic`, and (in writer mode) `tofu_host_backup_ping_urls`
-# and `tofu_host_alive_ping_urls`:
+# object on stdout:
 #
-#   --mode writer  append-only host writer keys + per-host Healthchecks ping URLs
+#   --mode writer  append-only primary host writer keys (`tofu_oci_restic`,
+#                  `tofu_gcp_restic`) + per-host Healthchecks ping URLs
+#                  (`tofu_host_backup_ping_urls`, `tofu_host_alive_ping_urls`);
+#                  never reads infrastructure/cloudflare outputs
 #                  (consumed by configuration/playbooks/cloud.yml)
-#   --mode prune   delete-capable pruner keys + top-level `backup_prune_ping_url`
+#   --mode prune   delete-capable pruner/DR keys (`tofu_oci_restic`,
+#                  `tofu_gcp_restic`, `tofu_cloudflare_restic`) + top-level
+#                  `backup_prune_ping_url`, `dr_copy_ping_url`,
+#                  `ci_schedule_ping_url`, and `codeql_schedule_ping_url`
 #                  (consumed by scripts/sync-ops-secrets.sh and the restore drill)
 #
 # Live mode always resolves the R2 state backend credentials and the state
@@ -178,13 +182,23 @@ read_module_json() {
 }
 
 # Resolve backend secrets once in this shell; read_module_json runs in subshells.
-if [[ -z "${OCI_JSON_FILE}" || -z "${GCP_JSON_FILE}" || -z "${CLOUDFLARE_JSON_FILE}" || -z "${MONITORING_JSON_FILE}" ]]; then
-  load_backend_env
+if [[ "${MODE}" == "writer" ]]; then
+  if [[ -z "${OCI_JSON_FILE}" || -z "${GCP_JSON_FILE}" || -z "${MONITORING_JSON_FILE}" ]]; then
+    load_backend_env
+  fi
+else
+  if [[ -z "${OCI_JSON_FILE}" || -z "${GCP_JSON_FILE}" || -z "${CLOUDFLARE_JSON_FILE}" || -z "${MONITORING_JSON_FILE}" ]]; then
+    load_backend_env
+  fi
 fi
 
 oci_raw="$(read_module_json "oci" "${OCI_JSON_FILE}")"
 gcp_raw="$(read_module_json "gcp" "${GCP_JSON_FILE}")"
-cf_raw="$(read_module_json "cloudflare" "${CLOUDFLARE_JSON_FILE}")"
+if [[ "${MODE}" == "prune" ]]; then
+  cf_raw="$(read_module_json "cloudflare" "${CLOUDFLARE_JSON_FILE}")"
+else
+  cf_raw="{}"
+fi
 mon_raw="$(read_module_json "monitoring" "${MONITORING_JSON_FILE}")"
 
 # Slurp the four documents from a pipe so no output value ever appears on argv.
@@ -235,12 +249,6 @@ printf '%s\n%s\n%s\n%s\n' "${oci_raw}" "${gcp_raw}" "${cf_raw}" "${mon_raw}" |
         s3_access_key_id: req($gcp; "gcp"; "backup_hmac_access_id"),
         s3_secret_access_key: req($gcp; "gcp"; "backup_hmac_secret")
       },
-      tofu_cloudflare_restic: {
-        s3_endpoint: req($cf; "cloudflare"; "r2_backup_endpoint"),
-        bucket: req($cf; "cloudflare"; "r2_backup_bucket_name"),
-        s3_access_key_id: req($cf; "cloudflare"; "r2_restic_writer_s3_access_key_id"),
-        s3_secret_access_key: req($cf; "cloudflare"; "r2_restic_writer_s3_secret_access_key")
-      },
       tofu_host_backup_ping_urls: req_host_map($mon; "monitoring"; "host_backup_ping_urls"; $expected_hosts),
       tofu_host_alive_ping_urls: req_host_map($mon; "monitoring"; "host_alive_ping_urls"; $expected_hosts)
     }
@@ -268,6 +276,7 @@ printf '%s\n%s\n%s\n%s\n' "${oci_raw}" "${gcp_raw}" "${cf_raw}" "${mon_raw}" |
       oci_hosts: req_hosts($oci; "oci"),
       gcp_hosts: req_hosts($gcp; "gcp"),
       backup_prune_ping_url: req($mon; "monitoring"; "backup_prune_ping_url"),
+      dr_copy_ping_url: req($mon; "monitoring"; "dr_copy_ping_url"),
       ci_schedule_ping_url: req($mon; "monitoring"; "ci_schedule_ping_url"),
       codeql_schedule_ping_url: req($mon; "monitoring"; "codeql_schedule_ping_url")
     }

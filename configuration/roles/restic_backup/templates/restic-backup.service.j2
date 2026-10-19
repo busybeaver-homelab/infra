@@ -16,12 +16,6 @@ LoadCredentialEncrypted=restic_password:{{ restic_backup_credstore_dir }}/restic
 {% if restic_backup_s3_secret_key | default('') | length > 0 %}
 LoadCredentialEncrypted=primary_s3_secret_key:{{ restic_backup_credstore_dir }}/primary_s3_secret_key
 {% endif %}
-{% if restic_backup_secondary_enabled | bool %}
-LoadCredentialEncrypted=restic_secondary_password:{{ restic_backup_credstore_dir }}/restic_secondary_password
-{% if restic_backup_secondary_s3_secret_key | default('') | length > 0 %}
-LoadCredentialEncrypted=cloudflare_s3_secret_key:{{ restic_backup_credstore_dir }}/cloudflare_s3_secret_key
-{% endif %}
-{% endif %}
 {% if restic_backup_healthchecks_ping_url | default('') | length > 0 %}
 LoadCredentialEncrypted=healthchecks_ping_url:{{ restic_backup_credstore_dir }}/healthchecks_ping_url
 {% endif %}

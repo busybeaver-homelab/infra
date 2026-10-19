@@ -53,6 +53,7 @@ Declarative monitoring and heartbeat check resources managed via OpenTofu and th
 | [healthchecksio_check.ci_schedule](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)     | resource    |
 | [healthchecksio_check.codeql_schedule](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check) | resource    |
 | [healthchecksio_check.compose](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)         | resource    |
+| [healthchecksio_check.dr_copy](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)         | resource    |
 | [healthchecksio_check.drift_detection](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check) | resource    |
 | [healthchecksio_check.host_alive](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)      | resource    |
 | [healthchecksio_check.host_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)     | resource    |
@@ -80,6 +81,7 @@ Declarative monitoring and heartbeat check resources managed via OpenTofu and th
 | <a name="output_ci_schedule_ping_url"></a> [ci\_schedule\_ping\_url](#output_ci_schedule_ping_url)             | Unique ping URL for weekly scheduled CI workflow dead-man switch.                       |
 | <a name="output_codeql_schedule_ping_url"></a> [codeql\_schedule\_ping\_url](#output_codeql_schedule_ping_url) | Unique ping URL for weekly scheduled CodeQL workflow dead-man switch.                   |
 | <a name="output_compose_ping_urls"></a> [compose\_ping\_urls](#output_compose_ping_urls)                       | Map of logical compose target IDs to their unique Healthchecks.io ping URLs.            |
+| <a name="output_dr_copy_ping_url"></a> [dr\_copy\_ping\_url](#output_dr_copy_ping_url)                         | Unique ping URL for daily Restic pull-model DR copy workflow dead-man switch.           |
 | <a name="output_drift_detection_ping_url"></a> [drift\_detection\_ping\_url](#output_drift_detection_ping_url) | Unique ping URL for daily OpenTofu drift detection dead-man switch.                     |
 | <a name="output_host_alive_ping_urls"></a> [host\_alive\_ping\_urls](#output_host_alive_ping_urls)             | Map of inventory hostnames to their unique host-alive Healthchecks.io ping URLs.        |
 | <a name="output_host_backup_ping_urls"></a> [host\_backup\_ping\_urls](#output_host_backup_ping_urls)          | Map of inventory hostnames to their unique Restic backup Healthchecks.io ping URLs.     |

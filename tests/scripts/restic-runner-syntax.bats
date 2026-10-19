@@ -37,7 +37,6 @@ with open(template_path, encoding="utf-8") as handle:
 rendered = template.render(
     restic_backup_config_dir=f"{tmp}/etc",
     restic_backup_paths=[f"{tmp}/data"],
-    restic_backup_secondary_enabled=False,
     restic_backup_libexec_dir=f"{tmp}/libexec",
     restic_backup_auto_init=auto_init,
 )
@@ -74,7 +73,7 @@ run_runner() {
     bash "${BATS_TMPDIR}/runner.sh"
 }
 
-@test "rendered runner passes bash syntax check and shellcheck" {
+@test "rendered runner passes bash syntax check and shellcheck and contains no secondary target logic" {
   render_runner
   run bash -n "${BATS_TMPDIR}/runner.sh"
   [ "$status" -eq 0 ]
@@ -82,6 +81,8 @@ run_runner() {
     run shellcheck -s bash "${BATS_TMPDIR}/runner.sh"
     [ "$status" -eq 0 ]
   fi
+  run grep -i "secondary" "${RUNNER_TEMPLATE}"
+  [ "$status" -ne 0 ]
 }
 
 @test "runner succeeds and sends a success heartbeat when all restic steps succeed" {

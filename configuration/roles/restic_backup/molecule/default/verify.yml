@@ -38,7 +38,7 @@
     - name: Stat restic environment files
       ansible.builtin.stat:
         path: "/etc/restic/{{ item }}"
-      loop: [backup.env, primary.env, secondary.env]
+      loop: [backup.env, primary.env]
       register: restic_backup_env_stats
 
     - name: Assert environment files permissions and ownership
@@ -55,7 +55,7 @@
     - name: Read restic environment files
       ansible.builtin.slurp:
         src: "/etc/restic/{{ item }}"
-      loop: [backup.env, primary.env, secondary.env]
+      loop: [backup.env, primary.env]
       register: restic_backup_env_contents
 
     - name: Assert environment files carry no secrets or secret paths
@@ -85,7 +85,7 @@
     - name: Stat encrypted credentials
       ansible.builtin.stat:
         path: "{{ restic_backup_test_credstore }}/{{ item }}"
-      loop: [restic_password, restic_secondary_password, healthchecks_ping_url]
+      loop: [restic_password, healthchecks_ping_url]
       register: restic_backup_credential_stats
 
     - name: Assert encrypted credentials exist read-only for root
@@ -127,17 +127,20 @@
       register: restic_backup_unused_credential_stat
       failed_when: restic_backup_unused_credential_stat.stat.exists
 
-    - name: Stat legacy plaintext and tmpfs secret files
+    - name: Stat legacy plaintext, tmpfs, and host-side DR secret files
       ansible.builtin.stat:
         path: "{{ item }}"
       loop:
         - /etc/restic/password
         - /etc/restic/password-secondary
+        - /etc/restic/secondary.env
         - /run/secrets/restic_password
         - /run/secrets/healthchecks_ping_url
+        - "{{ restic_backup_test_credstore }}/restic_secondary_password"
+        - "{{ restic_backup_test_credstore }}/cloudflare_s3_secret_key"
       register: restic_backup_legacy_stats
 
-    - name: Assert no plaintext secret files remain
+    - name: Assert no plaintext or host-side DR secret files remain
       ansible.builtin.assert:
         that:
           - not item.stat.exists
@@ -160,7 +163,8 @@
           - "'TimeoutStartSec=4h' in (restic_backup_service_content.content | b64decode)"
           - "'OnFailure=restic-backup-failure@%n.service' in (restic_backup_service_content.content | b64decode)"
           - "'LoadCredentialEncrypted=restic_password:' in (restic_backup_service_content.content | b64decode)"
-          - "'LoadCredentialEncrypted=restic_secondary_password:' in (restic_backup_service_content.content | b64decode)"
+          - "'LoadCredentialEncrypted=restic_secondary_password:' not in (restic_backup_service_content.content | b64decode)"
+          - "'LoadCredentialEncrypted=cloudflare_s3_secret_key:' not in (restic_backup_service_content.content | b64decode)"
           - "'LoadCredentialEncrypted=healthchecks_ping_url:' in (restic_backup_service_content.content | b64decode)"
           - "'LoadCredential=' not in (restic_backup_service_content.content | b64decode)"
 
@@ -297,20 +301,6 @@
         that:
           - "'scheduled' in restic_backup_primary_snapshots_stat.stdout"
           - "'primary' in restic_backup_primary_snapshots_stat.stdout"
-
-    - name: Verify secondary restic snapshot was recorded
-      ansible.builtin.command: restic snapshots
-      environment:
-        RESTIC_REPOSITORY: "/var/cache/restic/secondary-repo"
-        RESTIC_PASSWORD_COMMAND: "systemd-creds decrypt {{ restic_backup_test_credstore }}/restic_secondary_password -"
-      register: restic_backup_secondary_snapshots_stat
-      changed_when: false
-
-    - name: Assert secondary snapshot contains scheduled and secondary tags
-      ansible.builtin.assert:
-        that:
-          - "'scheduled' in restic_backup_secondary_snapshots_stat.stdout"
-          - "'secondary' in restic_backup_secondary_snapshots_stat.stdout"
 
     - name: List non-root container data in the latest primary snapshot
       ansible.builtin.command:

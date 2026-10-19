@@ -177,8 +177,8 @@ setup() {
   [[ "$output" =~ "configuration/.galaxy/collections" ]] || false
 }
 
-@test "drift-detection and backup-prune invoke setup-environment with lean defaults and codeql enables python for uv scanners" {
-  for wf in drift-detection.yml backup-prune.yml; do
+@test "drift-detection, backup-prune, and backup-dr-copy invoke setup-environment with lean defaults and codeql enables python for uv scanners" {
+  for wf in drift-detection.yml backup-prune.yml backup-dr-copy.yml; do
     run grep -F "uses: $/.github/actions/setup-environment" "$REPO_ROOT/.github/workflows/$wf"
     [ "$status" -eq 0 ]
 

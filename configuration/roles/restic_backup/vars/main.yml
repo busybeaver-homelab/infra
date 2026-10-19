@@ -11,24 +11,22 @@ restic_backup_credentials:
   - name: primary_s3_secret_key
     value: "{{ restic_backup_s3_secret_key }}"
     enabled: "{{ restic_backup_s3_secret_key | default('') | length > 0 }}"
-  - name: restic_secondary_password
-    value: "{{ restic_backup_secondary_password }}"
-    enabled: "{{ restic_backup_secondary_enabled | bool }}"
-  - name: cloudflare_s3_secret_key
-    value: "{{ restic_backup_secondary_s3_secret_key }}"
-    enabled: "{{ (restic_backup_secondary_enabled | bool) and (restic_backup_secondary_s3_secret_key | default('') | length > 0) }}"
   - name: healthchecks_ping_url
     value: "{{ restic_backup_healthchecks_ping_url }}"
     enabled: "{{ restic_backup_healthchecks_ping_url | default('') | length > 0 }}"
 
-# Files written by earlier releases of this role (plaintext on disk or tmpfs).
-# They are removed on every run so no plaintext copy survives the migration.
+# Files written by earlier releases of this role (plaintext on disk, tmpfs, or
+# former host-push secondary R2 credentials retired by OD-4).
+# They are removed on every run so no obsolete copy survives the migration.
 restic_backup_legacy_secret_paths:
   - /etc/restic/password
   - /etc/restic/password-secondary
+  - "{{ restic_backup_config_dir }}/secondary.env"
   - /run/secrets/restic_password
   - /run/secrets/restic_secondary_password
   - /run/secrets/oci_s3_secret_key
   - /run/secrets/cloudflare_s3_secret_key
   - /run/secrets/healthchecks_ping_url
   - "{{ restic_backup_credstore_dir }}/oci_s3_secret_key"
+  - "{{ restic_backup_credstore_dir }}/restic_secondary_password"
+  - "{{ restic_backup_credstore_dir }}/cloudflare_s3_secret_key"

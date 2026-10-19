@@ -6,7 +6,7 @@
 #trivy:ignore:AVD-GCP-0078
 resource "google_storage_bucket" "backups" {
   #checkov:skip=CKV_GCP_62:Dedicated access-log buckets consume the 5 GB Always Free storage quota
-  #checkov:skip=CKV_GCP_78:Restic manages client-side snapshot versioning and append-only IAM prevents object deletion during backups
+  #checkov:skip=CKV_GCP_78:OD-4 (2026-10-19): the uploader identity is append-only (create/read/list); versioning would keep prune churn against the Always Free storage cap.
   name                        = "${var.gcp_project_id}-homelab-backups"
   location                    = var.gcp_region
   project                     = var.gcp_project_id
@@ -25,13 +25,8 @@ resource "google_storage_bucket" "backups" {
     enabled = false
   }
 
-  lifecycle_rule {
-    condition {
-      days_since_noncurrent_time = 30
-    }
-    action {
-      type = "Delete"
-    }
+  soft_delete_policy {
+    retention_duration_seconds = 604800
   }
 
   lifecycle_rule {

@@ -121,24 +121,6 @@
   no_log: true
   become: true
 
-- name: Deploy secondary restic backup environment file
-  ansible.builtin.template:
-    src: secondary.env.j2
-    dest: "{{ restic_backup_config_dir }}/secondary.env"
-    owner: root
-    group: root
-    mode: "0600"
-  when: restic_backup_secondary_enabled | bool
-  no_log: true
-  become: true
-
-- name: Remove secondary restic backup environment file when disabled
-  ansible.builtin.file:
-    path: "{{ restic_backup_config_dir }}/secondary.env"
-    state: absent
-  when: not (restic_backup_secondary_enabled | bool)
-  become: true
-
 - name: Deploy restic backup exclusion patterns
   ansible.builtin.template:
     src: excludes.txt.j2

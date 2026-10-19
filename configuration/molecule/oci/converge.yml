@@ -19,11 +19,6 @@
       bucket: "molecule-gcp-backups"
       s3_access_key_id: "GOOG1EMOLECULEKEYID"
       s3_secret_access_key: "molecule-gcp-hmac-secret-key"
-    tofu_cloudflare_restic:
-      s3_endpoint: "https://00000000000000000000000000000000.r2.example.test"
-      bucket: "molecule-r2-backups-dr"
-      s3_access_key_id: "molecule-r2-access-key-id"
-      s3_secret_access_key: "molecule-r2-secret-access-key"
     tofu_host_backup_ping_urls:
       oci-ubuntu-server-26: "https://hc-ping.example.test/00000000-0000-0000-0000-000000000001"
     tofu_host_alive_ping_urls:

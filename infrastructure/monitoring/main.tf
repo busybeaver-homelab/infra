@@ -51,6 +51,15 @@ resource "healthchecksio_check" "backup_prune" {
   channels = [data.healthchecksio_channel.email.id]
 }
 
+resource "healthchecksio_check" "dr_copy" {
+  name     = "homelab-restic-dr-copy"
+  desc     = "Daily Restic pull-model disaster recovery copy workflow dead-man switch"
+  timeout  = 86400
+  grace    = 7200
+  tags     = distinct(concat(var.check_tags, ["homelab", "ci", "backup", "dr"]))
+  channels = [data.healthchecksio_channel.email.id]
+}
+
 resource "healthchecksio_check" "ci_schedule" {
   name     = "homelab-ci-schedule"
   desc     = "Weekly scheduled CI workflow dead-man switch"

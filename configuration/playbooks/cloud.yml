@@ -59,7 +59,7 @@
             msg: >-
               scripts/get-tofu-restic-vars.sh exited with rc={{ _tofu_restic_vars_raw.rc | default('unknown') }}.
               Run it manually from the repository root to see the error (output is hidden here),
-              then initialise or apply infrastructure/{oci,gcp,cloudflare,monitoring} as reported.
+              then initialise or apply infrastructure/{oci,gcp,monitoring} as reported.
           run_once: true
 
     # The run_once registration above is applied to every host, so each host parses it.
@@ -67,7 +67,6 @@
       ansible.builtin.set_fact:
         tofu_oci_restic: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_oci_restic }}"
         tofu_gcp_restic: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_gcp_restic }}"
-        tofu_cloudflare_restic: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_cloudflare_restic }}"
         tofu_host_backup_ping_urls: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_host_backup_ping_urls }}"
         tofu_host_alive_ping_urls: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_host_alive_ping_urls }}"
       no_log: true
@@ -86,11 +85,6 @@
           - tofu_gcp_restic.bucket | default('') | length > 0
           - tofu_gcp_restic.s3_access_key_id | default('') | length > 0
           - tofu_gcp_restic.s3_secret_access_key | default('') | length > 0
-          - tofu_cloudflare_restic is defined
-          - tofu_cloudflare_restic.s3_endpoint | default('') | length > 0
-          - tofu_cloudflare_restic.bucket | default('') | length > 0
-          - tofu_cloudflare_restic.s3_access_key_id | default('') | length > 0
-          - tofu_cloudflare_restic.s3_secret_access_key | default('') | length > 0
           - tofu_host_backup_ping_urls is defined
           - tofu_host_backup_ping_urls[inventory_hostname] is defined
           - tofu_host_backup_ping_urls[inventory_hostname] | string | length > 0
@@ -99,9 +93,9 @@
           - tofu_host_alive_ping_urls[inventory_hostname] | string | length > 0
         fail_msg: >-
           OpenTofu Restic backup and per-host monitoring variables (tofu_oci_restic, tofu_gcp_restic,
-          tofu_cloudflare_restic, tofu_host_backup_ping_urls[{{ inventory_hostname }}],
+          tofu_host_backup_ping_urls[{{ inventory_hostname }}],
           tofu_host_alive_ping_urls[{{ inventory_hostname }}]) are missing or incomplete.
-          Ensure infrastructure/oci, infrastructure/gcp, infrastructure/cloudflare, and
+          Ensure infrastructure/oci, infrastructure/gcp, and
           infrastructure/monitoring have been applied.
         quiet: true
       no_log: true
