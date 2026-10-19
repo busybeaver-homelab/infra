@@ -19,7 +19,7 @@ override_data {
             "work-laptop": {
               "title": "work-laptop",
               "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
-              "read_only": true
+              "read_only": false
             }
           }
         }
@@ -67,7 +67,7 @@ run "mutate_deploy_keys" {
       "work-laptop" = {
         title     = "work-laptop"
         key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000"
-        read_only = true
+        read_only = false
       }
       "backup-runner" = {
         title     = "backup-runner"
