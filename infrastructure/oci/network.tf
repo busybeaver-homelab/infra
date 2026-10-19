@@ -39,13 +39,9 @@ resource "oci_core_security_list" "private" {
   display_name   = "homelab-private-sl"
   freeform_tags  = local.effective_tags
 
-  egress_security_rules {
-    destination = "0.0.0.0/0"
-    protocol    = "all"
-    description = "Allow all outbound internet traffic via NAT gateway"
-  }
-
-  # Dropped broad VCN-wide allow-all ingress rule in favor of granular NSGs on instance VNICs.
+  # OCI evaluates the union of subnet security lists and VNIC NSGs. Both broad VCN-wide
+  # ingress and allow-all egress rules are omitted here so VNIC traffic is governed
+  # exclusively by the granular NSG allow-list (R2-TF-05, STD-OT-48).
   # ICMP type 3 code 4 is retained for Path MTU Discovery (PMTUD).
   ingress_security_rules {
     protocol    = "1"

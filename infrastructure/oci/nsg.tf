@@ -114,3 +114,55 @@ resource "oci_core_network_security_group_security_rule" "egress_tailscale_wireg
     }
   }
 }
+
+# Outbound STUN for Tailscale NAT traversal
+resource "oci_core_network_security_group_security_rule" "egress_tailscale_stun" {
+  network_security_group_id = oci_core_network_security_group.homelab.id
+  direction                 = "EGRESS"
+  protocol                  = "17" # UDP
+  destination               = "0.0.0.0/0"
+  destination_type          = "CIDR_BLOCK"
+  description               = "Allow outbound Tailscale STUN UDP traffic"
+
+  udp_options {
+    destination_port_range {
+      min = 3478
+      max = 3478
+    }
+  }
+}
+
+# Outbound NTP for chrony time synchronization
+resource "oci_core_network_security_group_security_rule" "egress_ntp" {
+  network_security_group_id = oci_core_network_security_group.homelab.id
+  direction                 = "EGRESS"
+  protocol                  = "17" # UDP
+  destination               = "0.0.0.0/0"
+  destination_type          = "CIDR_BLOCK"
+  description               = "Allow outbound NTP UDP traffic"
+
+  udp_options {
+    destination_port_range {
+      min = 123
+      max = 123
+    }
+  }
+}
+
+# Outbound HTTP for Ubuntu/OCI archive mirrors and redirects
+resource "oci_core_network_security_group_security_rule" "egress_http" {
+  network_security_group_id = oci_core_network_security_group.homelab.id
+  direction                 = "EGRESS"
+  protocol                  = "6" # TCP
+  destination               = "0.0.0.0/0"
+  destination_type          = "CIDR_BLOCK"
+  description               = "Allow outbound HTTP traffic for package mirrors"
+
+  tcp_options {
+    destination_port_range {
+      min = 80
+      max = 80
+    }
+  }
+}
+

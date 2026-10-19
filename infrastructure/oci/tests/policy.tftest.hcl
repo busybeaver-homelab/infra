@@ -70,6 +70,57 @@ run "policy_invariants" {
   }
 
   assert {
+    condition     = length(oci_core_security_list.private.egress_security_rules) == 0
+    error_message = "Private security list must not define egress_security_rules so VNIC egress is governed exclusively by the NSG allow-list (R2-TF-05, STD-OT-48)."
+  }
+
+  assert {
+    condition = (
+      oci_core_network_security_group_security_rule.egress_tailscale_stun.direction == "EGRESS" &&
+      oci_core_network_security_group_security_rule.egress_tailscale_stun.protocol == "17" &&
+      oci_core_network_security_group_security_rule.egress_tailscale_stun.destination == "0.0.0.0/0" &&
+      oci_core_network_security_group_security_rule.egress_tailscale_stun.udp_options[0].destination_port_range[0].min == 3478 &&
+      oci_core_network_security_group_security_rule.egress_tailscale_stun.udp_options[0].destination_port_range[0].max == 3478
+    )
+    error_message = "NSG must define egress_tailscale_stun allowing outbound UDP 3478 to 0.0.0.0/0 (R2-TF-05)."
+  }
+
+  assert {
+    condition = (
+      oci_core_network_security_group_security_rule.egress_ntp.direction == "EGRESS" &&
+      oci_core_network_security_group_security_rule.egress_ntp.protocol == "17" &&
+      oci_core_network_security_group_security_rule.egress_ntp.destination == "0.0.0.0/0" &&
+      oci_core_network_security_group_security_rule.egress_ntp.udp_options[0].destination_port_range[0].min == 123 &&
+      oci_core_network_security_group_security_rule.egress_ntp.udp_options[0].destination_port_range[0].max == 123
+    )
+    error_message = "NSG must define egress_ntp allowing outbound UDP 123 to 0.0.0.0/0 (R2-TF-05)."
+  }
+
+  assert {
+    condition = (
+      oci_core_network_security_group_security_rule.egress_http.direction == "EGRESS" &&
+      oci_core_network_security_group_security_rule.egress_http.protocol == "6" &&
+      oci_core_network_security_group_security_rule.egress_http.destination == "0.0.0.0/0" &&
+      oci_core_network_security_group_security_rule.egress_http.tcp_options[0].destination_port_range[0].min == 80 &&
+      oci_core_network_security_group_security_rule.egress_http.tcp_options[0].destination_port_range[0].max == 80
+    )
+    error_message = "NSG must define egress_http allowing outbound TCP 80 to 0.0.0.0/0 (R2-TF-05)."
+  }
+
+  assert {
+    condition = toset([
+      oci_core_network_security_group_security_rule.egress_https.tcp_options[0].destination_port_range[0].min,
+      oci_core_network_security_group_security_rule.egress_dns_udp.udp_options[0].destination_port_range[0].min,
+      oci_core_network_security_group_security_rule.egress_dns_tcp.tcp_options[0].destination_port_range[0].min,
+      oci_core_network_security_group_security_rule.egress_tailscale_wireguard.udp_options[0].destination_port_range[0].min,
+      oci_core_network_security_group_security_rule.egress_tailscale_stun.udp_options[0].destination_port_range[0].min,
+      oci_core_network_security_group_security_rule.egress_ntp.udp_options[0].destination_port_range[0].min,
+      oci_core_network_security_group_security_rule.egress_http.tcp_options[0].destination_port_range[0].min,
+    ]) == toset([443, 53, 41641, 3478, 123, 80])
+    error_message = "NSG egress destination port set must equal {443, 53, 41641, 3478, 123, 80} (R2-TF-05)."
+  }
+
+  assert {
     condition = (
       alltrue([
         for i in oci_core_instance.amd :
