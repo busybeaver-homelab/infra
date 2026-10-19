@@ -428,10 +428,16 @@ run "ruleset_bypass_and_required_check_follow_owner_decision" {
   }
 
   assert {
-    condition = anytrue([
-      for t in github_repository_ruleset.main_protection.rules[0].required_code_scanning[0].required_code_scanning_tool :
-      t.tool == "CodeQL" && t.alerts_threshold == "errors" && t.security_alerts_threshold == "high_or_higher"
-    ])
-    error_message = "Main branch ruleset must require CodeQL code scanning with alerts_threshold = errors and security_alerts_threshold = high_or_higher (R2-CI-07)."
+    condition = (
+      toset([
+        for t in github_repository_ruleset.main_protection.rules[0].required_code_scanning[0].required_code_scanning_tool :
+        t.tool
+      ]) == toset(["CodeQL", "Trivy", "checkov", "shellcheck", "zizmor"]) &&
+      alltrue([
+        for t in github_repository_ruleset.main_protection.rules[0].required_code_scanning[0].required_code_scanning_tool :
+        t.alerts_threshold == "errors" && t.security_alerts_threshold == "high_or_higher"
+      ])
+    )
+    error_message = "Main branch ruleset must require all SARIF code scanning tools (CodeQL, Trivy, checkov, shellcheck, zizmor) with alerts_threshold = errors and security_alerts_threshold = high_or_higher (R2-CI-07)."
   }
 }
