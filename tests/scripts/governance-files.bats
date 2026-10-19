@@ -210,3 +210,42 @@ is_owned() {
   run grep -F -- '-b "$BRANCH_NAME" origin/main' "$wt_skill"
   [ "$status" -eq 0 ]
 }
+
+@test "AGENTS.md defines R2-GOV-05 operational hard rules and no root CLAUDE.md exists (R2-GOV-05, OD-1)" {
+  local agents="${REPO_ROOT}/AGENTS.md"
+  [ -f "$agents" ]
+  [ ! -e "${REPO_ROOT}/CLAUDE.md" ]
+
+  local heading
+  for heading in \
+    "Prohibited commands" \
+    "Per-action human confirmation" \
+    "No silent secret fallbacks" \
+    "Derived stores"; do
+    run grep -F "$heading" "$agents"
+    [ "$status" -eq 0 ]
+  done
+
+  local cmd
+  for cmd in \
+    "sops -d" \
+    "sops decrypt" \
+    "tofu state pull" \
+    "tofu show" \
+    "tofu output" \
+    "git-crypt export-key" \
+    "generate-inventory.sh" \
+    "get-tofu-restic-vars.sh" \
+    "tofu apply" \
+    "destroy" \
+    "import" \
+    "state mv|rm" \
+    "ansible-playbook" \
+    "mise run github:sync*" \
+    "sync:cloudflare:budget" \
+    "scripts/bootstrap-state-backend.sh"; do
+    run grep -F "$cmd" "$agents"
+    [ "$status" -eq 0 ]
+  done
+}
+
