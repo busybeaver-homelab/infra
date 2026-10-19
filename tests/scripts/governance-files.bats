@@ -185,3 +185,13 @@ is_owned() {
   rm -f "$tmp_lock"
 }
 
+@test "finishing-a-development-branch skill documents single-PR Merge Queue and Stacked PR workflows (STD-CI-73)" {
+  local skill="${REPO_ROOT}/.agent/skills/finishing-a-development-branch/SKILL.md"
+  [ -f "$skill" ]
+  run grep -F "gh pr merge" "$skill"
+  [ "$status" -eq 0 ]
+  run grep -F "gh stack submit --auto" "$skill"
+  [ "$status" -eq 0 ]
+  run grep -F "gh stack merge" "$skill"
+  [ "$status" -eq 0 ]
+}

@@ -25,12 +25,14 @@
     "gh": {
       "source": "cli/cli",
       "sourceType": "github",
+      "sourceRef": "4537a92f3352c8c4c1fd1b8febba1596059fc9e0",
       "skillPath": "skills/gh/SKILL.md",
       "computedHash": "4480787fbaede3a8e9599e8006426007137bf60a048493151f1669a85a154b4f"
     },
     "gh-stack": {
       "source": "github/gh-stack",
       "sourceType": "github",
+      "sourceRef": "7cb154450f413291a51ba0b9c69e064edde56a98",
       "skillPath": "skills/gh-stack/SKILL.md",
       "computedHash": "6a5289601eedbeedc2d79c2d8627277afb9b9a3fbd78b4da3399a46dd788ae0a"
     },

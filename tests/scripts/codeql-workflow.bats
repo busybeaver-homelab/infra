@@ -118,3 +118,18 @@ assert "shellcheck" in categories
   [[ "$output" =~ "results_sarif.sarif" ]]
 }
 
+@test "codeql.yml pull_request triggers on main and stacked PR base branch patterns (STD-CI-02, STD-CI-73)" {
+  run yq '.on.pull_request.types | join(",")' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"opened"* ]] || false
+  [[ "$output" == *"edited"* ]] || false
+  [[ "$output" == *"synchronize"* ]] || false
+  [[ "$output" == *"reopened"* ]] || false
+
+  local pattern
+  for pattern in main "feat/**" "fix/**" "chore/**" "docs/**" "refactor/**" "test/**" "ci/**" "perf/**" "style/**" "build/**"; do
+    run yq ".on.pull_request.branches[] | select(. == \"${pattern}\")" "$WORKFLOW"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$pattern" ]
+  done
+}
