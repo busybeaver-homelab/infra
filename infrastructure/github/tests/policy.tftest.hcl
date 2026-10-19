@@ -19,7 +19,7 @@ override_data {
             "work-laptop": {
               "title": "work-laptop",
               "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
-              "read_only": true
+              "read_only": false
             }
           }
         }
@@ -80,8 +80,8 @@ run "policy_invariants" {
       keys(local.ci_environment_secrets) == ["SOPS_AGE_KEY_CI"] &&
       !contains(keys(local.backup_environment_secrets), "SOPS_AGE_KEY_CI") &&
       !contains(keys(local.ops_environment_secrets), "SOPS_AGE_KEY_CI") &&
-      alltrue([for k in values(module.repository["infra"].deploy_keys) : k.read_only == true])
+      module.repository["infra"].deploy_keys["work-laptop"].read_only == false
     )
-    error_message = "GitHub Actions permissions must require SHA pinning on selected actions, deploy keys must be read-only, and CI Age key must stay isolated to the ci environment (STD-OT-52, STD-OT-59)."
+    error_message = "GitHub Actions permissions must require SHA pinning on selected actions, deploy key must retain read-write permissions to push code, and CI Age key must stay isolated to the ci environment (STD-OT-52, STD-OT-59)."
   }
 }

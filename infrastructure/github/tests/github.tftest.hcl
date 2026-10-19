@@ -19,7 +19,7 @@ override_data {
             "work-laptop": {
               "title": "work-laptop",
               "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
-              "read_only": true
+              "read_only": false
             }
           }
         }
@@ -167,8 +167,8 @@ run "verify_github_root_hardening" {
   }
 
   assert {
-    condition     = contains(keys(module.repository["infra"].deploy_keys), "work-laptop") && module.repository["infra"].deploy_keys["work-laptop"].read_only == true
-    error_message = "Deploy key work-laptop must be registered from SOPS and strictly read_only"
+    condition     = contains(keys(module.repository["infra"].deploy_keys), "work-laptop") && module.repository["infra"].deploy_keys["work-laptop"].read_only == false
+    error_message = "Deploy key work-laptop must be registered from SOPS with read_only = false (read-write permissions required to push code)"
   }
 }
 

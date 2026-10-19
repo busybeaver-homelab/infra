@@ -14,7 +14,7 @@ run "verify_repository_child_module" {
       "work-laptop" = {
         title     = "work-laptop"
         key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000"
-        read_only = true
+        read_only = false
       }
     }
   }
@@ -135,8 +135,8 @@ run "verify_repository_child_module" {
   }
 
   assert {
-    condition     = github_repository_deploy_key.deploy_keys["work-laptop"].read_only == true
-    error_message = "Deploy key work-laptop must enforce read_only = true (R2-TF-08)"
+    condition     = github_repository_deploy_key.deploy_keys["work-laptop"].read_only == false
+    error_message = "Deploy key work-laptop must support read_only = false (read-write permissions required to push code)"
   }
 
   assert {

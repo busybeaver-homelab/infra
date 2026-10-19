@@ -324,7 +324,7 @@ run "reject_sops_age_key_ci_in_ops_environment" {
   ]
 }
 
-run "reject_writable_deploy_key" {
+run "accept_writable_deploy_key" {
   command = plan
 
   variables {
@@ -337,9 +337,10 @@ run "reject_writable_deploy_key" {
     }
   }
 
-  expect_failures = [
-    var.deploy_keys,
-  ]
+  assert {
+    condition     = github_repository_deploy_key.deploy_keys["writable"].read_only == false
+    error_message = "Writable deploy keys (read_only = false) must be accepted because write access is required to push code."
+  }
 }
 
 run "reject_deploy_key_with_email_comment" {

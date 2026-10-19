@@ -39,10 +39,10 @@ The repository configuration implements defense-in-depth across multiple layers:
 - **Least-Privilege Workflow Permissions:** Defaults to `read` permissions across all workflows (`default_workflow_permissions = "read"`).
 - **PR Approval Lockdown:** Workflows are forbidden from approving pull requests (`can_approve_pull_request_reviews = false`).
 
-### 3. Deploy Keys (`STD-OT-16`, `STD-OT-47`)
+### 3. Deploy Keys (`R2-TF-08`)
 
-- Declarative deploy keys are sourced from `github.deploy_keys` in SOPS (`secrets/credentials.sops.yaml`) or `var.deploy_keys` (default `{}`).
-- Every deploy key must be read-only (`read_only = true`, `STD-OT-47`) and must not contain an `@` email comment (`STD-OT-16`).
+- Declarative deploy keys are sourced from `github.config.deploy_keys` in SOPS (`secrets/credentials.sops.yaml`) or `var.deploy_keys` (default `{}`).
+- Deploy keys support read-write permissions (`read_only = false`), which are required to push code, and must not contain an `@` email comment (`R2-TF-08`).
 
 ### 4. REST API Synchronization (`mise run github:sync`)
 

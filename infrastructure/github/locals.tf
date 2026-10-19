@@ -19,6 +19,7 @@ locals {
   repositories = nonsensitive(try(local.github_config.repositories, {}))
 
   # Deploy keys: use explicit variable override if non-empty, else read from SOPS github.config.deploy_keys (R2-TF-08).
+  # Read-write permissions (`read_only = false`) are required on the deploy key to push code.
   deploy_keys = length(var.deploy_keys) > 0 ? var.deploy_keys : try(local.github_config.deploy_keys, {})
 
   # The single CI age identity (decrypts only secrets/credentials.ci.sops.yaml).

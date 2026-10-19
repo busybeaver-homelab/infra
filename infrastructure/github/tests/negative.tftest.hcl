@@ -177,24 +177,6 @@ run "reject_shared_ci_secret_value_in_ops_secrets" {
   ]
 }
 
-run "reject_writable_deploy_key" {
-  command = plan
-
-  variables {
-    deploy_keys = {
-      "writable-key" = {
-        title     = "writable-key"
-        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000"
-        read_only = false
-      }
-    }
-  }
-
-  expect_failures = [
-    var.deploy_keys,
-  ]
-}
-
 run "reject_deploy_key_with_email_comment" {
   command = plan
 
@@ -203,7 +185,7 @@ run "reject_deploy_key_with_email_comment" {
       "email-key" = {
         title     = "email-key"
         key       = format("%s %s%s%s", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000", "user", "\u0040", "example.test")
-        read_only = true
+        read_only = false
       }
     }
   }

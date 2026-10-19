@@ -111,10 +111,7 @@ variable "deploy_keys" {
   sensitive   = true
   default     = {}
 
-  validation {
-    condition     = alltrue([for k, v in var.deploy_keys : v.read_only == true])
-    error_message = "All deploy keys must enforce read_only = true (R2-TF-08)."
-  }
+  # Note: read-write permissions (`read_only = false`) are permitted and required on the deploy key to push code.
 
   validation {
     condition     = alltrue([for k, v in var.deploy_keys : !can(regex("@", v.key))])
