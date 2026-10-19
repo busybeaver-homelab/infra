@@ -267,7 +267,9 @@ printf '%s\n%s\n%s\n%s\n' "${oci_raw}" "${gcp_raw}" "${cf_raw}" "${mon_raw}" |
       },
       oci_hosts: req_hosts($oci; "oci"),
       gcp_hosts: req_hosts($gcp; "gcp"),
-      backup_prune_ping_url: req($mon; "monitoring"; "backup_prune_ping_url")
+      backup_prune_ping_url: req($mon; "monitoring"; "backup_prune_ping_url"),
+      ci_schedule_ping_url: req($mon; "monitoring"; "ci_schedule_ping_url"),
+      codeql_schedule_ping_url: req($mon; "monitoring"; "codeql_schedule_ping_url")
     }
   end
 '

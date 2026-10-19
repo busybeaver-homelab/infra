@@ -51,6 +51,24 @@ resource "healthchecksio_check" "backup_prune" {
   channels = [data.healthchecksio_channel.email.id]
 }
 
+resource "healthchecksio_check" "ci_schedule" {
+  name     = "homelab-ci-schedule"
+  desc     = "Weekly scheduled CI workflow dead-man switch"
+  timeout  = 604800
+  grace    = 7200
+  tags     = distinct(concat(var.check_tags, ["homelab", "ci", "schedule"]))
+  channels = [data.healthchecksio_channel.email.id]
+}
+
+resource "healthchecksio_check" "codeql_schedule" {
+  name     = "homelab-codeql-schedule"
+  desc     = "Weekly scheduled CodeQL and security scanning workflow dead-man switch"
+  timeout  = 604800
+  grace    = 7200
+  tags     = distinct(concat(var.check_tags, ["homelab", "ci", "codeql", "schedule"]))
+  channels = [data.healthchecksio_channel.email.id]
+}
+
 resource "healthchecksio_check" "compose" {
   for_each = toset(nonsensitive(var.compose_targets))
 

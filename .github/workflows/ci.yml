@@ -482,3 +482,36 @@ jobs:
             exit 1
           fi
           echo "All CI jobs succeeded or were cleanly skipped. Gate passed."
+
+  heartbeat:
+    name: Report Scheduled Run Heartbeat
+    if: always() && github.event_name == 'schedule'
+    needs:
+      - ci-gate
+    runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
+    environment: ops
+    permissions: {}
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Report Scheduled CI Heartbeat
+        env:
+          HEALTHCHECKS_PING_URL: ${{ secrets.HEALTHCHECKS_CI_SCHEDULE_PING_URL }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          if [ -z "${HEALTHCHECKS_PING_URL:-}" ]; then
+            echo "::error::Missing required ops environment secret: HEALTHCHECKS_CI_SCHEDULE_PING_URL" >&2
+            exit 1
+          fi
+          echo "::add-mask::${HEALTHCHECKS_PING_URL}"
+          PING_URL="${HEALTHCHECKS_PING_URL%/}"
+          echo "::add-mask::${PING_URL}"
+          SUFFIX="/fail"
+          if [ "$(printf '%s' "${NEEDS_JSON}" | jq -r '[.[].result == "success"] | all')" = "true" ]; then
+            SUFFIX=""
+          fi
+          curl -fsS -m 10 --retry 3 "${PING_URL}${SUFFIX}" >/dev/null

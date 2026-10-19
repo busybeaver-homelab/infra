@@ -34,6 +34,18 @@ output "backup_prune_ping_url" {
   sensitive   = true
 }
 
+output "ci_schedule_ping_url" {
+  value       = healthchecksio_check.ci_schedule.ping_url
+  description = "Unique ping URL for weekly scheduled CI workflow dead-man switch."
+  sensitive   = true
+}
+
+output "codeql_schedule_ping_url" {
+  value       = healthchecksio_check.codeql_schedule.ping_url
+  description = "Unique ping URL for weekly scheduled CodeQL workflow dead-man switch."
+  sensitive   = true
+}
+
 output "compose_ping_urls" {
   value       = { for k, v in healthchecksio_check.compose : k => v.ping_url }
   description = "Map of logical compose target IDs to their unique Healthchecks.io ping URLs."
