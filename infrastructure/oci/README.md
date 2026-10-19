@@ -30,7 +30,10 @@
 | [oci_core_network_security_group.homelab](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group)                                                 | resource    |
 | [oci_core_network_security_group_security_rule.egress_dns_tcp](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)              | resource    |
 | [oci_core_network_security_group_security_rule.egress_dns_udp](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)              | resource    |
+| [oci_core_network_security_group_security_rule.egress_http](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)                 | resource    |
 | [oci_core_network_security_group_security_rule.egress_https](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)                | resource    |
+| [oci_core_network_security_group_security_rule.egress_ntp](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)                  | resource    |
+| [oci_core_network_security_group_security_rule.egress_tailscale_stun](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)       | resource    |
 | [oci_core_network_security_group_security_rule.egress_tailscale_wireguard](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)  | resource    |
 | [oci_core_network_security_group_security_rule.ingress_admin_ssh](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule)           | resource    |
 | [oci_core_network_security_group_security_rule.ingress_tailscale_wireguard](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/core_network_security_group_security_rule) | resource    |
