@@ -12,34 +12,6 @@ check "enforce_mandatory_project_label" {
   }
 }
 
-check "enforce_always_free_instance_compliance" {
-  assert {
-    condition     = var.gcp_instance_type == "e2-micro" && google_compute_instance.default.machine_type == "e2-micro"
-    error_message = "Only e2-micro instance shape is permitted under GCP Always Free Tier"
-  }
-}
-
-check "enforce_always_free_region_compliance" {
-  assert {
-    condition     = contains(["us-central1", "us-east1", "us-west1"], var.gcp_region) && startswith(var.gcp_zone, "${var.gcp_region}-")
-    error_message = "GCP region and zone must be in an Always Free tier region (us-central1, us-east1, us-west1)"
-  }
-}
-
-check "enforce_always_free_disk_compliance" {
-  assert {
-    condition     = var.gcp_boot_disk_type == "pd-standard" && var.gcp_boot_disk_size_gb >= 10 && var.gcp_boot_disk_size_gb <= 30
-    error_message = "Boot disk must be pd-standard between 10 and 30 GB under GCP Always Free Tier"
-  }
-}
-
-check "enforce_always_free_network_tier_compliance" {
-  assert {
-    condition     = google_compute_instance.default.network_interface[0].access_config[0].network_tier == "STANDARD"
-    error_message = "External IP access_config must use STANDARD network tier to remain within Always Free limits"
-  }
-}
-
 check "enforce_shielded_vm_posture" {
   assert {
     condition     = google_compute_instance.default.shielded_instance_config[0].enable_secure_boot == true && google_compute_instance.default.shielded_instance_config[0].enable_vtpm == true && google_compute_instance.default.shielded_instance_config[0].enable_integrity_monitoring == true

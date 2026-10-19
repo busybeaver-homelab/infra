@@ -31,6 +31,13 @@ variable "budget_contact_emails" {
     )
     error_message = "At least one valid budget contact email address must be provided."
   }
+
+  validation {
+    condition = alltrue([
+      for email in var.budget_contact_emails : !can(regex("(?i)@example\\.(com|org|net)$", email))
+    ])
+    error_message = "budget_contact_emails must use real notification recipient addresses, not placeholder @example.com/.org/.net addresses (STD-OT-41)."
+  }
 }
 
 variable "state_encryption_passphrase" {

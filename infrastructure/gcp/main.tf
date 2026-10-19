@@ -100,6 +100,31 @@ resource "google_compute_instance" "default" {
 
   lifecycle {
     prevent_destroy = var.enable_prevent_destroy
+
+    # Always Free Compute Engine: 1 non-preemptible e2-micro instance per month in
+    # us-central1, us-east1, or us-west1, with up to 30 GB-months of pd-standard storage
+    # and STANDARD network tier.
+    # Source: https://cloud.google.com/free/docs/free-cloud-features#compute (verified 2026-10-14)
+    precondition {
+      condition     = var.gcp_instance_type == "e2-micro"
+      error_message = "Only e2-micro instance shape is permitted under GCP Always Free Tier."
+    }
+
+    precondition {
+      condition     = contains(["us-central1", "us-east1", "us-west1"], var.gcp_region) && startswith(var.gcp_zone, "${var.gcp_region}-")
+      error_message = "GCP region and zone must be in an Always Free tier region (us-central1, us-east1, us-west1)."
+    }
+
+    precondition {
+      condition     = var.gcp_boot_disk_type == "pd-standard" && var.gcp_boot_disk_size_gb >= 10 && var.gcp_boot_disk_size_gb <= 30
+      error_message = "Boot disk must be pd-standard between 10 and 30 GB under GCP Always Free Tier."
+    }
+
+    precondition {
+      condition     = var.gcp_network_tier == "STANDARD"
+      error_message = "External IP access_config must use STANDARD network tier to remain within Always Free limits."
+    }
+
     ignore_changes = [
       metadata["user-data"],                   # cloud-init runs once; re-rendering must not replace the VM
       boot_disk[0].initialize_params[0].image, # image updates are rolled out deliberately, not on every plan

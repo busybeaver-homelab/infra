@@ -55,4 +55,14 @@ resource "google_billing_budget" "monthly_spend_limit" {
     ]
     disable_default_iam_recipients = false
   }
+
+  lifecycle {
+    precondition {
+      condition = (
+        length(local.budget_alert_recipients) > 0 &&
+        alltrue([for r in local.budget_alert_recipients : !can(regex("(?i)@example\\.(com|org|net)$", r))])
+      )
+      error_message = "Resolved GCP budget_alert_recipients must contain at least one real email address and no @example.(com|org|net) placeholder (STD-OT-41)."
+    }
+  }
 }

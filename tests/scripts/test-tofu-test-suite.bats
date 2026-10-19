@@ -147,3 +147,8 @@ setup() {
     [ "$status" -ne 0 ]
   done
 }
+
+@test "infrastructure/oci does not declare orphan oci_ons_* notification resources (R2-OPS-03)" {
+  run grep -E 'resource[[:space:]]+"oci_ons_' "$REPO_ROOT"/infrastructure/oci/*.tf
+  [ "$status" -ne 0 ]
+}

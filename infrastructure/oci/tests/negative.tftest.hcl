@@ -309,3 +309,33 @@ run "reject_empty_ssh_public_key" {
     var.ssh_public_key,
   ]
 }
+
+run "reject_example_domain_budget_recipient" {
+  command = plan
+
+  variables {
+    budget_alert_recipients = "ops@example.com"
+  }
+
+  expect_failures = [
+    var.budget_alert_recipients,
+  ]
+}
+
+run "reject_empty_resolved_budget_alert_recipients" {
+  command = plan
+
+  override_data {
+    target = data.external.sops_config
+    values = {
+      result = {
+        json = "{}"
+      }
+    }
+  }
+
+  expect_failures = [
+    oci_budget_alert_rule.threshold_alert,
+    oci_budget_alert_rule.forecast_budget_alert,
+  ]
+}

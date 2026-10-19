@@ -121,9 +121,20 @@ variable "forecast_budget_alert_threshold" {
 
 variable "budget_alert_recipients" {
   type        = string
-  description = "Email address(es) to receive budget alert notifications (comma-separated)."
+  description = "Email address(es) to receive budget alert notifications (comma-separated, sourced from SOPS oci.config.budget_alert_recipients when null)."
   sensitive   = true
-  default     = "admin@example.com"
+  nullable    = true
+  default     = null
+
+  validation {
+    condition = (
+      var.budget_alert_recipients == null || (
+        length(trimspace(var.budget_alert_recipients)) > 0 &&
+        !can(regex("(?i)@example\\.(com|org|net)(\\b|$)", var.budget_alert_recipients))
+      )
+    )
+    error_message = "budget_alert_recipients must be null (sourced from SOPS oci.config.budget_alert_recipients) or a real email recipient list (not @example.com/.org/.net)."
+  }
 }
 
 variable "vcn_cidr" {

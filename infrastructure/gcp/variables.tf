@@ -55,10 +55,8 @@ variable "gcp_instance_type" {
   sensitive   = false
 
   validation {
-    # Always Free Compute Engine: 1 non-preemptible e2-micro instance per month.
-    # Source: https://cloud.google.com/free/docs/free-cloud-features#compute (verified 2026-10-14)
-    condition     = var.gcp_instance_type == "e2-micro"
-    error_message = "Instance type must be 'e2-micro' to comply with GCP Always Free Tier policy."
+    condition     = length(trimspace(var.gcp_instance_type)) > 0
+    error_message = "The gcp_instance_type must not be empty."
   }
 }
 
@@ -69,10 +67,8 @@ variable "gcp_boot_disk_size_gb" {
   sensitive   = false
 
   validation {
-    # Always Free Compute Engine: up to 30 GB-months of Standard persistent disk (pd-standard).
-    # Source: https://cloud.google.com/free/docs/free-cloud-features#compute (verified 2026-10-14)
-    condition     = var.gcp_boot_disk_size_gb >= 10 && var.gcp_boot_disk_size_gb <= 30
-    error_message = "Boot disk size must be between 10 and 30 GB to comply with GCP Always Free Tier policy."
+    condition     = var.gcp_boot_disk_size_gb >= 10
+    error_message = "Boot disk size must be at least 10 GB (Ubuntu minimal boot image requirement)."
   }
 }
 
@@ -83,8 +79,8 @@ variable "gcp_boot_disk_type" {
   sensitive   = false
 
   validation {
-    condition     = var.gcp_boot_disk_type == "pd-standard"
-    error_message = "Boot disk type must be 'pd-standard' to comply with GCP Always Free Tier policy."
+    condition     = length(trimspace(var.gcp_boot_disk_type)) > 0
+    error_message = "The gcp_boot_disk_type must not be empty."
   }
 }
 
@@ -95,8 +91,8 @@ variable "gcp_network_tier" {
   sensitive   = false
 
   validation {
-    condition     = var.gcp_network_tier == "STANDARD"
-    error_message = "Network tier must be 'STANDARD' to avoid Premium tier egress charges."
+    condition     = contains(["STANDARD", "PREMIUM"], var.gcp_network_tier)
+    error_message = "Network tier must be a valid GCP network service tier ('STANDARD' or 'PREMIUM')."
   }
 }
 
@@ -114,13 +110,18 @@ variable "gcp_billing_account_id" {
 
 variable "budget_alert_recipients" {
   type        = list(string)
-  description = "Optional list of email addresses to receive GCP budget alert notifications (overrides SOPS gcp.budget_alert_recipients if non-empty)."
+  description = "Optional list of email addresses to receive GCP budget alert notifications (overrides SOPS gcp.config.budget_alert_recipients if non-empty)."
   sensitive   = true
   default     = []
 
   validation {
     condition     = alltrue([for r in var.budget_alert_recipients : can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", r))])
     error_message = "All entries in budget_alert_recipients must be valid email addresses."
+  }
+
+  validation {
+    condition     = alltrue([for r in var.budget_alert_recipients : !can(regex("(?i)@example\\.(com|org|net)$", r))])
+    error_message = "budget_alert_recipients must not use placeholder @example.com/.org/.net domains (STD-OT-41)."
   }
 }
 
