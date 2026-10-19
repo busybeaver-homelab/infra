@@ -1,5 +1,6 @@
 mock_provider "oci" {}
 mock_provider "sops" {}
+mock_provider "tailscale" {}
 
 mock_provider "external" {
   override_data {
@@ -7,15 +8,6 @@ mock_provider "external" {
     values = {
       result = {
         json = "{\"budget_alert_recipients\":\"alerts@example.test\"}"
-      }
-    }
-  }
-
-  override_data {
-    target = data.external.sops_tailscale_auth_key
-    values = {
-      result = {
-        json = "\"tskey-auth-oci-decoy\""
       }
     }
   }
@@ -35,7 +27,6 @@ variables {
   availability_domain         = "test-ad"
   instance_image_ocid_amd     = "ocid1.image.oc1..amd"
   instance_image_ocid_arm     = "ocid1.image.oc1..arm"
-  tailscale_auth_key          = "tskey-auth-test"
   ssh_public_key              = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey user@test"
   enable_prevent_destroy      = false
 }

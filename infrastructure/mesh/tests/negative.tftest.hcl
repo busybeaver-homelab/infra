@@ -36,54 +36,6 @@ run "reject_invalid_policy_file_extension" {
   ]
 }
 
-run "reject_empty_bootstrap_key_tags" {
-  command = plan
-
-  variables {
-    bootstrap_key_tags = []
-  }
-
-  expect_failures = [
-    var.bootstrap_key_tags,
-  ]
-}
-
-run "reject_malformed_bootstrap_key_tag" {
-  command = plan
-
-  variables {
-    bootstrap_key_tags = ["invalid-tag-no-prefix"]
-  }
-
-  expect_failures = [
-    var.bootstrap_key_tags,
-  ]
-}
-
-run "reject_empty_bootstrap_gcp_key_tags" {
-  command = plan
-
-  variables {
-    bootstrap_gcp_key_tags = []
-  }
-
-  expect_failures = [
-    var.bootstrap_gcp_key_tags,
-  ]
-}
-
-run "reject_malformed_bootstrap_gcp_key_tag" {
-  command = plan
-
-  variables {
-    bootstrap_gcp_key_tags = ["invalid-tag-no-prefix"]
-  }
-
-  expect_failures = [
-    var.bootstrap_gcp_key_tags,
-  ]
-}
-
 run "reject_invalid_secrets_file_extension" {
   command = plan
 
@@ -117,30 +69,6 @@ run "reject_placeholder_state_encryption_passphrase" {
 
   expect_failures = [
     var.state_encryption_passphrase,
-  ]
-}
-
-run "reject_too_short_bootstrap_key_expiry" {
-  command = plan
-
-  variables {
-    bootstrap_key_expiry = 30
-  }
-
-  expect_failures = [
-    var.bootstrap_key_expiry,
-  ]
-}
-
-run "reject_too_long_bootstrap_key_expiry" {
-  command = plan
-
-  variables {
-    bootstrap_key_expiry = 172800
-  }
-
-  expect_failures = [
-    var.bootstrap_key_expiry,
   ]
 }
 

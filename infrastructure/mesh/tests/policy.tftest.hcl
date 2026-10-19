@@ -24,7 +24,7 @@ variables {
   policy_file_path            = "policy.ci.hujson.tftpl"
 }
 
-# STD-OT-59: Zero-trust tailnet posture, single-use bootstrap keys, and Free-Tier tag cap invariants.
+# STD-OT-59: Zero-trust tailnet posture and Free-Tier tag cap invariants.
 run "policy_invariants" {
   command = plan
 
@@ -38,20 +38,6 @@ run "policy_invariants" {
       tailscale_tailnet_settings.homelab.users_role_allowed_to_join_external_tailnet == "admin"
     )
     error_message = "Tailscale tailnet settings must enforce device/user approval, auto-updates, HTTPS, <=90d key duration, and admin-only external tailnet join (STD-OT-50, STD-OT-59)."
-  }
-
-  assert {
-    condition = (
-      tailscale_tailnet_key.bootstrap_oci.reusable == false &&
-      tailscale_tailnet_key.bootstrap_oci.ephemeral == false &&
-      tailscale_tailnet_key.bootstrap_oci.preauthorized == true &&
-      tailscale_tailnet_key.bootstrap_oci.expiry <= 86400 &&
-      tailscale_tailnet_key.bootstrap_gcp.reusable == false &&
-      tailscale_tailnet_key.bootstrap_gcp.ephemeral == false &&
-      tailscale_tailnet_key.bootstrap_gcp.preauthorized == true &&
-      tailscale_tailnet_key.bootstrap_gcp.expiry <= 86400
-    )
-    error_message = "Tailscale bootstrap keys must be single-use, non-ephemeral, preauthorized, and expire within 24 hours (STD-OT-50, STD-OT-59)."
   }
 
   assert {

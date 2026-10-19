@@ -7,8 +7,6 @@
 #      is either a `["<root>"]["config"]` subtree (`^"\[\"[a-z0-9_]+\"\]\[\"config\"\]"$`)
 #      or on the explicit residual-limitation allowlist:
 #        - `["github"]["ci_age_key"]` (integrations/github 6.13.0 has no write-only secret attribute)
-#        - `["oci"]["tailscale_auth_key"]` (hashicorp/cloudinit 2.3.7 has no write-only content attribute)
-#        - `["gcp"]["tailscale_auth_key"]` (hashicorp/cloudinit 2.3.7 has no write-only content attribute)
 #   3. `infrastructure/github` resolves `github_token` and `github_owner` exclusively from
 #      variables or `ephemeral.sops_file.secrets`, never from `data.external`.
 
@@ -38,7 +36,7 @@ load 'helpers/test_helper'
     fi
 
     case "$unescaped" in
-      '["github"]["ci_age_key"]' | '["oci"]["tailscale_auth_key"]' | '["gcp"]["tailscale_auth_key"]')
+      '["github"]["ci_age_key"]')
         continue
         ;;
       *)

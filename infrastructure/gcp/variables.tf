@@ -151,24 +151,21 @@ variable "admin_cidr" {
   }
 }
 
-variable "tailscale_auth_key" {
-  type        = string
-  description = "Tailscale authentication key for instance bootstrapping (sourced from SOPS gcp.tailscale_auth_key when null)."
-  sensitive   = true
-  nullable    = true
-  default     = null
-}
-
-variable "tailscale_common_tags" {
+variable "tailscale_bootstrap_tags" {
   type        = list(string)
-  description = "Common Tailscale tags applied across all cloud instances."
-  default     = ["tag:type-server", "tag:os-linux", "tag:hosting-cloud"]
-}
+  description = "Tailscale tags assigned to the GCP workload identity federation trust for gcp-default-vm."
+  default = [
+    "tag:type-server",
+    "tag:os-linux",
+    "tag:hosting-cloud",
+    "tag:location-us",
+    "tag:env-gcp",
+  ]
 
-variable "tailscale_extra_tags_gcp" {
-  type        = list(string)
-  description = "GCP-specific Tailscale tags applied to the GCP compute instance."
-  default     = ["tag:location-us", "tag:env-gcp"]
+  validation {
+    condition     = length(var.tailscale_bootstrap_tags) > 0 && alltrue([for t in var.tailscale_bootstrap_tags : can(regex("^tag:[a-z0-9-]+$", t))])
+    error_message = "tailscale_bootstrap_tags must be non-empty and every entry must match ^tag:[a-z0-9-]+$."
+  }
 }
 
 variable "secrets_file_path" {

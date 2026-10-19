@@ -159,14 +159,6 @@ variable "subnet_cidr" {
   }
 }
 
-variable "tailscale_auth_key" {
-  type        = string
-  description = "Tailscale authentication key for instance bootstrapping (sourced from SOPS oci.tailscale_auth_key when null)."
-  sensitive   = true
-  nullable    = true
-  default     = null
-}
-
 variable "ssh_public_key" {
   type        = string
   description = "SSH public key for emergency access to compute instances."
@@ -199,16 +191,32 @@ variable "tenancy_name" {
   default     = "homelab"
 }
 
-variable "tailscale_common_tags" {
+variable "tailscale_bootstrap_tags" {
   type        = list(string)
-  description = "Common Tailscale tags applied across all cloud instances."
-  default     = ["tag:type-server", "tag:os-linux", "tag:hosting-cloud"]
+  description = "Tailscale tags assigned to the per-instance OCI bootstrap authentication keys."
+  default = [
+    "tag:type-server",
+    "tag:os-linux",
+    "tag:hosting-cloud",
+    "tag:location-ger",
+    "tag:env-oci",
+  ]
+
+  validation {
+    condition     = length(var.tailscale_bootstrap_tags) > 0 && alltrue([for t in var.tailscale_bootstrap_tags : can(regex("^tag:[a-z0-9-]+$", t))])
+    error_message = "tailscale_bootstrap_tags must be non-empty and every entry must match ^tag:[a-z0-9-]+$."
+  }
 }
 
-variable "tailscale_extra_tags_oci" {
-  type        = list(string)
-  description = "OCI-specific Tailscale tags applied to OCI compute instances."
-  default     = ["tag:location-ger", "tag:env-oci"]
+variable "tailscale_bootstrap_key_expiry" {
+  type        = number
+  description = "Expiry in seconds for per-instance single-use OCI bootstrap keys (1 hour default; max 24 hours)."
+  default     = 3600
+
+  validation {
+    condition     = var.tailscale_bootstrap_key_expiry >= 60 && var.tailscale_bootstrap_key_expiry <= 86400
+    error_message = "tailscale_bootstrap_key_expiry must be between 60 and 86400 seconds (24 hours)."
+  }
 }
 
 variable "default_freeform_tags" {

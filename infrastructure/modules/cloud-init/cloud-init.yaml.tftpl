@@ -65,7 +65,7 @@ packages:
   - ca-certificates
   - tailscale
 
-%{ if tailscale_auth_key != "" ~}
+%{ if tailscale_client_id == "" && tailscale_auth_key != "" ~}
 write_files:
   - path: /run/ts.key
     owner: root:root
@@ -73,6 +73,13 @@ write_files:
     content: "${tailscale_auth_key}"
 
 %{ endif ~}
+%{ if tailscale_client_id != "" || tailscale_auth_key != "" ~}
 runcmd:
+%{ if tailscale_client_id != "" ~}
+  - dpkg --compare-versions "$(tailscale version | head -n1)" ge "1.94.0" || { echo "tailscale >= 1.94.0 required for --client-id workload identity federation" >&2; exit 1; }
+  - tailscale up --client-id='${tailscale_client_id}?ephemeral=false&preauthorized=true' --audience='${tailscale_audience}' --ssh --hostname="${hostname}" --advertise-tags="${tailscale_tags}"
+%{ else ~}
   - tailscale up --auth-key=file:/run/ts.key --ssh --hostname="${hostname}" --advertise-tags="${tailscale_tags}"
   - shred -u /run/ts.key
+%{ endif ~}
+%{ endif ~}

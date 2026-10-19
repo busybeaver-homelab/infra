@@ -9,13 +9,15 @@
 | <a name="requirement_external"></a> [external](#requirement_external)    | 2.4.2     |
 | <a name="requirement_oci"></a> [oci](#requirement_oci)                   | 9.9.0     |
 | <a name="requirement_sops"></a> [sops](#requirement_sops)                | 1.4.1     |
+| <a name="requirement_tailscale"></a> [tailscale](#requirement_tailscale) | 0.29.2    |
 
 ## Providers
 
-| Name                                                            | Version |
-| --------------------------------------------------------------- | ------- |
-| <a name="provider_external"></a> [external](#provider_external) | 2.4.2   |
-| <a name="provider_oci"></a> [oci](#provider_oci)                | 9.9.0   |
+| Name                                                               | Version |
+| ------------------------------------------------------------------ | ------- |
+| <a name="provider_external"></a> [external](#provider_external)    | 2.4.2   |
+| <a name="provider_oci"></a> [oci](#provider_oci)                   | 9.9.0   |
+| <a name="provider_tailscale"></a> [tailscale](#provider_tailscale) | 0.29.2  |
 
 ## Resources
 
@@ -55,8 +57,9 @@
 | [oci_identity_user_group_membership.backup_writer](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/identity_user_group_membership)                                     | resource    |
 | [oci_objectstorage_bucket.backups](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/objectstorage_bucket)                                                               | resource    |
 | [oci_objectstorage_object_lifecycle_policy.backups](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/resources/objectstorage_object_lifecycle_policy)                             | resource    |
+| [tailscale_tailnet_key.bootstrap_amd](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)                                                           | resource    |
+| [tailscale_tailnet_key.bootstrap_ampere](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)                                                        | resource    |
 | [external_external.sops_config](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                                                                   | data source |
-| [external_external.sops_tailscale_auth_key](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external)                                                       | data source |
 | [oci_objectstorage_namespace.main](https://registry.terraform.io/providers/oracle/oci/9.9.0/docs/data-sources/objectstorage_namespace)                                                         | data source |
 
 ## Inputs
@@ -87,9 +90,8 @@
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input_ssh_public_key)                                                     | SSH public key for emergency access to compute instances.                                                                                          | `string`       |   yes    |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase)              | State and plan encryption passphrase. Source: production SOPS opentofu.state\_encryption\_passphrase. No default, so a missing value fails closed. | `string`       |   yes    |
 | <a name="input_subnet_cidr"></a> [subnet\_cidr](#input_subnet_cidr)                                                               | IPv4 CIDR block for the private compute subnet.                                                                                                    | `string`       |   yes    |
-| <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input_tailscale_auth_key)                                         | Tailscale authentication key for instance bootstrapping (sourced from SOPS oci.tailscale\_auth\_key when null).                                    | `string`       |    no    |
-| <a name="input_tailscale_common_tags"></a> [tailscale\_common\_tags](#input_tailscale_common_tags)                                | Common Tailscale tags applied across all cloud instances.                                                                                          | `list(string)` |    no    |
-| <a name="input_tailscale_extra_tags_oci"></a> [tailscale\_extra\_tags\_oci](#input_tailscale_extra_tags_oci)                      | OCI-specific Tailscale tags applied to OCI compute instances.                                                                                      | `list(string)` |    no    |
+| <a name="input_tailscale_bootstrap_key_expiry"></a> [tailscale\_bootstrap\_key\_expiry](#input_tailscale_bootstrap_key_expiry)    | Expiry in seconds for per-instance single-use OCI bootstrap keys (1 hour default; max 24 hours).                                                   | `number`       |    no    |
+| <a name="input_tailscale_bootstrap_tags"></a> [tailscale\_bootstrap\_tags](#input_tailscale_bootstrap_tags)                       | Tailscale tags assigned to the per-instance OCI bootstrap authentication keys.                                                                     | `list(string)` |    no    |
 | <a name="input_tenancy_name"></a> [tenancy\_name](#input_tenancy_name)                                                            | Name of the tenancy used for prefixing globally unique resources like object storage buckets.                                                      | `string`       |    no    |
 | <a name="input_tenancy_ocid"></a> [tenancy\_ocid](#input_tenancy_ocid)                                                            | OCID of the OCI tenancy.                                                                                                                           | `string`       |   yes    |
 | <a name="input_user_ocid"></a> [user\_ocid](#input_user_ocid)                                                                     | OCID of the OCI user for authentication.                                                                                                           | `string`       |   yes    |

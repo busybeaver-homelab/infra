@@ -369,21 +369,6 @@ run "extended_apply_and_sensitive_outputs" {
   }
 
   assert {
-    condition     = issensitive(output.auth_key_bootstrap)
-    error_message = "output.auth_key_bootstrap must be sensitive."
-  }
-
-  assert {
-    condition     = issensitive(output.auth_key_bootstrap_gcp)
-    error_message = "output.auth_key_bootstrap_gcp must be sensitive."
-  }
-
-  assert {
-    condition     = issensitive(output.auth_keys)
-    error_message = "output.auth_keys must be sensitive."
-  }
-
-  assert {
     condition     = issensitive(output.webhook_endpoint_url)
     error_message = "output.webhook_endpoint_url must be sensitive."
   }

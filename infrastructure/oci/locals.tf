@@ -1,11 +1,7 @@
 locals {
-  oci_config              = try(jsondecode(data.external.sops_config.result.json), {})
-  sops_tailscale_auth_key = try(tostring(jsondecode(data.external.sops_tailscale_auth_key.result.json)), "")
-  tailscale_tags          = join(",", concat(var.tailscale_common_tags, var.tailscale_extra_tags_oci))
-  tailscale_auth_key = coalesce(
-    var.tailscale_auth_key != null && trimspace(var.tailscale_auth_key) != "" ? var.tailscale_auth_key : null,
-    local.sops_tailscale_auth_key,
-  )
+  sops_ephemeral = try(yamldecode(ephemeral.sops_file.secrets.raw), {})
+  oci_config     = try(jsondecode(data.external.sops_config.result.json), {})
+  tailscale_tags = join(",", var.tailscale_bootstrap_tags)
   admin_cidr = coalesce(
     var.admin_cidr != null && trimspace(var.admin_cidr) != "" ? var.admin_cidr : null,
     try(local.oci_config.admin_cidr, null),

@@ -43,51 +43,6 @@ variable "tailnet_name" {
   default     = null
 }
 
-variable "bootstrap_key_tags" {
-  type        = list(string)
-  description = "Tailscale tags assigned to the bootstrap authentication key."
-  default = [
-    "tag:type-server",
-    "tag:os-linux",
-    "tag:hosting-cloud",
-    "tag:location-ger",
-    "tag:env-oci",
-  ]
-
-  validation {
-    condition     = length(var.bootstrap_key_tags) > 0 && alltrue([for t in var.bootstrap_key_tags : can(regex("^tag:[a-z0-9-]+$", t))])
-    error_message = "All bootstrap key tags must start with 'tag:' and contain only lowercase alphanumeric characters and hyphens."
-  }
-}
-
-variable "bootstrap_gcp_key_tags" {
-  type        = list(string)
-  description = "Tailscale tags assigned to the GCP bootstrap authentication key."
-  default = [
-    "tag:type-server",
-    "tag:os-linux",
-    "tag:hosting-cloud",
-    "tag:location-us",
-    "tag:env-gcp",
-  ]
-
-  validation {
-    condition     = length(var.bootstrap_gcp_key_tags) > 0 && alltrue([for t in var.bootstrap_gcp_key_tags : can(regex("^tag:[a-z0-9-]+$", t))])
-    error_message = "All GCP bootstrap key tags must start with 'tag:' and contain only lowercase alphanumeric characters and hyphens."
-  }
-}
-
-variable "bootstrap_key_expiry" {
-  type        = number
-  description = "Expiry in seconds for single-use bootstrap keys (1 hour default; max 24 hours)."
-  default     = 3600
-
-  validation {
-    condition     = var.bootstrap_key_expiry >= 60 && var.bootstrap_key_expiry <= 86400
-    error_message = "Bootstrap key expiry must be between 60 seconds and 86400 seconds (24 hours)."
-  }
-}
-
 variable "monitored_device_hostnames" {
   description = "List of device hostnames (without domain suffix) to retrieve via data.tailscale_device (sourced from SOPS tailscale.config.monitored_device_hostnames when empty)."
   type        = list(string)

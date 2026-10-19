@@ -8,6 +8,7 @@ mock_provider "google" {
 }
 
 mock_provider "sops" {}
+mock_provider "tailscale" {}
 
 mock_provider "external" {
   override_data {
@@ -20,15 +21,6 @@ mock_provider "external" {
             "budget_alert_recipients": "ci-alerts@example.test"
           }
         EOT
-      }
-    }
-  }
-
-  override_data {
-    target = data.external.sops_tailscale_auth_key
-    values = {
-      result = {
-        json = "\"tskey-auth-gcp-decoy\""
       }
     }
   }
@@ -101,7 +93,7 @@ run "verify_breakglass_ssh_firewall_when_admin_cidr_set" {
 }
 
 run "verify_gcp_compute_instance_and_free_tier_posture" {
-  command = plan
+  command = apply
 
   assert {
     condition     = google_compute_instance.default.name == "gcp-default-vm"
@@ -149,13 +141,59 @@ run "verify_gcp_compute_instance_and_free_tier_posture" {
   }
 
   assert {
+    condition = (
+      tailscale_federated_identity.gcp_vm.issuer == "https://accounts.google.com" &&
+      tailscale_federated_identity.gcp_vm.subject == google_service_account.vm.unique_id &&
+      tailscale_federated_identity.gcp_vm.scopes == toset(["auth_keys"]) &&
+      tailscale_federated_identity.gcp_vm.tags == toset(var.tailscale_bootstrap_tags)
+    )
+    error_message = "tailscale_federated_identity.gcp_vm must bind to Google accounts issuer, VM service account unique_id, auth_keys scope, and tailscale_bootstrap_tags"
+  }
+
+  assert {
     condition     = strcontains(google_compute_instance.default.metadata["user-data"], "--hostname=\"gcp-default-vm\"") && strcontains(google_compute_instance.default.metadata["user-data"], "tag:env-gcp")
     error_message = "Instance user-data must render shared cloud-init template for gcp-default-vm with tag:env-gcp"
   }
 
   assert {
-    condition     = strcontains(google_compute_instance.default.metadata["user-data"], "--auth-key=file:/run/ts.key") && strcontains(google_compute_instance.default.metadata["user-data"], "shred -u /run/ts.key") && !strcontains(google_compute_instance.default.metadata["user-data"], "--authkey=")
-    error_message = "Instance user-data must deliver Tailscale auth key via /run/ts.key and shred it after use"
+    condition = (
+      strcontains(google_compute_instance.default.metadata["user-data"], "ephemeral=false") &&
+      strcontains(google_compute_instance.default.metadata["user-data"], tailscale_federated_identity.gcp_vm.id) &&
+      strcontains(google_compute_instance.default.metadata["user-data"], tailscale_federated_identity.gcp_vm.audience) &&
+      !strcontains(google_compute_instance.default.metadata["user-data"], "auth-key") &&
+      !strcontains(google_compute_instance.default.metadata["user-data"], "/run/ts.key")
+    )
+    error_message = "Instance user-data must enroll via keyless Tailscale workload identity federation (ephemeral=false) without auth-key or /run/ts.key"
+  }
+
+  assert {
+    condition = (
+      !strcontains(
+        templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
+          hostname                 = "test"
+          tailscale_auth_key       = ""
+          tailscale_client_id      = ""
+          tailscale_audience       = ""
+          tailscale_tags           = "tag:test"
+          breakglass_user          = ""
+          breakglass_password_hash = ""
+        }),
+        "tailscale up"
+      ) &&
+      !strcontains(
+        templatefile("${path.module}/../modules/cloud-init/cloud-init.yaml.tftpl", {
+          hostname                 = "test"
+          tailscale_auth_key       = ""
+          tailscale_client_id      = ""
+          tailscale_audience       = ""
+          tailscale_tags           = "tag:test"
+          breakglass_user          = ""
+          breakglass_password_hash = ""
+        }),
+        "shred"
+      )
+    )
+    error_message = "cloud-init.yaml.tftpl must render no tailscale up and no shred when both tailscale_auth_key and tailscale_client_id are empty"
   }
 
   assert {

@@ -78,51 +78,6 @@ run "unit_plan_matches_baseline" {
   }
 
   assert {
-    condition     = tailscale_tailnet_key.bootstrap_oci.preauthorized == true
-    error_message = "Bootstrap key must be preauthorized."
-  }
-
-  assert {
-    condition     = tailscale_tailnet_key.bootstrap_oci.reusable == false
-    error_message = "Bootstrap key must be single-use (reusable = false)."
-  }
-
-  assert {
-    condition     = tailscale_tailnet_key.bootstrap_oci.ephemeral == false
-    error_message = "Bootstrap key must not be ephemeral."
-  }
-
-  assert {
-    condition     = tailscale_tailnet_key.bootstrap_oci.expiry == 3600
-    error_message = "OCI bootstrap key expiry must default to 3600 (1 hour)."
-  }
-
-  assert {
-    condition     = tailscale_tailnet_key.bootstrap_gcp.preauthorized == true
-    error_message = "GCP bootstrap key must be preauthorized."
-  }
-
-  assert {
-    condition     = tailscale_tailnet_key.bootstrap_gcp.reusable == false
-    error_message = "GCP bootstrap key must be single-use (reusable = false)."
-  }
-
-  assert {
-    condition     = tailscale_tailnet_key.bootstrap_gcp.ephemeral == false
-    error_message = "GCP bootstrap key must not be ephemeral."
-  }
-
-  assert {
-    condition     = tailscale_tailnet_key.bootstrap_gcp.expiry == 3600
-    error_message = "GCP bootstrap key expiry must default to 3600 (1 hour)."
-  }
-
-  assert {
-    condition     = tailscale_tailnet_key.bootstrap_gcp.tags == toset(["tag:type-server", "tag:os-linux", "tag:hosting-cloud", "tag:location-us", "tag:env-gcp"])
-    error_message = "GCP bootstrap key must carry the expected GCP tags."
-  }
-
-  assert {
     condition     = alltrue([for owners in values(local.tag_owners) : owners == ["autogroup:owner"]])
     error_message = "Every tag in local.tag_owners must be owned exclusively by autogroup:owner."
   }
@@ -154,30 +109,5 @@ run "verify_computed_outputs_on_apply" {
   assert {
     condition     = output.devices != null
     error_message = "Devices output should not be null."
-  }
-
-  assert {
-    condition     = output.auth_key_bootstrap != ""
-    error_message = "Auth key bootstrap output must not be empty."
-  }
-
-  assert {
-    condition     = output.auth_key_bootstrap_gcp != ""
-    error_message = "GCP auth key bootstrap output must not be empty."
-  }
-
-  assert {
-    condition     = output.auth_keys["oci"] != "" && output.auth_keys["gcp"] != ""
-    error_message = "auth_keys map output must include non-empty oci and gcp keys."
-  }
-
-  assert {
-    condition     = output.auth_key_bootstrap == tailscale_tailnet_key.bootstrap_oci.key && output.auth_keys["oci"] == tailscale_tailnet_key.bootstrap_oci.key
-    error_message = "OCI bootstrap outputs must expose the bootstrap_oci key."
-  }
-
-  assert {
-    condition     = output.auth_key_bootstrap_gcp == tailscale_tailnet_key.bootstrap_gcp.key && output.auth_keys["gcp"] == tailscale_tailnet_key.bootstrap_gcp.key
-    error_message = "GCP bootstrap outputs must expose the bootstrap_gcp key."
   }
 }

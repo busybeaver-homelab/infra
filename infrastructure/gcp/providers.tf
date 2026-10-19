@@ -6,3 +6,9 @@ provider "google" {
 }
 
 provider "sops" {}
+
+provider "tailscale" {
+  oauth_client_id     = try(local.sops_ephemeral.tailscale.bootstrap_client_id, "")
+  oauth_client_secret = try(local.sops_ephemeral.tailscale.bootstrap_client_secret, "")
+  tailnet             = try(local.sops_ephemeral.tailscale.config.tailnet_name, "")
+}

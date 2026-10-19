@@ -8,6 +8,7 @@ mock_provider "google" {
 }
 
 mock_provider "sops" {}
+mock_provider "tailscale" {}
 
 mock_provider "external" {
   override_data {
@@ -20,15 +21,6 @@ mock_provider "external" {
             "budget_alert_recipients": "ci-alerts@example.test"
           }
         EOT
-      }
-    }
-  }
-
-  override_data {
-    target = data.external.sops_tailscale_auth_key
-    values = {
-      result = {
-        json = "\"tskey-auth-gcp-decoy\""
       }
     }
   }
@@ -259,5 +251,29 @@ run "reject_empty_resolved_budget_alert_recipients" {
 
   expect_failures = [
     google_billing_budget.monthly_spend_limit,
+  ]
+}
+
+run "reject_empty_tailscale_bootstrap_tags" {
+  command = plan
+
+  variables {
+    tailscale_bootstrap_tags = []
+  }
+
+  expect_failures = [
+    var.tailscale_bootstrap_tags,
+  ]
+}
+
+run "reject_malformed_tailscale_bootstrap_tags" {
+  command = plan
+
+  variables {
+    tailscale_bootstrap_tags = ["invalid-tag"]
+  }
+
+  expect_failures = [
+    var.tailscale_bootstrap_tags,
   ]
 }

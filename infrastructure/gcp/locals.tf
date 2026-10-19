@@ -1,6 +1,6 @@
 locals {
-  gcp_config              = try(jsondecode(data.external.sops_config.result.json), {})
-  sops_tailscale_auth_key = try(tostring(jsondecode(data.external.sops_tailscale_auth_key.result.json)), "")
+  sops_ephemeral = try(yamldecode(ephemeral.sops_file.secrets.raw), {})
+  gcp_config     = try(jsondecode(data.external.sops_config.result.json), {})
 
   default_labels = merge(var.default_labels, {
     project = "homelab"
@@ -11,11 +11,7 @@ locals {
     try(local.gcp_config.subnet_cidr, null),
   )
 
-  tailscale_tags = join(",", concat(var.tailscale_common_tags, var.tailscale_extra_tags_gcp))
-  tailscale_auth_key = coalesce(
-    var.tailscale_auth_key != null && trimspace(var.tailscale_auth_key) != "" ? var.tailscale_auth_key : null,
-    local.sops_tailscale_auth_key,
-  )
+  tailscale_tags = join(",", var.tailscale_bootstrap_tags)
 
   sops_budget_recipients = compact([
     for s in split(",", try(local.gcp_config.budget_alert_recipients, "")) : trimspace(s)

@@ -8,6 +8,7 @@ mock_provider "google" {
 }
 
 mock_provider "sops" {}
+mock_provider "tailscale" {}
 
 mock_provider "external" {
   override_data {
@@ -20,15 +21,6 @@ mock_provider "external" {
             "budget_alert_recipients": "ci-alerts@example.test"
           }
         EOT
-      }
-    }
-  }
-
-  override_data {
-    target = data.external.sops_tailscale_auth_key
-    values = {
-      result = {
-        json = "\"tskey-auth-gcp-decoy\""
       }
     }
   }
@@ -45,7 +37,7 @@ variables {
 
 # STD-OT-59: Security and Always Free policy invariants for infrastructure/gcp.
 run "policy_invariants" {
-  command = plan
+  command = apply
 
   assert {
     condition = (
@@ -74,11 +66,16 @@ run "policy_invariants" {
 
   assert {
     condition = (
-      strcontains(google_compute_instance.default.metadata["user-data"], "--auth-key=file:/run/ts.key") &&
-      strcontains(google_compute_instance.default.metadata["user-data"], "shred -u /run/ts.key") &&
-      !strcontains(google_compute_instance.default.metadata["user-data"], "--authkey=")
+      tailscale_federated_identity.gcp_vm.issuer == "https://accounts.google.com" &&
+      tailscale_federated_identity.gcp_vm.subject == google_service_account.vm.unique_id &&
+      tailscale_federated_identity.gcp_vm.scopes == toset(["auth_keys"]) &&
+      strcontains(google_compute_instance.default.metadata["user-data"], "ephemeral=false") &&
+      strcontains(google_compute_instance.default.metadata["user-data"], tailscale_federated_identity.gcp_vm.id) &&
+      strcontains(google_compute_instance.default.metadata["user-data"], tailscale_federated_identity.gcp_vm.audience) &&
+      !strcontains(google_compute_instance.default.metadata["user-data"], "auth-key") &&
+      !strcontains(google_compute_instance.default.metadata["user-data"], "/run/ts.key")
     )
-    error_message = "GCP instance user-data must deliver Tailscale auth key via /run/ts.key and shred it after use (STD-OT-49, STD-OT-59)."
+    error_message = "GCP instance user-data must enroll via keyless Tailscale workload identity federation without static auth keys or /run/ts.key (STD-OT-49, STD-OT-59)."
   }
 
   assert {
