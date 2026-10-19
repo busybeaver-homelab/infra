@@ -198,4 +198,15 @@ is_owned() {
   [ "$status" -eq 0 ]
   run grep -F "automatically add Stacked PRs to the stack" "$skill"
   [ "$status" -eq 0 ]
+  run grep -F "git fetch origin main && git rebase origin/main" "$skill"
+  [ "$status" -eq 0 ]
+  run grep -F "gh pr update-branch" "$skill"
+  [ "$status" -eq 0 ]
+
+  local wt_skill="${REPO_ROOT}/.agent/skills/using-git-worktrees/SKILL.md"
+  [ -f "$wt_skill" ]
+  run grep -F "git fetch origin main" "$wt_skill"
+  [ "$status" -eq 0 ]
+  run grep -F -- '-b "$BRANCH_NAME" origin/main' "$wt_skill"
+  [ "$status" -eq 0 ]
 }

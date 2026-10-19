@@ -94,13 +94,16 @@ case $LOCATION in
     ;;
 esac
 
-# Create worktree with new branch (preserving git-crypt smudge keys when unlocked)
+# Fetch latest default branch so the new worktree branch is never created from a stale local commit
+git fetch origin main
+
+# Create worktree with new branch from origin/main (preserving git-crypt smudge keys when unlocked)
 if [ -d "$(git rev-parse --git-common-dir)/git-crypt" ]; then
-  git worktree add --no-checkout "$path" -b "$BRANCH_NAME"
+  git worktree add --no-checkout "$path" -b "$BRANCH_NAME" origin/main
   ln -s ../../git-crypt "$(git -C "$path" rev-parse --git-dir)/git-crypt"
   git -C "$path" checkout
 else
-  git worktree add "$path" -b "$BRANCH_NAME"
+  git worktree add "$path" -b "$BRANCH_NAME" origin/main
 fi
 cd "$path"
 ```

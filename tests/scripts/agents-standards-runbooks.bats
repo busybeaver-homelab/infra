@@ -113,6 +113,12 @@ is_encrypted() {
   [ "$status" -eq 0 ]
   run grep -F "Automated Pull Request Creation, Stacking, and Merge Queue Enrollment:" "$agents"
   [ "$status" -eq 0 ]
+  run grep -F "Default-Branch Synchronization Before Opening PRs:" "$agents"
+  [ "$status" -eq 0 ]
+  run grep -F "git fetch origin main && git rebase origin/main" "$agents"
+  [ "$status" -eq 0 ]
+  run grep -F "gh pr update-branch" "$agents"
+  [ "$status" -eq 0 ]
   run grep -F "Single PR — Automatic Merge Queue Enrollment:" "$agents"
   [ "$status" -eq 0 ]
   run grep -F "Stacked PRs — Automatic Stack Registration, Submission, and Queueing:" "$agents"
@@ -129,5 +135,9 @@ is_encrypted() {
   run grep -F "automatically add the single PR to the Merge Queue" "$ci_rb"
   [ "$status" -eq 0 ]
   run grep -F "automatically add Stacked PRs to the stack" "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "git fetch origin main && git rebase origin/main" "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "gh pr update-branch" "$ci_rb"
   [ "$status" -eq 0 ]
 }
