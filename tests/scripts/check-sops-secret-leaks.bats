@@ -740,3 +740,84 @@ EOF
   run bash "${LEAK_SCRIPT}" --all-files
   [ "$status" -eq 0 ]
 }
+
+@test "check-sops-secret-leaks.sh --check-synthetic passes on compliant synthetic SOPS fixture and real CI SOPS file (R2-CI-01)" {
+  cd "${MOCK_REPO}"
+  run bash "${LEAK_SCRIPT}" --check-synthetic "${MOCK_REPO}/secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 0 ]
+
+  # Also verify the real repository CI SOPS file when the CI age key is present in the environment
+  local real_ci="${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
+  local default_age_key="${HOME}/.config/sops/age/keys.txt"
+  if [ -f "$default_age_key" ] && SOPS_AGE_KEY_FILE="$default_age_key" sops --decrypt "$real_ci" >/dev/null 2>&1; then
+    SOPS_AGE_KEY_FILE="$default_age_key" run bash "${LEAK_SCRIPT}" --check-synthetic "$real_ci"
+    [ "$status" -eq 0 ]
+  fi
+
+  # Verify ci.yml runs --check-synthetic in the step holding SOPS_AGE_KEY_CI
+  run yq '.jobs.lint-format.steps[] | select(.env.SOPS_AGE_KEY != null) | .run' "${REPO_ROOT}/.github/workflows/ci.yml"
+  [ "$status" -eq 0 ]
+  assert_output_contains "scripts/check-sops-secret-leaks.sh --check-synthetic secrets/credentials.ci.sops.yaml"
+}
+
+@test "check-sops-secret-leaks.sh --check-synthetic fails on email outside @example.(com|org|net|test) without printing the value (R2-CI-01)" {
+  cd "${MOCK_REPO}"
+  local bad_email="operator@corp"'.synthetic-mail.io'
+  cat <<EOF | write_sops credentials.ci.sops.yaml
+is_production: false
+cloudflare:
+  config:
+    notification_email: "${bad_email}"
+EOF
+
+  run bash "${LEAK_SCRIPT}" --check-synthetic "${MOCK_REPO}/secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 1 ]
+  assert_output_contains "cloudflare.config.notification_email: email outside @example.(com|org|net|test)"
+  assert_output_not_contains "${bad_email}"
+  assert_output_not_contains "synthetic-mail"
+}
+
+@test "check-sops-secret-leaks.sh --check-synthetic fails on domain outside RFC 2606 and RFC 6761 without printing the value (R2-CI-01)" {
+  cd "${MOCK_REPO}"
+  local bad_domain="internal-portal"'.synthetic-corp.io'
+  cat <<EOF | write_sops credentials.ci.sops.yaml
+is_production: false
+cloudflare:
+  config:
+    zones:
+      primary:
+        name: "${bad_domain}"
+EOF
+
+  run bash "${LEAK_SCRIPT}" --check-synthetic "${MOCK_REPO}/secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 1 ]
+  assert_output_contains "cloudflare.config.zones.primary.name: domain outside RFC 2606/6761"
+  assert_output_not_contains "${bad_domain}"
+  assert_output_not_contains "synthetic-corp"
+}
+
+@test "check-sops-secret-leaks.sh --check-synthetic fails on IPv4 and IPv6 literals outside RFC 5737 and RFC 3849 without printing the value (R2-CI-01)" {
+  cd "${MOCK_REPO}"
+  local bad_v4="198.18"'.0.42'
+  local bad_v6="2001:4860"':4860::8888'
+  cat <<EOF | write_sops credentials.ci.sops.yaml
+is_production: false
+cloudflare:
+  config:
+    zones:
+      primary:
+        dns_records:
+          a_1:
+            content: "${bad_v4}"
+          aaaa_1:
+            content: "${bad_v6}"
+EOF
+
+  run bash "${LEAK_SCRIPT}" --check-synthetic "${MOCK_REPO}/secrets/credentials.ci.sops.yaml"
+  [ "$status" -eq 1 ]
+  assert_output_contains "cloudflare.config.zones.primary.dns_records.a_1.content: ip literal outside RFC 5737/3849"
+  assert_output_contains "cloudflare.config.zones.primary.dns_records.aaaa_1.content: ip literal outside RFC 5737/3849"
+  assert_output_not_contains "${bad_v4}"
+  assert_output_not_contains "${bad_v6}"
+}
+
