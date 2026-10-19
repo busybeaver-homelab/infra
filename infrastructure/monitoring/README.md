@@ -47,19 +47,21 @@ Declarative monitoring and heartbeat check resources managed via OpenTofu and th
 
 ## Resources
 
-| Name                                                                                                                                      | Type     |
-| ----------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| [healthchecksio_check.backup_prune](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)      | resource |
-| [healthchecksio_check.compose](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)           | resource |
-| [healthchecksio_check.drift_detection](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)   | resource |
-| [healthchecksio_check.gcp_restic_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check) | resource |
-| [healthchecksio_check.oci_restic_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check) | resource |
-| [healthchecksio_check.restic_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)     | resource |
+| Name                                                                                                                                    | Type        |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| [healthchecksio_check.backup_prune](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)    | resource    |
+| [healthchecksio_check.compose](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)         | resource    |
+| [healthchecksio_check.drift_detection](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check) | resource    |
+| [healthchecksio_check.host_alive](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)      | resource    |
+| [healthchecksio_check.host_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)     | resource    |
+| [healthchecksio_check.restic_backup](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/resources/check)   | resource    |
+| [healthchecksio_channel.email](https://registry.terraform.io/providers/kristofferahl/healthchecksio/2.3.0/docs/data-sources/channel)    | data source |
 
 ## Inputs
 
 | Name                                                                                                                 | Description                                                                                                                                        | Type           | Required |
 | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | :------: |
+| <a name="input_backup_hosts"></a> [backup\_hosts](#input_backup_hosts)                                               | Per-host Restic backup and host-alive target IDs matching Ansible inventory\_hostname keys.                                                        | `list(string)` |    no    |
 | <a name="input_check_tags"></a> [check\_tags](#input_check_tags)                                                     | Additional project tags applied across all healthchecks (must include 'homelab').                                                                  | `list(string)` |    no    |
 | <a name="input_compose_targets"></a> [compose\_targets](#input_compose_targets)                                      | Logical Docker Compose target IDs (one per host, e.g., homelab, gcp, oci-1).                                                                       | `list(string)` |    no    |
 | <a name="input_default_tags"></a> [default\_tags](#input_default_tags)                                               | Default tags applied to healthchecks.                                                                                                              | `list(string)` |    no    |
@@ -75,8 +77,8 @@ Declarative monitoring and heartbeat check resources managed via OpenTofu and th
 | <a name="output_backup_prune_ping_url"></a> [backup\_prune\_ping\_url](#output_backup_prune_ping_url)          | Unique ping URL for weekly Restic repository prune and integrity check dead-man switch. |
 | <a name="output_compose_ping_urls"></a> [compose\_ping\_urls](#output_compose_ping_urls)                       | Map of logical compose target IDs to their unique Healthchecks.io ping URLs.            |
 | <a name="output_drift_detection_ping_url"></a> [drift\_detection\_ping\_url](#output_drift_detection_ping_url) | Unique ping URL for daily OpenTofu drift detection dead-man switch.                     |
-| <a name="output_gcp_restic_ping_url"></a> [gcp\_restic\_ping\_url](#output_gcp_restic_ping_url)                | Unique ping URL for GCP restic backup completion signal.                                |
-| <a name="output_oci_restic_ping_url"></a> [oci\_restic\_ping\_url](#output_oci_restic_ping_url)                | Unique ping URL for OCI restic backup completion signal.                                |
+| <a name="output_host_alive_ping_urls"></a> [host\_alive\_ping\_urls](#output_host_alive_ping_urls)             | Map of inventory hostnames to their unique host-alive Healthchecks.io ping URLs.        |
+| <a name="output_host_backup_ping_urls"></a> [host\_backup\_ping\_urls](#output_host_backup_ping_urls)          | Map of inventory hostnames to their unique Restic backup Healthchecks.io ping URLs.     |
 | <a name="output_restic_backup_check_id"></a> [restic\_backup\_check\_id](#output_restic_backup_check_id)       | Unique UUID of the homelab restic backup check.                                         |
 | <a name="output_restic_backup_ping_url"></a> [restic\_backup\_ping\_url](#output_restic_backup_ping_url)       | Unique ping URL for homelab restic backup completion signal.                            |
 

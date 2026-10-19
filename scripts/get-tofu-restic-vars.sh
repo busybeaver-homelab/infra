@@ -4,8 +4,9 @@
 # ==============================================================================
 # Reads sensitive OpenTofu outputs from infrastructure/{oci,gcp,cloudflare,monitoring}
 # in memory (or from JSON fixture files during testing) and emits a single JSON
-# object on stdout with keys `tofu_oci_restic`, `tofu_gcp_restic`, and
-# `tofu_cloudflare_restic`:
+# object on stdout with keys `tofu_oci_restic`, `tofu_gcp_restic`,
+# `tofu_cloudflare_restic`, and (in writer mode) `tofu_host_backup_ping_urls`
+# and `tofu_host_alive_ping_urls`:
 #
 #   --mode writer  append-only host writer keys + per-host Healthchecks ping URLs
 #                  (consumed by configuration/playbooks/cloud.yml)
@@ -204,30 +205,46 @@ printf '%s\n%s\n%s\n%s\n' "${oci_raw}" "${gcp_raw}" "${cf_raw}" "${mon_raw}" |
       else
         "ERROR: Missing or empty required OpenTofu output ansible_inventory in module \($mod). Run tofu apply for infrastructure/\($mod).\n" | halt_error(1)
       end;
+  def req_host_map($obj; $mod; $key; $hosts):
+    ($obj[$key].value? // $obj[$key]? // null) as $m
+    | if ($m | type) != "object" or ($m | length) == 0 then
+        "ERROR: Missing or empty required OpenTofu output \($key) in module \($mod). Run tofu apply for infrastructure/\($mod).\n" | halt_error(1)
+      else
+        ([ $hosts[] as $h | select((($m[$h] // "") | type) != "string" or (($m[$h] // "") | length) == 0) | $h ]) as $missing
+        | if ($missing | length) > 0 then
+            "ERROR: Missing or empty entry for host(s) \($missing | join(", ")) in OpenTofu output \($key) in module \($mod). Run tofu apply for infrastructure/\($mod).\n" | halt_error(1)
+          elif ([ $m | to_entries[] | select((.value | type) != "string" or (.value | length) == 0) ] | length) > 0 then
+            "ERROR: Empty value in OpenTofu output \($key) in module \($mod). Run tofu apply for infrastructure/\($mod).\n" | halt_error(1)
+          else
+            $m
+          end
+      end;
 
   if $mode == "writer" then
+    ((req_hosts($oci; "oci") | split(" ")) + (req_hosts($gcp; "gcp") | split(" ")) | unique) as $expected_hosts |
     {
       tofu_oci_restic: {
         s3_endpoint: req($oci; "oci"; "backup_s3_endpoint"),
         bucket: req($oci; "oci"; "backup_bucket_name"),
         s3_access_key_id: req($oci; "oci"; "backup_s3_access_key_id"),
-        s3_secret_access_key: req($oci; "oci"; "backup_s3_secret_access_key"),
-        healthcheck_url: req($mon; "monitoring"; "oci_restic_ping_url")
+        s3_secret_access_key: req($oci; "oci"; "backup_s3_secret_access_key")
       },
       tofu_gcp_restic: {
         s3_endpoint: req($gcp; "gcp"; "backup_s3_endpoint"),
         bucket: req($gcp; "gcp"; "backup_bucket_name"),
         s3_access_key_id: req($gcp; "gcp"; "backup_hmac_access_id"),
-        s3_secret_access_key: req($gcp; "gcp"; "backup_hmac_secret"),
-        healthcheck_url: req($mon; "monitoring"; "gcp_restic_ping_url")
+        s3_secret_access_key: req($gcp; "gcp"; "backup_hmac_secret")
       },
       tofu_cloudflare_restic: {
         s3_endpoint: req($cf; "cloudflare"; "r2_backup_endpoint"),
         bucket: req($cf; "cloudflare"; "r2_backup_bucket_name"),
         s3_access_key_id: req($cf; "cloudflare"; "r2_restic_writer_s3_access_key_id"),
         s3_secret_access_key: req($cf; "cloudflare"; "r2_restic_writer_s3_secret_access_key")
-      }
+      },
+      tofu_host_backup_ping_urls: req_host_map($mon; "monitoring"; "host_backup_ping_urls"; $expected_hosts),
+      tofu_host_alive_ping_urls: req_host_map($mon; "monitoring"; "host_alive_ping_urls"; $expected_hosts)
     }
+
   else
     {
       tofu_oci_restic: {

@@ -10,15 +10,15 @@ output "restic_backup_check_id" {
   sensitive   = true
 }
 
-output "oci_restic_ping_url" {
-  value       = healthchecksio_check.oci_restic_backup.ping_url
-  description = "Unique ping URL for OCI restic backup completion signal."
+output "host_backup_ping_urls" {
+  value       = { for k, v in healthchecksio_check.host_backup : k => v.ping_url }
+  description = "Map of inventory hostnames to their unique Restic backup Healthchecks.io ping URLs."
   sensitive   = true
 }
 
-output "gcp_restic_ping_url" {
-  value       = healthchecksio_check.gcp_restic_backup.ping_url
-  description = "Unique ping URL for GCP restic backup completion signal."
+output "host_alive_ping_urls" {
+  value       = { for k, v in healthchecksio_check.host_alive : k => v.ping_url }
+  description = "Map of inventory hostnames to their unique host-alive Healthchecks.io ping URLs."
   sensitive   = true
 }
 

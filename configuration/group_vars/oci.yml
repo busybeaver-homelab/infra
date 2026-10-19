@@ -6,4 +6,5 @@ restic_backup_repository: "s3:{{ tofu_oci_restic.s3_endpoint }}/{{ tofu_oci_rest
 restic_backup_s3_access_key: "{{ tofu_oci_restic.s3_access_key_id }}"
 restic_backup_s3_secret_key: "{{ tofu_oci_restic.s3_secret_access_key }}"
 restic_backup_password: "{{ oci_restic.password }}"
-restic_backup_healthchecks_ping_url: "{{ tofu_oci_restic.healthcheck_url | default('') }}"
+restic_backup_healthchecks_ping_url: "{{ tofu_host_backup_ping_urls[inventory_hostname] | default('') }}"
+base_ubuntu_server_healthchecks_ping_url: "{{ tofu_host_alive_ping_urls[inventory_hostname] | default('') }}"
