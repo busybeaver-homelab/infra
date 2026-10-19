@@ -8,9 +8,18 @@ data "external" "sops_config" {
   program = ["bash", "${path.module}/../../scripts/sops-subtree.sh"]
   query = {
     file    = var.secrets_file_path
-    extract = "[\"oci\"]"
+    extract = "[\"oci\"][\"config\"]"
   }
 }
+
+data "external" "sops_tailscale_auth_key" {
+  program = ["bash", "${path.module}/../../scripts/sops-subtree.sh"]
+  query = {
+    file    = var.secrets_file_path
+    extract = "[\"oci\"][\"tailscale_auth_key\"]"
+  }
+}
+
 
 
 # --- Compute Instances (Always Free Tier) ---
