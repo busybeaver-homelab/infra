@@ -75,17 +75,18 @@ run "verify_gcs_backup_bucket_and_append_only_iam" {
 
   assert {
     condition = (
-      length(google_storage_bucket.backups.lifecycle_rule) == 2 &&
-      anytrue([
-        for r in google_storage_bucket.backups.lifecycle_rule :
-        one(r.action).type == "Delete" && one(r.condition).days_since_noncurrent_time == 30
-      ]) &&
+      length(google_storage_bucket.backups.lifecycle_rule) == 1 &&
       anytrue([
         for r in google_storage_bucket.backups.lifecycle_rule :
         one(r.action).type == "AbortIncompleteMultipartUpload" && one(r.condition).age == 7
       ])
     )
-    error_message = "Backup bucket must configure 30-day noncurrent version expiration and 7-day incomplete multipart upload abort lifecycle rules"
+    error_message = "Backup bucket must configure only the 7-day incomplete multipart upload abort lifecycle rule when versioning is disabled (OD-4)"
+  }
+
+  assert {
+    condition     = google_storage_bucket.backups.soft_delete_policy[0].retention_duration_seconds == 604800
+    error_message = "Backup bucket must explicitly pin the default 7-day (604800s) soft_delete_policy (OD-4)"
   }
 
   assert {

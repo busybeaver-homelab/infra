@@ -127,16 +127,23 @@
           - "'s3:https://objectstorage.eu-frankfurt-1.example.test/molecule-oci-backups/' in (oci_primary_env.content | b64decode)"
         fail_msg: "Primary restic backup environment does not point to expected OCI Object Storage repository"
 
-    - name: Read secondary restic backup environment file
-      ansible.builtin.slurp:
-        src: /etc/restic/secondary.env
-      register: oci_secondary_env
+    - name: Stat host-side secondary DR files and credentials (must not exist on host)
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/restic/secondary.env
+        - /etc/credstore.encrypted/restic_secondary_password
+        - /etc/credstore.encrypted/cloudflare_s3_secret_key
+      register: oci_secondary_stats
 
-    - name: Assert secondary restic backup points to synthetic Cloudflare R2 S3 endpoint
+    - name: Assert no Cloudflare R2 or secondary DR credentials are deployed on OCI hosts
       ansible.builtin.assert:
         that:
-          - "'s3:https://00000000000000000000000000000000.r2.example.test/molecule-r2-backups-dr/' in (oci_secondary_env.content | b64decode)"
-        fail_msg: "Secondary restic backup environment does not point to expected Cloudflare R2 repository"
+          - not item.stat.exists
+        fail_msg: "Host-side DR file {{ item.item }} must not exist (DR copy is pulled by CI)"
+      loop: "{{ oci_secondary_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
     - name: Verify breakglass user exists in passwd database
       ansible.builtin.getent:

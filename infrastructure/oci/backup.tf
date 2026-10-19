@@ -5,7 +5,7 @@ data "oci_objectstorage_namespace" "main" {
 }
 
 resource "oci_objectstorage_bucket" "backups" {
-  #checkov:skip=CKV_OCI_8:The client already versions the backups
+  #checkov:skip=CKV_OCI_8:OD-4 (2026-10-19): the uploader identity is append-only (create/read/list); versioning would keep prune churn against the Always Free storage cap.
   #checkov:skip=CKV_OCI_9:The client uses client-side, end2end encryption, so Oracle-managed 256-bit AES encryption is sufficient
   compartment_id        = var.compartment_ocid
   name                  = "homelab-backups-${var.tenancy_name}"

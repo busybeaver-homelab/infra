@@ -8,12 +8,13 @@ setup() {
   CI_YML="$REPO_ROOT/.github/workflows/ci.yml"
   CODEQL_YML="$REPO_ROOT/.github/workflows/codeql.yml"
   PRUNE_YML="$REPO_ROOT/.github/workflows/backup-prune.yml"
+  DR_COPY_YML="$REPO_ROOT/.github/workflows/backup-dr-copy.yml"
   DRIFT_YML="$REPO_ROOT/.github/workflows/drift-detection.yml"
   LEFTHOOK_YML="$REPO_ROOT/lefthook.yml"
 }
 
 @test "all workflows declare top-level permissions: {} and explicit timeout-minutes on every job (REV2-P3-9)" {
-  for wf in "$CI_YML" "$CODEQL_YML" "$PRUNE_YML" "$DRIFT_YML"; do
+  for wf in "$CI_YML" "$CODEQL_YML" "$PRUNE_YML" "$DR_COPY_YML" "$DRIFT_YML"; do
     run yq eval '.permissions | keys | length' "$wf"
     [ "$status" -eq 0 ]
     [ "$output" = "0" ]
@@ -25,7 +26,7 @@ setup() {
 }
 
 @test "no workflow interpolates GitHub context expressions directly inside run: blocks (REV2-P3-9)" {
-  for wf in "$CI_YML" "$CODEQL_YML" "$PRUNE_YML" "$DRIFT_YML"; do
+  for wf in "$CI_YML" "$CODEQL_YML" "$PRUNE_YML" "$DR_COPY_YML" "$DRIFT_YML"; do
     run yq eval '[.jobs[].steps[].run | select(. != null) | select(test("[$][{][{]"))] | length' "$wf"
     [ "$status" -eq 0 ]
     [ "$output" = "0" ]
@@ -33,7 +34,7 @@ setup() {
 }
 
 @test "all secret-bearing and network-active workflow jobs include Harden Runner with egress-policy: audit (REV2-P3-9)" {
-  for wf in "$CI_YML" "$CODEQL_YML" "$PRUNE_YML" "$DRIFT_YML"; do
+  for wf in "$CI_YML" "$CODEQL_YML" "$PRUNE_YML" "$DR_COPY_YML" "$DRIFT_YML"; do
     run grep -E "step-security/harden-runner@[0-9a-f]{40}" "$wf"
     [ "$status" -eq 0 ]
     run grep -F "egress-policy: audit" "$wf"
@@ -46,7 +47,7 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "30" ]
 
-  run grep -n 'uvx ' "$CI_YML" "$CODEQL_YML" "$PRUNE_YML" "$DRIFT_YML"
+  run grep -n 'uvx ' "$CI_YML" "$CODEQL_YML" "$PRUNE_YML" "$DR_COPY_YML" "$DRIFT_YML"
   [ "$status" -ne 0 ]
 
   run yq eval '.jobs.analyze-iac-and-scripts.steps[] | select(.name == "Verify SARIF output files") | .run' "$CODEQL_YML"

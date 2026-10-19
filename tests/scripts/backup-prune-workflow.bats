@@ -162,7 +162,7 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   run grep -F 's3:${GCP_ENDPOINT}/${GCP_BUCKET}/${host}' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 
-  run grep -F 's3:${R2_ENDPOINT}/${R2_BUCKET}/${host}' "${WORKFLOW_FILE}"
+  run grep -F 's3:${R2_ENDPOINT}/${R2_BUCKET}/dr/${host}' "${WORKFLOW_FILE}"
   [ "$status" -eq 0 ]
 
   run grep -F 'secrets.R2_RESTIC_S3_ENDPOINT' "${WORKFLOW_FILE}"

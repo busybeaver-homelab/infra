@@ -41,8 +41,6 @@ EOF
 {
   "r2_backup_endpoint": { "sensitive": true, "value": "https://00000000000000000000000000000000.r2.example.test" },
   "r2_backup_bucket_name": { "sensitive": true, "value": "homelab-backups-dr-example" },
-  "r2_restic_writer_s3_access_key_id": { "sensitive": true, "value": "cf-r2-writer-akid-example" },
-  "r2_restic_writer_s3_secret_access_key": { "sensitive": true, "value": "cf-r2-writer-secret-example" },
   "r2_restic_prune_s3_access_key_id": { "sensitive": true, "value": "cf-r2-prune-akid-example" },
   "r2_restic_prune_s3_secret_access_key": { "sensitive": true, "value": "cf-r2-prune-secret-example" }
 }
@@ -65,6 +63,7 @@ EOF
     }
   },
   "backup_prune_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000003" },
+  "dr_copy_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000006" },
   "ci_schedule_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000004" },
   "codeql_schedule_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000005" }
 }
@@ -136,7 +135,7 @@ STUB
   [ "$status" -eq 0 ]
 }
 
-@test "get-tofu-restic-vars.sh writer mode assembles append-only writer keys and per-host ping URLs" {
+@test "get-tofu-restic-vars.sh writer mode assembles append-only writer keys and per-host ping URLs without R2 keys" {
   run --separate-stderr "${SCRIPT}" "${FIXTURE_ARGS[@]}"
   [ "$status" -eq 0 ]
 
@@ -147,8 +146,8 @@ STUB
   [ "$(jq -r '.tofu_oci_restic | has("healthcheck_url")' <<<"${output}")" = "false" ]
   [ "$(jq -r '.tofu_gcp_restic.s3_access_key_id' <<<"${output}")" = "GOOG1EWRITEREXAMPLE" ]
   [ "$(jq -r '.tofu_gcp_restic | has("healthcheck_url")' <<<"${output}")" = "false" ]
-  [ "$(jq -r '.tofu_cloudflare_restic.bucket' <<<"${output}")" = "homelab-backups-dr-example" ]
-  [ "$(jq -r '.tofu_cloudflare_restic.s3_access_key_id' <<<"${output}")" = "cf-r2-writer-akid-example" ]
+  [ "$(jq -r 'has("tofu_cloudflare_restic")' <<<"${output}")" = "false" ]
+  [ "$(jq -r 'has("dr_copy_ping_url")' <<<"${output}")" = "false" ]
   [ "$(jq -r '.tofu_host_backup_ping_urls.h1' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000001" ]
   [ "$(jq -r '.tofu_host_backup_ping_urls.h2' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000002" ]
   [ "$(jq -r '.tofu_host_alive_ping_urls.h1' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000011" ]
@@ -160,7 +159,7 @@ STUB
   [ ! -f "${BATS_TEST_TMPDIR}/tofu.calls" ]
 }
 
-@test "get-tofu-restic-vars.sh prune mode emits delete-capable pruner keys and the prune ping URL" {
+@test "get-tofu-restic-vars.sh prune mode emits delete-capable pruner keys, backup_prune_ping_url, and dr_copy_ping_url" {
   run --separate-stderr "${SCRIPT}" --mode prune "${FIXTURE_ARGS[@]}"
   [ "$status" -eq 0 ]
 
@@ -169,6 +168,7 @@ STUB
   [ "$(jq -r '.tofu_gcp_restic.s3_access_key_id' <<<"${output}")" = "GOOG1EPRUNEREXAMPLE" ]
   [ "$(jq -r '.tofu_cloudflare_restic.s3_secret_access_key' <<<"${output}")" = "cf-r2-prune-secret-example" ]
   [ "$(jq -r '.backup_prune_ping_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000003" ]
+  [ "$(jq -r '.dr_copy_ping_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000006" ]
   [ "$(jq -r '.ci_schedule_ping_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000004" ]
   [ "$(jq -r '.codeql_schedule_ping_url' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000005" ]
   [ "$(jq -r '.tofu_oci_restic | has("healthcheck_url")' <<<"${output}")" = "false" ]

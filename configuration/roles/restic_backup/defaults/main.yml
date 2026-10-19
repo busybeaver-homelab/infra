@@ -6,13 +6,6 @@ restic_backup_s3_access_key: ""
 restic_backup_s3_secret_key: ""
 restic_backup_healthchecks_ping_url: ""
 
-# Secondary Repository & Authentication Credentials (DR)
-restic_backup_secondary_enabled: false
-restic_backup_secondary_repository: ""
-restic_backup_secondary_s3_access_key: ""
-restic_backup_secondary_s3_secret_key: ""
-restic_backup_secondary_password: ""
-
 # Whether to automatically initialize an uninitialized repository (exit code 10)
 restic_backup_auto_init: false
 

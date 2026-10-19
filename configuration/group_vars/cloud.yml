@@ -58,13 +58,6 @@ ntp_daemon: ntpsec
 ntp_config_file: /etc/ntpsec/ntp.conf
 ntp_driftfile: /var/lib/ntpsec/ntp.drift
 
-# Secondary Cloudflare R2 Disaster Recovery Backup (Western Europe jurisdiction)
-restic_backup_secondary_enabled: true
-restic_backup_secondary_repository: "s3:{{ tofu_cloudflare_restic.s3_endpoint }}/{{ tofu_cloudflare_restic.bucket }}/{{ inventory_hostname }}"
-restic_backup_secondary_s3_access_key: "{{ tofu_cloudflare_restic.s3_access_key_id }}"
-restic_backup_secondary_s3_secret_key: "{{ tofu_cloudflare_restic.s3_secret_access_key }}"
-restic_backup_secondary_password: "{{ cloudflare_restic.password }}"
-
 # Docker daemon configuration (geerlingguy.docker)
 docker_daemon_options:
   log-driver: "json-file"

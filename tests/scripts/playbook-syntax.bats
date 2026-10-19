@@ -378,31 +378,40 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "restic_backup defaults define dual-target variables" {
+@test "restic_backup defaults and argument_specs omit secondary variables and templates/secondary.env.j2 is removed (OD-4)" {
   local defaults="$REPO_ROOT/configuration/roles/restic_backup/defaults/main.yml"
+  local specs="$REPO_ROOT/configuration/roles/restic_backup/meta/argument_specs.yml"
   [ -f "$defaults" ]
-  run grep "restic_backup_secondary_enabled:" "$defaults"
-  [ "$status" -eq 0 ]
-  run grep "restic_backup_secondary_repository:" "$defaults"
-  [ "$status" -eq 0 ]
-  run grep "restic_backup_secondary_password:" "$defaults"
-  [ "$status" -eq 0 ]
+  [ -f "$specs" ]
+  [ ! -f "$REPO_ROOT/configuration/roles/restic_backup/templates/secondary.env.j2" ]
+  run grep "restic_backup_secondary_" "$defaults"
+  [ "$status" -ne 0 ]
+  run grep "restic_backup_secondary_" "$specs"
+  [ "$status" -ne 0 ]
   run grep "restic_backup_credstore_dir:" "$defaults"
   [ "$status" -eq 0 ]
 }
 
-@test "restic_backup tasks deploy primary.env, secondary.env, and encrypted credentials" {
+@test "restic_backup tasks deploy primary.env and encrypted primary credentials and purge legacy secondary files (OD-4)" {
   local tasks="$REPO_ROOT/configuration/roles/restic_backup/tasks/main.yml"
+  local role_vars="$REPO_ROOT/configuration/roles/restic_backup/vars/main.yml"
   [ -f "$tasks" ]
+  [ -f "$role_vars" ]
   run grep "primary.env" "$tasks"
   [ "$status" -eq 0 ]
-  run grep "secondary.env" "$tasks"
-  [ "$status" -eq 0 ]
+  run grep "secondary.env.j2" "$tasks"
+  [ "$status" -ne 0 ]
   run grep "restic-credential-sync" "$tasks"
+  [ "$status" -eq 0 ]
+  run grep -F "{{ restic_backup_config_dir }}/secondary.env" "$role_vars"
+  [ "$status" -eq 0 ]
+  run grep -F "{{ restic_backup_credstore_dir }}/restic_secondary_password" "$role_vars"
+  [ "$status" -eq 0 ]
+  run grep -F "{{ restic_backup_credstore_dir }}/cloudflare_s3_secret_key" "$role_vars"
   [ "$status" -eq 0 ]
 }
 
-@test "configuration/group_vars/cloud.yml, oci.yml, and gcp.yml wire DRY dual restic backup targets" {
+@test "configuration/group_vars/cloud.yml, oci.yml, and gcp.yml wire DRY primary restic backup targets without host-held R2 credentials (OD-4)" {
   local cloud_vars="$REPO_ROOT/configuration/group_vars/cloud.yml"
   local oci_vars="$REPO_ROOT/configuration/group_vars/oci.yml"
   local gcp_vars="$REPO_ROOT/configuration/group_vars/gcp.yml"
@@ -415,16 +424,11 @@ setup() {
   run grep "get-tofu-restic-vars.sh" "$cloud_pb"
   [ "$status" -eq 0 ]
 
-  run grep "restic_backup_secondary_enabled: true" "$cloud_vars"
-  [ "$status" -eq 0 ]
-  run grep "tofu_cloudflare_restic.s3_endpoint" "$cloud_vars"
-  [ "$status" -eq 0 ]
-  run grep "tofu_cloudflare_restic.bucket" "$cloud_vars"
-  [ "$status" -eq 0 ]
-  run grep "tofu_cloudflare_restic.s3_access_key_id" "$cloud_vars"
-  [ "$status" -eq 0 ]
-  run grep "cloudflare_restic.password" "$cloud_vars"
-  [ "$status" -eq 0 ]
+  run grep -E "restic_backup_secondary_|tofu_cloudflare_restic|cloudflare_restic\.password" "$cloud_vars"
+  [ "$status" -ne 0 ]
+
+  run grep "tofu_cloudflare_restic" "$cloud_pb"
+  [ "$status" -ne 0 ]
 
   run grep "tofu_oci_restic.bucket" "$oci_vars"
   [ "$status" -eq 0 ]

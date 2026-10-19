@@ -30,28 +30,6 @@ argument_specs:
         type: str
         default: ""
         description: Healthchecks.io ping URL for failure and completion monitoring.
-      restic_backup_secondary_enabled:
-        type: bool
-        default: false
-        description: Whether secondary (DR) backup replication is enabled.
-      restic_backup_secondary_repository:
-        type: str
-        default: ""
-        description: Secondary target repository URL or path.
-      restic_backup_secondary_s3_access_key:
-        type: str
-        default: ""
-        description: S3 access key ID for secondary repository.
-      restic_backup_secondary_s3_secret_key:
-        type: str
-        default: ""
-        no_log: true
-        description: S3 secret access key for secondary repository.
-      restic_backup_secondary_password:
-        type: str
-        default: ""
-        no_log: true
-        description: Encryption password for the secondary restic repository.
       restic_backup_paths:
         type: list
         elements: str

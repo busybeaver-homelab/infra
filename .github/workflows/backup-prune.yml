@@ -115,7 +115,7 @@ jobs:
           export RESTIC_PASSWORD="${R2_RESTIC_PASSWORD}" AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
           for host in ${OCI_BACKUP_HOSTS} ${GCP_BACKUP_HOSTS}; do
             echo "::add-mask::${host}"
-            RESTIC_REPOSITORY="s3:${R2_ENDPOINT}/${R2_BUCKET}/${host}"
+            RESTIC_REPOSITORY="s3:${R2_ENDPOINT}/${R2_BUCKET}/dr/${host}"
             export RESTIC_REPOSITORY
             mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h forget --keep-daily 7 --keep-weekly 4 --group-by host,tags --prune --max-unused 10%
             mise exec -- restic -r "${RESTIC_REPOSITORY}" --retry-lock 2h check --read-data-subset=5%

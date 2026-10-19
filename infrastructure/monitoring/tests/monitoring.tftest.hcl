@@ -77,6 +77,7 @@ run "verify_healthchecks_check" {
       contains(healthchecksio_check.restic_backup.channels, data.healthchecksio_channel.email.id) &&
       contains(healthchecksio_check.drift_detection.channels, data.healthchecksio_channel.email.id) &&
       contains(healthchecksio_check.backup_prune.channels, data.healthchecksio_channel.email.id) &&
+      contains(healthchecksio_check.dr_copy.channels, data.healthchecksio_channel.email.id) &&
       contains(healthchecksio_check.ci_schedule.channels, data.healthchecksio_channel.email.id) &&
       contains(healthchecksio_check.codeql_schedule.channels, data.healthchecksio_channel.email.id) &&
       alltrue([for c in healthchecksio_check.compose : contains(c.channels, data.healthchecksio_channel.email.id)]) &&
@@ -94,6 +95,11 @@ run "verify_healthchecks_check" {
   assert {
     condition     = healthchecksio_check.backup_prune.name == "homelab-restic-prune" && healthchecksio_check.backup_prune.timeout == 604800 && healthchecksio_check.backup_prune.grace == 14400 && contains(healthchecksio_check.backup_prune.tags, "homelab")
     error_message = "Backup prune check must be configured with 604800s timeout, 14400s grace, and homelab tag"
+  }
+
+  assert {
+    condition     = healthchecksio_check.dr_copy.name == "homelab-restic-dr-copy" && healthchecksio_check.dr_copy.timeout == 86400 && healthchecksio_check.dr_copy.grace == 7200 && contains(healthchecksio_check.dr_copy.tags, "homelab") && contains(healthchecksio_check.dr_copy.tags, "dr")
+    error_message = "DR copy check must be named homelab-restic-dr-copy with 86400s timeout, 7200s grace, and homelab/dr tags (R2-OPS-02)"
   }
 
   assert {
@@ -177,6 +183,11 @@ run "verify_computed_outputs_on_apply" {
   assert {
     condition     = output.backup_prune_ping_url != ""
     error_message = "Backup prune ping URL output must be computed on apply"
+  }
+
+  assert {
+    condition     = output.dr_copy_ping_url != ""
+    error_message = "DR copy ping URL output must be computed on apply (R2-OPS-02)"
   }
 
   assert {
