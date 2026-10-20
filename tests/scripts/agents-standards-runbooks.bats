@@ -151,3 +151,16 @@ is_encrypted() {
   run grep -F "after rebasing or editing an earlier layer" "$ci_rb"
   [ "$status" -eq 0 ]
 }
+
+@test "ci-workflows-standards.md requires retiring stale code-scanning configurations (STD-CI-74)" {
+  local ci_rb="${REPO_ROOT}/docs/runbooks/ci-workflows-standards.md"
+  if is_encrypted "$ci_rb"; then
+    skip "runbooks are git-crypt encrypted in this checkout"
+  fi
+  run grep -E "^### STD-CI-74 " "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "Delete configuration" "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "EXPECTED_SARIF_CONFIGS" "$ci_rb"
+  [ "$status" -eq 0 ]
+}
