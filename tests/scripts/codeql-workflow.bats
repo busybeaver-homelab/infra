@@ -133,3 +133,57 @@ assert "shellcheck" in categories
     [ "$output" = "$pattern" ]
   done
 }
+
+# Prints each code-scanning configuration under <root>/.github/workflows as
+# "<workflow file>|<job id>|<category>", one per SARIF upload or CodeQL analyze step.
+sarif_configs() {
+  python3 - "$1" <<'PY'
+import glob, os, sys, yaml
+rows = set()
+for path in glob.glob(os.path.join(sys.argv[1], ".github/workflows/*.y*ml")):
+    data = yaml.safe_load(open(path)) or {}
+    for job_id, job in (data.get("jobs") or {}).items():
+        for step in job.get("steps") or []:
+            uses = step.get("uses") or ""
+            if "codeql-action/upload-sarif" in uses or "codeql-action/analyze" in uses:
+                category = (step.get("with") or {}).get("category", "")
+                rows.add(f"{os.path.basename(path)}|{job_id}|{category}")
+print("\n".join(sorted(rows)))
+PY
+}
+
+# Changing this list means a configuration on main is retired: delete it there
+# (STD-CI-74), or the required code-scanning rule blocks every PR.
+EXPECTED_SARIF_CONFIGS='codeql.yml|analyze-codeql|/language:${{ matrix.language }}
+codeql.yml|analyze-iac-and-scripts|checkov
+codeql.yml|analyze-iac-and-scripts|kics
+codeql.yml|analyze-iac-and-scripts|shellcheck
+codeql.yml|analyze-iac-and-scripts|trivy-fs
+codeql.yml|analyze-iac-and-scripts|trivy-iac
+codeql.yml|analyze-iac-and-scripts|zizmor'
+
+@test "SARIF configurations match the reviewed set (STD-CI-74)" {
+  run sarif_configs "$REPO_ROOT"
+  [ "$status" -eq 0 ]
+  if [ "$output" != "$EXPECTED_SARIF_CONFIGS" ]; then
+    echo "SARIF configurations changed. Delete the retired configuration on refs/heads/main (STD-CI-74), then update EXPECTED_SARIF_CONFIGS."
+    diff <(echo "$EXPECTED_SARIF_CONFIGS") <(echo "$output") || true
+    false
+  fi
+}
+
+@test "a renamed SARIF category or moved upload job changes the configuration set (STD-CI-74)" {
+  local root="${BATS_TEST_TMPDIR}/repo"
+  mkdir -p "${root}/.github/workflows"
+  sed 's/category: trivy-fs/category: trivy-filesystem/' "$WORKFLOW" > "${root}/.github/workflows/codeql.yml"
+  run sarif_configs "$root"
+  [ "$status" -eq 0 ]
+  [ "$output" != "$EXPECTED_SARIF_CONFIGS" ]
+  [[ "$output" == *"codeql.yml|analyze-iac-and-scripts|trivy-filesystem"* ]] || false
+  [[ "$output" != *"|trivy-fs"* ]] || false
+
+  sed 's/^  analyze-iac-and-scripts:/  security-scan:/' "$WORKFLOW" > "${root}/.github/workflows/codeql.yml"
+  run sarif_configs "$root"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"codeql.yml|security-scan|trivy-fs"* ]]
+}

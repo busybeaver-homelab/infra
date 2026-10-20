@@ -117,7 +117,13 @@ is_encrypted() {
   [ "$status" -eq 0 ]
   run grep -F "git fetch origin main && git rebase origin/main" "$agents"
   [ "$status" -eq 0 ]
-  run grep -F "gh pr update-branch" "$agents"
+  run grep -F "Owner-Review Exception (CODEOWNERS paths):" "$agents"
+  [ "$status" -eq 0 ]
+  run grep -F "git push --force-with-lease" "$agents"
+  [ "$status" -eq 0 ]
+  run grep -F -- "--no-track -b <branch> origin/main" "$agents"
+  [ "$status" -eq 0 ]
+  run grep -F "reachable from the PR head" "$agents"
   [ "$status" -eq 0 ]
   run grep -F "Single PR — Automatic Merge Queue Enrollment:" "$agents"
   [ "$status" -eq 0 ]
@@ -138,6 +144,23 @@ is_encrypted() {
   [ "$status" -eq 0 ]
   run grep -F "git fetch origin main && git rebase origin/main" "$ci_rb"
   [ "$status" -eq 0 ]
-  run grep -F "gh pr update-branch" "$ci_rb"
+  run grep -F "Owner-review exception (CODEOWNERS paths):" "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "git push --force-with-lease" "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "after rebasing or editing an earlier layer" "$ci_rb"
+  [ "$status" -eq 0 ]
+}
+
+@test "ci-workflows-standards.md requires retiring stale code-scanning configurations (STD-CI-74)" {
+  local ci_rb="${REPO_ROOT}/docs/runbooks/ci-workflows-standards.md"
+  if is_encrypted "$ci_rb"; then
+    skip "runbooks are git-crypt encrypted in this checkout"
+  fi
+  run grep -E "^### STD-CI-74 " "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "Delete configuration" "$ci_rb"
+  [ "$status" -eq 0 ]
+  run grep -F "EXPECTED_SARIF_CONFIGS" "$ci_rb"
   [ "$status" -eq 0 ]
 }
