@@ -14,7 +14,7 @@ dependencies = [
 
 [tool.uv]
 dev-dependencies = [
-    "ruff==0.17.0",
+    "ruff==0.17.1",
     "ansible-lint==26.10.1",
     "checkov==3.3.29",
     "molecule==26.10.0",
