@@ -28,6 +28,7 @@ _github_app_err() {
 
 # Read one non-empty value from SOPS; exit 3 with a hint when unavailable.
 _github_app_sops_value() {
+  set +x # never trace secrets, even if the caller enabled xtrace
   local path="$1" file="${GITHUB_APP_SOPS_FILE:-$_GITHUB_APP_REPO_ROOT/secrets/credentials.sops.yaml}" value
   if ! value="$(sops -d --extract "$path" "$file" 2>/dev/null)" || [[ -z "$value" ]]; then
     _github_app_err "cannot read ${path} from SOPS; check GPG key availability (scripts/check-gpg-expiry.sh)"
@@ -41,6 +42,7 @@ _github_app_b64url() {
 }
 
 github_app_mint_token() (
+  set +x # never trace the JWT or token, even if the caller enabled xtrace
   set -o pipefail
   local cfg='["github"]["config"]["agent_app"]'
   local key_path='["github"]["agent_app"]["private_key"]'
@@ -112,7 +114,7 @@ github_app_mint_token() (
     _github_app_err "GitHub installation token request failed (curl exit ${rc})"
     exit 5
   fi
-  token="$(jq -r '.token // empty' <<<"$response" 2>/dev/null)" || token=""
+  token="$(printf '%s' "$response" | jq -r '.token // empty' 2>/dev/null)" || token=""
   if [[ -z "$token" ]]; then
     _github_app_err "GitHub response did not contain an installation token"
     exit 5
@@ -121,6 +123,7 @@ github_app_mint_token() (
 )
 
 github_app_identity() (
+  set +x
   local cfg='["github"]["config"]["agent_app"]'
   local slug bot_id
   slug="$(_github_app_sops_value "${cfg}[\"slug\"]")" || exit 3

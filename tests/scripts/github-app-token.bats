@@ -74,10 +74,25 @@ jwt() {
 }
 
 @test "library has no side effects on source" {
-  run bash -c 'set +e; source "$1"; echo "$-"' _ "$LIB"
+  run bash -c '
+    before="$(set -o; trap -p)"
+    source "$1"
+    after="$(set -o; trap -p)"
+    [[ "$before" == "$after" ]] || { echo "shell state changed on source"; diff <(echo "$before") <(echo "$after"); exit 1; }
+  ' _ "$LIB"
   [ "$status" -eq 0 ]
-  [[ "$output" != *e* ]]
-  [[ "$output" != *u* ]]
+}
+
+@test "xtrace in the caller never exposes the JWT or token" {
+  ( set -x; github_app_mint_token ) >"$BATS_TEST_TMPDIR/trace.out" 2>"$BATS_TEST_TMPDIR/trace.err"
+  [ "$(cat "$BATS_TEST_TMPDIR/trace.out")" = "ghs_SYNTHETICtoken0000" ]
+  local j
+  j="$(jwt)"
+  [ -n "$j" ]
+  run ! grep -qF "$j" "$BATS_TEST_TMPDIR/trace.err"
+  run ! grep -qF "ghs_SYNTHETICtoken0000" "$BATS_TEST_TMPDIR/trace.err"
+  run ! grep -q "Bearer" "$BATS_TEST_TMPDIR/trace.err"
+  run ! grep -q "BEGIN" "$BATS_TEST_TMPDIR/trace.err"
 }
 
 @test "mints a token and prints only the token" {
@@ -137,8 +152,8 @@ jwt() {
 @test "private key is never on curl argv or written under HOME/TMPDIR" {
   run mint
   [ "$status" -eq 0 ]
-  ! grep -q 'BEGIN' "$BATS_TEST_TMPDIR/curl.argv"
-  ! grep -q 'BEGIN' "$BATS_TEST_TMPDIR/curl.stdin"
+  run ! grep -q 'BEGIN' "$BATS_TEST_TMPDIR/curl.argv"
+  run ! grep -q 'BEGIN' "$BATS_TEST_TMPDIR/curl.stdin"
   [ -z "$(ls -A "$FAKE_HOME")" ]
   [ -z "$(ls -A "$FAKE_TMP")" ]
 }
@@ -146,7 +161,7 @@ jwt() {
 @test "JWT is not on curl argv" {
   run mint
   [ "$status" -eq 0 ]
-  ! grep -q "$(jwt)" "$BATS_TEST_TMPDIR/curl.argv"
+  run ! grep -q "$(jwt)" "$BATS_TEST_TMPDIR/curl.argv"
 }
 
 @test "missing private key exits 3 and names check-gpg-expiry.sh" {
