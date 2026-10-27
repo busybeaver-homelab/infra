@@ -55,5 +55,7 @@ unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN GH_REPO
 config_dir="$(mktemp -d)"
 trap 'rm -rf "$config_dir"' EXIT
 rc=0
-GH_TOKEN="$token" GH_HOST=github.com GH_CONFIG_DIR="$config_dir" gh "$@" || rc=$?
+# gh extensions and checkout/clone helpers can launch git outside agent-git.sh.
+# Block every Git transport in this child tree; network Git uses agent-git.sh.
+GH_TOKEN="$token" GH_HOST=github.com GH_CONFIG_DIR="$config_dir" GIT_ALLOW_PROTOCOL='' gh "$@" || rc=$?
 exit "$rc"

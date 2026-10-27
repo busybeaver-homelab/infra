@@ -1,0 +1,2 @@
+# Follow checked-in source directives when a hook lints one wrapper at a time.
+external-sources=true

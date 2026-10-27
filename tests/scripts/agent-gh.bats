@@ -13,6 +13,10 @@ jq -n --args '$ARGS.positional' -- "$@" >"$APP_FIXTURE/gh.argv"
 [[ ! -v GITHUB_TOKEN ]] || exit 92
 [[ ! -v GH_ENTERPRISE_TOKEN && ! -v GITHUB_ENTERPRISE_TOKEN ]] || exit 93
 [[ ! -v GH_REPO ]] || exit 94
+if [[ -n "${APP_GH_TRY_GIT:-}" ]]; then
+  git ls-remote "$APP_GIT_REMOTE"
+  exit $?
+fi
 printf 'child executed\n'
 exit "${APP_GH_EXIT:-0}"
 STUB
@@ -114,4 +118,20 @@ STUB
   config_dir="$(cat "$APP_FIXTURE/gh-config-dir")"
   [ -n "$config_dir" ]
   [ ! -e "$config_dir" ]
+}
+
+@test "gh child cannot fall back to git transport credentials" {
+  git init --bare -q "$BATS_TEST_TMPDIR/transport.git"
+  export APP_GIT_REMOTE="file://$BATS_TEST_TMPDIR/transport.git"
+  export GIT_ALLOW_PROTOCOL=file
+  APP_GH_TRY_GIT=1 run bash "$WRAPPER" stack submit --auto
+  [ "$status" -eq 128 ]
+  [[ "$output" == *"transport 'file' not allowed"* ]] || false
+  [ "$GIT_ALLOW_PROTOCOL" = file ]
+  assert_no_app_token
+}
+
+@test "wrapper can be linted independently with its sourced library" {
+  run shellcheck "$WRAPPER"
+  [ "$status" -eq 0 ]
 }
