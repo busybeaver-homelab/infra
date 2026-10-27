@@ -217,3 +217,21 @@ EOF
   [ "$status" -ne 0 ]
   [[ "$output" =~ "No secret keys found in" ]] || false
 }
+
+@test "canonical secrets files provide encrypted agent App fields" {
+  local file path
+  local paths=(
+    '.github.agent_app.private_key'
+    '.github.config.agent_app.app_id'
+    '.github.config.agent_app.installation_id'
+    '.github.config.agent_app.slug'
+    '.github.config.agent_app.bot_user_id'
+  )
+  for file in credentials.sops.yaml credentials.ci.sops.yaml; do
+    for path in "${paths[@]}"; do
+      run yq eval -e "${path} | select(tag == \"!!str\") | test(\"^ENC\\\\[AES256_GCM,\")" "${REPO_ROOT}/secrets/${file}"
+      [ "$status" -eq 0 ]
+      [ "$output" = true ]
+    done
+  done
+}
