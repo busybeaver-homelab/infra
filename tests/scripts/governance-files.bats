@@ -251,3 +251,9 @@ is_owned() {
   done
 }
 
+
+@test "agent worktree skill configures bot identity immediately after checkout" {
+  local skill="${REPO_ROOT}/.agent/skills/using-git-worktrees/SKILL.md"
+  run grep -F 'scripts/agent-worktree-identity.sh "$path"' "$skill"
+  [ "$status" -eq 0 ]
+}

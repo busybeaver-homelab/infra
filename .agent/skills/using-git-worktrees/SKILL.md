@@ -106,6 +106,8 @@ if [ -d "$(git rev-parse --git-common-dir)/git-crypt" ]; then
 else
   git worktree add "$path" --no-track -b "$BRANCH_NAME" origin/main
 fi
+# Configure bot authorship only after checkout; fail closed if app metadata is unavailable.
+bash scripts/agent-worktree-identity.sh "$path" || exit $?
 cd "$path"
 ```
 
