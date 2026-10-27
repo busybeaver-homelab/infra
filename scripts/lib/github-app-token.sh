@@ -69,23 +69,26 @@ github_app_mint_token() (
   input="${header}.${payload}"
   printf '%s' "$input" >"$work/input"
 
-  # The private key flows sops -> openssl through a pipe only.
-  local -a status
-  sops -d --extract "$key_path" "$file" 2>/dev/null |
-    openssl dgst -sha256 -sign /dev/stdin -out "$work/sig" "$work/input" 2>/dev/null
-  status=("${PIPESTATUS[@]}")
-  if [[ "${status[0]}" -ne 0 ]]; then
+  # Keep the signature in memory: input + signature would reconstruct the JWT.
+  rc=0
+  signature="$(
+    local -a status
+    sops -d --extract "$key_path" "$file" 2>/dev/null |
+      openssl dgst -sha256 -sign /dev/stdin "$work/input" 2>/dev/null |
+      _github_app_b64url
+    status=("${PIPESTATUS[@]}")
+    # Capture PIPESTATUS before testing it; sops failures take precedence.
+    [[ "${status[0]}" -eq 0 ]] || exit 3
+    [[ "${status[1]}" -eq 0 && "${status[2]}" -eq 0 ]] || exit 4
+  )" || rc=$?
+  if [[ "$rc" -eq 3 ]]; then
     _github_app_err "cannot read ${key_path} from SOPS; check GPG key availability (scripts/check-gpg-expiry.sh)"
     exit 3
   fi
-  if [[ "${status[1]}" -ne 0 || ! -s "$work/sig" ]]; then
+  if [[ "$rc" -ne 0 || -z "$signature" ]]; then
     _github_app_err "failed to sign GitHub App JWT with openssl"
     exit 4
   fi
-  signature="$(_github_app_b64url <"$work/sig")" || {
-    _github_app_err "failed to encode GitHub App JWT signature"
-    exit 4
-  }
 
   local body response token
   body="$(jq -cn --arg repo "$repo" '{
@@ -104,7 +107,7 @@ github_app_mint_token() (
   rc=0
   response="$(
     printf 'header = "Authorization: Bearer %s"\n' "${input}.${signature}" |
-      curl -sS --fail-with-body -K - -X POST \
+      curl --disable -sS --fail-with-body -K - -X POST \
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
         -d "$body" \

@@ -4,6 +4,7 @@
 load 'helpers/test_helper'
 
 setup() {
+  REAL_CURL="$(command -v curl)"
   LIB="$REPO_ROOT/scripts/lib/github-app-token.sh"
   FIX="$BATS_TEST_TMPDIR/fixtures"
   STUB_BIN="$BATS_TEST_TMPDIR/bin"
@@ -42,6 +43,9 @@ STUB
 #!/usr/bin/env bash
 printf '%s\n' "$@" >"$BATS_TEST_TMPDIR/curl.argv"
 cat >"$BATS_TEST_TMPDIR/curl.stdin"
+if [[ -n "${CURL_INSPECT_TMP:-}" ]]; then
+  find -L "$TMPDIR" -type f ! -name input >"$BATS_TEST_TMPDIR/secret-files"
+fi
 if [[ -n "${CURL_STUB_FAIL:-}" ]]; then
   echo '{"message":"Bad credentials","leak":"ghs_SYNTHETICtoken0000"}'
   exit 22
@@ -168,15 +172,15 @@ jwt() {
   rm "$FIX/private_key"
   run mint
   [ "$status" -eq 3 ]
-  [[ "$output" == ERROR:* ]]
-  [[ "$output" == *"scripts/check-gpg-expiry.sh"* ]]
+  [[ "$output" == ERROR:* ]] || false
+  [[ "$output" == *"scripts/check-gpg-expiry.sh"* ]] || false
 }
 
 @test "missing app_id exits 3" {
   rm "$FIX/app_id"
   run mint
   [ "$status" -eq 3 ]
-  [[ "$output" == *"scripts/check-gpg-expiry.sh"* ]]
+  [[ "$output" == *"scripts/check-gpg-expiry.sh"* ]] || false
 }
 
 @test "missing installation_id exits 3" {
@@ -189,15 +193,15 @@ jwt() {
   printf 'not a key' >"$FIX/private_key"
   run mint
   [ "$status" -eq 4 ]
-  [[ "$output" == ERROR:* ]]
+  [[ "$output" == ERROR:* ]] || false
 }
 
 @test "HTTP 401 exits 5 and never prints the response body" {
   CURL_STUB_FAIL=1 run mint
   [ "$status" -eq 5 ]
-  [[ "$output" == ERROR:* ]]
-  [[ "$output" != *ghs_SYNTHETICtoken0000* ]]
-  [[ "$output" != *"Bad credentials"* ]]
+  [[ "$output" == ERROR:* ]] || false
+  [[ "$output" != *ghs_SYNTHETICtoken0000* ]] || false
+  [[ "$output" != *"Bad credentials"* ]] || false
 }
 
 @test "github_app_identity prints slug[bot] and noreply email" {
@@ -210,5 +214,25 @@ jwt() {
   rm "$FIX/slug"
   run github_app_identity
   [ "$status" -eq 3 ]
-  [[ "$output" == *"scripts/check-gpg-expiry.sh"* ]]
+  [[ "$output" == *"scripts/check-gpg-expiry.sh"* ]] || false
+}
+
+@test "JWT signature never touches disk while the request is in flight" {
+  CURL_INSPECT_TMP=1 run mint
+  [ "$status" -eq 0 ]
+  [ -f "$BATS_TEST_TMPDIR/secret-files" ]
+  [ ! -s "$BATS_TEST_TMPDIR/secret-files" ]
+}
+
+@test "ignores curl config that would trace the JWT and installation token to disk" {
+  local api="$BATS_TEST_TMPDIR/api"
+  mkdir -p "$api/app/installations/7654321" "$BATS_TEST_TMPDIR/curl-home"
+  printf '{"token":"ghs_SYNTHETICtoken0000"}' >"$api/app/installations/7654321/access_tokens"
+  printf 'trace-ascii = "%s"\n' "$BATS_TEST_TMPDIR/credential-trace" >"$BATS_TEST_TMPDIR/curl-home/.curlrc"
+  rm "$STUB_BIN/curl"
+  ln -s "$REAL_CURL" "$STUB_BIN/curl"
+  CURL_HOME="$BATS_TEST_TMPDIR/curl-home" GITHUB_API_URL="file://$api" run mint
+  [ "$status" -eq 0 ]
+  [ "$output" = ghs_SYNTHETICtoken0000 ]
+  [ ! -e "$BATS_TEST_TMPDIR/credential-trace" ]
 }
