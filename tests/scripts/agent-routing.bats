@@ -315,7 +315,7 @@ PY
   run validate; [ "$status" -eq 2 ]; [[ "$output" == *invalid_input* ]]
 }
 
-@test "maintenance policy is reachable and covers review triggers and owner approval" {
+@test "maintenance policy links and runbook exist" {
   run python3 - "$REPO_ROOT" <<'PY'
 import pathlib, sys
 p = pathlib.Path(sys.argv[1])
@@ -323,9 +323,40 @@ root = (p / 'AGENTS.md').read_text().lower()
 rule = (p / '.agents/rules/model-routing.md').read_text().lower()
 assert 'docs/runbooks/agent-model-maintenance.md' in root
 assert 'docs/runbooks/agent-model-maintenance.md' in rule
-s = (p / 'docs/runbooks/agent-model-maintenance.md').read_text().lower()
+assert (p / 'docs/runbooks/agent-model-maintenance.md').is_file()
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "maintenance policy covers review triggers and owner approval" {
+  local runbook="$REPO_ROOT/docs/runbooks/agent-model-maintenance.md"
+  if is_git_crypt_encrypted "$runbook"; then
+    skip 'runbook is git-crypt encrypted'
+  fi
+  run python3 - "$runbook" <<'PY'
+import pathlib, sys
+s = pathlib.Path(sys.argv[1]).read_text().lower()
 for phrase in ('official', 'release', 'retirement', 'drift', 'owner approval', 'reviewed_on', 'known-good', 'unavailable', 'product', 'account', 'latency', 'cost', 'flash', 'scheduler'):
     assert phrase in s, phrase
 PY
   [ "$status" -eq 0 ]
+}
+
+@test "locked maintenance fixture preserves public checks" {
+  local fixture="$BATS_TMPDIR/locked"
+  mkdir -p "$fixture/tests/scripts/helpers" "$fixture/.agents/rules" "$fixture/docs/runbooks"
+  cp "$REPO_ROOT/tests/scripts/agent-routing.bats" "$fixture/tests/scripts/"
+  cp "$REPO_ROOT/tests/scripts/helpers/test_helper.bash" "$REPO_ROOT/tests/scripts/helpers/agent_routing.bash" "$fixture/tests/scripts/helpers/"
+  cp "$REPO_ROOT/AGENTS.md" "$fixture/AGENTS.md"
+  cp "$REPO_ROOT/.agents/rules/model-routing.md" "$fixture/.agents/rules/"
+  printf '\0GITCRYPT\0\377synthetic' > "$fixture/docs/runbooks/agent-model-maintenance.md"
+  run bats --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
+  [ "$status" -eq 0 ]
+  printf 'missing public import\n' > "$fixture/.agents/rules/model-routing.md"
+  run bats --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
+  [ "$status" -ne 0 ]
+  cp "$REPO_ROOT/.agents/rules/model-routing.md" "$fixture/.agents/rules/"
+  printf 'incomplete policy\n' > "$fixture/docs/runbooks/agent-model-maintenance.md"
+  run bats --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
+  [ "$status" -ne 0 ]
 }
