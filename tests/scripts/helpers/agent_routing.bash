@@ -27,6 +27,7 @@ for i,role in enumerate(roles):
         tools='Read, Grep, Glob' if role=='reviewer' else 'Read, Edit, Write'
         write(f'.claude/agents/routing-{role}.md',f'---\nname: routing-{role}\ndescription: Routing role\nmodel: {models["claude"][i]}\ntools: {tools}\n---\nFollow policy\n')
     tools='[view_file, grep_search]' if role=='reviewer' else '[view_file, replace_file_content, run_command]'
+    if role=='coordinator': tools='[view_file, replace_file_content, run_command, invoke_subagent]'
     write(f'.agents/agents/routing-{role}.md',f'---\nname: routing-{role}\ndescription: Routing role\nmodel: {models["antigravity"][i]}\ntools: {tools}\nmainAgent: {str(i==0).lower()}\nsubagent: {str(i!=0).lower()}\ncommandExecutionPolicy: sandbox\n---\nFollow policy\n')
 PY
 }

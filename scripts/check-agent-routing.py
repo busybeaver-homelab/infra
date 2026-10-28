@@ -289,6 +289,12 @@ def validate_repository(root: Path) -> list[str]:
                     allowed = (
                         CLAUDE_TOOLS if provider == "claude" else ANTIGRAVITY_TOOLS
                     )
+                    if provider == "antigravity" and role == "coordinator":
+                        allowed = allowed | {"invoke_subagent"}
+                        check(
+                            isinstance(names, list) and "invoke_subagent" in names,
+                            "invalid_roles",
+                        )
                     read_only = (
                         CLAUDE_READ if provider == "claude" else ANTIGRAVITY_READ
                     )

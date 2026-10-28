@@ -54,6 +54,25 @@ PY
     run validate; [ "$status" -eq 1 ]; [[ "$output" == *unsafe_permissions* ]]
   done
 }
+@test "routing accepts antigravity coordinator dispatch" {
+  run validate; [ "$status" -eq 0 ]
+}
+@test "routing requires antigravity coordinator dispatch" {
+  sed -i.bak 's/, invoke_subagent//' "$BATS_TMPDIR/.agents/agents/routing-coordinator.md"
+  run validate; [ "$status" -eq 1 ]; [[ "$output" == *invalid_roles* ]]
+}
+@test "routing rejects antigravity implementer dispatch" {
+  sed -i.bak 's/^tools:.*/tools: [view_file, replace_file_content, run_command, invoke_subagent]/' "$BATS_TMPDIR/.agents/agents/routing-implementer.md"
+  run validate; [ "$status" -eq 1 ]; [[ "$output" == *invalid_roles* ]]
+}
+@test "routing rejects antigravity simple dispatch" {
+  sed -i.bak 's/^tools:.*/tools: [view_file, replace_file_content, run_command, invoke_subagent]/' "$BATS_TMPDIR/.agents/agents/routing-simple.md"
+  run validate; [ "$status" -eq 1 ]; [[ "$output" == *invalid_roles* ]]
+}
+@test "routing rejects antigravity reviewer dispatch" {
+  sed -i.bak 's/^tools:.*/tools: [view_file, grep_search, invoke_subagent]/' "$BATS_TMPDIR/.agents/agents/routing-reviewer.md"
+  run validate; [ "$status" -eq 1 ]; [[ "$output" == *invalid_roles* ]]
+}
 @test "routing rejects unknown wildcard and malformed tools" {
   for tool in unknown '*' null; do
     sed -i.bak "s/^tools:.*/tools: ['$tool']/" "$BATS_TMPDIR/.agents/agents/routing-simple.md"
