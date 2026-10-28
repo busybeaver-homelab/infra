@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-load helpers/test_helper
-load helpers/agent_routing
+load 'helpers/test_helper'
+load 'helpers/agent_routing'
 setup() { setup_tmpdir; make_routing_fixture; }
 teardown() { teardown_tmpdir; }
 validate() { uv run --quiet --locked python "$SCRIPTS_DIR/check-agent-routing.py" --root "$BATS_TMPDIR" --as-of 2026-10-28; }
