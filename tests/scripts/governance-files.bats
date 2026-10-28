@@ -213,10 +213,12 @@ is_owned() {
   [ "$status" -eq 0 ]
 }
 
-@test "AGENTS.md defines R2-GOV-05 operational hard rules and no root CLAUDE.md exists (R2-GOV-05, OD-1)" {
+@test "AGENTS.md defines R2-GOV-05 operational hard rules and CLAUDE.md imports shared policy (R2-GOV-05, OD-1)" {
   local agents="${REPO_ROOT}/AGENTS.md"
   [ -f "$agents" ]
-  [ ! -e "${REPO_ROOT}/CLAUDE.md" ]
+  [ -f "${REPO_ROOT}/CLAUDE.md" ]
+  run grep -Fx "@AGENTS.md" "${REPO_ROOT}/CLAUDE.md"
+  [ "$status" -eq 0 ]
 
   local heading
   for heading in \
