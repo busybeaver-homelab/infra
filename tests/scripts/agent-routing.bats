@@ -351,6 +351,9 @@ PY
   cp "$REPO_ROOT/.agents/rules/model-routing.md" "$fixture/.agents/rules/"
   printf '\0GITCRYPT\0\377synthetic' > "$fixture/docs/runbooks/agent-model-maintenance.md"
   run bats --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
+  if [ "$status" -ne 0 ]; then
+    printf 'Nested maintenance checks exited %s:\n%s\n' "$status" "$output" >&2
+  fi
   [ "$status" -eq 0 ]
   printf 'missing public import\n' > "$fixture/.agents/rules/model-routing.md"
   run bats --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
