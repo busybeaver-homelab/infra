@@ -380,10 +380,10 @@ PY
   [ ! -e "$fixture/attempts.log" ]
   run "$fixture/bin/provider-error" worker-unavailable
   [ "$status" -eq 1 ]
-  [[ "$output" == *worker-unavailable* ]]
+  [[ "$output" == *worker-unavailable* ]] || false
   run "$fixture/bin/provider-error" coordinator-unavailable
   [ "$status" -eq 1 ]
-  [[ "$output" == *coordinator-unavailable* ]]
+  [[ "$output" == *coordinator-unavailable* ]] || false
   [ "$(wc -l < "$fixture/dispatch.log" | tr -d ' ')" -eq 2 ]
   [ ! -e "$fixture/attempts.log" ]
   "$fixture/bin/tofu" synthetic-1
