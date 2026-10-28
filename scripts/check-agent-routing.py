@@ -40,6 +40,53 @@ SOURCES = {
 }
 
 
+CLAUDE_READ = {"Read", "Grep", "Glob"}
+CLAUDE_TOOLS = CLAUDE_READ | {"Edit", "Write", "Bash"}
+ANTIGRAVITY_READ = {
+    "view_file",
+    "view_file_outline",
+    "view_code_item",
+    "grep_search",
+    "find_by_name",
+    "list_dir",
+}
+ANTIGRAVITY_TOOLS = ANTIGRAVITY_READ | {"replace_file_content", "run_command"}
+
+
+def unique_pairs(pairs: list[tuple[str, object]]) -> dict:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate key")
+        result[key] = value
+    return result
+
+
+class UniqueSafeLoader(yaml.SafeLoader):
+    """Safe loader for the restricted, alias-free frontmatter schema."""
+
+
+def unique_mapping(loader: UniqueSafeLoader, node: yaml.MappingNode) -> dict:
+    result = {}
+    for key_node, value_node in node.value:
+        if key_node.tag == "tag:yaml.org,2002:merge":
+            raise ValueError("merge")
+        key = loader.construct_object(key_node)
+        if key in result:
+            raise ValueError("duplicate key")
+        result[key] = loader.construct_object(value_node)
+    return result
+
+
+UniqueSafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, unique_mapping
+)
+
+
+def read_json(path: Path) -> object:
+    return json.loads(path.read_text(), object_pairs_hook=unique_pairs)
+
+
 def review_due(reviewed_on: date, as_of: date, review_after_days: int) -> bool:
     return (as_of - reviewed_on).days >= review_after_days
 
@@ -49,7 +96,12 @@ def frontmatter(path: Path) -> tuple[dict, str]:
     parts = text.split("---", 2)
     if len(parts) != 3 or parts[0].strip():
         raise ValueError("frontmatter")
-    value = yaml.safe_load(parts[1])
+    if any(
+        isinstance(token, (yaml.tokens.AliasToken, yaml.tokens.AnchorToken))
+        for token in yaml.scan(parts[1])
+    ):
+        raise ValueError("aliases")
+    value = yaml.load(parts[1], Loader=UniqueSafeLoader)
     if not isinstance(value, dict):
         raise ValueError("frontmatter")
     return value, parts[2]
@@ -77,6 +129,9 @@ def validate_repository(root: Path) -> list[str]:
                     "provider",
                     "forcedsubagentmodel",
                     "subagentmodel",
+                    "modelprovider",
+                    "claudecodesubagentmodel",
+                    "claudecodesubagentmodelforce",
                 }:
                     diagnostics.add("unsafe_settings")
                 permissions(item)
@@ -85,7 +140,7 @@ def validate_repository(root: Path) -> list[str]:
                 permissions(item)
 
     try:
-        manifest = json.loads((root / ".agent-models.json").read_text())
+        manifest = read_json(root / ".agent-models.json")
         check(
             manifest.get("schema_version") == 1
             and manifest.get("review_after_days") == 30,
@@ -130,7 +185,7 @@ def validate_repository(root: Path) -> list[str]:
             and agents.get("default_subagent_reasoning_effort") == "medium",
             "model_mismatch",
         )
-        settings = json.loads((root / ".claude/settings.json").read_text())
+        settings = read_json(root / ".claude/settings.json")
         permissions(settings)
         check(settings.get("model") == MODELS["claude"][0], "model_mismatch")
         check("@AGENTS.md" in (root / "CLAUDE.md").read_text(), "policy_import_missing")
@@ -170,6 +225,17 @@ def validate_repository(root: Path) -> list[str]:
                 )
                 check(data.get("model") == MODELS[provider][i], "model_mismatch")
                 if provider == "codex":
+                    check(
+                        set(data)
+                        <= {
+                            "name",
+                            "description",
+                            "developer_instructions",
+                            "model",
+                            "model_reasoning_effort",
+                        },
+                        "unsafe_settings",
+                    )
                     check(nonempty(data.get("developer_instructions")), "invalid_roles")
                     check(
                         data.get("model_reasoning_effort")
@@ -178,22 +244,35 @@ def validate_repository(root: Path) -> list[str]:
                     )
                 else:
                     tools = data.get("tools")
-                    check(
-                        (nonempty(tools) or (isinstance(tools, list) and bool(tools))),
-                        "invalid_roles",
+                    names = (
+                        [name.strip() for name in tools.split(",")]
+                        if isinstance(tools, str)
+                        else tools
                     )
-                    if role == "reviewer":
-                        names = (
-                            tools if isinstance(tools, list) else str(tools).split(",")
+                    allowed = (
+                        CLAUDE_TOOLS if provider == "claude" else ANTIGRAVITY_TOOLS
+                    )
+                    read_only = (
+                        CLAUDE_READ if provider == "claude" else ANTIGRAVITY_READ
+                    )
+                    valid = (
+                        isinstance(names, list)
+                        and bool(names)
+                        and all(
+                            isinstance(name, str) and name in allowed for name in names
                         )
-                        check(
-                            not any(
-                                str(t).strip().lower()
-                                in {"edit", "write", "bash", "shell"}
-                                for t in names
-                            ),
-                            "unsafe_permissions",
-                        )
+                    )
+                    check(valid, "invalid_roles")
+                    if role == "reviewer" and valid:
+                        check(set(names) <= read_only, "unsafe_permissions")
+                    allowed_fields = {"name", "description", "model", "tools"}
+                    if provider == "antigravity":
+                        allowed_fields |= {
+                            "mainAgent",
+                            "subagent",
+                            "commandExecutionPolicy",
+                        }
+                    check(set(data) <= allowed_fields, "unsafe_settings")
                 if provider == "antigravity":
                     check(
                         data.get("mainAgent") is (role == "coordinator")
@@ -209,6 +288,7 @@ def validate_repository(root: Path) -> list[str]:
         KeyError,
         AttributeError,
         yaml.YAMLError,
+        RecursionError,
     ):
         return ["invalid_input"]
     return sorted(diagnostics)
@@ -225,7 +305,7 @@ def main() -> int:
         if "invalid_input" in codes:
             print("invalid_input")
             return 2
-        manifest = json.loads((args.root / ".agent-models.json").read_text())
+        manifest = read_json(args.root / ".agent-models.json")
         reviewed = date.fromisoformat(manifest["reviewed_on"])
         if reviewed > as_of:
             print("invalid_input")

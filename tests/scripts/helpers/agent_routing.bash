@@ -26,7 +26,7 @@ for i,role in enumerate(roles):
         write(f'.codex/agents/routing-{role}.toml',f'name = "routing-{role}"\ndescription = "Routing role"\ndeveloper_instructions = "Follow policy"\nmodel = "{models["codex"][i]}"\nmodel_reasoning_effort = "{"high" if i==3 else "medium"}"\n')
         tools='Read, Grep, Glob' if role=='reviewer' else 'Read, Edit, Write'
         write(f'.claude/agents/routing-{role}.md',f'---\nname: routing-{role}\ndescription: Routing role\nmodel: {models["claude"][i]}\ntools: {tools}\n---\nFollow policy\n')
-    tools='Read, Grep, Glob' if role=='reviewer' else 'Read, Edit, Write'
+    tools='[view_file, grep_search]' if role=='reviewer' else '[view_file, replace_file_content, run_command]'
     write(f'.agents/agents/routing-{role}.md',f'---\nname: routing-{role}\ndescription: Routing role\nmodel: {models["antigravity"][i]}\ntools: {tools}\nmainAgent: {str(i==0).lower()}\nsubagent: {str(i!=0).lower()}\ncommandExecutionPolicy: sandbox\n---\nFollow policy\n')
 PY
 }
