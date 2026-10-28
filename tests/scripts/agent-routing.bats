@@ -198,7 +198,7 @@ PY
   run python3 - "$REPO_ROOT/AGENTS.md" <<'PY'
 import pathlib, sys
 s = pathlib.Path(sys.argv[1]).read_text().lower()
-for phrase in ('automatically delegate', 'one active writer', 'no nested workers', 'one unsuccessful simple correction', 'two unsuccessful implementer correction rounds', 'strong reviewer', 'exact verification commands', 'model mismatch', 'per-action human confirmation', 'no bypassing hooks'):
+for phrase in ('automatically delegate', 'one active writer', 'no nested workers', 'one unsuccessful simple correction', 'two unsuccessful implementer correction rounds', 'strong reviewer', 'exact verification commands', 'model mismatch', 'per-action human confirmation', 'no bypassing hooks', 'before edits, record the selected role, expected model, allowed scope, and acceptance checks in the ignored worktree-local docs/plans/task.md', 'update this evidence as routing and corrections advance'):
     assert phrase in s, phrase
 PY
   [ "$status" -eq 0 ]
