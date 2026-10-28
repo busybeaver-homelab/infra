@@ -18,6 +18,14 @@
 /scripts/rotate-state-passphrase.sh @busybeaver
 /infrastructure/github/             @busybeaver
 /AGENTS.md                          @busybeaver
+/.codex/                            @busybeaver
+/.claude/                           @busybeaver
+/CLAUDE.md                          @busybeaver
+/.agents/agents/                    @busybeaver
+/.agents/rules/                     @busybeaver
+/.agent/AGENTS.md                   @busybeaver
+/.agent/tests/                      @busybeaver
+/.agent-models.json                 @busybeaver
 /LICENSE                            @busybeaver
 /SECURITY.md                        @busybeaver
 /skills-lock.json                   @busybeaver

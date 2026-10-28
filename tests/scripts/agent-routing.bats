@@ -364,3 +364,8 @@ PY
   run env -u 'BASH_FUNC_bats_readlinkf%%' "$BATS_ROOT/bin/bats" --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
   [ "$status" -eq 1 ]
 }
+
+@test "routing validates complete real repository configuration offline" {
+  run uv run --quiet --locked python "$SCRIPTS_DIR/check-agent-routing.py" --root "$REPO_ROOT"
+  [ "$status" -eq 0 ]
+}

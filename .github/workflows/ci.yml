@@ -111,6 +111,15 @@ jobs:
               - '.github/**'
             shell:
               - *toolchain
+              - '.codex/**'
+              - '.claude/**'
+              - '.agents/agents/**'
+              - '.agents/rules/**'
+              - '.agent/AGENTS.md'
+              - '.agent/tests/**'
+              - '.agent-models.json'
+              - 'AGENTS.md'
+              - 'CLAUDE.md'
               - 'scripts/**'
               - 'tests/scripts/**'
               - 'configuration/roles/docker_compose_service/files/**'

@@ -199,6 +199,11 @@ pre-commit:
       glob: "secrets/credentials*.sops.{yml,yaml}"
       run: bash scripts/check-sops-secret-leaks.sh --check-disjointness --all-files
 
+    # Offline routing configuration validation (STD-CI-48/69)
+    agent-routing:
+      glob: "{.codex/**,.claude/**,.agents/agents/**,.agents/rules/**,.agent/AGENTS.md,.agent/tests/**,.agent-models.json,AGENTS.md,CLAUDE.md,scripts/check-agent-routing.py,tests/scripts/agent-routing.bats,tests/scripts/helpers/agent_routing.bash,tests/scripts/ci-workflow.bats,tests/scripts/governance-files.bats,lefthook.yml}"
+      run: uv run --locked python scripts/check-agent-routing.py --root .
+
     # Skills Lockfile Integrity Verification (R2-GOV-04)
     verify-skills-lock:
       glob: "{skills-lock.json,.agents/skills/**}"
