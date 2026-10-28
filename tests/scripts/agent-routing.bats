@@ -403,7 +403,7 @@ PY
   run make_routing_trial_fixture "$BATS_TMPDIR/trial-isolated" "$REPO_ROOT"
   [ "$status" -eq 0 ]
   [ ! -e "$BATS_TMPDIR/external-hook-ran" ]
-  run rg 'core\.hooksPath' "$REPO_ROOT/tests/scripts/helpers/agent_routing.bash"
+  run grep -F 'core.hooksPath' "$REPO_ROOT/tests/scripts/helpers/agent_routing.bash"
   [ "$status" -eq 1 ]
   unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 GIT_CONFIG_GLOBAL
   repo="$BATS_TMPDIR/trial-isolated/repo"
