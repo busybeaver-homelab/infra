@@ -105,9 +105,9 @@ is_encrypted() {
 
 @test "AGENTS.md and ci-workflows-standards.md document Merge Queues and Stacked Pull Requests (STD-CI-73)" {
   local agents="${REPO_ROOT}/AGENTS.md"
-  run grep -F "gh pr merge" "$agents"
+  run grep -F "scripts/agent-gh.sh pr merge" "$agents"
   [ "$status" -eq 0 ]
-  run grep -F "gh stack merge" "$agents"
+  run grep -F "scripts/agent-gh.sh stack merge" "$agents"
   [ "$status" -eq 0 ]
   run grep -F ".agents/skills/gh-stack/SKILL.md" "$agents"
   [ "$status" -eq 0 ]
@@ -115,11 +115,11 @@ is_encrypted() {
   [ "$status" -eq 0 ]
   run grep -F "Default-Branch Synchronization Before Opening PRs:" "$agents"
   [ "$status" -eq 0 ]
-  run grep -F "git fetch origin main && git rebase origin/main" "$agents"
+  run grep -F "scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main" "$agents"
   [ "$status" -eq 0 ]
   run grep -F "Owner-Review Exception (CODEOWNERS paths):" "$agents"
   [ "$status" -eq 0 ]
-  run grep -F "git push --force-with-lease" "$agents"
+  run grep -F "scripts/agent-git.sh push --force-with-lease" "$agents"
   [ "$status" -eq 0 ]
   run grep -F -- "--no-track -b <branch> origin/main" "$agents"
   [ "$status" -eq 0 ]
@@ -136,17 +136,17 @@ is_encrypted() {
   fi
   run grep -E "^(#{3,4} |\*\*)STD-CI-73" "$ci_rb"
   [ "$status" -eq 0 ]
-  run grep -F "gh stack merge" "$ci_rb"
+  run grep -F "scripts/agent-gh.sh stack merge" "$ci_rb"
   [ "$status" -eq 0 ]
   run grep -F "automatically add the single PR to the Merge Queue" "$ci_rb"
   [ "$status" -eq 0 ]
   run grep -F "automatically add Stacked PRs to the stack" "$ci_rb"
   [ "$status" -eq 0 ]
-  run grep -F "git fetch origin main && git rebase origin/main" "$ci_rb"
+  run grep -F "scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main" "$ci_rb"
   [ "$status" -eq 0 ]
   run grep -F "Owner-review exception (CODEOWNERS paths):" "$ci_rb"
   [ "$status" -eq 0 ]
-  run grep -F "git push --force-with-lease" "$ci_rb"
+  run grep -F "scripts/agent-git.sh push --force-with-lease" "$ci_rb"
   [ "$status" -eq 0 ]
   run grep -F "after rebasing or editing an earlier layer" "$ci_rb"
   [ "$status" -eq 0 ]
@@ -163,4 +163,41 @@ is_encrypted() {
   [ "$status" -eq 0 ]
   run grep -F "EXPECTED_SARIF_CONFIGS" "$ci_rb"
   [ "$status" -eq 0 ]
+}
+
+@test "agents and finishing skill require App wrappers for every GitHub operation" {
+  local doc
+  for doc in "$REPO_ROOT/AGENTS.md" "$REPO_ROOT/.agent/skills/finishing-a-development-branch/SKILL.md"; do
+    run grep -F 'scripts/agent-gh.sh' "$doc"
+    [ "$status" -eq 0 ] || return 1
+    run grep -F 'scripts/agent-git.sh push' "$doc"
+    [ "$status" -eq 0 ] || return 1
+    run grep -F 'mise exec gh -- gh pr' "$doc"
+    [ "$status" -eq 1 ] || return 1
+    run grep -F 'refs/heads/main:refs/remotes/origin/main' "$doc"
+    [ "$status" -eq 0 ] || return 1
+    run grep -F 'stack link' "$doc"
+    [ "$status" -eq 0 ] || return 1
+  done
+  run grep -F 'scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main' "$REPO_ROOT/.agent/skills/using-git-worktrees/SKILL.md"
+  [ "$status" -eq 0 ]
+  run grep -F 'tofu plan' "$REPO_ROOT/AGENTS.md"
+  [ "$status" -eq 0 ]
+  run grep -F 'Owner-Review Exception (CODEOWNERS paths):' "$REPO_ROOT/AGENTS.md"
+  [ "$status" -eq 0 ]
+}
+
+@test "CI runbook documents App setup separation recovery and Antigravity installation limits" {
+  local doc="$REPO_ROOT/docs/runbooks/ci-workflows-standards.md" needle
+  if is_encrypted "$doc"; then
+    skip 'runbooks are git-crypt encrypted in this checkout'
+  fi
+  for needle in 'Agent GitHub App' 'scripts/agent-gh.sh' 'scripts/agent-git.sh push' \
+    'private key' 'rotation' 'Antigravity' '.agent/agent-permissions.json' \
+    'not automatically loaded' 'stack link' 'required_approving_review_count = 0'; do
+    run grep -F "$needle" "$doc"
+    [ "$status" -eq 0 ] || return 1
+  done
+  run grep -F "agent PRs are authored under the owner's identity" "$doc"
+  [ "$status" -eq 1 ]
 }
