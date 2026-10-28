@@ -369,3 +369,26 @@ PY
   run uv run --quiet --locked python "$SCRIPTS_DIR/check-agent-routing.py" --root "$REPO_ROOT"
   [ "$status" -eq 0 ]
 }
+
+@test "synthetic trial fixture is independent and records only explicit fake calls" {
+  run make_routing_trial_fixture "$BATS_TMPDIR/trial" "$REPO_ROOT"
+  [ "$status" -eq 0 ]
+  fixture="$BATS_TMPDIR/trial/worktree"
+  [ -f "$fixture/.agent-models.json" ]
+  [ ! -e "$fixture/secrets" ]
+  [ "$(cd "$(git -C "$fixture" rev-parse --git-common-dir)" && pwd -P)" = "$(cd "$BATS_TMPDIR/trial/repo/.git" && pwd -P)" ]
+  [ ! -e "$fixture/attempts.log" ]
+  run "$fixture/bin/provider-error" worker-unavailable
+  [ "$status" -eq 1 ]
+  [[ "$output" == *worker-unavailable* ]]
+  run "$fixture/bin/provider-error" coordinator-unavailable
+  [ "$status" -eq 1 ]
+  [[ "$output" == *coordinator-unavailable* ]]
+  [ "$(wc -l < "$fixture/dispatch.log" | tr -d ' ')" -eq 2 ]
+  [ ! -e "$fixture/attempts.log" ]
+  "$fixture/bin/tofu" synthetic-1
+  [ "$(cat "$fixture/attempts.log")" = 'tofu synthetic-1' ]
+  "$fixture/bin/ansible-playbook" synthetic-2
+  [ "$(tail -n 1 "$fixture/attempts.log")" = 'ansible-playbook synthetic-2' ]
+  [ -f "$fixture/personal-config/settings.json" ]
+}
