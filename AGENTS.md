@@ -130,3 +130,24 @@ Every addition or change must follow the domain standard below, in addition to t
   2. Follow the hard rules in this file, which are complete on their own, and mirror the conventions already used in neighbouring code.
   3. State in your PR description: "Runbooks unavailable (encrypted); followed AGENTS.md hard rules and existing patterns."
 - **Current gaps:** known deviations from the standards are tracked in `docs/plans/2026-10-13-infrastructure-review-2-improvement-plan.md`. New code must follow the standards regardless.
+
+---
+
+## 7. Automatic Agent Routing
+
+Apply this policy independently in Codex, Claude, and Antigravity. The approved native and resolved model mappings and reasoning efforts are maintained in `.agent-models.json`; use those mappings rather than inventing replacements. No client installation, login, or live model call is required to work in another client or to validate configuration offline.
+
+| Responsibility                                                               | Codex        | Claude | Antigravity |
+| ---------------------------------------------------------------------------- | ------------ | ------ | ----------- |
+| Coordinator: architecture, security, critical decisions and final assessment | Sol/high     | Opus   | Pro         |
+| Implementer: bounded, already-designed changes                               | Terra/medium | Sonnet | Flash       |
+| Simple: unambiguous mechanical work                                          | Luna/medium  | Haiku  | Flash       |
+| Reviewer: independent strong review                                          | Sol/high     | Opus   | Pro         |
+
+Classify content and risk before editing. Automatically delegate safely separable, already-designed mechanical substeps to the appropriate role when delegation is available. Ambiguous design, IAM, state, credentials, encryption, and enforcement-boundary decisions remain with the strong coordinator. If a task cannot be divided safely, the coordinator performs it entirely; do not force delegation of critical decisions or silently use a cheaper model for them.
+
+The coordinator supplies each worker a bounded handoff with plan scope, allowed files, acceptance checks, and guardrails. Use the simple role for unambiguous mechanical work and the implementer for bounded changes. Explicitly request named custom roles when supported; if the harness exposes only model and effort spawn parameters, pass the approved manifest values explicitly. Keep one active writer and no nested workers. Workers must not deploy, push, merge, or declare final completion; the coordinator controls Git and deployment, subject to all existing restrictions and per-action human confirmation above.
+
+After one unsuccessful simple correction, promote the work to an implementer. After two unsuccessful implementer correction rounds, escalate to the strong coordinator. Antigravity Flash roles share one two-round budget. Escalate immediately on ambiguity, security concerns, scope expansion, or model mismatch. If a worker is unavailable, promote to the strong coordinator with notice. If the strong model is unavailable, stop that client's edits and assessment; this does not block unrelated inactive clients or offline delivery. If delegation is unsupported, retain the work with the strong coordinator and record that limitation. Observe model identity from available metadata; do not claim identity based only on self-report or configuration.
+
+After implementation is idle, request a separate strong reviewer. Before final completion, the coordinator assesses the review, the diff, and exact verification commands and exit statuses. Review is instructional where the client does not provide a separate read-only sandbox; existing permission controls remain in force. Routing grants no deployment approval and does not relax any existing security, masking, worktree, hook, or owner-review rule.

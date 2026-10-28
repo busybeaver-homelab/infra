@@ -175,3 +175,31 @@ PYFIXTURE
     run validate; [ "$status" -eq 0 ]
   done
 }
+
+@test "real Codex configuration follows manifest with one active delegate" {
+  run python3 - "$REPO_ROOT" <<'PY'
+import json, pathlib, sys, tomllib
+p = pathlib.Path(sys.argv[1]); roles = json.loads((p/'.agent-models.json').read_text())['providers']['codex']['roles']
+c = tomllib.loads((p/'.codex/config.toml').read_text()); a = c['agents']
+assert (c['model'], c['model_reasoning_effort']) == (roles['coordinator']['native_model'], roles['coordinator']['reasoning_effort'])
+assert a['enabled'] is True and a['max_concurrent_threads_per_session'] == 1
+assert (a['default_subagent_model'], a['default_subagent_reasoning_effort']) == (roles['implementer']['native_model'], roles['implementer']['reasoning_effort'])
+for role in ('implementer', 'simple', 'reviewer'):
+    r = tomllib.loads((p/f'.codex/agents/routing-{role}.toml').read_text())
+    assert set(r) == {'name', 'description', 'developer_instructions', 'model', 'model_reasoning_effort'}
+    assert r['name'] == f'routing-{role}' and r['description'] and r['developer_instructions']
+    assert (r['model'], r['model_reasoning_effort']) == (roles[role]['native_model'], roles[role]['reasoning_effort'])
+assert roles['reviewer']['native_model'] == roles['coordinator']['native_model']
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "shared policy requires delegation, escalation and independent review" {
+  run python3 - "$REPO_ROOT/AGENTS.md" <<'PY'
+import pathlib, sys
+s = pathlib.Path(sys.argv[1]).read_text().lower()
+for phrase in ('automatically delegate', 'one active writer', 'no nested workers', 'one unsuccessful simple correction', 'two unsuccessful implementer correction rounds', 'strong reviewer', 'exact verification commands', 'model mismatch', 'per-action human confirmation', 'no bypassing hooks'):
+    assert phrase in s, phrase
+PY
+  [ "$status" -eq 0 ]
+}
