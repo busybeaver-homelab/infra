@@ -302,3 +302,30 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "routing keeps a 29-day review fresh" {
+  run uv run --quiet --locked python "$SCRIPTS_DIR/check-agent-routing.py" --root "$BATS_TMPDIR" --as-of 2026-11-26
+  [ "$status" -eq 0 ]; [[ "$output" != *model_review_due* ]]
+}
+
+@test "routing rejects an invalid stored review date" {
+  python3 - "$BATS_TMPDIR/.agent-models.json" <<'PY'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]); m = json.loads(p.read_text()); m['reviewed_on'] = 'not-a-date'; p.write_text(json.dumps(m))
+PY
+  run validate; [ "$status" -eq 2 ]; [[ "$output" == *invalid_input* ]]
+}
+
+@test "maintenance policy is reachable and covers review triggers and owner approval" {
+  run python3 - "$REPO_ROOT" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+root = (p / 'AGENTS.md').read_text().lower()
+rule = (p / '.agents/rules/model-routing.md').read_text().lower()
+assert 'docs/runbooks/agent-model-maintenance.md' in root
+assert 'docs/runbooks/agent-model-maintenance.md' in rule
+s = (p / 'docs/runbooks/agent-model-maintenance.md').read_text().lower()
+for phrase in ('official', 'release', 'retirement', 'drift', 'owner approval', 'reviewed_on', 'known-good', 'unavailable', 'product', 'account', 'latency', 'cost', 'flash', 'scheduler'):
+    assert phrase in s, phrase
+PY
+  [ "$status" -eq 0 ]
+}

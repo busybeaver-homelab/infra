@@ -87,6 +87,12 @@ Automated gates must be respected. Changes to GitHub workflows, the composite se
 
 ---
 
+## Model maintenance
+
+Before substantive repository work, check the offline model review record and follow [agent model maintenance](docs/runbooks/agent-model-maintenance.md) when review is due or a vendor change is known. Model mapping and approved resolution changes require explicit owner approval through the owner-review PR path before merge or activation.
+
+---
+
 ## 📋 5. Self-Review and Task Verification
 
 - **Mandatory Test Coverage for Added/Changed Scope:** Any added, updated, or expanded functionality, configuration, script, or infrastructure scope **must** include corresponding automated tests (e.g., Bats unit tests in `tests/scripts/`, OpenTofu native tests in `infrastructure/<module>/tests/*.tftest.hcl`, or Molecule scenarios in `configuration/roles/*/molecule/`). Never declare a feature or scope complete without accompanying automated tests verifying its correctness.
