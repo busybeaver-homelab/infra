@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-10-28",
+  "review_after_days": 30,
+  "providers": {
+    "codex": {
+      "roles": {
+        "coordinator": {
+          "native_model": "gpt-6.1-sol",
+          "approved_resolved_models": ["gpt-6.1-sol"],
+          "source_urls": ["https://learn.chatgpt.com/docs/agent-configuration/subagents"],
+          "reasoning_effort": "high"
+        },
+        "implementer": {
+          "native_model": "gpt-6.1-terra",
+          "approved_resolved_models": ["gpt-6.1-terra"],
+          "source_urls": ["https://learn.chatgpt.com/docs/agent-configuration/subagents"],
+          "reasoning_effort": "medium"
+        },
+        "simple": {
+          "native_model": "gpt-6-luna",
+          "approved_resolved_models": ["gpt-6-luna"],
+          "source_urls": ["https://learn.chatgpt.com/docs/agent-configuration/subagents"],
+          "reasoning_effort": "medium"
+        },
+        "reviewer": {
+          "native_model": "gpt-6.1-sol",
+          "approved_resolved_models": ["gpt-6.1-sol"],
+          "source_urls": ["https://learn.chatgpt.com/docs/agent-configuration/subagents"],
+          "reasoning_effort": "high"
+        }
+      }
+    },
+    "claude": {
+      "roles": {
+        "coordinator": {
+          "native_model": "opus",
+          "approved_resolved_models": ["claude-opus-5-5"],
+          "source_urls": ["https://code.claude.com/docs/en/model-config"]
+        },
+        "implementer": {
+          "native_model": "sonnet",
+          "approved_resolved_models": ["claude-sonnet-5-5"],
+          "source_urls": ["https://code.claude.com/docs/en/model-config"]
+        },
+        "simple": {
+          "native_model": "haiku",
+          "approved_resolved_models": ["claude-haiku-5-5"],
+          "source_urls": ["https://code.claude.com/docs/en/model-config"]
+        },
+        "reviewer": {
+          "native_model": "opus",
+          "approved_resolved_models": ["claude-opus-5-5"],
+          "source_urls": ["https://code.claude.com/docs/en/model-config"]
+        }
+      }
+    },
+    "antigravity": {
+      "roles": {
+        "coordinator": {
+          "native_model": "pro",
+          "approved_resolved_models": ["gemini-4-argon", "gemini-3.1-pro-preview"],
+          "source_urls": [
+            "https://antigravity.google/docs/models/",
+            "https://antigravity.google/docs/subagents"
+          ]
+        },
+        "implementer": {
+          "native_model": "flash",
+          "approved_resolved_models": ["gemini-3.8-flash"],
+          "source_urls": [
+            "https://antigravity.google/docs/models/",
+            "https://antigravity.google/docs/subagents"
+          ]
+        },
+        "simple": {
+          "native_model": "flash",
+          "approved_resolved_models": ["gemini-3.8-flash"],
+          "source_urls": [
+            "https://antigravity.google/docs/models/",
+            "https://antigravity.google/docs/subagents"
+          ]
+        },
+        "reviewer": {
+          "native_model": "pro",
+          "approved_resolved_models": ["gemini-4-argon", "gemini-3.1-pro-preview"],
+          "source_urls": [
+            "https://antigravity.google/docs/models/",
+            "https://antigravity.google/docs/subagents"
+          ]
+        }
+      }
+    }
+  }
+}
