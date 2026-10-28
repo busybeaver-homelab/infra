@@ -35,10 +35,14 @@ PY
 # Offline fixture mechanics only; this does not implement native dispatch or approval.
 make_routing_trial_fixture() {
   local target="$1" source="$2" item
-  mkdir -p "$target/repo"
-  git -C "$target/repo" init -q
-  git -C "$target/repo" -c user.name=Fixture -c user.email=fixture@example.test -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --allow-empty -m 'synthetic fixture'
-  git -C "$target/repo" -c core.hooksPath=/dev/null worktree add -q -b trial "$target/worktree"
+  mkdir -p "$target/repo" "$target/git-home" "$target/empty-template" || return 1
+  routing_trial_git() {
+    env -i PATH="$PATH" HOME="$target/git-home" XDG_CONFIG_HOME="$target/git-home" \
+      GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null git "$@"
+  }
+  routing_trial_git -C "$target/repo" init -q --template="$target/empty-template" || return 1
+  routing_trial_git -C "$target/repo" -c user.name=Fixture -c user.email=fixture@example.test -c commit.gpgsign=false commit -q --allow-empty -m 'synthetic fixture' || return 1
+  routing_trial_git -C "$target/repo" worktree add -q -b trial "$target/worktree" || return 1
   for item in .agent-models.json AGENTS.md CLAUDE.md .agent/AGENTS.md .codex/config.toml .codex/agents/routing-simple.toml .codex/agents/routing-implementer.toml .codex/agents/routing-reviewer.toml .claude/settings.json .claude/agents/routing-simple.md .claude/agents/routing-implementer.md .claude/agents/routing-reviewer.md .agents/rules/model-routing.md .agents/agents/routing-coordinator.md .agents/agents/routing-simple.md .agents/agents/routing-implementer.md .agents/agents/routing-reviewer.md; do
     mkdir -p "$target/worktree/$(dirname "$item")"
     cp "$source/${item}" "$target/worktree/${item}" || return 1
