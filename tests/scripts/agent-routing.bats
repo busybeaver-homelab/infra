@@ -354,9 +354,9 @@ PY
   [ "$status" -eq 0 ]
   printf 'missing public import\n' > "$fixture/.agents/rules/model-routing.md"
   run bats --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
-  [ "$status" -ne 0 ]
+  [ "$status" -eq 1 ]
   cp "$REPO_ROOT/.agents/rules/model-routing.md" "$fixture/.agents/rules/"
   printf 'incomplete policy\n' > "$fixture/docs/runbooks/agent-model-maintenance.md"
   run bats --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
-  [ "$status" -ne 0 ]
+  [ "$status" -eq 1 ]
 }
