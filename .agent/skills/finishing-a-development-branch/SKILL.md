@@ -7,7 +7,11 @@ description: Use when implementation is complete, all tests pass, and you need t
 
 ## Overview
 
+The recipes below describe a sequence: submit each sensitive operation as a separate tool call with literal arguments. Resolve placeholders first; do not paste a multi-command block into one shell call.
+
 Guide completion of development work by presenting clear options and handling chosen workflow.
+
+**GitHub identity:** All GitHub CLI calls use `scripts/agent-gh.sh`; network Git uses `scripts/agent-git.sh push|fetch|ls-remote`. Never use the owner's login, token, SSH or `--admin`. Each wrapper runs as a single literal command. Keep its tool environment ready before invoking it; put complex PR text in a body file.
 
 **Core principle:** Verify tests → Present options → Execute choice → Clean up.
 
@@ -64,7 +68,7 @@ Or ask: "This branch split from main - is that correct?"
 
 > **Repository Policy (`AGENTS.md` §4):** Unless the repository owner explicitly asked for a local merge (Option 1), keeping the branch (Option 3), or discarding (Option 4) in the current session, agents **must** execute **Option 2** automatically without waiting for manual prompting—and **must** automatically add the single PR to the Merge Queue or automatically add Stacked PRs to the stack, submit them, and queue the stack for merge.
 >
-> **Owner-Review Exception:** before queueing, run `git diff --name-only origin/main...HEAD` and compare it with `.github/CODEOWNERS`. If any changed path is owner-reviewed, open the PR but do **not** queue it; tell the owner it awaits their review. For a stack, queue only the layers below the first owned layer.
+> **Owner-Review Exception:** before queueing, run `git diff --no-textconv --name-only origin/main...HEAD` and compare it with `.github/CODEOWNERS`. If any changed path is owner-reviewed, open the PR but do **not** queue it; tell the owner it awaits their review. For a stack, queue only the layers below the first owned layer.
 
 If asking interactively, present these 4 options:
 
@@ -90,7 +94,8 @@ Which option?
 git checkout <base-branch>
 
 # Pull latest
-git pull
+scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main
+git merge --ff-only origin/main
 
 # Merge feature branch
 git merge <feature-branch>
@@ -110,49 +115,56 @@ Then: Cleanup worktree (Step 5)
 
 ```bash
 # Pull/rebase all latest changes from the default branch so the PR is never outdated or conflicted
-git fetch origin main && git rebase origin/main
+scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main
+git rebase origin/main
 
 # Push branch
-git push -u origin <feature-branch>
+scripts/agent-git.sh push -u origin <feature-branch>
 
 # Create PR using .github/pull_request_template.md with session-verified diff stat and test exit codes
-mise exec gh -- gh pr create --base main --head <feature-branch> --title "<type>(<scope>): <description>" --body-file <populated-pr-body-file>
+scripts/agent-gh.sh pr create --base main --head <feature-branch> --title "<type>(<scope>): <description>" --body-file <populated-pr-body-file>
 
 # Immediately and automatically add the single PR to the Merge Queue (squash merge once CI Gate passes),
 # unless it changes a .github/CODEOWNERS path (Owner-Review Exception: leave queueing to the owner)
-mise exec gh -- gh pr merge <pr-number> --auto --squash
+scripts/agent-gh.sh pr merge <pr-number> --auto --squash
 ```
 
 The Merge Queue tests every entry against the latest `main`, so do not rebase an open PR just because `main` moved. Only when GitHub reports a merge conflict, rebase locally and update the PR:
 
 ```bash
-git fetch origin main && git rebase origin/main
-git push --force-with-lease
+scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main
+git rebase origin/main
+scripts/agent-git.sh push --force-with-lease
 ```
 
 **Case B — Stacked Pull Requests (automatically add Stacked PRs to the stack, sync with `origin/main`, and queue via `gh-stack`):**
 
 ```bash
 # Automatically add Stacked PRs to the stack as each layer is created (explicit <type>/<scope>/<short-desc> names)
-mise exec gh -- gh stack create <first-branch>
+scripts/agent-gh.sh stack create <first-branch>
 # ... commit layer 1, then add subsequent layers to the stack automatically:
-mise exec gh -- gh stack add <next-branch>
-mise exec gh -- gh stack view
+scripts/agent-gh.sh stack add <next-branch>
+scripts/agent-gh.sh stack view
 
 # Pull/rebase all latest changes from the default branch into the stack so no layer is outdated or conflicted
-git fetch origin main && mise exec gh -- gh stack sync
+scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main
+# Rebase each layer locally, starting at origin/main and proceeding bottom-up.
+git rebase <updated-parent-branch> <layer-branch>
 
-# Automatically push all stack branches and open/link stacked PRs on GitHub
-mise exec gh -- gh stack submit --auto
+# The live spike found stack submit/sync uses raw Git; the gh wrapper blocks it.
+# Push each rebased layer explicitly, create dependent PRs, then link via API:
+scripts/agent-git.sh push -u origin <layer-branch>
+scripts/agent-gh.sh pr create --base <parent-branch> --head <layer-branch> --title "<type>(<scope>): <description>" --body-file <layer-pr-body-file>
+scripts/agent-gh.sh stack link <pr1> <pr2> --remote origin
 
 # Populate each layer PR's Conventional Commit title and .github/pull_request_template.md body
 # (using git diff --no-textconv --stat <parent-branch>...<layer-branch> for each layer)
-mise exec gh -- gh pr edit <layer-pr-number> --title "<type>(<scope>): <layer-description>" --body-file <layer-pr-body-file>
+scripts/agent-gh.sh pr edit <layer-pr-number> --title "<type>(<scope>): <layer-description>" --body-file <layer-pr-body-file>
 
 # Immediately and automatically queue the stack (or bottom-up subset) into the GitHub Merge Queue;
 # stop below the first layer that changes a .github/CODEOWNERS path (Owner-Review Exception)
 # (Note: gh pr merge --auto is not supported on stacked PRs; always use gh stack merge)
-mise exec gh -- gh stack merge [<pr-or-stack>] --yes
+scripts/agent-gh.sh stack merge [<pr-or-stack>] --yes
 ```
 
 Then: Keep worktree until queued PR(s) merge (Step 5)
