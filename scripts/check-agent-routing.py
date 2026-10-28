@@ -3,14 +3,21 @@
 
 import argparse
 import json
+import re
 import tomllib
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import yaml
 
 ROLES = ("coordinator", "implementer", "simple", "reviewer")
 PROVIDERS = ("codex", "claude", "antigravity")
+SOURCE_HOSTS = {
+    "codex": {"learn.chatgpt.com", "developers.openai.com", "platform.openai.com"},
+    "claude": {"code.claude.com", "platform.claude.com"},
+    "antigravity": {"antigravity.google", "www.antigravity.google", "ai.google.dev"},
+}
 
 
 CLAUDE_READ = {"Read", "Grep", "Glob"}
@@ -80,6 +87,30 @@ def frontmatter(path: Path) -> tuple[dict, str]:
     return value, parts[2]
 
 
+def valid_source_url(value: object, provider: str) -> bool:
+    if (
+        not isinstance(value, str)
+        or not value
+        or any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value)
+        or "\\" in value
+        or re.search(r"%(?![0-9a-fA-F]{2})", value)
+    ):
+        return False
+    try:
+        source = urlsplit(value)
+        hostname = source.hostname
+        return (
+            source.scheme == "https"
+            and hostname in SOURCE_HOSTS[provider]
+            and source.username is None
+            and source.password is None
+            and source.port in (None, 443)
+            and source.netloc.lower() in (hostname, f"{hostname}:443")
+        )
+    except ValueError:
+        return False
+
+
 def validate_repository(root: Path) -> list[str]:
     diagnostics = set()
 
@@ -129,14 +160,20 @@ def validate_repository(root: Path) -> list[str]:
                 entry = roles[role]
                 model = entry.get("native_model")
                 check(nonempty(model) and model != "inherit", "invalid_manifest")
-                for field in ("approved_resolved_models", "source_urls"):
-                    values = entry.get(field)
-                    check(
-                        isinstance(values, list)
-                        and bool(values)
-                        and all(nonempty(v) for v in values),
-                        "invalid_manifest",
-                    )
+                resolutions = entry.get("approved_resolved_models")
+                check(
+                    isinstance(resolutions, list)
+                    and bool(resolutions)
+                    and all(nonempty(value) for value in resolutions),
+                    "invalid_manifest",
+                )
+                sources = entry.get("source_urls")
+                check(
+                    isinstance(sources, list)
+                    and bool(sources)
+                    and all(valid_source_url(value, provider) for value in sources),
+                    "invalid_manifest",
+                )
                 effort = "high" if role in ("coordinator", "reviewer") else "medium"
                 check(
                     entry.get("reasoning_effort")

@@ -102,3 +102,57 @@ p=pathlib.Path(sys.argv[1]); m=json.loads(p.read_text()); m['providers']['claude
 PY
   run validate; [ "$status" -eq 1 ]; [[ "$output" == *invalid_manifest* ]]
 }
+
+set_source_url() {
+  python3 - "$BATS_TMPDIR/.agent-models.json" "$1" "$2" <<'PYFIXTURE'
+import json,pathlib,sys
+p=pathlib.Path(sys.argv[1]); m=json.loads(p.read_text())
+m['providers'][sys.argv[2]]['roles']['simple']['source_urls']=[sys.argv[3]]
+p.write_text(json.dumps(m))
+PYFIXTURE
+}
+@test "routing rejects malformed documentation source URLs without leaking" {
+  for url in 'not-a-url' 'https:///docs' 'https://[broken/docs' 'https://learn.chatgpt.com:invalid/docs' 'https://learn.chatgpt.com:/docs' 'https://learn.chatgpt.com/docs with spaces' 'https://learn.chatgpt.com/docs%ZZ'; do
+    set_source_url codex "$url"
+    run validate; [ "$status" -eq 1 ]; [ "$output" = invalid_manifest ]
+  done
+}
+@test "routing rejects non-HTTPS documentation sources" {
+  for url in 'http://learn.chatgpt.com/docs' 'ftp://learn.chatgpt.com/docs' '//learn.chatgpt.com/docs' 'https://learn.chatgpt.com:444/docs'; do
+    set_source_url codex "$url"
+    run validate; [ "$status" -eq 1 ]; [ "$output" = invalid_manifest ]
+  done
+}
+@test "routing rejects credential-bearing documentation sources without leaking" {
+  for url in 'https://SYNTHETIC_MARKER@learn.chatgpt.com/docs' 'https://user:SYNTHETIC_MARKER@learn.chatgpt.com/docs' 'https://@learn.chatgpt.com/docs'; do
+    set_source_url codex "$url"
+    run validate; [ "$status" -eq 1 ]; [ "$output" = invalid_manifest ]
+  done
+}
+@test "routing rejects non-vendor lookalike and cross-provider documentation origins" {
+  for url in 'https://example.test/docs' 'https://learn.chatgpt.com.example.test/docs' 'https://learn-chatgpt.com/docs' 'https://code.claude.com/docs'; do
+    set_source_url codex "$url"
+    run validate; [ "$status" -eq 1 ]; [ "$output" = invalid_manifest ]
+  done
+  set_source_url codex 'https://learn.chatgpt.com/docs'
+  set_source_url claude 'https://developers.openai.com/docs'
+  run validate; [ "$status" -eq 1 ]; [ "$output" = invalid_manifest ]
+  set_source_url codex 'https://learn.chatgpt.com/docs'
+  set_source_url claude 'https://code.claude.com/docs'
+  set_source_url antigravity 'https://ai.google.dev.example.test/docs'
+  run validate; [ "$status" -eq 1 ]; [ "$output" = invalid_manifest ]
+}
+@test "routing accepts updated documentation paths on every approved official origin" {
+  for url in 'https://learn.chatgpt.com/docs/updated?version=next#routing' 'https://developers.openai.com/docs/updated' 'https://platform.openai.com/docs/updated' 'https://LEARN.CHATGPT.COM:443/docs/updated'; do
+    set_source_url codex "$url"
+    run validate; [ "$status" -eq 0 ]
+  done
+  for url in 'https://code.claude.com/docs/updated' 'https://platform.claude.com/docs/updated'; do
+    set_source_url claude "$url"
+    run validate; [ "$status" -eq 0 ]
+  done
+  for url in 'https://antigravity.google/docs/updated' 'https://www.antigravity.google/docs/updated' 'https://ai.google.dev/docs/updated'; do
+    set_source_url antigravity "$url"
+    run validate; [ "$status" -eq 0 ]
+  done
+}
