@@ -203,3 +203,51 @@ for phrase in ('automatically delegate', 'one active writer', 'no nested workers
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "real Claude configuration validates in a complete synthetic fixture" {
+  [ -f "$REPO_ROOT/CLAUDE.md" ]
+  [ -f "$REPO_ROOT/.claude/settings.json" ]
+  cp "$REPO_ROOT/CLAUDE.md" "$BATS_TMPDIR/CLAUDE.md"
+  cp "$REPO_ROOT/.claude/settings.json" "$BATS_TMPDIR/.claude/settings.json"
+  for role in implementer simple reviewer; do
+    [ -f "$REPO_ROOT/.claude/agents/routing-$role.md" ]
+    cp "$REPO_ROOT/.claude/agents/routing-$role.md" "$BATS_TMPDIR/.claude/agents/"
+  done
+  run validate; [ "$status" -eq 0 ]
+}
+
+@test "real Claude settings and roles preserve guardrails and proactive routing" {
+  run uv run --quiet --locked python - "$REPO_ROOT" <<'PY'
+import json, pathlib, sys, yaml
+p = pathlib.Path(sys.argv[1])
+s = json.loads((p/'.claude/settings.json').read_text())
+roles = json.loads((p/'.agent-models.json').read_text())['providers']['claude']['roles']
+assert s['model'] == roles['coordinator']['native_model']
+assert 'CLAUDE_CODE_SUBAGENT_MODEL' not in s.get('env', {})
+assert 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE' not in s.get('env', {})
+assert '@AGENTS.md' in (p/'CLAUDE.md').read_text()
+for role in ('implementer', 'simple', 'reviewer'):
+    text = (p/f'.claude/agents/routing-{role}.md').read_text()
+    _, front, body = text.split('---', 2)
+    agent = yaml.safe_load(front)
+    assert agent['name'] == f'routing-{role}'
+    assert agent['model'] == roles[role]['native_model']
+    assert 'automatically' in agent['description'].lower()
+    assert 'AGENTS.md' in body and 'task contract' in body.lower()
+    assert 'permissionMode' not in agent
+    tools = {x.strip() for x in agent['tools'].split(',')}
+    assert tools == ({'Read', 'Grep', 'Glob'} if role == 'reviewer' else {'Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'})
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "routing accepts existing Claude hooks and permissions" {
+  python3 - "$BATS_TMPDIR/.claude/settings.json" <<'PYFIXTURE'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]); s = json.loads(p.read_text())
+s['hooks'] = {'PreToolUse': [{'matcher': 'Bash', 'hooks': [{'type': 'command', 'command': 'true'}]}]}
+s['permissions'] = {'deny': ['Bash(synthetic-guard)']}
+p.write_text(json.dumps(s))
+PYFIXTURE
+  run validate; [ "$status" -eq 0 ]
+}
