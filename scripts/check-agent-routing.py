@@ -10,34 +10,7 @@ from pathlib import Path
 import yaml
 
 ROLES = ("coordinator", "implementer", "simple", "reviewer")
-MODELS = {
-    "codex": ("gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna", "gpt-6.1-sol"),
-    "claude": ("opus", "sonnet", "haiku", "opus"),
-    "antigravity": ("pro", "flash", "flash", "pro"),
-}
-RESOLVED = {
-    "codex": tuple((m,) for m in MODELS["codex"]),
-    "claude": (
-        ("claude-opus-5-5",),
-        ("claude-sonnet-5-5",),
-        ("claude-haiku-5-5",),
-        ("claude-opus-5-5",),
-    ),
-    "antigravity": (
-        ("gemini-4-argon", "gemini-3.1-pro-preview"),
-        ("gemini-3.8-flash",),
-        ("gemini-3.8-flash",),
-        ("gemini-4-argon", "gemini-3.1-pro-preview"),
-    ),
-}
-SOURCES = {
-    "codex": ["https://learn.chatgpt.com/docs/agent-configuration/subagents"],
-    "claude": ["https://code.claude.com/docs/en/model-config"],
-    "antigravity": [
-        "https://antigravity.google/docs/models/",
-        "https://antigravity.google/docs/subagents",
-    ],
-}
+PROVIDERS = ("codex", "claude", "antigravity")
 
 
 CLAUDE_READ = {"Read", "Grep", "Glob"}
@@ -148,30 +121,48 @@ def validate_repository(root: Path) -> list[str]:
         )
         date.fromisoformat(manifest["reviewed_on"])
         providers = manifest["providers"]
-        check(set(providers) == set(MODELS), "invalid_manifest")
-        for provider, expected in MODELS.items():
+        check(set(providers) == set(PROVIDERS), "invalid_manifest")
+        for provider in PROVIDERS:
             roles = providers[provider]["roles"]
             check(set(roles) == set(ROLES), "invalid_manifest")
-            for i, role in enumerate(ROLES):
+            for role in ROLES:
                 entry = roles[role]
-                check(entry.get("native_model") == expected[i], "invalid_manifest")
-                check(
-                    entry.get("approved_resolved_models")
-                    == list(RESOLVED[provider][i]),
-                    "invalid_manifest",
-                )
-                check(entry.get("source_urls") == SOURCES[provider], "invalid_manifest")
-                effort = "high" if i in (0, 3) else "medium"
+                model = entry.get("native_model")
+                check(nonempty(model) and model != "inherit", "invalid_manifest")
+                for field in ("approved_resolved_models", "source_urls"):
+                    values = entry.get(field)
+                    check(
+                        isinstance(values, list)
+                        and bool(values)
+                        and all(nonempty(v) for v in values),
+                        "invalid_manifest",
+                    )
+                effort = "high" if role in ("coordinator", "reviewer") else "medium"
                 check(
                     entry.get("reasoning_effort")
                     == (effort if provider == "codex" else None),
                     "invalid_manifest",
                 )
+                if provider == "antigravity":
+                    check(
+                        model
+                        == ("pro" if role in ("coordinator", "reviewer") else "flash"),
+                        "invalid_manifest",
+                    )
+            coordinator, reviewer = roles["coordinator"], roles["reviewer"]
+            check(
+                coordinator.get("native_model") == reviewer.get("native_model")
+                and coordinator.get("approved_resolved_models")
+                == reviewer.get("approved_resolved_models"),
+                "invalid_manifest",
+            )
         config = tomllib.loads((root / ".codex/config.toml").read_text())
         permissions(config)
         check(
-            config.get("model") == MODELS["codex"][0]
-            and config.get("model_reasoning_effort") == "high",
+            config.get("model")
+            == providers["codex"]["roles"]["coordinator"]["native_model"]
+            and config.get("model_reasoning_effort")
+            == providers["codex"]["roles"]["coordinator"]["reasoning_effort"],
             "model_mismatch",
         )
         agents = config.get("agents", {})
@@ -181,20 +172,26 @@ def validate_repository(root: Path) -> list[str]:
             "unsafe_settings",
         )
         check(
-            agents.get("default_subagent_model") == MODELS["codex"][1]
-            and agents.get("default_subagent_reasoning_effort") == "medium",
+            agents.get("default_subagent_model")
+            == providers["codex"]["roles"]["implementer"]["native_model"]
+            and agents.get("default_subagent_reasoning_effort")
+            == providers["codex"]["roles"]["implementer"]["reasoning_effort"],
             "model_mismatch",
         )
         settings = read_json(root / ".claude/settings.json")
         permissions(settings)
-        check(settings.get("model") == MODELS["claude"][0], "model_mismatch")
+        check(
+            settings.get("model")
+            == providers["claude"]["roles"]["coordinator"]["native_model"],
+            "model_mismatch",
+        )
         check("@AGENTS.md" in (root / "CLAUDE.md").read_text(), "policy_import_missing")
         rule, body = frontmatter(root / ".agents/rules/model-routing.md")
         check(
             rule.get("trigger") == "always_on" and "AGENTS.md" in body,
             "policy_import_missing",
         )
-        for provider in MODELS:
+        for provider in PROVIDERS:
             directory = root / (
                 ".codex/agents"
                 if provider == "codex"
@@ -210,7 +207,6 @@ def validate_repository(root: Path) -> list[str]:
                 "invalid_roles",
             )
             for role in expected_roles:
-                i = ROLES.index(role)
                 path = directory / f"routing-{role}.{extension}"
                 data = (
                     tomllib.loads(path.read_text())
@@ -223,7 +219,11 @@ def validate_repository(root: Path) -> list[str]:
                     and nonempty(data.get("description")),
                     "invalid_roles",
                 )
-                check(data.get("model") == MODELS[provider][i], "model_mismatch")
+                check(
+                    data.get("model")
+                    == providers[provider]["roles"][role]["native_model"],
+                    "model_mismatch",
+                )
                 if provider == "codex":
                     check(
                         set(data)
@@ -239,7 +239,7 @@ def validate_repository(root: Path) -> list[str]:
                     check(nonempty(data.get("developer_instructions")), "invalid_roles")
                     check(
                         data.get("model_reasoning_effort")
-                        == ("high" if role == "reviewer" else "medium"),
+                        == providers[provider]["roles"][role]["reasoning_effort"],
                         "model_mismatch",
                     )
                 else:

@@ -72,3 +72,33 @@ p=pathlib.Path(sys.argv[1]); s=p.read_text().replace('loop: &loop [*loop]', 'loo
 PY
   run validate; [ "$status" -eq 2 ]; [ "$output" = invalid_input ]
 }
+@test "routing accepts coherent owner-approved model refresh" {
+  python3 - "$BATS_TMPDIR" <<'PY'
+import json,pathlib,sys
+p=pathlib.Path(sys.argv[1]); f=p/'.agent-models.json'; m=json.loads(f.read_text())
+for role in ('coordinator','reviewer'):
+    e=m['providers']['codex']['roles'][role]; e['native_model']='synthetic-next-strong'; e['approved_resolved_models']=['synthetic-next-strong']
+f.write_text(json.dumps(m))
+for name in ('.codex/config.toml','.codex/agents/routing-reviewer.toml'):
+    f=p/name; f.write_text(f.read_text().replace('gpt-6.1-sol','synthetic-next-strong'))
+PY
+  run validate; [ "$status" -eq 0 ]
+}
+@test "routing rejects native drift from refreshed manifest" {
+  python3 - "$BATS_TMPDIR/.agent-models.json" <<'PY'
+import json,pathlib,sys
+p=pathlib.Path(sys.argv[1]); m=json.loads(p.read_text())
+for role in ('coordinator','reviewer'):
+    m['providers']['codex']['roles'][role]['native_model']='synthetic-next-strong'
+    m['providers']['codex']['roles'][role]['approved_resolved_models']=['synthetic-next-strong']
+p.write_text(json.dumps(m))
+PY
+  run validate; [ "$status" -eq 1 ]; [[ "$output" == *model_mismatch* ]]
+}
+@test "routing rejects mismatched reviewer resolutions" {
+  python3 - "$BATS_TMPDIR/.agent-models.json" <<'PY'
+import json,pathlib,sys
+p=pathlib.Path(sys.argv[1]); m=json.loads(p.read_text()); m['providers']['claude']['roles']['reviewer']['approved_resolved_models']=['synthetic-other']; p.write_text(json.dumps(m))
+PY
+  run validate; [ "$status" -eq 1 ]; [[ "$output" == *invalid_manifest* ]]
+}
