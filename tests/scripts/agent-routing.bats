@@ -251,3 +251,37 @@ p.write_text(json.dumps(s))
 PYFIXTURE
   run validate; [ "$status" -eq 0 ]
 }
+
+@test "real Antigravity roles and always-on rule follow routing policy" {
+  run uv run --quiet --locked python - "$REPO_ROOT" <<'PY'
+import json, pathlib, sys, yaml
+p = pathlib.Path(sys.argv[1]); roles = json.loads((p/'.agent-models.json').read_text())['providers']['antigravity']['roles']
+for role in ('coordinator', 'implementer', 'simple', 'reviewer'):
+    _, front, body = (p/f'.agents/agents/routing-{role}.md').read_text().split('---', 2)
+    agent = yaml.safe_load(front)
+    assert agent['model'] == roles[role]['native_model'] == ('pro' if role in ('coordinator', 'reviewer') else 'flash')
+    assert agent['mainAgent'] is (role == 'coordinator') and agent['subagent'] is (role != 'coordinator')
+    assert agent['commandExecutionPolicy'] == 'sandbox'
+    assert 'AGENTS.md' in body and 'nested' in body.lower()
+_, front, body = (p/'.agents/rules/model-routing.md').read_text().split('---', 2)
+assert yaml.safe_load(front)['trigger'] == 'always_on'
+for phrase in ('/agents', 'routing-coordinator', 'each new conversation', 'automatically', '.agent/AGENTS.md'):
+    assert phrase in body, phrase
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "routing rejects Antigravity API alias as native tier" {
+  sed -i.bak 's/model: flash/model: gemini-flash-latest/' "$BATS_TMPDIR/.agents/agents/routing-simple.md"
+  run validate; [ "$status" -eq 1 ]; [[ "$output" == *model_mismatch* ]]
+}
+
+@test "Antigravity adapter preserves sequential native and legacy delegation" {
+  run python3 - "$REPO_ROOT/.agent/AGENTS.md" <<'PY'
+import pathlib, sys
+s = pathlib.Path(sys.argv[1]).read_text().lower()
+for phrase in ('invoke_subagent', 'task_boundary', 'browser_subagent', 'wait', 'one active writer', 'no nested workers', 'two-round', 'strong coordinator'):
+    assert phrase in s, phrase
+PY
+  [ "$status" -eq 0 ]
+}

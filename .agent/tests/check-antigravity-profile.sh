@@ -52,6 +52,11 @@ required_files=(
   "$AGENT_DIR/agents/code-reviewer.md"
   "$SCRIPT_DIR/check-antigravity-profile.sh"
   "$SCRIPT_DIR/run-tests.sh"
+  "$ROOT_DIR/.agents/agents/routing-coordinator.md"
+  "$ROOT_DIR/.agents/agents/routing-implementer.md"
+  "$ROOT_DIR/.agents/agents/routing-simple.md"
+  "$ROOT_DIR/.agents/agents/routing-reviewer.md"
+  "$ROOT_DIR/.agents/rules/model-routing.md"
 )
 
 for file in "${required_files[@]}"; do
@@ -140,6 +145,10 @@ echo "Checking AGENTS mapping contract..."
 mapping_checks=(
   'Task.*task_boundary'
   'browser_subagent'
+  'invoke_subagent'
+  'wait for each worker'
+  'no nested workers'
+  'two-round correction budget'
   'Skill.*view_file'
   'TodoWrite.*docs/plans/task\.md'
   'run_command'
