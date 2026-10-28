@@ -285,3 +285,20 @@ for phrase in ('invoke_subagent', 'task_boundary', 'browser_subagent', 'wait', '
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "Antigravity coordinator can dispatch and retains final assessment authority" {
+  run uv run --quiet --locked python - "$REPO_ROOT" <<'PY'
+import pathlib, sys, yaml
+p = pathlib.Path(sys.argv[1])
+for role in ('coordinator', 'implementer', 'simple', 'reviewer'):
+    _, front, body = (p/f'.agents/agents/routing-{role}.md').read_text().split('---', 2)
+    tools = yaml.safe_load(front)['tools']
+    assert ('invoke_subagent' in tools) == (role == 'coordinator'), role
+    if role == 'coordinator':
+        for phrase in ('bounded', 'review', 'final assessment', 'git', 'root'):
+            assert phrase in body.lower(), phrase
+        assert 'claim final completion' not in body.lower()
+PY
+  [ "$status" -eq 0 ]
+}
+
