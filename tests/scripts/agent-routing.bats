@@ -175,3 +175,192 @@ PYFIXTURE
     run validate; [ "$status" -eq 0 ]
   done
 }
+
+@test "real Codex configuration follows manifest with one active delegate" {
+  run python3 - "$REPO_ROOT" <<'PY'
+import json, pathlib, sys, tomllib
+p = pathlib.Path(sys.argv[1]); roles = json.loads((p/'.agent-models.json').read_text())['providers']['codex']['roles']
+c = tomllib.loads((p/'.codex/config.toml').read_text()); a = c['agents']
+assert (c['model'], c['model_reasoning_effort']) == (roles['coordinator']['native_model'], roles['coordinator']['reasoning_effort'])
+assert a['enabled'] is True and a['max_concurrent_threads_per_session'] == 1
+assert (a['default_subagent_model'], a['default_subagent_reasoning_effort']) == (roles['implementer']['native_model'], roles['implementer']['reasoning_effort'])
+for role in ('implementer', 'simple', 'reviewer'):
+    r = tomllib.loads((p/f'.codex/agents/routing-{role}.toml').read_text())
+    assert set(r) == {'name', 'description', 'developer_instructions', 'model', 'model_reasoning_effort'}
+    assert r['name'] == f'routing-{role}' and r['description'] and r['developer_instructions']
+    assert (r['model'], r['model_reasoning_effort']) == (roles[role]['native_model'], roles[role]['reasoning_effort'])
+assert roles['reviewer']['native_model'] == roles['coordinator']['native_model']
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "shared policy requires delegation, escalation and independent review" {
+  run python3 - "$REPO_ROOT/AGENTS.md" <<'PY'
+import pathlib, sys
+s = pathlib.Path(sys.argv[1]).read_text().lower()
+for phrase in ('automatically delegate', 'one active writer', 'no nested workers', 'one unsuccessful simple correction', 'two unsuccessful implementer correction rounds', 'strong reviewer', 'exact verification commands', 'model mismatch', 'per-action human confirmation', 'no bypassing hooks', 'before edits, record the selected role, expected model, allowed scope, and acceptance checks in the ignored worktree-local docs/plans/task.md', 'update this evidence as routing and corrections advance'):
+    assert phrase in s, phrase
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "real Claude configuration validates in a complete synthetic fixture" {
+  [ -f "$REPO_ROOT/CLAUDE.md" ]
+  [ -f "$REPO_ROOT/.claude/settings.json" ]
+  cp "$REPO_ROOT/CLAUDE.md" "$BATS_TMPDIR/CLAUDE.md"
+  cp "$REPO_ROOT/.claude/settings.json" "$BATS_TMPDIR/.claude/settings.json"
+  for role in implementer simple reviewer; do
+    [ -f "$REPO_ROOT/.claude/agents/routing-$role.md" ]
+    cp "$REPO_ROOT/.claude/agents/routing-$role.md" "$BATS_TMPDIR/.claude/agents/"
+  done
+  run validate; [ "$status" -eq 0 ]
+}
+
+@test "real Claude settings and roles preserve guardrails and proactive routing" {
+  run uv run --quiet --locked python - "$REPO_ROOT" <<'PY'
+import json, pathlib, sys, yaml
+p = pathlib.Path(sys.argv[1])
+s = json.loads((p/'.claude/settings.json').read_text())
+roles = json.loads((p/'.agent-models.json').read_text())['providers']['claude']['roles']
+assert s['model'] == roles['coordinator']['native_model']
+assert 'CLAUDE_CODE_SUBAGENT_MODEL' not in s.get('env', {})
+assert 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE' not in s.get('env', {})
+assert '@AGENTS.md' in (p/'CLAUDE.md').read_text()
+for role in ('implementer', 'simple', 'reviewer'):
+    text = (p/f'.claude/agents/routing-{role}.md').read_text()
+    _, front, body = text.split('---', 2)
+    agent = yaml.safe_load(front)
+    assert agent['name'] == f'routing-{role}'
+    assert agent['model'] == roles[role]['native_model']
+    assert 'automatically' in agent['description'].lower()
+    assert 'AGENTS.md' in body and 'task contract' in body.lower()
+    assert 'permissionMode' not in agent
+    tools = {x.strip() for x in agent['tools'].split(',')}
+    assert tools == ({'Read', 'Grep', 'Glob'} if role == 'reviewer' else {'Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'})
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "routing accepts existing Claude hooks and permissions" {
+  python3 - "$BATS_TMPDIR/.claude/settings.json" <<'PYFIXTURE'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]); s = json.loads(p.read_text())
+s['hooks'] = {'PreToolUse': [{'matcher': 'Bash', 'hooks': [{'type': 'command', 'command': 'true'}]}]}
+s['permissions'] = {'deny': ['Bash(synthetic-guard)']}
+p.write_text(json.dumps(s))
+PYFIXTURE
+  run validate; [ "$status" -eq 0 ]
+}
+
+@test "real Antigravity roles and always-on rule follow routing policy" {
+  run uv run --quiet --locked python - "$REPO_ROOT" <<'PY'
+import json, pathlib, sys, yaml
+p = pathlib.Path(sys.argv[1]); roles = json.loads((p/'.agent-models.json').read_text())['providers']['antigravity']['roles']
+for role in ('coordinator', 'implementer', 'simple', 'reviewer'):
+    _, front, body = (p/f'.agents/agents/routing-{role}.md').read_text().split('---', 2)
+    agent = yaml.safe_load(front)
+    assert agent['model'] == roles[role]['native_model'] == ('pro' if role in ('coordinator', 'reviewer') else 'flash')
+    assert agent['mainAgent'] is (role == 'coordinator') and agent['subagent'] is (role != 'coordinator')
+    assert agent['commandExecutionPolicy'] == 'sandbox'
+    assert 'AGENTS.md' in body and 'nested' in body.lower()
+_, front, body = (p/'.agents/rules/model-routing.md').read_text().split('---', 2)
+assert yaml.safe_load(front)['trigger'] == 'always_on'
+for phrase in ('/agents', 'routing-coordinator', 'each new conversation', 'automatically', '.agent/AGENTS.md'):
+    assert phrase in body, phrase
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "routing rejects Antigravity API alias as native tier" {
+  sed -i.bak 's/model: flash/model: gemini-flash-latest/' "$BATS_TMPDIR/.agents/agents/routing-simple.md"
+  run validate; [ "$status" -eq 1 ]; [[ "$output" == *model_mismatch* ]]
+}
+
+@test "Antigravity adapter preserves sequential native and legacy delegation" {
+  run python3 - "$REPO_ROOT/.agent/AGENTS.md" <<'PY'
+import pathlib, sys
+s = pathlib.Path(sys.argv[1]).read_text().lower()
+for phrase in ('invoke_subagent', 'task_boundary', 'browser_subagent', 'wait', 'one active writer', 'no nested workers', 'two-round', 'strong coordinator'):
+    assert phrase in s, phrase
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "Antigravity coordinator can dispatch and retains final assessment authority" {
+  run uv run --quiet --locked python - "$REPO_ROOT" <<'PY'
+import pathlib, sys, yaml
+p = pathlib.Path(sys.argv[1])
+for role in ('coordinator', 'implementer', 'simple', 'reviewer'):
+    _, front, body = (p/f'.agents/agents/routing-{role}.md').read_text().split('---', 2)
+    tools = yaml.safe_load(front)['tools']
+    assert ('invoke_subagent' in tools) == (role == 'coordinator'), role
+    if role == 'coordinator':
+        for phrase in ('bounded', 'review', 'final assessment', 'git', 'root'):
+            assert phrase in body.lower(), phrase
+        assert 'claim final completion' not in body.lower()
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "routing keeps a 29-day review fresh" {
+  run uv run --quiet --locked python "$SCRIPTS_DIR/check-agent-routing.py" --root "$BATS_TMPDIR" --as-of 2026-11-26
+  [ "$status" -eq 0 ]; [[ "$output" != *model_review_due* ]]
+}
+
+@test "routing rejects an invalid stored review date" {
+  python3 - "$BATS_TMPDIR/.agent-models.json" <<'PY'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]); m = json.loads(p.read_text()); m['reviewed_on'] = 'not-a-date'; p.write_text(json.dumps(m))
+PY
+  run validate; [ "$status" -eq 2 ]; [[ "$output" == *invalid_input* ]]
+}
+
+@test "maintenance policy links and runbook exist" {
+  run python3 - "$REPO_ROOT" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+root = (p / 'AGENTS.md').read_text().lower()
+rule = (p / '.agents/rules/model-routing.md').read_text().lower()
+assert 'docs/runbooks/agent-model-maintenance.md' in root
+assert 'docs/runbooks/agent-model-maintenance.md' in rule
+assert (p / 'docs/runbooks/agent-model-maintenance.md').is_file()
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "maintenance policy covers review triggers and owner approval" {
+  local runbook="$REPO_ROOT/docs/runbooks/agent-model-maintenance.md"
+  if is_git_crypt_encrypted "$runbook"; then
+    skip 'runbook is git-crypt encrypted'
+  fi
+  run python3 - "$runbook" <<'PY'
+import pathlib, sys
+s = pathlib.Path(sys.argv[1]).read_text().lower()
+for phrase in ('official', 'release', 'retirement', 'drift', 'owner approval', 'reviewed_on', 'known-good', 'unavailable', 'product', 'account', 'latency', 'cost', 'flash', 'scheduler'):
+    assert phrase in s, phrase
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "locked maintenance fixture preserves public checks" {
+  local fixture="$BATS_TMPDIR/locked"
+  mkdir -p "$fixture/tests/scripts/helpers" "$fixture/.agents/rules" "$fixture/docs/runbooks"
+  cp "$REPO_ROOT/tests/scripts/agent-routing.bats" "$fixture/tests/scripts/"
+  cp "$REPO_ROOT/tests/scripts/helpers/test_helper.bash" "$REPO_ROOT/tests/scripts/helpers/agent_routing.bash" "$fixture/tests/scripts/helpers/"
+  cp "$REPO_ROOT/AGENTS.md" "$fixture/AGENTS.md"
+  cp "$REPO_ROOT/.agents/rules/model-routing.md" "$fixture/.agents/rules/"
+  printf '\0GITCRYPT\0\377synthetic' > "$fixture/docs/runbooks/agent-model-maintenance.md"
+  # Bootstrap nested Bats even when a parallel runner loses exported Bash functions.
+  run env -u 'BASH_FUNC_bats_readlinkf%%' "$BATS_ROOT/bin/bats" --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
+  if [ "$status" -ne 0 ]; then
+    printf 'Nested maintenance checks exited %s:\n%s\n' "$status" "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  printf 'missing public import\n' > "$fixture/.agents/rules/model-routing.md"
+  run env -u 'BASH_FUNC_bats_readlinkf%%' "$BATS_ROOT/bin/bats" --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
+  [ "$status" -eq 1 ]
+  cp "$REPO_ROOT/.agents/rules/model-routing.md" "$fixture/.agents/rules/"
+  printf 'incomplete policy\n' > "$fixture/docs/runbooks/agent-model-maintenance.md"
+  run env -u 'BASH_FUNC_bats_readlinkf%%' "$BATS_ROOT/bin/bats" --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
+  [ "$status" -eq 1 ]
+}

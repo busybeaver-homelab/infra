@@ -32,6 +32,8 @@ STUB
   # Default stub for curl
   cat >"$STUB_BIN/curl" <<'STUB'
 #!/usr/bin/env bash
+# Match curl's config-stdin consumption so the producer cannot receive SIGPIPE.
+cat >/dev/null
 echo "$@" >> "$BATS_TEST_TMPDIR/curl.calls"
 echo '{"message": "success"}'
 STUB
@@ -148,3 +150,18 @@ STUB
   [[ "$output" =~ "Credentials file not found" ]]
 }
 
+
+@test "sync-github-repo-settings: curl fixture consumes config larger than a pipe buffer" {
+  cat >"$STUB_BIN/sops" <<'STUB'
+#!/usr/bin/env bash
+printf 'synthetic-%262144s' '' | tr ' ' x
+STUB
+  chmod +x "$STUB_BIN/sops"
+
+  run env GITHUB_TOKEN= "$SCRIPT" --credentials-file "$SOPS_FILE" --repo "test-owner/test-repo"
+  if [ "$status" -ne 0 ]; then
+    printf 'Synthetic sync exited %s\n' "$status" >&2
+  fi
+  [ "$status" -eq 0 ]
+  [ "$(wc -l < "$BATS_TEST_TMPDIR/curl.calls" | tr -d ' ')" -eq 5 ]
+}

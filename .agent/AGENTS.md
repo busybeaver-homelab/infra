@@ -19,7 +19,7 @@ This profile adapts Superpowers workflows for Antigravity with strict single-flo
 When source skills reference legacy tool names, use these Antigravity equivalents:
 
 - Legacy assistant/platform names -> `Antigravity`
-- `Task` tool -> `browser_subagent` for browser tasks, otherwise sequential `task_boundary`
+- `Task` tool -> `browser_subagent` only for browser tasks; for coding, use `invoke_subagent` when available, otherwise sequential `task_boundary`
 - `Skill` tool -> `view_file ~/.gemini/skills/<skill-name>/SKILL.md` (or project-local `.agent/skills/<skill-name>/SKILL.md`)
 - `TodoWrite` -> update `<project-root>/docs/plans/task.md` task list (archived on finish)
 - File operations -> `view_file`, `write_to_file`, `replace_file_content`, `multi_replace_file_content`
@@ -43,6 +43,9 @@ When source skills reference legacy tool names, use these Antigravity equivalent
 
 ## Single-Flow Execution Model
 
+- Use one native worker at a time when `invoke_subagent` is available; wait for each worker before the next worker or review. Keep one active writer and no nested workers.
+- If native delegation is unsupported, record the limitation and retain sequential work with the strong coordinator using `task_boundary`.
+- Both Flash roles share one two-round correction budget before promotion to the strong coordinator; switching roles does not reset it.
 - Do not dispatch multiple coding agents in parallel.
 - Decompose large work into ordered, explicit steps.
 - Keep exactly one active task at a time in `<project-root>/docs/plans/task.md`.
