@@ -4,6 +4,8 @@
 # are deliberately NOT listed, so dependency updates keep merging automatically
 # (owner decision D7, docs/runbooks/ci-workflows-standards.md STD-CI-69).
 
+/.agents/hooks.json                 @busybeaver
+/.agent/hooks/                     @busybeaver
 /.codex/                           @busybeaver
 /.claude/                          @busybeaver
 /.agent/agent-permissions.json      @busybeaver

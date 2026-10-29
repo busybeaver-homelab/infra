@@ -115,6 +115,8 @@ jobs:
               - '.claude/**'
               - '.agents/agents/**'
               - '.agents/rules/**'
+              - '.agents/hooks.json'
+              - '.agent/hooks/**'
               - '.agent/AGENTS.md'
               - '.agent/tests/**'
               - '.agent-models.json'
