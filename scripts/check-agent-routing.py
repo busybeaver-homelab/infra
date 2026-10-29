@@ -216,7 +216,21 @@ def validate_repository(root: Path) -> list[str]:
             "model_mismatch",
         )
         settings = read_json(root / ".claude/settings.json")
-        permissions(settings)
+        # Routing must coexist with the reviewed credential guard. Only the
+        # exact project-level App wrapper exclusions are permitted; recursive
+        # checks still reject other sandbox settings and permission bypasses.
+        if "sandbox" in settings:
+            check(
+                settings["sandbox"]
+                == {
+                    "excludedCommands": [
+                        "scripts/agent-gh.sh *",
+                        "scripts/agent-git.sh *",
+                    ]
+                },
+                "unsafe_settings",
+            )
+        permissions({key: value for key, value in settings.items() if key != "sandbox"})
         check(
             settings.get("model")
             == providers["claude"]["roles"]["coordinator"]["native_model"],

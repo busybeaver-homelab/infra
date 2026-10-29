@@ -1,0 +1,17 @@
+{
+  "agent-credential-guard": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "guard_root=$(git rev-parse --show-toplevel 2>/dev/null) && test -f \"$guard_root/.agent/hooks/antigravity-credential-guard.py\" && command -v python3 >/dev/null 2>&1 || { printf '%s\\n' '{\"decision\":\"deny\",\"reason\":\"Credential guard launcher unavailable; refusing the call.\"}'; exit 0; }; if guard_output=$(python3 \"$guard_root/.agent/hooks/antigravity-credential-guard.py\"); then printf '%s\\n' \"$guard_output\"; else printf '%s\\n' '{\"decision\":\"deny\",\"reason\":\"Credential guard launcher unavailable; refusing the call.\"}'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

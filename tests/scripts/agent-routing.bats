@@ -414,3 +414,39 @@ PY
   [ "$status" -ne 0 ]
   [ -e "$BATS_TMPDIR/local-hook-ran" ]
 }
+
+@test "routing accepts only the reviewed root App wrapper exclusions" {
+  jq '.sandbox = {excludedCommands:["scripts/agent-gh.sh *","scripts/agent-git.sh *"]}' \
+    "$BATS_TMPDIR/.claude/settings.json" > "$BATS_TMPDIR/settings.json"
+  mv "$BATS_TMPDIR/settings.json" "$BATS_TMPDIR/.claude/settings.json"
+  run validate
+  [ "$status" -eq 0 ]
+}
+
+@test "routing still rejects broader or nested sandbox exceptions" {
+  local config
+  for config in '{"excludedCommands":["scripts/agent-gh.sh *","scripts/agent-git.sh *","bash *"]}' \
+    '{"excludedCommands":["*"]}' \
+    '{"excludedCommands":["scripts/agent-gh.sh *","scripts/agent-git.sh *"],"enabled":false}'; do
+    jq --argjson sandbox "$config" '.sandbox=$sandbox' "$BATS_TMPDIR/.claude/settings.json" > "$BATS_TMPDIR/settings.json"
+    mv "$BATS_TMPDIR/settings.json" "$BATS_TMPDIR/.claude/settings.json"
+    run validate
+    [ "$status" -eq 1 ] || return 1
+    [[ "$output" == *unsafe_settings* ]] || return 1
+  done
+  jq 'del(.sandbox) | .env={sandbox:{excludedCommands:["scripts/agent-gh.sh *","scripts/agent-git.sh *"]}}' \
+    "$BATS_TMPDIR/.claude/settings.json" > "$BATS_TMPDIR/settings.json"
+  mv "$BATS_TMPDIR/settings.json" "$BATS_TMPDIR/.claude/settings.json"
+  run validate
+  [ "$status" -eq 1 ]
+  [[ "$output" == *unsafe_settings* ]] || false
+}
+
+@test "routing rejects permission bypass with otherwise approved App exclusions" {
+  jq '.sandbox={excludedCommands:["scripts/agent-gh.sh *","scripts/agent-git.sh *"]} | .permissions={defaultMode:"bypassPermissions"}' \
+    "$BATS_TMPDIR/.claude/settings.json" > "$BATS_TMPDIR/settings.json"
+  mv "$BATS_TMPDIR/settings.json" "$BATS_TMPDIR/.claude/settings.json"
+  run validate
+  [ "$status" -eq 1 ]
+  [[ "$output" == *unsafe_permissions* ]] || false
+}
