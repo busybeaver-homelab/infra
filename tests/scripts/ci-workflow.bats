@@ -572,3 +572,13 @@ PYHOOK
     [ "$status" -eq 0 ]
   done
 }
+
+@test "native Antigravity hook-only changes select script tests (STD-CI-05/06)" {
+  yq eval '.jobs.changes.steps[] | select(.id == "filter") | .with.filters' "$WORKFLOW" > "$BATS_TEST_TMPDIR/native-hook-filters.yml"
+  local path
+  for path in '.agents/hooks.json' '.agent/hooks/**'; do
+    FILTER_PATH="$path" run yq -e 'explode(.) | .shell | flatten | contains([strenv(FILTER_PATH)])' "$BATS_TEST_TMPDIR/native-hook-filters.yml"
+    [ "$status" -eq 0 ] || return 1
+    [ "$output" = true ] || return 1
+  done
+}

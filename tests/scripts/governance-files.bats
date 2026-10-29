@@ -188,26 +188,26 @@ is_owned() {
 @test "finishing-a-development-branch skill documents single-PR Merge Queue and Stacked PR workflows (STD-CI-73)" {
   local skill="${REPO_ROOT}/.agent/skills/finishing-a-development-branch/SKILL.md"
   [ -f "$skill" ]
-  run grep -F "gh pr merge" "$skill"
+  run grep -F "scripts/agent-gh.sh pr merge" "$skill"
   [ "$status" -eq 0 ]
-  run grep -F "gh stack submit --auto" "$skill"
+  run grep -F "scripts/agent-gh.sh stack link" "$skill"
   [ "$status" -eq 0 ]
-  run grep -F "gh stack merge" "$skill"
+  run grep -F "scripts/agent-gh.sh stack merge" "$skill"
   [ "$status" -eq 0 ]
   run grep -F "automatically add the single PR to the Merge Queue" "$skill"
   [ "$status" -eq 0 ]
   run grep -F "automatically add Stacked PRs to the stack" "$skill"
   [ "$status" -eq 0 ]
-  run grep -F "git fetch origin main && git rebase origin/main" "$skill"
+  run grep -F "scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main" "$skill"
   [ "$status" -eq 0 ]
   run grep -F ".github/CODEOWNERS" "$skill"
   [ "$status" -eq 0 ]
-  run grep -F "git push --force-with-lease" "$skill"
+  run grep -F "scripts/agent-git.sh push --force-with-lease" "$skill"
   [ "$status" -eq 0 ]
 
   local wt_skill="${REPO_ROOT}/.agent/skills/using-git-worktrees/SKILL.md"
   [ -f "$wt_skill" ]
-  run grep -F "git fetch origin main" "$wt_skill"
+  run grep -F "scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main" "$wt_skill"
   [ "$status" -eq 0 ]
   run grep -F -- '--no-track -b "$BRANCH_NAME" origin/main' "$wt_skill"
   [ "$status" -eq 0 ]
@@ -268,4 +268,44 @@ is_owned() {
   done
   run is_owned '/.agents/skills/example/SKILL.md'
   [ "$status" -eq 1 ]
+}
+
+@test "App credential boundary and Antigravity permissions template are owner reviewed" {
+  local path
+  for path in '/.claude/hooks/agent-credential-guard.sh' '/scripts/agent-gh.sh' \
+    '/scripts/agent-git.sh' '/scripts/agent-git-credential.sh' \
+    '/scripts/agent-worktree-identity.sh' '/scripts/lib/github-app-token.sh' \
+    '/.agent/agent-permissions.json'; do
+    run is_owned "$path"
+    [ "$status" -eq 0 ] || return 1
+  done
+}
+
+@test "Antigravity template denies owner routes and asks for infrastructure confirmation" {
+  local config="$REPO_ROOT/.agent/agent-permissions.json"
+  run jq -e '.permissions | (.deny | length > 0) and (.ask | length > 0) and (.allow == []) and (.deny | index("mcp(github/*)") != null)' "$config"
+  [ "$status" -eq 0 ]
+  run python3 - "$config" <<'PY'
+import json
+import re
+import sys
+rules = json.load(open(sys.argv[1]))['permissions']
+def matches(kind, command):
+    return any(re.search(rule[len('command(regex:'):-1], command)
+               for rule in rules[kind] if rule.startswith('command(regex:'))
+for command in ['gh pr list', 'git push origin x', 'git -c x=y push',
+                'sops -d --extract github.token secrets/credentials.sops.yaml',
+                'cat ~/.config/gh/hosts.yml',
+                'security find-internet-password -s github.com -w',
+                'g\"h\" auth token', r'g\h auth token',
+                'echo \"$(gh auth token)\"',
+                'cd infrastructure/github && tofu console']:
+    assert matches('deny', command), command
+for command in ['tofu plan', 'tofu apply', 'tofu destroy', 'tofu import x y',
+                'tofu state mv x y', 'tofu state rm x']:
+    assert matches('ask', command), command
+for command in ['scripts/agent-gh.sh pr list', 'scripts/agent-git.sh push -u origin HEAD', 'git status']:
+    assert not matches('deny', command), command
+PY
+  [ "$status" -eq 0 ]
 }
