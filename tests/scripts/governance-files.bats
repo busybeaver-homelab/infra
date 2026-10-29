@@ -259,3 +259,13 @@ is_owned() {
   run grep -F 'scripts/agent-worktree-identity.sh "$path"' "$skill"
   [ "$status" -eq 0 ]
 }
+
+@test "routing policy and native configuration require owner review without owning locked skills (STD-CI-69)" {
+  local path
+  for path in '/.codex/' '/.claude/' '/CLAUDE.md' '/.agents/agents/' '/.agents/rules/' '/.agent/AGENTS.md' '/.agent/tests/' '/.agent-models.json' '/AGENTS.md' '/scripts/check-agent-routing.py' '/lefthook.yml'; do
+    run is_owned "$path"
+    [ "$status" -eq 0 ]
+  done
+  run is_owned '/.agents/skills/example/SKILL.md'
+  [ "$status" -eq 1 ]
+}

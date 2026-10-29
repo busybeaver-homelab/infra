@@ -31,3 +31,40 @@ for i,role in enumerate(roles):
     write(f'.agents/agents/routing-{role}.md',f'---\nname: routing-{role}\ndescription: Routing role\nmodel: {models["antigravity"][i]}\ntools: {tools}\nmainAgent: {str(i==0).lower()}\nsubagent: {str(i!=0).lower()}\ncommandExecutionPolicy: sandbox\n---\nFollow policy\n')
 PY
 }
+
+# Offline fixture mechanics only; this does not implement native dispatch or approval.
+make_routing_trial_fixture() {
+  local target="$1" source="$2" item
+  mkdir -p "$target/repo" "$target/git-home" "$target/empty-template" || return 1
+  routing_trial_git() {
+    env -i PATH="$PATH" HOME="$target/git-home" XDG_CONFIG_HOME="$target/git-home" \
+      GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null git "$@"
+  }
+  routing_trial_git -C "$target/repo" init -q --template="$target/empty-template" || return 1
+  routing_trial_git -C "$target/repo" -c user.name=Fixture -c user.email=fixture@example.test -c commit.gpgsign=false commit -q --allow-empty -m 'synthetic fixture' || return 1
+  routing_trial_git -C "$target/repo" worktree add -q -b trial "$target/worktree" || return 1
+  for item in .agent-models.json AGENTS.md CLAUDE.md .agent/AGENTS.md .codex/config.toml .codex/agents/routing-simple.toml .codex/agents/routing-implementer.toml .codex/agents/routing-reviewer.toml .claude/settings.json .claude/agents/routing-simple.md .claude/agents/routing-implementer.md .claude/agents/routing-reviewer.md .agents/rules/model-routing.md .agents/agents/routing-coordinator.md .agents/agents/routing-simple.md .agents/agents/routing-implementer.md .agents/agents/routing-reviewer.md; do
+    mkdir -p "$target/worktree/$(dirname "$item")"
+    cp "$source/${item}" "$target/worktree/${item}" || return 1
+  done
+  mkdir -p "$target/worktree/bin" "$target/worktree/personal-config"
+  printf '%s\n' '{"model":"synthetic-override"}' > "$target/worktree/personal-config/settings.json"
+  cat > "$target/worktree/bin/provider-error" <<'STUB'
+#!/bin/sh
+case "$1" in worker-unavailable|coordinator-unavailable) ;; *) exit 2 ;; esac
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+printf '%s\n' "$1" >> "$root/dispatch.log"
+printf '%s\n' "$1" >&2
+exit 1
+STUB
+  for item in tofu ansible-playbook; do
+    cat > "$target/worktree/bin/${item}" <<'STUB'
+#!/bin/sh
+case "$1" in synthetic-*) ;; *) exit 2 ;; esac
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+printf '%s %s\n' "$(basename "$0")" "$1" >> "$root/attempts.log"
+STUB
+    chmod +x "$target/worktree/bin/${item}"
+  done
+  chmod +x "$target/worktree/bin/provider-error"
+}

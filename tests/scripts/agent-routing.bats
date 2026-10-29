@@ -364,3 +364,53 @@ PY
   run env -u 'BASH_FUNC_bats_readlinkf%%' "$BATS_ROOT/bin/bats" --print-output-on-failure "$fixture/tests/scripts/agent-routing.bats" --filter '^maintenance'
   [ "$status" -eq 1 ]
 }
+
+@test "routing validates complete real repository configuration offline" {
+  run uv run --quiet --locked python "$SCRIPTS_DIR/check-agent-routing.py" --root "$REPO_ROOT"
+  [ "$status" -eq 0 ]
+}
+
+@test "synthetic trial fixture is independent and records only explicit fake calls" {
+  run make_routing_trial_fixture "$BATS_TMPDIR/trial" "$REPO_ROOT"
+  [ "$status" -eq 0 ]
+  fixture="$BATS_TMPDIR/trial/worktree"
+  [ -f "$fixture/.agent-models.json" ]
+  [ ! -e "$fixture/secrets" ]
+  [ "$(cd "$(git -C "$fixture" rev-parse --git-common-dir)" && pwd -P)" = "$(cd "$BATS_TMPDIR/trial/repo/.git" && pwd -P)" ]
+  [ ! -e "$fixture/attempts.log" ]
+  run "$fixture/bin/provider-error" worker-unavailable
+  [ "$status" -eq 1 ]
+  [[ "$output" == *worker-unavailable* ]] || false
+  run "$fixture/bin/provider-error" coordinator-unavailable
+  [ "$status" -eq 1 ]
+  [[ "$output" == *coordinator-unavailable* ]] || false
+  [ "$(wc -l < "$fixture/dispatch.log" | tr -d ' ')" -eq 2 ]
+  [ ! -e "$fixture/attempts.log" ]
+  "$fixture/bin/tofu" synthetic-1
+  [ "$(cat "$fixture/attempts.log")" = 'tofu synthetic-1' ]
+  "$fixture/bin/ansible-playbook" synthetic-2
+  [ "$(tail -n 1 "$fixture/attempts.log")" = 'ansible-playbook synthetic-2' ]
+  [ -f "$fixture/personal-config/settings.json" ]
+}
+
+@test "trial fixture isolates Git configuration and honors its local hooks" {
+  mkdir -p "$BATS_TMPDIR/external-hooks"
+  printf '#!/bin/sh\ntouch "%s"\nexit 1\n' "$BATS_TMPDIR/external-hook-ran" > "$BATS_TMPDIR/external-hooks/pre-commit"
+  chmod +x "$BATS_TMPDIR/external-hooks/pre-commit"
+  printf '[core]\n hooksPath = %s\n[commit]\n gpgsign = true\n' "$BATS_TMPDIR/external-hooks" > "$BATS_TMPDIR/global.gitconfig"
+  export GIT_CONFIG_GLOBAL="$BATS_TMPDIR/global.gitconfig"
+  export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0="$BATS_TMPDIR/external-hooks"
+  run make_routing_trial_fixture "$BATS_TMPDIR/trial-isolated" "$REPO_ROOT"
+  [ "$status" -eq 0 ]
+  [ ! -e "$BATS_TMPDIR/external-hook-ran" ]
+  run grep -F 'core.hooksPath' "$REPO_ROOT/tests/scripts/helpers/agent_routing.bash"
+  [ "$status" -eq 1 ]
+  unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 GIT_CONFIG_GLOBAL
+  repo="$BATS_TMPDIR/trial-isolated/repo"
+  mkdir -p "$repo/.git/hooks"
+  printf '#!/bin/sh\ntouch "%s"\nexit 1\n' "$BATS_TMPDIR/local-hook-ran" > "$repo/.git/hooks/pre-commit"
+  chmod +x "$repo/.git/hooks/pre-commit"
+  run env -i PATH="$PATH" HOME="$BATS_TMPDIR/trial-isolated/git-home" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null git -C "$repo" -c user.name=Fixture -c user.email=fixture@example.test -c commit.gpgsign=false commit --allow-empty -m check
+  [ "$status" -ne 0 ]
+  [ -e "$BATS_TMPDIR/local-hook-ran" ]
+}

@@ -539,3 +539,36 @@ setup() {
     [ "$output" = "ops" ]
   done
 }
+
+@test "routing-only changes select script tests without losing toolchain inputs (STD-CI-05/06)" {
+  yq eval '.jobs.changes.steps[] | select(.id == "filter") | .with.filters' "$WORKFLOW" > "$BATS_TEST_TMPDIR/filters.yml"
+  local path
+  for path in '.codex/**' '.claude/**' '.agents/agents/**' '.agents/rules/**' '.agent/AGENTS.md' '.agent/tests/**' '.agent-models.json' 'AGENTS.md' 'CLAUDE.md' 'mise.toml' 'mise.lock' '.mise/locks/**' 'pyproject.toml' 'uv.lock' '.github/actions/**' '.github/workflows/ci.yml'; do
+    FILTER_PATH="$path" run yq -e 'explode(.) | .shell | flatten | contains([strenv(FILTER_PATH)])' "$BATS_TEST_TMPDIR/filters.yml"
+    [ "$status" -eq 0 ]
+    [ "$output" = true ]
+  done
+  run yq '.jobs.shell-bats.if' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "(github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.shell == 'true'" ]
+  run yq -e '.jobs.ci-gate.needs | contains(["shell-bats"])' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  run yq -e '.jobs.ci-gate.if == "always()"' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+}
+
+@test "routing hook validates all routing inputs once from repository root" {
+  run yq -e '.pre-commit.commands.agent-routing.run == "uv run --locked python scripts/check-agent-routing.py --root ."' "$REPO_ROOT/lefthook.yml"
+  [ "$status" -eq 0 ]
+  run yq -e '.pre-commit.commands.agent-routing | has("root") or has("exclude")' "$REPO_ROOT/lefthook.yml"
+  [ "$status" -eq 1 ]
+  local path
+  for path in '.codex/**' '.claude/**' '.agents/agents/**' '.agents/rules/**' '.agent/AGENTS.md' '.agent/tests/**' '.agent-models.json' 'AGENTS.md' 'CLAUDE.md' 'scripts/check-agent-routing.py' 'tests/scripts/agent-routing.bats' 'tests/scripts/helpers/agent_routing.bash' 'tests/scripts/ci-workflow.bats' 'tests/scripts/governance-files.bats' 'lefthook.yml'; do
+    ROUTING_INPUT="$path" run uv run --quiet --locked python - "$REPO_ROOT/lefthook.yml" <<'PYHOOK'
+import os, pathlib, sys, yaml
+hook = yaml.safe_load(pathlib.Path(sys.argv[1]).read_text())["pre-commit"]["commands"]["agent-routing"]
+assert os.environ["ROUTING_INPUT"] in hook["glob"].strip("{}").split(",")
+PYHOOK
+    [ "$status" -eq 0 ]
+  done
+}
