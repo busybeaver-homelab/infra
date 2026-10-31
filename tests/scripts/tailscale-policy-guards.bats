@@ -61,3 +61,102 @@ for item in data.get('nodeAttrs', []):
 " "$CI_POLICY"
   [ "$status" -eq 0 ]
 }
+
+# --- tag:type-iot invariants (robots: tailnet reaches the robot on TCP 80 only) ---
+
+# Prints the policy files to check: the CI policy always, the production policy
+# only when this clone has it decrypted (no leading \0GITCRYPT header).
+iot_policies() {
+  printf '%s\n' "$CI_POLICY"
+  if [ "$(head -c 10 "$PROD_POLICY" | tail -c 9 | tr -d '\000')" != "GITCRYPT" ]; then
+    printf '%s\n' "$PROD_POLICY"
+  fi
+}
+
+# Templates ${tag_owners} with {}, converts HuJSON (comments, trailing commas)
+# to JSON, and runs the Python check expression body against `policy`.
+# Only sanitized messages are printed; policy content never is.
+check_iot_policy() {
+  python3 - "$1" "$2" <<'PY'
+import json, sys
+
+def hujson_to_json(text):
+    out, i, n, in_str = [], 0, len(text), False
+    while i < n:
+        c = text[i]
+        if in_str:
+            out.append(c)
+            if c == '\\' and i + 1 < n:
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if c == '"':
+                in_str = False
+            i += 1
+        elif c == '"':
+            in_str = True
+            out.append(c)
+            i += 1
+        elif text.startswith('//', i):
+            while i < n and text[i] != '\n':
+                i += 1
+        elif text.startswith('/*', i):
+            end = text.find('*/', i + 2)
+            i = n if end < 0 else end + 2
+        elif c in '}]':
+            j = len(out) - 1
+            while j >= 0 and out[j].isspace():
+                j -= 1
+            if j >= 0 and out[j] == ',':
+                del out[j]
+            out.append(c)
+            i += 1
+        else:
+            out.append(c)
+            i += 1
+    return ''.join(out)
+
+path, check = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    policy = json.loads(hujson_to_json(f.read().replace('${tag_owners}', '{}')))
+grants = policy.get('grants', [])
+ssh = policy.get('ssh', [])
+exec(check)
+PY
+}
+
+@test "tag:type-iot is reachable on tcp:80 only" {
+  while IFS= read -r policy; do
+    run check_iot_policy "$policy" '
+iot = [g for g in grants if "tag:type-iot" in g.get("dst", [])]
+bad = [i for i, g in enumerate(grants) if "tag:type-iot" in g.get("dst", []) and g.get("ip") != ["tcp:80"]]
+if bad:
+    sys.exit("grants targeting tag:type-iot with ip other than [tcp:80]: indexes %s" % bad)
+if not any("autogroup:owner" in g.get("src", []) for g in iot):
+    sys.exit("no grant from autogroup:owner to tag:type-iot")
+'
+    [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
+  done < <(iot_policies)
+}
+
+@test "tag:type-iot has no ssh rule" {
+  while IFS= read -r policy; do
+    run check_iot_policy "$policy" '
+bad = [i for i, r in enumerate(ssh) if "tag:type-iot" in r.get("dst", [])]
+if bad:
+    sys.exit("ssh rules targeting tag:type-iot: indexes %s" % bad)
+'
+    [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
+  done < <(iot_policies)
+}
+
+@test "tag:type-iot has no outbound grants" {
+  while IFS= read -r policy; do
+    run check_iot_policy "$policy" '
+bad = [i for i, g in enumerate(grants) if "tag:type-iot" in g.get("src", [])]
+if bad:
+    sys.exit("grants with tag:type-iot as source: indexes %s" % bad)
+'
+    [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
+  done < <(iot_policies)
+}

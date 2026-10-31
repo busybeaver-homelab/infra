@@ -50,6 +50,7 @@ locals {
     "tag:type-nas"          = ["autogroup:owner"]
     "tag:type-network"      = ["autogroup:owner"]
     "tag:type-docker"       = ["autogroup:owner"]
+    "tag:type-iot"          = ["autogroup:owner"]
     "tag:os-linux"          = ["autogroup:owner"]
     "tag:os-windows"        = ["autogroup:owner"]
     "tag:os-macos"          = ["autogroup:owner"]
