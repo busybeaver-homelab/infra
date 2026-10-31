@@ -41,6 +41,11 @@ SSH
 printf 'docker\n' >>"${STUB_LOG}"
 printf 'ARG:%s\n' "$@" >>"${STUB_LOG}"
 [[ "$1" == exec && "$2" == -i && "$4" == sh && "$5" == -c ]] || exit 99
+if [[ -n "${STUB_DOCKER_TRUNCATE:-}" ]]; then
+  # Simulates a link that drops mid-transfer: the remote side sees early EOF.
+  head -c "${STUB_DOCKER_TRUNCATE}" | sh -c "$6"
+  exit $?
+fi
 exec sh -c "$6"
 DOCKER
 
@@ -83,6 +88,9 @@ logged_args() {
     -o "UserKnownHostsFile=${ROBOT_KNOWN_HOSTS}" \
     -o StrictHostKeyChecking=accept-new \
     -o BatchMode=yes \
+    -o ConnectTimeout=10 \
+    -o ServerAliveInterval=15 \
+    -o ServerAliveCountMax=3 \
     "root@${TEST_HOST}" \
     true)"
   [ "$(logged_args)" = "${expected}" ]
@@ -94,7 +102,8 @@ logged_args() {
   run "${SCRIPT}" push "${BATS_TMPDIR}/src" /data/.incoming/valetudo
   [ "${status}" -eq 0 ]
   remote_cmd="$(logged_args | tail -n 1)"
-  [[ "${remote_cmd}" == *"cat > '/data/.incoming/valetudo.part' && mv '/data/.incoming/valetudo.part' '/data/.incoming/valetudo'"* ]]
+  # payload-bytes plus newline is 14 bytes; the size is verified before mv.
+  [[ "${remote_cmd}" == *"cat > '/data/.incoming/valetudo.part' && [ \"\$(wc -c < '/data/.incoming/valetudo.part')\" -eq 14 ] && mv '/data/.incoming/valetudo.part' '/data/.incoming/valetudo'"* ]]
   [ "$(cat "${STUB_STDIN}")" = 'payload-bytes' ]
   logged_args | grep -qx -- 'BatchMode=yes'
   run ! grep -Eq 'FORBIDDEN|scp|sftp' "${STUB_LOG}"
@@ -112,6 +121,27 @@ logged_args() {
   [ ! -e "${dest_dir}/it's.bin.part" ]
   [ "$(logged_args | head -n 5 | tr '\n' ' ')" = 'exec -i robot-sim sh -c ' ]
   run ! grep -Eq '^ssh$|FORBIDDEN' "${STUB_LOG}"
+}
+
+@test "push never promotes a truncated transfer" {
+  export ROBOT_TRANSPORT='docker' ROBOT_CONTAINER='robot-sim' STUB_DOCKER_TRUNCATE=5
+  dest_dir="${BATS_TMPDIR}/remote"
+  mkdir -p "${dest_dir}"
+  printf 'twenty-bytes-payload' >"${BATS_TMPDIR}/src"
+  run "${SCRIPT}" push "${BATS_TMPDIR}/src" "${dest_dir}/postboot.block"
+  [ "${status}" -ne 0 ]
+  [ ! -e "${dest_dir}/postboot.block" ]
+  [ ! -e "${dest_dir}/postboot.block.part" ]
+}
+
+@test "push hides raw transport stderr" {
+  export STUB_SSH_STDERR='ssh: connect to host 192.0.2.10 port 22: Connection refused' STUB_SSH_EXIT=255
+  printf 'x' >"${BATS_TMPDIR}/src"
+  run "${SCRIPT}" push "${BATS_TMPDIR}/src" /data/.incoming/valetudo
+  [ "${status}" -ne 0 ]
+  [[ "${output}" != *"Connection refused"* ]]
+  [[ "${output}" != *"192.0.2.10"* ]]
+  [[ "${output}" == *"ERROR: push to robot failed"* ]]
 }
 
 @test "push fails when the local source is missing" {
@@ -175,6 +205,30 @@ logged_args() {
   [ "${status}" -ne 0 ]
   [ ! -e "${dest}" ]
   [ ! -e "${dest}.part" ]
+}
+
+@test "pull-calibration hides raw transport stderr" {
+  export STUB_SSH_STDERR='ssh: connect to host 192.0.2.10 port 22: Connection refused' STUB_SSH_EXIT=255
+  dest="${BATS_TMPDIR}/x40-ultra.tar"
+  run "${SCRIPT}" pull-calibration "${dest}"
+  [ "${status}" -ne 0 ]
+  [[ "${output}" != *"Connection refused"* ]]
+  [[ "${output}" != *"192.0.2.10"* ]]
+  [[ "${output}" == *"ERROR: calibration pull from robot failed"* ]]
+  [ ! -e "${dest}" ]
+  [ ! -e "${dest}.part" ]
+}
+
+@test "pull-calibration refuses to overwrite an existing destination" {
+  printf 'canned-tar-bytes' >"${BATS_TMPDIR}/canned.tar"
+  export STUB_SSH_STDOUT_FILE="${BATS_TMPDIR}/canned.tar"
+  dest="${BATS_TMPDIR}/x40-ultra.tar"
+  printf 'earlier-backup' >"${dest}"
+  run "${SCRIPT}" pull-calibration "${dest}"
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *"already exists"* ]]
+  [ "$(cat "${dest}")" = 'earlier-backup' ]
+  [ ! -s "${STUB_LOG}" ]
 }
 
 @test "pull-calibration refuses an empty archive" {

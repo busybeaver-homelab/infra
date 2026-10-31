@@ -27,9 +27,19 @@ add_git_crypt_attribute() {
   git -C "${REPO}" commit -q -m 'attrs'
 }
 
-unlock_repo() {
+add_key_file() {
   mkdir -p "${REPO}/.git/git-crypt/keys"
   printf 'synthetic\n' >"${REPO}/.git/git-crypt/keys/default"
+}
+
+configure_filter() {
+  git -C "${REPO}" config filter.git-crypt.clean '"git-crypt" clean'
+  git -C "${REPO}" config filter.git-crypt.smudge '"git-crypt" smudge'
+}
+
+unlock_repo() {
+  add_key_file
+  configure_filter
 }
 
 expected_message() {
@@ -72,6 +82,41 @@ expected_message() {
   mkdir -p "${REPO}/.git/git-crypt/keys"
   run "${SCRIPT}" "${REPO}" "${TARGET}"
   [ "${status}" -eq 1 ]
+}
+
+@test "key present but git-crypt filter not configured is refused" {
+  add_git_crypt_attribute
+  add_key_file
+  run --separate-stderr "${SCRIPT}" "${REPO}" "${TARGET}"
+  [ "${status}" -eq 1 ]
+  [ "${stderr}" = "$(expected_message "${TARGET}")" ]
+}
+
+@test "symlinked target directory escaping the repository is refused" {
+  add_git_crypt_attribute
+  unlock_repo
+  mkdir -p "${BATS_TMPDIR}/outside/x40-ultra" "${REPO}/backups"
+  ln -s "${BATS_TMPDIR}/outside" "${REPO}/backups/robots"
+  run --separate-stderr "${SCRIPT}" "${REPO}" "${TARGET}"
+  [ "${status}" -eq 1 ]
+  [ "${stderr}" = "$(expected_message "${TARGET}")" ]
+}
+
+@test "symlinked target file is refused" {
+  add_git_crypt_attribute
+  unlock_repo
+  mkdir -p "${REPO}/backups/robots/x40-ultra"
+  ln -s "${BATS_TMPDIR}/elsewhere.tar" "${REPO}/${TARGET}"
+  run "${SCRIPT}" "${REPO}" "${TARGET}"
+  [ "${status}" -eq 1 ]
+}
+
+@test "existing real target directories pass" {
+  add_git_crypt_attribute
+  unlock_repo
+  mkdir -p "${REPO}/backups/robots/x40-ultra"
+  run "${SCRIPT}" "${REPO}" "${TARGET}"
+  [ "${status}" -eq 0 ]
 }
 
 @test "worktree without the git-crypt symlink is refused" {

@@ -4,11 +4,14 @@
 #
 # Usage: assert-git-crypt-target.sh <repo_root> <target_rel_path>
 #
-# Exits 0 only if both hold:
+# Exits 0 only if all hold:
 #   - <git-dir>/git-crypt/keys holds a key. The per-worktree git dir is checked
 #     (not --git-common-dir) because that is where git-crypt reads its key: a
 #     worktree created without the git-crypt symlink would commit plaintext.
+#   - filter.git-crypt.clean is configured (otherwise git stores plaintext).
 #   - `git check-attr filter -- <target>` reports `filter: git-crypt`.
+#   - no existing path component of the target is a symlink, and the deepest
+#     existing component resolves inside the repository root.
 # Otherwise exits 1 (2 on wrong usage).
 
 set -euo pipefail
@@ -49,6 +52,29 @@ for key in "${keys_dir}"/*; do
   fi
 done
 ((key_found == 1)) || refuse
+
+git -C "${repo_root}" config --get filter.git-crypt.clean >/dev/null 2>&1 || refuse
+
+# The attribute check is path-based; make sure the write cannot be redirected.
+root_real="$(cd -P -- "${repo_root}" && pwd)" || refuse
+deepest="${root_real}"
+IFS='/' read -r -a components <<<"${target}"
+for component in "${components[@]}"; do
+  [[ -n "${component}" && "${component}" != . ]] || continue
+  candidate="${deepest}/${component}"
+  [[ ! -L "${candidate}" ]] || refuse
+  [[ -e "${candidate}" ]] || break
+  deepest="${candidate}"
+done
+if [[ -d "${deepest}" ]]; then
+  deepest_real="$(cd -P -- "${deepest}" && pwd)" || refuse
+else
+  deepest_real="$(cd -P -- "${deepest%/*}" && pwd)/${deepest##*/}" || refuse
+fi
+case "${deepest_real}/" in
+  "${root_real}"/*) ;;
+  *) refuse ;;
+esac
 
 # -z output: <path> NUL <attribute> NUL <value> NUL
 attr_fields=()

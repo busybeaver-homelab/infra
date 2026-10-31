@@ -11,9 +11,10 @@
 #   ROBOT_HOST, ROBOT_SSH_KEY, ROBOT_KNOWN_HOSTS   (ssh)
 #   ROBOT_CONTAINER                                (docker, Molecule only)
 #
-# Exit codes: 2 usage/configuration, 7 host key changed, 8 robot unreachable;
-# otherwise the status of the failed transfer. The SSH key is only passed as a
-# path and its contents are never read or printed.
+# Exit codes: 2 usage/configuration, 7 host key changed, 8 robot unreachable,
+# 1 any other failure. Raw ssh/docker stderr (which can contain the robot
+# address) is captured and replaced by one generic line. The SSH key is only
+# passed as a path and its contents are never read or printed.
 
 set -euo pipefail
 
@@ -69,6 +70,9 @@ remote() {
         -o UserKnownHostsFile="${ROBOT_KNOWN_HOSTS}" \
         -o StrictHostKeyChecking=accept-new \
         -o BatchMode=yes \
+        -o ConnectTimeout=10 \
+        -o ServerAliveInterval=15 \
+        -o ServerAliveCountMax=3 \
         root@"${ROBOT_HOST}" "${cmd}"
       ;;
     docker)
@@ -77,10 +81,16 @@ remote() {
   esac
 }
 
+# Creates a temp file for captured transport stderr; sets ERR_FILE.
+new_err_file() {
+  ERR_FILE="$(mktemp)"
+  TMP_FILES+=("${ERR_FILE}")
+}
+
 cmd_probe() {
   local err_file
-  err_file="$(mktemp)"
-  TMP_FILES+=("${err_file}")
+  new_err_file
+  err_file="${ERR_FILE}"
   # Raw transport errors are captured, not shown: callers get one clear line.
   if remote true </dev/null >/dev/null 2>"${err_file}"; then
     return 0
@@ -96,25 +106,44 @@ cmd_probe() {
 
 cmd_push() {
   (($# == 2)) || usage
-  local src="$1" dest="$2" qdest qpart
+  local src="$1" dest="$2" qdest qpart size cmd
   [[ -n "${dest}" ]] || usage
   [[ -f "${src}" && -r "${src}" ]] || die 2 "local source not readable: ${src}"
+  size="$(wc -c <"${src}")"
+  size="${size//[[:space:]]/}"
+  [[ "${size}" =~ ^[0-9]+$ ]] || die 1 "could not determine the size of ${src}"
   qdest="$(sh_quote "${dest}")"
   qpart="$(sh_quote "${dest}.part")"
-  remote "cat > ${qpart} && mv ${qpart} ${qdest} || { rm -f ${qpart}; exit 1; }" <"${src}"
+  # The byte count guards against promoting a truncated file when the link
+  # drops mid-transfer (the remote cat then sees EOF and exits 0).
+  # shellcheck disable=SC2016 # $(wc ...) is expanded by the robot's shell
+  printf -v cmd 'cat > %s && [ "$(wc -c < %s)" -eq %s ] && mv %s %s || { rm -f %s; exit 1; }' \
+    "${qpart}" "${qpart}" "${size}" "${qpart}" "${qdest}" "${qpart}"
+  new_err_file
+  remote "${cmd}" <"${src}" 2>"${ERR_FILE}" ||
+    die 1 "push to robot failed (transport error or size mismatch): ${dest}"
 }
 
 cmd_pull_calibration() {
   (($# == 1)) || usage
   local dest="$1" part
   [[ -n "${dest}" ]] || usage
+  if [[ -e "${dest}" || -L "${dest}" ]]; then
+    die 1 "calibration archive already exists, refusing to overwrite: ${dest}"
+  fi
   part="${dest}.part"
+  rm -f -- "${part}"
   TMP_FILES+=("${part}")
+  new_err_file
   # shellcheck disable=SC2016 # expanded by the robot's shell, not here
   remote 'set -- /mnt/private /mnt/misc; for f in /etc/OTA_Key_pub.pem /etc/publickey.pem; do [ -e "$f" ] && set -- "$@" "$f"; done; tar cf - "$@"' \
-    </dev/null >"${part}"
+    </dev/null >"${part}" 2>"${ERR_FILE}" ||
+    die 1 "calibration pull from robot failed (transport or tar error)"
   [[ -s "${part}" ]] || die 1 "calibration archive from the robot is empty"
-  mv -f -- "${part}" "${dest}"
+  # -n closes the race with a destination created after the check above.
+  if ! mv -n -- "${part}" "${dest}" || [[ -e "${part}" ]]; then
+    die 1 "could not move the calibration archive into place (destination may already exist): ${dest}"
+  fi
 }
 
 main() {
