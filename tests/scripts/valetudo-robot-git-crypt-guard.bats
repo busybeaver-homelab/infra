@@ -164,5 +164,5 @@ expected_message() {
 @test "wrong argument count gives exit 2" {
   run "${SCRIPT}" "${REPO}"
   [ "${status}" -eq 2 ]
-  [[ "${output}" == *"usage"* ]]
+  [[ "${output}" == *"usage"* ]] || false
 }

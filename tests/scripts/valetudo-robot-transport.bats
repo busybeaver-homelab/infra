@@ -103,7 +103,7 @@ logged_args() {
   [ "${status}" -eq 0 ]
   remote_cmd="$(logged_args | tail -n 1)"
   # payload-bytes plus newline is 14 bytes; the size is verified before mv.
-  [[ "${remote_cmd}" == *"cat > '/data/.incoming/valetudo.part' && [ \"\$(wc -c < '/data/.incoming/valetudo.part')\" -eq 14 ] && mv '/data/.incoming/valetudo.part' '/data/.incoming/valetudo'"* ]]
+  [[ "${remote_cmd}" == *"cat > '/data/.incoming/valetudo.part' && [ \"\$(wc -c < '/data/.incoming/valetudo.part')\" -eq 14 ] && mv '/data/.incoming/valetudo.part' '/data/.incoming/valetudo'"* ]] || false
   [ "$(cat "${STUB_STDIN}")" = 'payload-bytes' ]
   logged_args | grep -qx -- 'BatchMode=yes'
   run ! grep -Eq 'FORBIDDEN|scp|sftp' "${STUB_LOG}"
@@ -139,15 +139,15 @@ logged_args() {
   printf 'x' >"${BATS_TMPDIR}/src"
   run "${SCRIPT}" push "${BATS_TMPDIR}/src" /data/.incoming/valetudo
   [ "${status}" -ne 0 ]
-  [[ "${output}" != *"Connection refused"* ]]
-  [[ "${output}" != *"192.0.2.10"* ]]
-  [[ "${output}" == *"ERROR: push to robot failed"* ]]
+  [[ "${output}" != *"Connection refused"* ]] || false
+  [[ "${output}" != *"192.0.2.10"* ]] || false
+  [[ "${output}" == *"ERROR: push to robot failed"* ]] || false
 }
 
 @test "push fails when the local source is missing" {
   run "${SCRIPT}" push "${BATS_TMPDIR}/missing" /data/.incoming/valetudo
   [ "${status}" -eq 2 ]
-  [[ "${output}" == *"local source not readable"* ]]
+  [[ "${output}" == *"local source not readable"* ]] || false
   [ ! -s "${STUB_LOG}" ]
 }
 
@@ -155,7 +155,7 @@ logged_args() {
   export ROBOT_TRANSPORT='telnet'
   run "${SCRIPT}" probe
   [ "${status}" -eq 2 ]
-  [[ "${output}" == *"ROBOT_TRANSPORT"* ]]
+  [[ "${output}" == *"ROBOT_TRANSPORT"* ]] || false
   [ ! -s "${STUB_LOG}" ]
 }
 
@@ -170,14 +170,14 @@ logged_args() {
   unset ROBOT_KNOWN_HOSTS
   run "${SCRIPT}" probe
   [ "${status}" -eq 2 ]
-  [[ "${output}" == *"ROBOT_KNOWN_HOSTS"* ]]
+  [[ "${output}" == *"ROBOT_KNOWN_HOSTS"* ]] || false
   [ ! -s "${STUB_LOG}" ]
 }
 
 @test "unknown subcommand gives exit 2" {
   run "${SCRIPT}" frobnicate
   [ "${status}" -eq 2 ]
-  [[ "${output}" == *"usage"* ]]
+  [[ "${output}" == *"usage"* ]] || false
 }
 
 @test "pull-calibration streams the calibration tar and leaves no .part file" {
@@ -190,10 +190,10 @@ logged_args() {
   [ "$(cat "${dest}")" = 'canned-tar-bytes' ]
   [ ! -e "${dest}.part" ]
   remote_cmd="$(logged_args | tail -n 1)"
-  [[ "${remote_cmd}" == *"tar cf - "* ]]
-  [[ "${remote_cmd}" == *"/mnt/private /mnt/misc"* ]]
-  [[ "${remote_cmd}" == *"/etc/OTA_Key_pub.pem"* ]]
-  [[ "${remote_cmd}" == *"/etc/publickey.pem"* ]]
+  [[ "${remote_cmd}" == *"tar cf - "* ]] || false
+  [[ "${remote_cmd}" == *"/mnt/private /mnt/misc"* ]] || false
+  [[ "${remote_cmd}" == *"/etc/OTA_Key_pub.pem"* ]] || false
+  [[ "${remote_cmd}" == *"/etc/publickey.pem"* ]] || false
   run ! grep -q FORBIDDEN "${STUB_LOG}"
 }
 
@@ -212,9 +212,9 @@ logged_args() {
   dest="${BATS_TMPDIR}/x40-ultra.tar"
   run "${SCRIPT}" pull-calibration "${dest}"
   [ "${status}" -ne 0 ]
-  [[ "${output}" != *"Connection refused"* ]]
-  [[ "${output}" != *"192.0.2.10"* ]]
-  [[ "${output}" == *"ERROR: calibration pull from robot failed"* ]]
+  [[ "${output}" != *"Connection refused"* ]] || false
+  [[ "${output}" != *"192.0.2.10"* ]] || false
+  [[ "${output}" == *"ERROR: calibration pull from robot failed"* ]] || false
   [ ! -e "${dest}" ]
   [ ! -e "${dest}.part" ]
 }
@@ -226,7 +226,7 @@ logged_args() {
   printf 'earlier-backup' >"${dest}"
   run "${SCRIPT}" pull-calibration "${dest}"
   [ "${status}" -ne 0 ]
-  [[ "${output}" == *"already exists"* ]]
+  [[ "${output}" == *"already exists"* ]] || false
   [ "$(cat "${dest}")" = 'earlier-backup' ]
   [ ! -s "${STUB_LOG}" ]
 }
@@ -252,8 +252,8 @@ logged_args() {
   export STUB_SSH_STDERR='@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @' STUB_SSH_EXIT=255
   run "${SCRIPT}" probe
   [ "${status}" -eq 7 ]
-  [[ "${output}" == *"${ROBOT_KNOWN_HOSTS}"* ]]
-  [[ "${output}" != *"WARNING"* ]]
+  [[ "${output}" == *"${ROBOT_KNOWN_HOSTS}"* ]] || false
+  [[ "${output}" != *"WARNING"* ]] || false
 }
 
 @test "probe with a generic ssh failure gives exit 8 without a raw ssh trace" {
@@ -269,5 +269,5 @@ logged_args() {
   export STUB_SSH_STDERR='generic failure' STUB_SSH_EXIT=255
   run "${SCRIPT}" probe
   [ "${status}" -eq 8 ]
-  [[ "${output}" != *"SYNTHETIC-KEY-MATERIAL"* ]]
+  [[ "${output}" != *"SYNTHETIC-KEY-MATERIAL"* ]] || false
 }
