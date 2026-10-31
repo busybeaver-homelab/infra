@@ -160,3 +160,39 @@ if bad:
     [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
   done < <(iot_policies)
 }
+
+# Broad rules would reach tag:type-iot without naming it, so they are banned outright.
+
+@test "tailscale policies have no legacy acls section" {
+  while IFS= read -r policy; do
+    run check_iot_policy "$policy" '
+if "acls" in policy:
+    sys.exit("top-level acls key present; use grants that never reach tag:type-iot")
+'
+    [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
+  done < <(iot_policies)
+}
+
+@test "tailscale grants never use * or autogroup:tagged in src or dst" {
+  while IFS= read -r policy; do
+    run check_iot_policy "$policy" '
+broad = {"*", "autogroup:tagged"}
+bad = [i for i, g in enumerate(grants) if broad & set(g.get("src", []) + g.get("dst", []))]
+if bad:
+    sys.exit("grants with * or autogroup:tagged in src/dst: indexes %s" % bad)
+'
+    [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
+  done < <(iot_policies)
+}
+
+@test "tailscale ssh rules never use * or autogroup:tagged in dst" {
+  while IFS= read -r policy; do
+    run check_iot_policy "$policy" '
+broad = {"*", "autogroup:tagged"}
+bad = [i for i, r in enumerate(ssh) if broad & set(r.get("dst", []))]
+if bad:
+    sys.exit("ssh rules with * or autogroup:tagged in dst: indexes %s" % bad)
+'
+    [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
+  done < <(iot_policies)
+}
