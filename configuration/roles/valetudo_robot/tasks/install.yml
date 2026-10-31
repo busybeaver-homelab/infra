@@ -1,0 +1,290 @@
+---
+# Install phase for valetudo_robot. Artifacts are downloaded and verified on the
+# controller, pushed over robot-transport.sh and installed with
+# robot-provision.sh. A binary whose installed checksum already equals its pin
+# is neither pushed nor installed, so a re-run changes nothing and never
+# triggers a reboot. The managed postboot block is always staged (a few bytes)
+# because robot-provision.sh postboot reports CHANGED=0 when it is identical.
+
+# R2-GOV-05: fail closed on a missing pin or checksum before any download.
+- name: Assert artifact versions are set
+  ansible.builtin.assert:
+    that:
+      - lookup('ansible.builtin.vars', item) is string
+      - lookup('ansible.builtin.vars', item) | length > 0
+    fail_msg: "{{ item }} must be set to a non-empty version (R2-GOV-05)."
+    quiet: true
+  loop:
+    - valetudo_robot_valetudo_version
+    - valetudo_robot_tailscale_version
+
+- name: Assert artifact checksums are 64 lowercase hex characters
+  ansible.builtin.assert:
+    that:
+      - lookup('ansible.builtin.vars', item) is string
+      - lookup('ansible.builtin.vars', item) is match('^[0-9a-f]{64}$')
+    fail_msg: "{{ item }} must be a non-empty, 64 character lowercase hex SHA-256 (R2-GOV-05)."
+    quiet: true
+  loop:
+    - valetudo_robot_valetudo_sha256
+    - valetudo_robot_tailscale_sha256
+
+- name: Create the controller artifact cache directory
+  ansible.builtin.file:
+    path: "{{ valetudo_robot_cache_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Download and verify the Valetudo binary on the controller
+  ansible.builtin.get_url:
+    url: "{{ valetudo_robot_valetudo_url }}"
+    dest: "{{ valetudo_robot_cache_dir }}/valetudo-{{ valetudo_robot_valetudo_version }}-aarch64"
+    checksum: "sha256:{{ valetudo_robot_valetudo_sha256 }}"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+
+- name: Download and verify the Tailscale tarball on the controller
+  ansible.builtin.get_url:
+    url: "{{ valetudo_robot_tailscale_url }}"
+    dest: "{{ valetudo_robot_cache_dir }}/tailscale_{{ valetudo_robot_tailscale_version }}_arm64.tgz"
+    checksum: "sha256:{{ valetudo_robot_tailscale_sha256 }}"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+
+# tar (not ansible.builtin.unarchive, which needs GNU tar) so that macOS
+# controllers work; only the two binaries are extracted from the verified tarball.
+- name: Unpack the verified Tailscale tarball on the controller
+  ansible.builtin.command:
+    argv:
+      - tar
+      - -xzf
+      - "{{ valetudo_robot_cache_dir }}/tailscale_{{ valetudo_robot_tailscale_version }}_arm64.tgz"
+      - -C
+      - "{{ valetudo_robot_cache_dir }}"
+      - "tailscale_{{ valetudo_robot_tailscale_version }}_arm64/tailscale"
+      - "tailscale_{{ valetudo_robot_tailscale_version }}_arm64/tailscaled"
+    creates: "{{ valetudo_robot_cache_dir }}/tailscale_{{ valetudo_robot_tailscale_version }}_arm64/tailscaled"
+  delegate_to: localhost
+  become: false
+
+- name: Checksum the artifacts to install
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    get_checksum: true
+    checksum_algorithm: sha256
+  loop:
+    - "{{ valetudo_robot_cache_dir }}/valetudo-{{ valetudo_robot_valetudo_version }}-aarch64"
+    - "{{ valetudo_robot_cache_dir }}/tailscale_{{ valetudo_robot_tailscale_version }}_arm64/tailscale"
+    - "{{ valetudo_robot_cache_dir }}/tailscale_{{ valetudo_robot_tailscale_version }}_arm64/tailscaled"
+  delegate_to: localhost
+  become: false
+  register: valetudo_robot_artifact_stats
+
+- name: Assert the artifacts to install are present and the Valetudo binary matches its pin
+  ansible.builtin.assert:
+    that:
+      - valetudo_robot_artifact_stats.results | map(attribute='stat.isreg') | min
+      - valetudo_robot_artifact_stats.results | map(attribute='stat.size') | min > 0
+      - valetudo_robot_artifact_stats.results[0].stat.checksum == valetudo_robot_valetudo_sha256
+    fail_msg: >-
+      The Tailscale tarball does not contain tailscale and tailscaled at
+      tailscale_{{ valetudo_robot_tailscale_version }}_arm64/, or an artifact is empty.
+    quiet: true
+
+# A missing file only prints to stderr; the trailing true keeps the exit code 0.
+- name: Read the installed binary checksums on the robot
+  ansible.builtin.raw: sha256sum /data/valetudo /data/tailscale/tailscale /data/tailscale/tailscaled 2>/dev/null; true
+  register: valetudo_robot_installed_sums
+  changed_when: false
+  check_mode: false
+
+# raw may allocate a PTY, so stdout can carry CR characters and stderr lines.
+# The result maps each installed absolute path to its SHA-256.
+- name: Parse the installed binary checksums
+  ansible.builtin.set_fact:
+    valetudo_robot_installed_map: >-
+      {{ dict(valetudo_robot_installed_sums.stdout_lines | map('trim')
+              | select('match', '^[0-9a-f]{64}\s+/data/')
+              | map('regex_replace', '^([0-9a-f]{64})\s+(\S+)$', '\2 \1')
+              | map('split', ' ') | list) }}
+
+- name: Plan the binaries that differ from their pins
+  vars:
+    valetudo_robot_artifact_specs:
+      - name: valetudo
+        src: "{{ valetudo_robot_artifact_stats.results[0].item }}"
+        dest: data/valetudo
+        sha256: "{{ valetudo_robot_valetudo_sha256 }}"
+        size: "{{ valetudo_robot_artifact_stats.results[0].stat.size }}"
+      - name: tailscale
+        src: "{{ valetudo_robot_artifact_stats.results[1].item }}"
+        dest: data/tailscale/tailscale
+        sha256: "{{ valetudo_robot_artifact_stats.results[1].stat.checksum }}"
+        size: "{{ valetudo_robot_artifact_stats.results[1].stat.size }}"
+      - name: tailscaled
+        src: "{{ valetudo_robot_artifact_stats.results[2].item }}"
+        dest: data/tailscale/tailscaled
+        sha256: "{{ valetudo_robot_artifact_stats.results[2].stat.checksum }}"
+        size: "{{ valetudo_robot_artifact_stats.results[2].stat.size }}"
+  ansible.builtin.set_fact:
+    valetudo_robot_push_plan: >-
+      {%- set plan = [] -%}
+      {%- for artifact in valetudo_robot_artifact_specs -%}
+      {%- if valetudo_robot_installed_map.get('/' ~ artifact.dest, '') != artifact.sha256 -%}
+      {%- set _ = plan.append(artifact) -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ plan }}
+
+- name: Make sure the robot staging directory exists
+  ansible.builtin.raw: mkdir -p /data/.incoming
+  changed_when: false
+
+# Sum of the three binary sizes plus 10 %, rounded up to KiB. Binaries that are
+# already installed are not counted because they are not pushed.
+- name: Check free space on the robot for the binaries to push
+  vars:
+    valetudo_robot_required_kib: "{{ (((valetudo_robot_push_plan | map(attribute='size') | map('int') | sum) * 11 / 10 / 1024) | round(0, 'ceil')) | int }}"
+  ansible.builtin.raw: |-
+    sh -s -- check-space {{ valetudo_robot_required_kib }} <<'VALETUDO_EOF'
+    {{ lookup('ansible.builtin.file', 'robot-provision.sh') }}
+    VALETUDO_EOF
+  register: valetudo_robot_space
+  changed_when: false
+  failed_when: false
+  when: valetudo_robot_push_plan | length > 0
+
+- name: Assert the robot has enough free space
+  ansible.builtin.assert:
+    that:
+      - valetudo_robot_space.rc == 0
+    fail_msg: >-
+      {{ 'Not enough free space on the robot /data partition for the binaries to push (10 % margin included).'
+         if valetudo_robot_space.rc == 3
+         else 'robot-provision.sh check-space failed with exit ' ~ valetudo_robot_space.rc | default('unknown') ~ '.' }}
+    quiet: true
+  when: valetudo_robot_push_plan | length > 0
+
+# Transport errors can contain the robot address, so the task output is hidden
+# and the rescue reports only the exit code.
+- name: Push the binaries to the robot staging directory
+  when: valetudo_robot_push_plan | length > 0
+  block:
+    - name: Run robot-transport.sh to push the binaries
+      ansible.builtin.command:
+        argv:
+          - "{{ role_path }}/files/robot-transport.sh"
+          - push
+          - "{{ item.src }}"
+          - "/data/.incoming/{{ item.name }}"
+      environment: "{{ valetudo_robot_transport_env }}"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      no_log: true
+      loop: "{{ valetudo_robot_push_plan }}"
+      loop_control:
+        label: "{{ item.name }}"
+  rescue:
+    - name: Fail with a sanitized binary push error
+      ansible.builtin.fail:
+        msg: >-
+          Pushing a binary to the robot failed (robot-transport.sh push exited
+          {{ ansible_failed_result.rc | default('unknown') }}). Transport output is hidden
+          because it can contain the robot address; the staging directory may hold a partial file.
+
+# The staged file is verified against the pinned checksum on the robot before
+# it replaces the installed binary. Exit codes are interpreted below.
+- name: Install the pushed binaries on the robot
+  ansible.builtin.raw: |-
+    sh -s -- install data/.incoming/{{ item.name }} {{ item.dest }} {{ item.sha256 }} <<'VALETUDO_EOF'
+    {{ lookup('ansible.builtin.file', 'robot-provision.sh') }}
+    VALETUDO_EOF
+  register: valetudo_robot_install
+  changed_when: valetudo_robot_install.stdout is search('CHANGED=1')
+  failed_when: false
+  loop: "{{ valetudo_robot_push_plan }}"
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Reboot robot
+
+- name: Assert the binaries were installed
+  vars:
+    valetudo_robot_install_errors:
+      "2": robot-provision.sh install was called with invalid arguments or the staged file is missing
+      "4": the staged file does not match its pinned SHA-256 (it was removed from the robot)
+  ansible.builtin.assert:
+    that:
+      - item.rc == 0
+      - item.stdout is search('CHANGED=[01]')
+    fail_msg: >-
+      Installing {{ item.item.name }} failed with exit {{ item.rc | default('unknown') }}:
+      {{ valetudo_robot_install_errors[item.rc | string] | default('unexpected robot-provision.sh failure') }}.
+    quiet: true
+  loop: "{{ valetudo_robot_install.results | default([]) | selectattr('rc', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Render the managed postboot block on the controller
+  ansible.builtin.template:
+    src: root_postboot.managed.sh.j2
+    dest: "{{ valetudo_robot_cache_dir }}/postboot-managed-block.sh"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+
+# Transport errors can contain the robot address; see the binary push above.
+- name: Push the managed postboot block to the robot
+  block:
+    - name: Run robot-transport.sh to push the managed postboot block
+      ansible.builtin.command:
+        argv:
+          - "{{ role_path }}/files/robot-transport.sh"
+          - push
+          - "{{ valetudo_robot_cache_dir }}/postboot-managed-block.sh"
+          - /data/.incoming/postboot.block
+      environment: "{{ valetudo_robot_transport_env }}"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      no_log: true
+  rescue:
+    - name: Fail with a sanitized postboot block push error
+      ansible.builtin.fail:
+        msg: >-
+          Pushing the postboot block to the robot failed (robot-transport.sh push exited
+          {{ ansible_failed_result.rc | default('unknown') }}). Transport output is hidden
+          because it can contain the robot address.
+
+# The staged block is removed after the run whatever postboot reported.
+- name: Apply the managed block to the robot postboot script
+  ansible.builtin.raw: |-
+    sh -s -- postboot data/.incoming/postboot.block <<'VALETUDO_EOF'
+    {{ lookup('ansible.builtin.file', 'robot-provision.sh') }}
+    VALETUDO_EOF
+    valetudo_robot_postboot_rc=$?
+    rm -f /data/.incoming/postboot.block
+    exit "$valetudo_robot_postboot_rc"
+  register: valetudo_robot_postboot
+  changed_when: valetudo_robot_postboot.stdout is search('CHANGED=1')
+  failed_when: false
+  notify: Reboot robot
+
+- name: Assert the managed block was applied
+  vars:
+    valetudo_robot_postboot_errors:
+      "2": robot-provision.sh postboot was called with invalid arguments or the staged block is missing
+      "5": the robot has neither /data/_root_postboot.sh nor the vendor template /misc/_root_postboot.sh.tpl
+      "7": the managed-block markers in /data/_root_postboot.sh are malformed (expected exactly one BEGIN and one END); fix or remove them manually
+  ansible.builtin.assert:
+    that:
+      - valetudo_robot_postboot.rc == 0
+      - valetudo_robot_postboot.stdout is search('CHANGED=[01]')
+    fail_msg: >-
+      Applying the postboot block failed with exit {{ valetudo_robot_postboot.rc | default('unknown') }}:
+      {{ valetudo_robot_postboot_errors[valetudo_robot_postboot.rc | string] | default('unexpected robot-provision.sh failure') }}.
+    quiet: true

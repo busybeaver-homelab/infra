@@ -1,0 +1,123 @@
+---
+# Builds the fixtures. Nothing here installs anything the role is responsible
+# for: the container only gets the files a real robot ships with.
+- name: Prepare controller fixtures
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    valetudo_robot_fixture_dir: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/robot_fixture"
+    valetudo_robot_fixture_version: "9.9.9"
+    valetudo_robot_fixture_repo: "{{ valetudo_robot_fixture_dir }}/repo"
+  tasks:
+    - name: Create fixture directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0700"
+      loop:
+        - "{{ valetudo_robot_fixture_dir }}/artifacts/tailscale_{{ valetudo_robot_fixture_version }}_arm64"
+        - "{{ valetudo_robot_fixture_dir }}/cache"
+        - "{{ valetudo_robot_fixture_repo }}"
+
+    - name: Create the synthetic Valetudo binary
+      ansible.builtin.copy:
+        content: |
+          #!/bin/sh
+          echo "synthetic valetudo {{ valetudo_robot_fixture_version }}"
+        dest: "{{ valetudo_robot_fixture_dir }}/artifacts/valetudo-aarch64"
+        mode: "0600"
+
+    - name: Create the synthetic Tailscale binaries
+      ansible.builtin.copy:
+        content: |
+          #!/bin/sh
+          echo "synthetic {{ item }} {{ valetudo_robot_fixture_version }}"
+        dest: "{{ valetudo_robot_fixture_dir }}/artifacts/tailscale_{{ valetudo_robot_fixture_version }}_arm64/{{ item }}"
+        mode: "0755"
+      loop: [tailscale, tailscaled]
+
+    - name: Pack the synthetic Tailscale tarball
+      ansible.builtin.command:
+        argv:
+          - tar
+          - -czf
+          - "{{ valetudo_robot_fixture_dir }}/artifacts/tailscale_{{ valetudo_robot_fixture_version }}_arm64.tgz"
+          - -C
+          - "{{ valetudo_robot_fixture_dir }}/artifacts"
+          - "tailscale_{{ valetudo_robot_fixture_version }}_arm64"
+        creates: "{{ valetudo_robot_fixture_dir }}/artifacts/tailscale_{{ valetudo_robot_fixture_version }}_arm64.tgz"
+
+    - name: Checksum the synthetic artifacts
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        get_checksum: true
+        checksum_algorithm: sha256
+      loop:
+        - "{{ valetudo_robot_fixture_dir }}/artifacts/valetudo-aarch64"
+        - "{{ valetudo_robot_fixture_dir }}/artifacts/tailscale_{{ valetudo_robot_fixture_version }}_arm64.tgz"
+      register: valetudo_robot_fixture_stats
+
+    - name: Initialise the throwaway backup repository
+      ansible.builtin.command:
+        argv: [git, init, --quiet, "{{ valetudo_robot_fixture_repo }}"]
+        creates: "{{ valetudo_robot_fixture_repo }}/.git"
+
+    - name: Mark backups as git-crypt protected in the throwaway repository
+      ansible.builtin.copy:
+        content: "backups/** filter=git-crypt diff=git-crypt\n"
+        dest: "{{ valetudo_robot_fixture_repo }}/.gitattributes"
+        mode: "0600"
+
+    - name: Create the synthetic git-crypt key directory
+      ansible.builtin.file:
+        path: "{{ valetudo_robot_fixture_repo }}/.git/git-crypt/keys"
+        state: directory
+        mode: "0700"
+
+    - name: Create a synthetic git-crypt key file
+      ansible.builtin.copy:
+        content: "synthetic-molecule-key\n"
+        dest: "{{ valetudo_robot_fixture_repo }}/.git/git-crypt/keys/default"
+        mode: "0600"
+
+    - name: Configure synthetic git-crypt filters in the throwaway repository
+      community.general.git_config:
+        name: "{{ item.name }}"
+        value: "true"
+        scope: file
+        file: "{{ valetudo_robot_fixture_repo }}/.git/config"
+      loop:
+        - name: filter.git-crypt.clean
+        - name: filter.git-crypt.smudge
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Write the generated fixture variables
+      ansible.builtin.copy:
+        content: "{{ valetudo_robot_fixture_vars | to_nice_yaml }}"
+        dest: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/robot_vars.yml"
+        mode: "0600"
+      vars:
+        valetudo_robot_fixture_vars:
+          valetudo_robot_valetudo_version: "{{ valetudo_robot_fixture_version }}"
+          valetudo_robot_valetudo_sha256: "{{ valetudo_robot_fixture_stats.results[0].stat.checksum }}"
+          valetudo_robot_valetudo_url: "file://{{ valetudo_robot_fixture_dir }}/artifacts/valetudo-aarch64"
+          valetudo_robot_tailscale_version: "{{ valetudo_robot_fixture_version }}"
+          valetudo_robot_tailscale_sha256: "{{ valetudo_robot_fixture_stats.results[1].stat.checksum }}"
+          valetudo_robot_tailscale_url: "file://{{ valetudo_robot_fixture_dir }}/artifacts/tailscale_{{ valetudo_robot_fixture_version }}_arm64.tgz"
+          valetudo_robot_cache_dir: "{{ valetudo_robot_fixture_dir }}/cache"
+          valetudo_robot_backup_repo_root: "{{ valetudo_robot_fixture_repo }}"
+          valetudo_robot_backup_dir: "{{ valetudo_robot_fixture_repo }}/backups/robots/x40-ultra"
+
+- name: Prepare the BusyBox robot stand-in
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Create the files a real robot ships with
+      ansible.builtin.raw: |-
+        mkdir -p /mnt/private /mnt/misc /misc /data
+        echo synthetic-private > /mnt/private/x
+        echo synthetic-misc > /mnt/misc/y
+        printf '%s\n' '#!/bin/sh' '# synthetic vendor postboot template' 'echo vendor-line-one' 'echo vendor-line-two' > /misc/_root_postboot.sh.tpl
+      changed_when: false

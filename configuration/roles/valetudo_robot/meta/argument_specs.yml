@@ -6,6 +6,9 @@ argument_specs:
       - Runs against a BusyBox robot without Python, using ansible.builtin.raw on the robot and controller-side helper scripts.
       - Each phase is imported with its own tag; the preflight phase is also tagged always.
       - The backup phase captures the factory calibration data once into the git-crypt protected backups/ tree.
+      - >-
+        The install phase downloads and verifies the pinned artifacts on the controller, pushes only binaries that
+        differ from the pin, and maintains a managed block in the robot's postboot script.
     author: homelab-infra
     options:
       valetudo_robot_valetudo_version:
@@ -24,6 +27,22 @@ argument_specs:
         type: str
         default: "a1c249ce6bdebef62e1ae3b997595555bce2ae4709bf95a718e9ca7a129dad7e"
         description: SHA-256 checksum of tailscale_<version>_arm64.tgz from pkgs.tailscale.com/stable.
+      valetudo_robot_valetudo_url:
+        type: str
+        default: "https://github.com/Hypfer/Valetudo/releases/download/{{ valetudo_robot_valetudo_version }}/valetudo-aarch64"
+        description: >-
+          Download URL of the valetudo-aarch64 asset; the download is verified against
+          valetudo_robot_valetudo_sha256 (Molecule overrides it with a file:// URL).
+      valetudo_robot_tailscale_url:
+        type: str
+        default: "https://pkgs.tailscale.com/stable/tailscale_{{ valetudo_robot_tailscale_version }}_arm64.tgz"
+        description: >-
+          Download URL of the Tailscale static arm64 tarball; the download is verified against
+          valetudo_robot_tailscale_sha256 (Molecule overrides it with a file:// URL).
+      valetudo_robot_cache_dir:
+        type: str
+        default: "{{ playbook_dir }}/../../.cache/valetudo_robot"
+        description: Controller directory (gitignored) that caches the verified downloads, the extracted Tailscale binaries and the rendered postboot block.
       valetudo_robot_expected_arch:
         type: str
         default: aarch64

@@ -12,6 +12,14 @@ valetudo_robot_valetudo_sha256: "cdc0c8723e2c924176f0d278df4e01899da10c3765acea9
 valetudo_robot_tailscale_version: "1.104.4"
 valetudo_robot_tailscale_sha256: "a1c249ce6bdebef62e1ae3b997595555bce2ae4709bf95a718e9ca7a129dad7e"
 
+# Download URL templates for the pinned artifacts. Molecule points them at
+# synthetic file:// artifacts; production uses the upstream release URLs.
+valetudo_robot_valetudo_url: "https://github.com/Hypfer/Valetudo/releases/download/{{ valetudo_robot_valetudo_version }}/valetudo-aarch64"
+valetudo_robot_tailscale_url: "https://pkgs.tailscale.com/stable/tailscale_{{ valetudo_robot_tailscale_version }}_arm64.tgz"
+
+# Controller-side cache for the verified downloads and the extracted Tailscale tarball
+valetudo_robot_cache_dir: "{{ playbook_dir }}/../../.cache/valetudo_robot"
+
 # Architecture reported by `uname -m` on the robot
 valetudo_robot_expected_arch: aarch64
 

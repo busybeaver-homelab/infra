@@ -1,0 +1,48 @@
+---
+# One notify of "Reboot robot" runs every handler below in order.
+- name: Reboot robot
+  ansible.builtin.raw: nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 &
+  changed_when: true
+  when: valetudo_robot_reboot_enabled | bool
+
+- name: Wait for the robot to stop answering on SSH
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host | default(inventory_hostname) }}"
+    port: 22
+    state: stopped
+    timeout: 60
+  delegate_to: localhost
+  become: false
+  when: valetudo_robot_reboot_enabled | bool
+  listen: Reboot robot
+
+- name: Wait for SSH on the rebooted robot
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host | default(inventory_hostname) }}"
+    port: 22
+    timeout: 300
+  delegate_to: localhost
+  become: false
+  when: valetudo_robot_reboot_enabled | bool
+  listen: Reboot robot
+
+- name: Wait for the Valetudo web port on the rebooted robot
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host | default(inventory_hostname) }}"
+    port: 80
+    timeout: 300
+  delegate_to: localhost
+  become: false
+  when: valetudo_robot_reboot_enabled | bool
+  listen: Reboot robot
+
+- name: Reset the connection to the rebooted robot
+  ansible.builtin.meta: reset_connection
+  when: valetudo_robot_reboot_enabled | bool
+  listen: Reboot robot
+
+- name: Report that a robot reboot is pending
+  ansible.builtin.debug:
+    msg: The robot needs a reboot to apply the new binaries or postboot hook; valetudo_robot_reboot_enabled is false, so reboot it manually.
+  when: not (valetudo_robot_reboot_enabled | bool)
+  listen: Reboot robot

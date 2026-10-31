@@ -10,3 +10,7 @@
 - name: Capture valetudo_robot calibration backup
   ansible.builtin.import_tasks: backup.yml
   tags: [backup]
+
+- name: Install valetudo_robot binaries and the postboot hook
+  ansible.builtin.import_tasks: install.yml
+  tags: [install]

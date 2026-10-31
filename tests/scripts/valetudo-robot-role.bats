@@ -70,12 +70,13 @@ SPECS="${ROLE_DIR}/meta/argument_specs.yml"
   done <<<"${keys}"
 }
 
-@test "tasks/main.yml imports preflight (always) and backup phases only" {
+@test "tasks/main.yml imports the preflight (always), backup and install phases only" {
   local main="${ROLE_DIR}/tasks/main.yml"
   [ -f "${main}" ]
-  [ "$(yq eval '[.[] | .["ansible.builtin.import_tasks"]] | join(",")' "${main}")" = "preflight.yml,backup.yml" ]
+  [ "$(yq eval '[.[] | .["ansible.builtin.import_tasks"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml" ]
   [ "$(yq eval '.[0].tags | sort | join(",")' "${main}")" = "always,preflight" ]
   [ "$(yq eval '.[1].tags | join(",")' "${main}")" = "backup" ]
+  [ "$(yq eval '.[2].tags | join(",")' "${main}")" = "install" ]
 }
 
 @test "backup phase runs the git-crypt guard before pulling calibration data" {
@@ -87,4 +88,43 @@ SPECS="${ROLE_DIR}/meta/argument_specs.yml"
   [ -n "${guard}" ]
   [ -n "${pull}" ]
   [ "${guard}" -lt "${pull}" ]
+}
+
+@test "install phase validates every pin before the first download" {
+  local install="${ROLE_DIR}/tasks/install.yml"
+  [ -f "${install}" ]
+  local assert_ln download_ln
+  assert_ln=$(grep -n 'must be a non-empty, 64 character lowercase hex SHA-256' "${install}" | head -n1 | cut -d: -f1)
+  download_ln=$(grep -n 'ansible.builtin.get_url' "${install}" | head -n1 | cut -d: -f1)
+  [ -n "${assert_ln}" ]
+  [ -n "${download_ln}" ]
+  [ "${assert_ln}" -lt "${download_ln}" ]
+  grep -qF 'valetudo_robot_valetudo_sha256' "${install}"
+  grep -qF 'valetudo_robot_tailscale_sha256' "${install}"
+}
+
+@test "install phase hides transport output and skips binaries already at their pin" {
+  local install="${ROLE_DIR}/tasks/install.yml"
+  [ -f "${install}" ]
+  [ "$(grep -c 'no_log: true' "${install}")" -eq 2 ]
+  grep -qF 'valetudo_robot_installed_map' "${install}"
+  grep -qF 'valetudo_robot_push_plan' "${install}"
+}
+
+@test "managed postboot block starts tailscaled with the required flags behind an executable guard" {
+  local tpl="${ROLE_DIR}/templates/root_postboot.managed.sh.j2"
+  [ -f "${tpl}" ]
+  grep -qF '[ -x /data/tailscale/tailscaled ]' "${tpl}"
+  grep -qF -- '--tun=userspace-networking --statedir=/data/tailscale/state --socket=/tmp/tailscaled.sock --no-logs-no-support' "${tpl}"
+  run grep -E '^[[:space:]]*/data/tailscale/tailscaled .*&[[:space:]]*$' "${tpl}"
+  [ "$status" -eq 0 ]
+}
+
+@test "Reboot robot handler waits on SSH then HTTP and honours valetudo_robot_reboot_enabled" {
+  local handlers="${ROLE_DIR}/handlers/main.yml"
+  [ -f "${handlers}" ]
+  [ "$(yq eval '.[0].name' "${handlers}")" = "Reboot robot" ]
+  [ "$(yq eval '[.[] | select(.listen == "Reboot robot") | .["ansible.builtin.wait_for"].port] | map(select(. != null)) | join(",")' "${handlers}")" = "22,22,80" ]
+  [ "$(yq eval '[.[] | select(.listen == "Reboot robot") | .["ansible.builtin.wait_for"].timeout] | map(select(. != null)) | join(",")' "${handlers}")" = "60,300,300" ]
+  grep -qF 'valetudo_robot_reboot_enabled' "${handlers}"
 }

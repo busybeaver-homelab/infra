@@ -149,6 +149,12 @@ depends = ["deps:galaxy"]
 dir = "configuration/roles/docker_compose_service"
 run = "molecule test"
 
+[tasks."test:ansible:robot"]
+description = "Run Molecule tests for valetudo_robot role (BusyBox container stand-in)"
+depends = ["deps:galaxy"]
+dir = "configuration/roles/valetudo_robot"
+run = "molecule test"
+
 [tasks."test:ansible:oci"]
 description = "Run Molecule tests for OCI scenario"
 depends = ["deps:galaxy"]
@@ -175,6 +181,7 @@ printf "%s\n" \
   "base:configuration/roles/base_ubuntu_server:molecule test" \
   "restic:configuration/roles/restic_backup:molecule test" \
   "compose:configuration/roles/docker_compose_service:molecule test" \
+  "robot:configuration/roles/valetudo_robot:molecule test" \
   "oci:configuration:molecule test -s oci" \
   "gcp:configuration:molecule test -s gcp" \
   "homelab:configuration:molecule test -s homelab" | \
@@ -183,7 +190,7 @@ printf "%s\n" \
 
 [tasks."test:ansible:serial"]
 description = "Run all Molecule test scenarios sequentially"
-depends = ["deps:galaxy", "test:ansible:base", "test:ansible:restic", "test:ansible:compose", "test:ansible:oci", "test:ansible:gcp", "test:ansible:homelab"]
+depends = ["deps:galaxy", "test:ansible:base", "test:ansible:restic", "test:ansible:compose", "test:ansible:robot", "test:ansible:oci", "test:ansible:gcp", "test:ansible:homelab"]
 
 [tasks."test:molecule"]
 description = "Run full Molecule test matrix across all Ansible roles and scenarios (alias for test:ansible)"
@@ -205,6 +212,12 @@ run = "molecule converge && molecule verify"
 description = "Fast iterate on docker_compose_service role (converge and verify)"
 depends = ["deps:galaxy"]
 dir = "configuration/roles/docker_compose_service"
+run = "molecule converge && molecule verify"
+
+[tasks."test:ansible:fast:robot"]
+description = "Fast iterate on valetudo_robot role (converge and verify)"
+depends = ["deps:galaxy"]
+dir = "configuration/roles/valetudo_robot"
 run = "molecule converge && molecule verify"
 
 [tasks."test:ansible:fast:oci"]
@@ -233,6 +246,7 @@ printf "%s\n" \
   "base:configuration/roles/base_ubuntu_server:molecule converge && molecule verify" \
   "restic:configuration/roles/restic_backup:molecule converge && molecule verify" \
   "compose:configuration/roles/docker_compose_service:molecule converge && molecule verify" \
+  "robot:configuration/roles/valetudo_robot:molecule converge && molecule verify" \
   "oci:configuration:molecule converge -s oci && molecule verify -s oci" \
   "gcp:configuration:molecule converge -s gcp && molecule verify -s gcp" \
   "homelab:configuration:molecule converge -s homelab && molecule verify -s homelab" | \
@@ -254,6 +268,11 @@ description = "Destroy Molecule test containers for docker_compose_service role"
 dir = "configuration/roles/docker_compose_service"
 run = "molecule destroy"
 
+[tasks."test:ansible:clean:robot"]
+description = "Destroy Molecule test containers for valetudo_robot role"
+dir = "configuration/roles/valetudo_robot"
+run = "molecule destroy"
+
 [tasks."test:ansible:clean:oci"]
 description = "Destroy Molecule test containers for OCI scenario"
 dir = "configuration"
@@ -271,7 +290,7 @@ run = "molecule destroy -s homelab"
 
 [tasks."test:ansible:clean"]
 description = "Destroy all Molecule test containers across all roles and scenarios"
-depends = ["test:ansible:clean:base", "test:ansible:clean:restic", "test:ansible:clean:compose", "test:ansible:clean:oci", "test:ansible:clean:gcp", "test:ansible:clean:homelab"]
+depends = ["test:ansible:clean:base", "test:ansible:clean:restic", "test:ansible:clean:compose", "test:ansible:clean:robot", "test:ansible:clean:oci", "test:ansible:clean:gcp", "test:ansible:clean:homelab"]
 
 [tasks."test:scripts"]
 description = "Run Bats tests for scripts concurrently via rush"

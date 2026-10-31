@@ -1,0 +1,158 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars:
+    valetudo_robot_verify_begin: "# BEGIN homelab-managed (valetudo_robot)"
+    valetudo_robot_verify_end: "# END homelab-managed (valetudo_robot)"
+  tasks:
+    - name: Load generated Molecule fixture variables
+      ansible.builtin.include_vars:
+        file: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/robot_vars.yml"
+
+    - name: Read installed binary modes
+      ansible.builtin.raw: stat -c '%a %n' /data/valetudo /data/tailscale/tailscale /data/tailscale/tailscaled
+      register: valetudo_robot_verify_modes
+      changed_when: false
+
+    - name: Assert installed binaries are mode 755
+      ansible.builtin.assert:
+        that:
+          - "'755 /data/valetudo' in valetudo_robot_verify_modes.stdout_lines | map('trim') | list"
+          - "'755 /data/tailscale/tailscale' in valetudo_robot_verify_modes.stdout_lines | map('trim') | list"
+          - "'755 /data/tailscale/tailscaled' in valetudo_robot_verify_modes.stdout_lines | map('trim') | list"
+        quiet: true
+
+    - name: Read installed valetudo checksum
+      ansible.builtin.raw: sha256sum /data/valetudo
+      register: valetudo_robot_verify_valetudo_sha
+      changed_when: false
+
+    - name: Assert the installed valetudo matches the pinned checksum
+      ansible.builtin.assert:
+        that:
+          - (valetudo_robot_verify_valetudo_sha.stdout | trim).split()[0] == valetudo_robot_valetudo_sha256
+        quiet: true
+
+    - name: Read the postboot file
+      ansible.builtin.raw: cat /data/_root_postboot.sh
+      register: valetudo_robot_verify_postboot
+      changed_when: false
+
+    - name: Assert the postboot file has one managed block with the tailscaled start line
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_verify_postboot.stdout_lines | map('trim') | select('equalto', valetudo_robot_verify_begin) | list | length == 1
+          - valetudo_robot_verify_postboot.stdout_lines | map('trim') | select('equalto', valetudo_robot_verify_end) | list | length == 1
+          - valetudo_robot_verify_postboot.stdout is search('\[ -x /data/tailscale/tailscaled \]')
+          - >-
+            valetudo_robot_verify_postboot.stdout is search(
+            '/data/tailscale/tailscaled --tun=userspace-networking --statedir=/data/tailscale/state'
+            ' --socket=/tmp/tailscaled.sock --no-logs-no-support')
+          - valetudo_robot_verify_postboot.stdout_lines | map('trim') | select('equalto', 'echo vendor-line-one') | list | length == 1
+          - valetudo_robot_verify_postboot.stdout_lines | map('trim') | select('equalto', 'echo vendor-line-two') | list | length == 1
+        quiet: true
+
+    - name: List the staging directory
+      ansible.builtin.raw: ls -A /data/.incoming
+      register: valetudo_robot_verify_incoming
+      changed_when: false
+
+    - name: Assert the staging directory is empty
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_verify_incoming.rc == 0
+          - valetudo_robot_verify_incoming.stdout | trim == ''
+        quiet: true
+
+    - name: Read the backup marker on the robot
+      ansible.builtin.raw: cat /data/.calibration-backup
+      register: valetudo_robot_verify_marker
+      changed_when: false
+
+    - name: Find calibration archives on the controller
+      ansible.builtin.find:
+        paths: "{{ valetudo_robot_backup_dir }}"
+        patterns: "*.tar"
+      delegate_to: localhost
+      become: false
+      register: valetudo_robot_verify_tars
+
+    - name: Assert exactly one calibration archive exists
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_verify_tars.files | length == 1
+          - (valetudo_robot_verify_tars.files[0].path | basename) is match('^x40-ultra-[0-9]{8}T[0-9]{6}Z\.tar$')
+        quiet: true
+
+    - name: Checksum the calibration archive
+      ansible.builtin.stat:
+        path: "{{ valetudo_robot_verify_tars.files[0].path }}"
+        get_checksum: true
+        checksum_algorithm: sha256
+      delegate_to: localhost
+      become: false
+      register: valetudo_robot_verify_tar_stat
+
+    - name: Read the calibration archive sidecar
+      ansible.builtin.slurp:
+        src: "{{ valetudo_robot_verify_tars.files[0].path }}.sha256"
+      delegate_to: localhost
+      become: false
+      register: valetudo_robot_verify_sidecar
+
+    - name: List the calibration archive contents
+      ansible.builtin.command:
+        argv: [tar, -tf, "{{ valetudo_robot_verify_tars.files[0].path }}"]
+      delegate_to: localhost
+      become: false
+      register: valetudo_robot_verify_tar_list
+      changed_when: false
+
+    - name: Assert the sidecar, the robot marker and the archive agree
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_verify_tar_stat.stat.checksum is match('^[0-9a-f]{64}$')
+          - (valetudo_robot_verify_sidecar.content | b64decode).split()[0] == valetudo_robot_verify_tar_stat.stat.checksum
+          - (valetudo_robot_verify_sidecar.content | b64decode).split()[1] == (valetudo_robot_verify_tars.files[0].path | basename)
+          - (valetudo_robot_verify_marker.stdout | trim) == valetudo_robot_verify_tar_stat.stat.checksum
+          - "'mnt/private/x' in valetudo_robot_verify_tar_list.stdout_lines"
+          - "'mnt/misc/y' in valetudo_robot_verify_tar_list.stdout_lines"
+        quiet: true
+
+    # R2-GOV-05 negative tests: a malformed or empty pin aborts before any download.
+    - name: Fail closed on a malformed checksum pin
+      block:
+        - name: Run the install phase with a malformed checksum
+          ansible.builtin.include_role:
+            name: valetudo_robot
+            tasks_from: install.yml
+          vars:
+            valetudo_robot_valetudo_sha256: NOT-A-CHECKSUM
+        - name: Fail if the malformed checksum was accepted
+          ansible.builtin.fail:
+            msg: The install phase accepted a malformed checksum pin.
+      rescue:
+        - name: Assert the failure names the checksum variable
+          ansible.builtin.assert:
+            that:
+              - ansible_failed_result.results | map(attribute='msg') | join(' ') is search('valetudo_robot_valetudo_sha256 must be')
+            quiet: true
+
+    - name: Fail closed on an empty version pin
+      block:
+        - name: Run the install phase with an empty version
+          ansible.builtin.include_role:
+            name: valetudo_robot
+            tasks_from: install.yml
+          vars:
+            valetudo_robot_tailscale_version: ""
+        - name: Fail if the empty version was accepted
+          ansible.builtin.fail:
+            msg: The install phase accepted an empty version pin.
+      rescue:
+        - name: Assert the failure names the version variable
+          ansible.builtin.assert:
+            that:
+              - ansible_failed_result.results | map(attribute='msg') | join(' ') is search('valetudo_robot_tailscale_version must be')
+            quiet: true

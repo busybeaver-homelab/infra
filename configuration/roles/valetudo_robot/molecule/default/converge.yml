@@ -1,0 +1,22 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: false
+  pre_tasks:
+    # Written by prepare.yml: synthetic artifact URLs and checksums, and the
+    # throwaway git-crypt-style repository for the calibration backup.
+    - name: Load generated Molecule fixture variables
+      ansible.builtin.include_vars:
+        file: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/robot_vars.yml"
+
+    - name: Read the container architecture
+      ansible.builtin.raw: uname -m
+      register: valetudo_robot_molecule_uname
+      changed_when: false
+
+    - name: Expect the container architecture
+      ansible.builtin.set_fact:
+        valetudo_robot_expected_arch: "{{ valetudo_robot_molecule_uname.stdout_lines | map('trim') | reject('equalto', '') | list | last }}"
+  roles:
+    - role: valetudo_robot
+      tags: [preflight, backup, install]

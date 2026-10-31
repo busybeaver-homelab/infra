@@ -6,10 +6,22 @@ Ansible role that rebuilds a rooted Dreame X40 Ultra vacuum robot with pinned [V
 
 Each phase is a task file imported by `tasks/main.yml` with its own tag:
 
-| Tag                   | Task file       | What it does                                                                                                                                                            |
-| --------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `preflight`, `always` | `preflight.yml` | Sets the `valetudo_robot_transport_env` fact for controller-side tasks and checks that `uname -m` equals `valetudo_robot_expected_arch`.                                |
-| `backup`              | `backup.yml`    | Captures the factory calibration and identity data once into the git-crypt protected `backups/` tree, writes a `.sha256` sidecar and records the checksum on the robot. |
+| Tag                   | Task file       | What it does                                                                                                                                                                                   |
+| --------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preflight`, `always` | `preflight.yml` | Sets the `valetudo_robot_transport_env` fact for controller-side tasks and checks that `uname -m` equals `valetudo_robot_expected_arch`.                                                       |
+| `backup`              | `backup.yml`    | Captures the factory calibration and identity data once into the git-crypt protected `backups/` tree, writes a `.sha256` sidecar and records the checksum on the robot.                        |
+| `install`             | `install.yml`   | Downloads and verifies the pinned Valetudo and Tailscale artifacts on the controller, pushes only binaries that differ from their pin, installs them and maintains the managed postboot block. |
+
+### Install
+
+1. Every version and SHA-256 pin is asserted before any download (`R2-GOV-05`): non-empty versions, 64 lowercase hex checksums.
+2. `get_url` downloads both artifacts into `valetudo_robot_cache_dir` and verifies the checksums; only `tailscale` and `tailscaled` are extracted from the tarball.
+3. The robot's installed checksums are read first. A binary equal to its pin is neither pushed nor installed, so a re-run uploads nothing and never reboots.
+4. `check-space` (sum of the binaries to push plus 10 %), `robot-transport.sh push` into `/data/.incoming/`, then `robot-provision.sh install`.
+5. The managed block (`templates/root_postboot.managed.sh.j2`) is staged and applied with `robot-provision.sh postboot`. It only starts `tailscaled` behind an `[ -x ]` guard; the vendor template is assumed to start Valetudo.
+6. Any `CHANGED=1` notifies `Reboot robot`: with `valetudo_robot_reboot_enabled` the robot reboots and the controller waits for TCP 22, then TCP 80 (300 s each); otherwise a message asks for a manual reboot.
+
+The install phase always installs the Tailscale binaries; `valetudo_robot_tailscale_enabled` only controls joining the tailnet.
 
 Reachability and the host-key check run earlier, in the playbook, through `robot-transport.sh probe`.
 
@@ -38,6 +50,9 @@ The phase reports `changed` only when a capture happened. The playbook never com
 | `valetudo_robot_valetudo_sha256`   | pinned                                                      | SHA-256 of `valetudo-aarch64` for the pinned release.                        |
 | `valetudo_robot_tailscale_version` | pinned (Renovate: `tailscale/tailscale`)                    | Tailscale stable version without the leading `v`.                            |
 | `valetudo_robot_tailscale_sha256`  | pinned                                                      | SHA-256 of `tailscale_<version>_arm64.tgz` from `pkgs.tailscale.com/stable`. |
+| `valetudo_robot_valetudo_url`      | upstream release URL template                               | Download URL of `valetudo-aarch64` (Molecule uses a `file://` URL).          |
+| `valetudo_robot_tailscale_url`     | `pkgs.tailscale.com/stable` URL template                    | Download URL of the Tailscale arm64 tarball (Molecule uses a `file://` URL). |
+| `valetudo_robot_cache_dir`         | `{{ playbook_dir }}/../../.cache/valetudo_robot`            | Controller cache for verified downloads and the rendered postboot block.     |
 | `valetudo_robot_expected_arch`     | `aarch64`                                                   | Architecture `uname -m` must report.                                         |
 | `valetudo_robot_transport`         | `ssh`                                                       | `ssh`, or `docker` for Molecule only.                                        |
 | `valetudo_robot_container`         | `""`                                                        | Container name for the `docker` transport.                                   |
@@ -57,3 +72,7 @@ Pin updates arrive as Renovate PRs with automerge disabled: update the matching 
 
 - Robot addresses come only from the SOPS-loaded inventory. Tasks that pass them to the transport helper use `no_log: true` and report failures with sanitized messages.
 - Calibration archives are written only after the git-crypt guard passes, with mode `0600`.
+
+## Testing
+
+`molecule/default` uses a BusyBox container (no Python) as the robot, the `docker` transport of `robot-transport.sh` and synthetic `file://` artifacts. `prepare.yml` also builds a throwaway repository with synthetic git-crypt markers for the calibration backup. Run it with `mise run test:ansible:robot`; the idempotence step proves that a second converge changes nothing.
