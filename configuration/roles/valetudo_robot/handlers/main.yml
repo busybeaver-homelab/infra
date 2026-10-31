@@ -1,5 +1,8 @@
 ---
 # One notify of "Reboot robot" runs every handler below in order.
+# The wait tasks pass the robot address, whose timeout message would print it,
+# so they run with no_log, ignore their own failure and the sanitized
+# "Fail ..." handler at the end reports the outcome.
 - name: Reboot robot
   ansible.builtin.raw: nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 &
   changed_when: true
@@ -13,6 +16,9 @@
     timeout: 60
   delegate_to: localhost
   become: false
+  register: valetudo_robot_wait_down
+  ignore_errors: true
+  no_log: true
   when: valetudo_robot_reboot_enabled | bool
   listen: Reboot robot
 
@@ -23,6 +29,9 @@
     timeout: 300
   delegate_to: localhost
   become: false
+  register: valetudo_robot_wait_ssh
+  ignore_errors: true
+  no_log: true
   when: valetudo_robot_reboot_enabled | bool
   listen: Reboot robot
 
@@ -33,7 +42,21 @@
     timeout: 300
   delegate_to: localhost
   become: false
+  register: valetudo_robot_wait_http
+  ignore_errors: true
+  no_log: true
   when: valetudo_robot_reboot_enabled | bool
+  listen: Reboot robot
+
+- name: Fail with a sanitized reboot wait error
+  ansible.builtin.fail:
+    msg: >-
+      The robot did not complete its reboot: it still answered on SSH after 60 s, or SSH (port 22)
+      or the Valetudo web port (port 80) did not come back within 300 s. The address is hidden
+      from this message; check the robot and re-run.
+  when:
+    - valetudo_robot_reboot_enabled | bool
+    - valetudo_robot_wait_down is failed or valetudo_robot_wait_ssh is failed or valetudo_robot_wait_http is failed
   listen: Reboot robot
 
 - name: Reset the connection to the rebooted robot

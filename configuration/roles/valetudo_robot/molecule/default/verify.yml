@@ -120,6 +120,32 @@
           - "'mnt/misc/y' in valetudo_robot_verify_tar_list.stdout_lines"
         quiet: true
 
+    # Review Focus 2: pushes report no change, so idempotence alone cannot prove
+    # "no re-upload". On a converged robot the install phase must recognise all
+    # three installed binaries and plan no push. (Check mode is covered by the
+    # check steps of the test sequence.)
+    - name: Read the container architecture
+      ansible.builtin.raw: uname -m
+      register: valetudo_robot_verify_uname
+      changed_when: false
+
+    - name: Expect the container architecture
+      ansible.builtin.set_fact:
+        valetudo_robot_expected_arch: "{{ valetudo_robot_verify_uname.stdout_lines | map('trim') | reject('equalto', '') | list | last }}"
+
+    - name: Run preflight and the install phase again on the converged robot
+      ansible.builtin.include_role:
+        name: valetudo_robot
+        tasks_from: "{{ item }}"
+      loop: [preflight.yml, install.yml]
+
+    - name: Assert the installed binaries are recognised and nothing was pushed
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_installed_map | length == 3
+          - valetudo_robot_push_plan | length == 0
+        quiet: true
+
     # R2-GOV-05 negative tests: a malformed or empty pin aborts before any download.
     - name: Fail closed on a malformed checksum pin
       block:

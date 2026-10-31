@@ -107,6 +107,9 @@ SPECS="${ROLE_DIR}/meta/argument_specs.yml"
   local install="${ROLE_DIR}/tasks/install.yml"
   [ -f "${install}" ]
   [ "$(grep -c 'no_log: true' "${install}")" -eq 2 ]
+  run grep -E '^[[:space:]]+creates:' "${install}"
+  [ "$status" -ne 0 ]
+  grep -qF 'ansible_check_mode' "${install}"
   grep -qF 'valetudo_robot_installed_map' "${install}"
   grep -qF 'valetudo_robot_push_plan' "${install}"
 }
@@ -125,6 +128,7 @@ SPECS="${ROLE_DIR}/meta/argument_specs.yml"
   [ -f "${handlers}" ]
   [ "$(yq eval '.[0].name' "${handlers}")" = "Reboot robot" ]
   [ "$(yq eval '[.[] | select(.listen == "Reboot robot") | .["ansible.builtin.wait_for"].port] | map(select(. != null)) | join(",")' "${handlers}")" = "22,22,80" ]
+  [ "$(yq eval '[.[] | select(has("ansible.builtin.wait_for")) | .no_log] | map(select(. == true)) | length' "${handlers}")" -eq 3 ]
   [ "$(yq eval '[.[] | select(.listen == "Reboot robot") | .["ansible.builtin.wait_for"].timeout] | map(select(. != null)) | join(",")' "${handlers}")" = "60,300,300" ]
   grep -qF 'valetudo_robot_reboot_enabled' "${handlers}"
 }

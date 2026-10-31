@@ -39,8 +39,11 @@ scenario:
     - syntax
     - create
     - prepare
+    # check = converge.yml with --check: must succeed on a fresh and on a converged robot.
+    - check
     - converge
     - idempotence
+    - check
     - verify
     - destroy
 

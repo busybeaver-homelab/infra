@@ -14,14 +14,16 @@ Each phase is a task file imported by `tasks/main.yml` with its own tag:
 
 ### Install
 
+Check mode: controller cache work and the read-only robot probe still run; every robot change is skipped and a `would push and install` message is reported.
+
 1. Every version and SHA-256 pin is asserted before any download (`R2-GOV-05`): non-empty versions, 64 lowercase hex checksums.
-2. `get_url` downloads both artifacts into `valetudo_robot_cache_dir` and verifies the checksums; only `tailscale` and `tailscaled` are extracted from the tarball.
+2. `get_url` downloads both artifacts into `valetudo_robot_cache_dir` and verifies the checksums. On every run, only `tailscale` and `tailscaled` are extracted from the verified tarball into a fresh directory keyed by the tarball checksum, and the install checksums are taken from that extraction.
 3. The robot's installed checksums are read first. A binary equal to its pin is neither pushed nor installed, so a re-run uploads nothing and never reboots.
 4. `check-space` (sum of the binaries to push plus 10 %), `robot-transport.sh push` into `/data/.incoming/`, then `robot-provision.sh install`.
 5. The managed block (`templates/root_postboot.managed.sh.j2`) is staged and applied with `robot-provision.sh postboot`. It only starts `tailscaled` behind an `[ -x ]` guard; the vendor template is assumed to start Valetudo.
 6. Any `CHANGED=1` notifies `Reboot robot`: with `valetudo_robot_reboot_enabled` the robot reboots and the controller waits for TCP 22, then TCP 80 (300 s each); otherwise a message asks for a manual reboot.
 
-The install phase always installs the Tailscale binaries; `valetudo_robot_tailscale_enabled` only controls joining the tailnet.
+`valetudo_robot_tailscale_enabled` controls only the tailnet join (tailscale phase); the install phase always ships the Tailscale binaries and the guarded managed block.
 
 Reachability and the host-key check run earlier, in the playbook, through `robot-transport.sh probe`.
 
@@ -61,7 +63,7 @@ The phase reports `changed` only when a capture happened. The playbook never com
 | `valetudo_robot_backup_dir`        | `{{ playbook_dir }}/../../backups/robots/x40-ultra`         | Directory for calibration archives and sidecars (inside the repository).     |
 | `valetudo_robot_backup_label`      | `x40-ultra`                                                 | Archive file name prefix.                                                    |
 | `valetudo_robot_reboot_enabled`    | `true`                                                      | Allow reboots after installing binaries or the postboot hook.                |
-| `valetudo_robot_tailscale_enabled` | `true`                                                      | Install Tailscale and join the tailnet.                                      |
+| `valetudo_robot_tailscale_enabled` | `true`                                                      | Controls only the tailnet join; install always ships the Tailscale binaries. |
 | `valetudo_robot_tailscale_tag`     | `tag:type-iot`                                              | Tailscale tag the robot advertises.                                          |
 | `valetudo_robot_api_base_url`      | none (set by the playbook)                                  | Valetudo REST API base URL from SOPS-loaded values.                          |
 | `valetudo_robot_settings`          | `[]`                                                        | Valetudo settings applied by the configure phase.                            |

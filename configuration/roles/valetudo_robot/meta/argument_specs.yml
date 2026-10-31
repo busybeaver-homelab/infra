@@ -79,7 +79,9 @@ argument_specs:
       valetudo_robot_tailscale_enabled:
         type: bool
         default: true
-        description: Whether the tailscale phase installs Tailscale and joins the tailnet.
+        description: >-
+          Controls only the tailnet join (tailscale phase); the install phase always ships the Tailscale
+          binaries and the guarded managed block.
       valetudo_robot_tailscale_tag:
         type: str
         default: "tag:type-iot"
