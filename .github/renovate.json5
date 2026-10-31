@@ -104,6 +104,15 @@
     },
     {
       customType: "regex",
+      description: "Track Valetudo and Tailscale version pins in valetudo_robot role defaults (SHA-256 checksums are updated by hand)",
+      managerFilePatterns: ["^configuration/roles/valetudo_robot/defaults/main\\.yml$"],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)\\s+valetudo_robot_[a-z]+_version:\\s*"(?<currentValue>[^"]+)"',
+      ],
+      extractVersionTemplate: "^v?(?<version>.*)$",
+    },
+    {
+      customType: "regex",
       description: "Track OpenTofu required_version constraints in infrastructure/**/{opentofu.tofu,versions.tf} against opentofu/opentofu releases (R2-REN-02)",
       managerFilePatterns: [
         "^infrastructure/.+/opentofu\\.tofu$",
@@ -387,7 +396,16 @@
       automerge: false,
     },
 
-    // 16. Mise lockfile maintenance (R2-REN-05): scripts/mise-lock.sh manages .mise/locks sidecars
+    // 16. Valetudo and Tailscale robot pins (requires updating SHA-256 checksums in valetudo_robot defaults/main.yml)
+    {
+      description: "Require human review for Valetudo and Tailscale robot pins so their SHA-256 checksums are updated",
+      matchPackageNames: ["Hypfer/Valetudo", "tailscale/tailscale"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/ansible",
+      automerge: false,
+    },
+
+    // 17. Mise lockfile maintenance (R2-REN-05): scripts/mise-lock.sh manages .mise/locks sidecars
     {
       description: "Disable lockFileMaintenance for mise; scripts/mise-lock.sh manages .mise/locks sidecars",
       matchManagers: ["mise"],

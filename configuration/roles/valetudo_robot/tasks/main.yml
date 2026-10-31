@@ -1,0 +1,12 @@
+---
+# Tasks for valetudo_robot role. The robot runs BusyBox without Python, so
+# robot-side work uses ansible.builtin.raw and byte transfers go through the
+# controller-side robot-transport.sh helper.
+
+- name: Run valetudo_robot preflight checks
+  ansible.builtin.import_tasks: preflight.yml
+  tags: [preflight, always]
+
+- name: Capture valetudo_robot calibration backup
+  ansible.builtin.import_tasks: backup.yml
+  tags: [backup]

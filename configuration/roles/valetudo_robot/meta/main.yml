@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: valetudo_robot
+  author: homelab-infra
+  description: Rebuild a rooted Dreame X40 Ultra (BusyBox, no Python) with pinned Valetudo and Tailscale over raw SSH
+  license: MIT
+  min_ansible_version: "2.21"
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+dependencies: []

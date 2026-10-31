@@ -1,0 +1,193 @@
+---
+# Backup phase for valetudo_robot: capture the robot's factory calibration and
+# identity data once, into the git-crypt protected backups/ tree on the
+# controller. A capture runs only when the robot has no backup marker, or when
+# no local .sha256 sidecar holds the marker's checksum. The playbook never
+# commits the archive.
+
+- name: Read the calibration backup marker on the robot
+  ansible.builtin.raw: |-
+    sh -s -- backup-status <<'VALETUDO_EOF'
+    {{ lookup('ansible.builtin.file', 'robot-provision.sh') }}
+    VALETUDO_EOF
+  register: valetudo_robot_backup_status
+  changed_when: false
+  check_mode: false
+
+# raw may allocate a PTY, so stdout can carry CR characters and stderr lines.
+- name: Parse the calibration backup marker
+  ansible.builtin.set_fact:
+    valetudo_robot_backup_marker: >-
+      {{ valetudo_robot_backup_status.stdout_lines | map('trim')
+         | select('match', '^([0-9a-f]{64}|NONE)$') | list | last | default('') }}
+
+- name: Assert the calibration backup marker was read
+  ansible.builtin.assert:
+    that:
+      - valetudo_robot_backup_marker | length > 0
+    fail_msg: robot-provision.sh backup-status returned neither a SHA-256 checksum nor NONE.
+    quiet: true
+
+- name: Check for the local calibration backup directory
+  ansible.builtin.stat:
+    path: "{{ valetudo_robot_backup_dir }}"
+  delegate_to: localhost
+  become: false
+  register: valetudo_robot_backup_dir_stat
+
+- name: Find calibration backup checksum sidecars
+  ansible.builtin.find:
+    paths: "{{ valetudo_robot_backup_dir }}"
+    patterns: "*.sha256"
+    file_type: file
+  delegate_to: localhost
+  become: false
+  register: valetudo_robot_backup_sidecars
+  when: valetudo_robot_backup_dir_stat.stat.isdir | default(false)
+
+- name: Read calibration backup checksum sidecars
+  ansible.builtin.slurp:
+    src: "{{ item.path }}"
+  loop: "{{ valetudo_robot_backup_sidecars.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  delegate_to: localhost
+  become: false
+  register: valetudo_robot_backup_sidecar_contents
+
+- name: Decide whether a calibration capture is needed
+  ansible.builtin.set_fact:
+    valetudo_robot_backup_needed: >-
+      {{ valetudo_robot_backup_marker == 'NONE'
+         or valetudo_robot_backup_marker not in (valetudo_robot_backup_sidecar_contents.results | default([])
+              | map(attribute='content') | map('b64decode')
+              | map('regex_search', '^[0-9a-f]{64}') | select | list) }}
+
+- name: Report a pending calibration capture in check mode
+  ansible.builtin.debug:
+    msg: A calibration capture would run; check mode does not pull data from the robot.
+  changed_when: true
+  when:
+    - valetudo_robot_backup_needed | bool
+    - ansible_check_mode
+
+- name: Capture calibration data from the robot
+  when:
+    - valetudo_robot_backup_needed | bool
+    - not ansible_check_mode
+  block:
+    - name: Compute the calibration archive paths
+      ansible.builtin.set_fact:
+        valetudo_robot_backup_archive_rel: >-
+          {{ (valetudo_robot_backup_dir ~ '/' ~ valetudo_robot_backup_label ~ '-'
+              ~ now(utc=true).strftime('%Y%m%dT%H%M%SZ') ~ '.tar')
+             | ansible.builtin.relpath(valetudo_robot_backup_repo_root) }}
+        valetudo_robot_backup_owner: "{{ lookup('ansible.builtin.pipe', 'id -un') }}"
+        valetudo_robot_backup_group: "{{ lookup('ansible.builtin.pipe', 'id -gn') }}"
+
+    - name: Set the absolute calibration archive path
+      ansible.builtin.set_fact:
+        valetudo_robot_backup_archive: "{{ valetudo_robot_backup_repo_root }}/{{ valetudo_robot_backup_archive_rel }}"
+
+    - name: Assert the calibration archive stays inside the repository
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_backup_label is match('^[A-Za-z0-9][A-Za-z0-9_-]*$')
+          - valetudo_robot_backup_archive_rel is not match('^(\.\./|/)')
+          - (valetudo_robot_backup_archive_rel | basename) is match('^' ~ valetudo_robot_backup_label ~ '-[0-9]{8}T[0-9]{6}Z\.tar$')
+        fail_msg: >-
+          valetudo_robot_backup_dir must be inside valetudo_robot_backup_repo_root and
+          valetudo_robot_backup_label may only contain letters, digits, '-' and '_'.
+        quiet: true
+
+    - name: Assert the calibration archive target is git-crypt protected
+      ansible.builtin.command:
+        argv:
+          - "{{ role_path }}/files/assert-git-crypt-target.sh"
+          - "{{ valetudo_robot_backup_repo_root }}"
+          - "{{ valetudo_robot_backup_archive_rel }}"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+
+    - name: Create the local calibration backup directory
+      ansible.builtin.file:
+        path: "{{ valetudo_robot_backup_dir }}"
+        state: directory
+        owner: "{{ valetudo_robot_backup_owner }}"
+        group: "{{ valetudo_robot_backup_group }}"
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    # Transport errors can contain the robot address, so the task output is
+    # hidden and the rescue reports only the exit code.
+    - name: Pull the calibration archive from the robot
+      block:
+        - name: Run robot-transport.sh to pull the calibration archive
+          ansible.builtin.command:
+            argv:
+              - "{{ role_path }}/files/robot-transport.sh"
+              - pull-calibration
+              - "{{ valetudo_robot_backup_archive }}"
+          environment: "{{ valetudo_robot_transport_env }}"
+          delegate_to: localhost
+          become: false
+          changed_when: true
+          no_log: true
+      rescue:
+        - name: Fail with a sanitized calibration pull error
+          ansible.builtin.fail:
+            msg: >-
+              Calibration capture failed (robot-transport.sh pull-calibration exited
+              {{ ansible_failed_result.rc | default('unknown') }}). Transport output is hidden
+              because it can contain the robot address; no archive or sidecar was written.
+
+    - name: Restrict calibration archive permissions
+      ansible.builtin.file:
+        path: "{{ valetudo_robot_backup_archive }}"
+        state: file
+        owner: "{{ valetudo_robot_backup_owner }}"
+        group: "{{ valetudo_robot_backup_group }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+
+    - name: Compute the calibration archive checksum
+      ansible.builtin.stat:
+        path: "{{ valetudo_robot_backup_archive }}"
+        get_checksum: true
+        checksum_algorithm: sha256
+      delegate_to: localhost
+      become: false
+      register: valetudo_robot_backup_archive_stat
+
+    - name: Assert the calibration archive checksum is valid
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_backup_archive_stat.stat.exists
+          - valetudo_robot_backup_archive_stat.stat.size > 0
+          - valetudo_robot_backup_archive_stat.stat.checksum is match('^[0-9a-f]{64}$')
+        fail_msg: The pulled calibration archive is missing, empty or has no SHA-256 checksum.
+        quiet: true
+
+    - name: Write the calibration archive checksum sidecar
+      ansible.builtin.copy:
+        content: "{{ valetudo_robot_backup_archive_stat.stat.checksum }}  {{ valetudo_robot_backup_archive | basename }}\n"
+        dest: "{{ valetudo_robot_backup_archive }}.sha256"
+        owner: "{{ valetudo_robot_backup_owner }}"
+        group: "{{ valetudo_robot_backup_group }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+
+    - name: Record the calibration backup checksum on the robot
+      ansible.builtin.raw: |-
+        sh -s -- mark-backup {{ valetudo_robot_backup_archive_stat.stat.checksum }} <<'VALETUDO_EOF'
+        {{ lookup('ansible.builtin.file', 'robot-provision.sh') }}
+        VALETUDO_EOF
+      register: valetudo_robot_backup_mark
+      changed_when: valetudo_robot_backup_mark.stdout is search('CHANGED=1')
+      failed_when: >-
+        valetudo_robot_backup_mark.rc != 0
+        or valetudo_robot_backup_mark.stdout is not search('CHANGED=[01]')

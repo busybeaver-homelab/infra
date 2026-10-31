@@ -1,0 +1,34 @@
+---
+# Defaults for valetudo_robot role (rooted Dreame X40 Ultra, BusyBox userland)
+
+# Pinned Valetudo release (static aarch64 binary) and its SHA-256 checksum
+# renovate: datasource=github-releases depName=Hypfer/Valetudo
+valetudo_robot_valetudo_version: "2026.10.0"
+valetudo_robot_valetudo_sha256: "cdc0c8723e2c924176f0d278df4e01899da10c3765acea97f0d3011ef845432d"
+
+# Pinned Tailscale stable release (static arm64 tarball from pkgs.tailscale.com)
+# and the SHA-256 checksum of the .tgz
+# renovate: datasource=github-releases depName=tailscale/tailscale
+valetudo_robot_tailscale_version: "1.104.4"
+valetudo_robot_tailscale_sha256: "a1c249ce6bdebef62e1ae3b997595555bce2ae4709bf95a718e9ca7a129dad7e"
+
+# Architecture reported by `uname -m` on the robot
+valetudo_robot_expected_arch: aarch64
+
+# Controller-to-robot transport for robot-transport.sh (docker is Molecule only)
+valetudo_robot_transport: ssh
+valetudo_robot_container: ""
+valetudo_robot_known_hosts: "{{ playbook_dir }}/../../.cache/ansible/robot_known_hosts"
+
+# One-time calibration capture into the git-crypt protected backups/ tree
+valetudo_robot_backup_repo_root: "{{ playbook_dir }}/../.."
+valetudo_robot_backup_dir: "{{ playbook_dir }}/../../backups/robots/x40-ultra"
+valetudo_robot_backup_label: x40-ultra
+
+# Feature toggles
+valetudo_robot_reboot_enabled: true
+valetudo_robot_tailscale_enabled: true
+valetudo_robot_tailscale_tag: "tag:type-iot"
+
+# Valetudo settings applied through the REST API by the configure phase
+valetudo_robot_settings: []

@@ -1,0 +1,76 @@
+---
+argument_specs:
+  main:
+    short_description: Rebuild a rooted Dreame X40 Ultra with pinned Valetudo and Tailscale
+    description:
+      - Runs against a BusyBox robot without Python, using ansible.builtin.raw on the robot and controller-side helper scripts.
+      - Each phase is imported with its own tag; the preflight phase is also tagged always.
+      - The backup phase captures the factory calibration data once into the git-crypt protected backups/ tree.
+    author: homelab-infra
+    options:
+      valetudo_robot_valetudo_version:
+        type: str
+        default: "2026.10.0"
+        description: Pinned Valetudo release tag (Renovate-tracked, Hypfer/Valetudo).
+      valetudo_robot_valetudo_sha256:
+        type: str
+        default: "cdc0c8723e2c924176f0d278df4e01899da10c3765acea97f0d3011ef845432d"
+        description: SHA-256 checksum of the valetudo-aarch64 release asset for the pinned version.
+      valetudo_robot_tailscale_version:
+        type: str
+        default: "1.104.4"
+        description: Pinned Tailscale stable version without the leading v (Renovate-tracked, tailscale/tailscale).
+      valetudo_robot_tailscale_sha256:
+        type: str
+        default: "a1c249ce6bdebef62e1ae3b997595555bce2ae4709bf95a718e9ca7a129dad7e"
+        description: SHA-256 checksum of tailscale_<version>_arm64.tgz from pkgs.tailscale.com/stable.
+      valetudo_robot_expected_arch:
+        type: str
+        default: aarch64
+        description: Architecture that `uname -m` must report on the robot; preflight fails otherwise.
+      valetudo_robot_transport:
+        type: str
+        default: ssh
+        choices: ["ssh", "docker"]
+        description: Transport used by robot-transport.sh on the controller (docker is for Molecule only).
+      valetudo_robot_container:
+        type: str
+        default: ""
+        description: Container name for the docker transport; ignored for ssh.
+      valetudo_robot_known_hosts:
+        type: str
+        default: "{{ playbook_dir }}/../../.cache/ansible/robot_known_hosts"
+        description: Dedicated known-hosts file for the robot (gitignored path); passed to robot-transport.sh.
+      valetudo_robot_backup_repo_root:
+        type: str
+        default: "{{ playbook_dir }}/../.."
+        description: Repository root used by the git-crypt guard to verify the backup target is encrypted.
+      valetudo_robot_backup_dir:
+        type: str
+        default: "{{ playbook_dir }}/../../backups/robots/x40-ultra"
+        description: Controller directory (inside the repository's git-crypt protected backups/ tree) for calibration archives and .sha256 sidecars.
+      valetudo_robot_backup_label:
+        type: str
+        default: x40-ultra
+        description: File name prefix of calibration archives (<label>-<UTC timestamp>.tar).
+      valetudo_robot_reboot_enabled:
+        type: bool
+        default: true
+        description: Whether the role may reboot the robot after installing binaries or the postboot hook.
+      valetudo_robot_tailscale_enabled:
+        type: bool
+        default: true
+        description: Whether the tailscale phase installs Tailscale and joins the tailnet.
+      valetudo_robot_tailscale_tag:
+        type: str
+        default: "tag:type-iot"
+        description: Tailscale ACL tag the robot advertises when joining.
+      valetudo_robot_api_base_url:
+        type: str
+        required: false
+        description: Base URL of the Valetudo REST API. Set by the playbook from SOPS-loaded values; required by the configure phase.
+      valetudo_robot_settings:
+        type: list
+        elements: dict
+        default: []
+        description: Valetudo settings applied through the REST API by the configure phase.
