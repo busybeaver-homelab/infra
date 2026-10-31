@@ -22,6 +22,12 @@ output "role_auth_keys" {
   sensitive   = true
 }
 
+output "robot_auth_key" {
+  description = "Single-use, preauthorized Tailscale auth key that enrols the Valetudo robot as tag:type-iot."
+  value       = tailscale_tailnet_key.robot.key
+  sensitive   = true
+}
+
 output "webhook_endpoint_url" {
   description = "Tailnet event webhook endpoint URL."
   value       = length(tailscale_webhook.events) > 0 ? tailscale_webhook.events[0].endpoint_url : ""

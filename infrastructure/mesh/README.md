@@ -31,6 +31,7 @@
 | [tailscale_dns_preferences.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_preferences)            | resource    |
 | [tailscale_dns_search_paths.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_search_paths)          | resource    |
 | [tailscale_dns_split_nameservers.routes](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/dns_split_nameservers) | resource    |
+| [tailscale_tailnet_key.robot](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)                      | resource    |
 | [tailscale_tailnet_key.roles](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_key)                      | resource    |
 | [tailscale_tailnet_settings.homelab](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/tailnet_settings)          | resource    |
 | [tailscale_webhook.events](https://registry.terraform.io/providers/tailscale/tailscale/0.29.2/docs/resources/webhook)                             | resource    |
@@ -54,6 +55,7 @@
 | <a name="input_infrastructure_devices"></a> [infrastructure\_devices](#input_infrastructure_devices)                 | Declarative specification of managed infrastructure nodes and their tags (sourced from SOPS tailscale.config.infrastructure\_devices when empty).                     | <pre>map(object({<br/> tags = list(string)<br/> key_expiry_disabled = optional(bool, true)<br/> authorized = optional(bool, true)<br/> }))</pre>                              |    no    |
 | <a name="input_monitored_device_hostnames"></a> [monitored\_device\_hostnames](#input_monitored_device_hostnames)    | List of device hostnames (without domain suffix) to retrieve via data.tailscale\_device (sourced from SOPS tailscale.config.monitored\_device\_hostnames when empty). | `list(string)`                                                                                                                                                                |    no    |
 | <a name="input_policy_file_path"></a> [policy\_file\_path](#input_policy_file_path)                                  | Path to Tailscale ACL HuJSON policy template file.                                                                                                                    | `string`                                                                                                                                                                      |    no    |
+| <a name="input_robot_auth_key_expiry"></a> [robot\_auth\_key\_expiry](#input_robot_auth_key_expiry)                  | Lifetime in seconds of the single-use robot auth key (tailscale\_tailnet\_key.robot). Keep it short: the key only needs to survive until the robot joins.             | `number`                                                                                                                                                                      |    no    |
 | <a name="input_secrets_file_path"></a> [secrets\_file\_path](#input_secrets_file_path)                               | Path to the canonical SOPS credentials file holding tailscale credentials.                                                                                            | `string`                                                                                                                                                                      |    no    |
 | <a name="input_state_encryption_passphrase"></a> [state\_encryption\_passphrase](#input_state_encryption_passphrase) | State and plan encryption passphrase. Source: production SOPS opentofu.state\_encryption\_passphrase. No default, so a missing value fails closed.                    | `string`                                                                                                                                                                      |   yes    |
 | <a name="input_tailnet_name"></a> [tailnet\_name](#input_tailnet_name)                                               | Tailscale tailnet name (sourced from SOPS tailscale.config.tailnet\_name when null).                                                                                  | `string`                                                                                                                                                                      |    no    |
@@ -65,13 +67,14 @@
 
 ## Outputs
 
-| Name                                                                                              | Description                                                              |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| <a name="output_devices"></a> [devices](#output_devices)                                          | All enrolled Tailscale devices in the tailnet.                           |
-| <a name="output_monitored_devices"></a> [monitored\_devices](#output_monitored_devices)           | Map of monitored Tailscale devices retrieved via data.tailscale\_device. |
-| <a name="output_role_auth_keys"></a> [role\_auth\_keys](#output_role_auth_keys)                   | Generated role-specific Tailscale authentication keys.                   |
-| <a name="output_users"></a> [users](#output_users)                                                | All users enrolled in the Tailscale tailnet.                             |
-| <a name="output_webhook_endpoint_url"></a> [webhook\_endpoint\_url](#output_webhook_endpoint_url) | Tailnet event webhook endpoint URL.                                      |
-| <a name="output_webhook_secret"></a> [webhook\_secret](#output_webhook_secret)                    | Tailnet event webhook signing secret.                                    |
+| Name                                                                                              | Description                                                                                  |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| <a name="output_devices"></a> [devices](#output_devices)                                          | All enrolled Tailscale devices in the tailnet.                                               |
+| <a name="output_monitored_devices"></a> [monitored\_devices](#output_monitored_devices)           | Map of monitored Tailscale devices retrieved via data.tailscale\_device.                     |
+| <a name="output_robot_auth_key"></a> [robot\_auth\_key](#output_robot_auth_key)                   | Single-use, preauthorized Tailscale auth key that enrols the Valetudo robot as tag:type-iot. |
+| <a name="output_role_auth_keys"></a> [role\_auth\_keys](#output_role_auth_keys)                   | Generated role-specific Tailscale authentication keys.                                       |
+| <a name="output_users"></a> [users](#output_users)                                                | All users enrolled in the Tailscale tailnet.                                                 |
+| <a name="output_webhook_endpoint_url"></a> [webhook\_endpoint\_url](#output_webhook_endpoint_url) | Tailnet event webhook endpoint URL.                                                          |
+| <a name="output_webhook_secret"></a> [webhook\_secret](#output_webhook_secret)                    | Tailnet event webhook signing secret.                                                        |
 
 <!-- END_TF_DOCS -->

@@ -105,3 +105,27 @@ run "reject_unresolvable_subnet_route_device" {
     tailscale_device_subnet_routes.routes,
   ]
 }
+
+run "robot_auth_key_expiry_rejects_out_of_range" {
+  command = plan
+
+  variables {
+    robot_auth_key_expiry = 59
+  }
+
+  expect_failures = [
+    var.robot_auth_key_expiry,
+  ]
+}
+
+run "robot_auth_key_expiry_rejects_above_maximum" {
+  command = plan
+
+  variables {
+    robot_auth_key_expiry = 86401
+  }
+
+  expect_failures = [
+    var.robot_auth_key_expiry,
+  ]
+}
