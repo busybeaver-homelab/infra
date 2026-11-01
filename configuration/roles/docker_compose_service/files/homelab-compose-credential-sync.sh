@@ -21,12 +21,12 @@ if [[ ! "${name}" =~ ^[a-z0-9_]+$ ]]; then
   echo "invalid credential name: must match ^[a-z0-9_]+\$" >&2
   exit 2
 fi
-if [[ ! "${dest_file}" =~ ^[a-z0-9_.]+$ ]]; then
-  echo "invalid destination file name: must match ^[a-z0-9_.]+\$" >&2
+if [[ ! "${dest_file}" =~ ^[a-z0-9_][a-z0-9_.]*$ ]]; then
+  echo "invalid destination file name: must match ^[a-z0-9_][a-z0-9_.]*\$" >&2
   exit 2
 fi
-if [ -n "${backup_file}" ] && [[ ! "${backup_file}" =~ ^[a-z0-9_.]+$ ]]; then
-  echo "invalid backup file name: must match ^[a-z0-9_.]+\$" >&2
+if [ -n "${backup_file}" ] && [[ ! "${backup_file}" =~ ^[a-z0-9_][a-z0-9_.]*$ ]]; then
+  echo "invalid backup file name: must match ^[a-z0-9_][a-z0-9_.]*\$" >&2
   exit 2
 fi
 
@@ -40,7 +40,7 @@ fi
 target="${credstore_dir}/${dest_file}"
 
 if [ -f "${target}" ]; then
-  if current_value="$(systemd-creds decrypt "${target}" - 2>/dev/null)" && [ "${current_value}" = "${new_value}" ]; then
+  if current_value="$(systemd-creds decrypt --name="${name}" "${target}" - 2>/dev/null)" && [ "${current_value}" = "${new_value}" ]; then
     echo "unchanged"
     exit 0
   fi

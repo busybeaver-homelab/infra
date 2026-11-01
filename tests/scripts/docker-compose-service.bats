@@ -371,6 +371,44 @@ run_reconcile() {
     bash "${BATS_TMPDIR}/reconcile.sh" "$@"
 }
 
+# systemd-creds stub that enforces credential names like the real tool: encrypt embeds
+# --name= (header line); decrypt compares it with --name= or, when absent, the input basename.
+install_systemd_creds_stub() {
+  mkdir -p "${BATS_TMPDIR}/bin" "${BATS_TMPDIR}/credstore"
+  cat >"${BATS_TMPDIR}/bin/systemd-creds" <<'SH'
+#!/usr/bin/env bash
+echo "systemd-creds $*" >> "${BATS_TMPDIR}/systemd-creds.log"
+mode="${1:-}"
+shift
+embedded_name=""
+want_name=""
+positional=()
+for arg in "$@"; do
+  case "${arg}" in
+    --name=*) want_name="${arg#--name=}" ;;
+    --with-key=*) ;;
+    *) positional+=("${arg}") ;;
+  esac
+done
+case "${mode}" in
+  encrypt)
+    { printf 'NAME:%s\n' "${want_name}"; cat; } > "${positional[1]}"
+    ;;
+  decrypt)
+    input="${positional[0]}"
+    embedded_name="$(head -n 1 "${input}" | sed -n 's/^NAME://p')"
+    [ -n "${want_name}" ] || want_name="$(basename "${input}")"
+    if [ "${embedded_name}" != "${want_name}" ]; then
+      echo "credential name mismatch" >&2
+      exit 1
+    fi
+    tail -n +2 "${input}"
+    ;;
+esac
+SH
+  chmod +x "${BATS_TMPDIR}/bin/systemd-creds"
+}
+
 run_cleanup() {
   run env \
     PATH="${BATS_TMPDIR}/bin:${PATH}" \
@@ -438,19 +476,7 @@ run_cleanup() {
 }
 
 @test "homelab-compose-credential-sync validates inputs and syncs idempotently without echoing secrets" {
-  mkdir -p "${BATS_TMPDIR}/bin" "${BATS_TMPDIR}/credstore"
-  cat >"${BATS_TMPDIR}/bin/systemd-creds" <<'SH'
-#!/usr/bin/env bash
-case "$1" in
-  encrypt)
-    cat > "$5"
-    ;;
-  decrypt)
-    cat "$2"
-    ;;
-esac
-SH
-  chmod +x "${BATS_TMPDIR}/bin/systemd-creds"
+  install_systemd_creds_stub
 
   run env PATH="${BATS_TMPDIR}/bin:${PATH}" bash "${CRED_SYNC_SCRIPT}" "bad-name!" "${BATS_TMPDIR}/credstore"
   [ "$status" -eq 2 ]
@@ -468,20 +494,7 @@ SH
 }
 
 @test "credential-sync: writes to an explicit destination, backs up the previous file only when changing, and rejects unsafe file names" {
-  mkdir -p "${BATS_TMPDIR}/bin" "${BATS_TMPDIR}/credstore"
-  cat >"${BATS_TMPDIR}/bin/systemd-creds" <<'SH'
-#!/usr/bin/env bash
-echo "systemd-creds $*" >> "${BATS_TMPDIR}/systemd-creds.log"
-case "$1" in
-  encrypt)
-    cat > "$5"
-    ;;
-  decrypt)
-    cat "$2"
-    ;;
-esac
-SH
-  chmod +x "${BATS_TMPDIR}/bin/systemd-creds"
+  install_systemd_creds_stub
   local store="${BATS_TMPDIR}/credstore"
 
   run bash -c "printf 'SYNTHETIC_A=1' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host homelab_compose_env.staged"
@@ -499,8 +512,8 @@ SH
   run bash -c "printf 'SYNTHETIC_B=2' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host homelab_compose_env.staged homelab_compose_env.previous"
   [ "$status" -eq 0 ]
   [ "$output" = "changed" ]
-  [ "$(cat "${store}/homelab_compose_env.previous")" = "SYNTHETIC_A=1" ]
-  [ "$(cat "${store}/homelab_compose_env.staged")" = "SYNTHETIC_B=2" ]
+  [ "$(tail -n +2 "${store}/homelab_compose_env.previous")" = "SYNTHETIC_A=1" ]
+  [ "$(tail -n +2 "${store}/homelab_compose_env.staged")" = "SYNTHETIC_B=2" ]
   [ "$(stat -c '%a' "${store}/homelab_compose_env.previous" 2>/dev/null || stat -f '%Lp' "${store}/homelab_compose_env.previous")" = "400" ]
 
   # No backup name given: no backup is written
@@ -511,13 +524,13 @@ SH
   [ ! -e "${store}/homelab_compose_env.previous" ]
 
   # Unsafe destination / backup names are rejected
-  for bad in "../x" "a/b" "UPPER" "-rf"; do
+  for bad in "../x" "a/b" "UPPER" "-rf" "." ".." ".hidden"; do
     run bash -c "printf 'SYNTHETIC_D=4' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host '${bad}'"
     [ "$status" -eq 2 ]
     run bash -c "printf 'SYNTHETIC_D=4' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host homelab_compose_env.staged '${bad}'"
     [ "$status" -eq 2 ]
   done
-  [ "$(cat "${store}/homelab_compose_env.staged")" = "SYNTHETIC_C=3" ]
+  [ "$(tail -n +2 "${store}/homelab_compose_env.staged")" = "SYNTHETIC_C=3" ]
 }
 
 @test "reconcile: first deploy verifies bundle, deploys stack, sets current symlink without previous, and sends heartbeat" {
@@ -820,6 +833,14 @@ SH
   [ "$status" -ne 0 ]
   [[ "$output" == *"missing required release asset"* ]]
   [[ "$output" == *"enabled: false"* ]]
+
+  prepare_mock_release "v2026.10.16-1" "gcp"
+  jq '.assets |= map(select(.name != "SHA256SUMS"))' "${BATS_TMPDIR}/mock_server/latest.json" >"${BATS_TMPDIR}/latest.tmp"
+  mv "${BATS_TMPDIR}/latest.tmp" "${BATS_TMPDIR}/mock_server/latest.json"
+  run_reconcile --check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"missing required release asset 'SHA256SUMS'"* ]]
+  [[ "$output" != *"enabled: false"* ]]
 
   prepare_mock_release "v2026.10.16-1" "gcp"
   STUB_COSIGN_RC=1 run_reconcile --check
