@@ -100,7 +100,14 @@ codex_decision() {
 @test "Codex guard configuration and adapter are owned security boundaries" {
   run grep -E '^/\.codex/[[:space:]]+@busybeaver$' "$REPO_ROOT/.github/CODEOWNERS"
   [ "$status" -eq 0 ]
-  run grep -F '/hooks' "$REPO_ROOT/docs/runbooks/ci-workflows-standards.md"
+}
+
+@test "Codex runbook documents hook trust when available" {
+  local runbook="$REPO_ROOT/docs/runbooks/ci-workflows-standards.md"
+  if is_git_crypt_encrypted "$runbook"; then
+    skip "runbook is git-crypt encrypted in this checkout"
+  fi
+  run grep -F '/hooks' "$runbook"
   [ "$status" -eq 0 ]
 }
 
@@ -124,4 +131,21 @@ codex_decision() {
   run --separate-stderr bash -c "$launcher" <<<'{}'
   [ "$status" -eq 2 ]
   [ -z "$output" ]
+}
+
+@test "Codex documentation checks tolerate encrypted runbooks without skipping ownership" {
+  local fixture="$BATS_TMPDIR/fixture"
+  mkdir -p "$fixture/tests/scripts/helpers" "$fixture/.github" "$fixture/docs/runbooks"
+  cp "$REPO_ROOT/tests/scripts/codex-credential-guard.bats" "$fixture/tests/scripts/"
+  cp "$REPO_ROOT/tests/scripts/helpers/test_helper.bash" "$fixture/tests/scripts/helpers/"
+  cp "$REPO_ROOT/.github/CODEOWNERS" "$fixture/.github/"
+  printf '\0GITCRYPT\0synthetic ciphertext\n' > "$fixture/docs/runbooks/ci-workflows-standards.md"
+  run env -u 'BASH_FUNC_bats_readlinkf%%' "$BATS_ROOT/bin/bats" --print-output-on-failure \
+    --filter '^Codex guard configuration and adapter are owned|^Codex runbook documents hook trust' \
+    "$fixture/tests/scripts/codex-credential-guard.bats"
+  [ "$status" -eq 0 ]
+  printf '/example/ @busybeaver\n' > "$fixture/.github/CODEOWNERS"
+  run env -u 'BASH_FUNC_bats_readlinkf%%' "$BATS_ROOT/bin/bats" --print-output-on-failure \
+    --filter '^Codex guard configuration and adapter are owned' "$fixture/tests/scripts/codex-credential-guard.bats"
+  [ "$status" -eq 1 ]
 }

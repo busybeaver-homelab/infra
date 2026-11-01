@@ -45,10 +45,7 @@
     ]
   },
   "sandbox": {
-    "excludedCommands": [
-      "scripts/agent-gh.sh *",
-      "scripts/agent-git.sh *"
-    ]
+    "excludedCommands": ["scripts/agent-gh.sh *", "scripts/agent-git.sh *"]
   },
   "hooks": {
     "PreToolUse": [
