@@ -106,7 +106,7 @@ run "reject_unresolvable_subnet_route_device" {
   ]
 }
 
-run "robot_auth_key_expiry_rejects_out_of_range" {
+run "robot_auth_key_expiry_rejects_below_min" {
   command = plan
 
   variables {
