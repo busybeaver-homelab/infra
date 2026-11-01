@@ -30,6 +30,10 @@ Check mode: controller cache work and the read-only robot probe still run; every
 
 Reachability and the host-key check run earlier, in the playbook, through `robot-transport.sh probe`.
 
+### SSH behaviour
+
+Every SSH call to the robot (`robot-transport.sh`) uses fixed options: `BatchMode=yes`, `ConnectTimeout=10`, `ServerAliveInterval=15`, `ServerAliveCountMax=3` (a stalled transfer fails after about 45 s instead of hanging) and `StrictHostKeyChecking=accept-new` against the dedicated, gitignored known-hosts file `.cache/ansible/robot_known_hosts`. A changed host key (for example after a factory reset) is refused and the preflight names the file; clear the entry per the runbook (`ssh-keygen -R <host> -f .cache/ansible/robot_known_hosts`).
+
 ### Wi-Fi and configure
 
 Both phases call Valetudo's REST API from the controller with `ansible.builtin.uri` (the robot has no Python). The API paths are role defaults (`valetudo_robot_api_*_path`); they are Valetudo's documented v2 paths and must be verified at recon (plan Task 0).
@@ -97,6 +101,14 @@ The phase reports `changed` only when a capture happened. The playbook never com
 | `valetudo_robot_settings`                          | `[]`                                                        | Valetudo settings applied by the configure phase.                            |
 
 Pin updates arrive as Renovate PRs with automerge disabled: update the matching `*_sha256` value in `defaults/main.yml` in the same PR.
+
+## Runbook
+
+Build and rebuild sequences, fallbacks (Tailscale down, robot off Wi-Fi, basic-auth reset), the calibration restore and the list of deferred integrations are in `docs/runbooks/valetudo-x40-ultra.md` (git-crypt encrypted). Operational cautions:
+
+- Run `robots.yml` one run at a time: two concurrent runs delete each other's ephemeral SSH key in `.cache/ansible`.
+- `-vvv` prints the robot address and hostname. Do not use it, and never paste such logs.
+- The Valetudo API paths and the config file path used for a basic-auth reset are provisional until the pre-rollout recon on the real robot is done.
 
 ## Security
 
