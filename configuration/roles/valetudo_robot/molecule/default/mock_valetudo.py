@@ -26,6 +26,7 @@ import binascii
 import hmac
 import json
 import re
+import secrets
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -37,9 +38,10 @@ WIFI_PATH = "/api/v2/robot/capabilities/WifiConfigurationCapability"
 CAPABILITY_RE = re.compile(r"^/api/v2/robot/capabilities/([A-Za-z]+)$")
 MAX_BODY_BYTES = 65536
 
-# Synthetic values that differ from anything the role or Molecule sends.
-PRESET_USERNAME = "mock-preset-user"
-PRESET_PASSWORD = "mock-preset-unrelated"
+# Generated per process, so no credential literal is committed and the values
+# differ from anything the role or Molecule sends.
+PRESET_USERNAME = f"mock-preset-{secrets.token_hex(4)}"
+PRESET_PASSWORD = secrets.token_hex(16)
 
 
 class MockState:

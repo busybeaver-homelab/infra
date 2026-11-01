@@ -375,6 +375,13 @@ YAML
   [ "$(yq eval "${fail} | .[\"ansible.builtin.fail\"].msg | test(\"[{][{]\")" "${configure}")" = false ]
 }
 
+@test "mock Valetudo generates its preset credentials at runtime instead of committing literals" {
+  local mock="${ROLE_DIR}/molecule/default/mock_valetudo.py"
+  grep -qxF 'PRESET_USERNAME = f"mock-preset-{secrets.token_hex(4)}"' "${mock}"
+  grep -qxF 'PRESET_PASSWORD = secrets.token_hex(16)' "${mock}"
+  [ "$(grep -cE '^PRESET_[A-Z]+ = ' "${mock}")" -eq 2 ]
+}
+
 @test "tailscale key tempfile lives in the gitignored controller cache with the swept robot_key prefix" {
   local tmpf='.. | select(tag == "!!map" and has("ansible.builtin.tempfile")) | .["ansible.builtin.tempfile"]'
   [ "$(yq eval "${tmpf} | .path" "${TAILSCALE}")" = '{{ valetudo_robot_controller_cache_dir }}' ]
