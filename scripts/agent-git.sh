@@ -6,11 +6,13 @@ refuse() {
   printf 'ERROR: agent git requires push, fetch or ls-remote against origin on github.com\n' >&2
   exit 64
 }
+# Ambient hook and config overrides must not reach this unsandboxed Git.
+unset "${!LEFTHOOK@}" "${!GIT_CONFIG@}"
 subcmd="${1:-}"
 case "$subcmd" in push | fetch | ls-remote) shift ;; *) refuse ;; esac
 
 # Preserve option order/values; replace only the repository argument (R3).
-args=() remote_seen=false option_value=false end_options=false
+args=() refspecs=() remote_seen=false option_value=false end_options=false
 for arg in "$@"; do
   if "$option_value"; then
     args+=("$arg")
@@ -37,7 +39,7 @@ for arg in "$@"; do
           [[ ! "$arg" =~ ^-[A-Za-z0-9]*[df] ]] || refuse
           name="${arg%%=*}"
           for forbidden in --no-verify --mirror --delete --all --branches --prune --force; do
-            [[ ${#name} -lt 4 || "$forbidden" != "$name"* ]] || refuse
+            [[ ${#name} -lt 3 || "$forbidden" != "$name"* ]] || refuse
           done
         fi
         args+=("$arg")
@@ -54,6 +56,7 @@ for arg in "$@"; do
     if [[ "$subcmd" == push && ("$arg" == :* || "$arg" == +* || "${arg##*:}" =~ ^(refs/)?(heads/)?main$) ]]; then
       refuse
     fi
+    refspecs+=("$arg")
     args+=("$arg")
   fi
 done
@@ -75,9 +78,27 @@ if git config --get core.hooksPath >/dev/null 2>&1; then
 fi
 # Local lefthook overrides can skip or replace the pre-push guard.
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || top=.
-for override in lefthook-local.yml lefthook-local.yaml .lefthook-local.yml .lefthook-local.yaml; do
-  [[ ! -e "$top/$override" ]] || refuse
+for override in lefthook-local .lefthook-local .config/lefthook-local; do
+  for extension in yml yaml toml json jsonc; do
+    [[ ! -e "$top/$override.$extension" ]] || refuse
+  done
 done
+if [[ "$subcmd" == push ]]; then
+  # Implicit destinations follow the current branch or push.default.
+  [[ "$(git config --get push.default 2>/dev/null)" != matching ]] || refuse
+  implicit=true
+  for refspec in ${refspecs[@]+"${refspecs[@]}"}; do
+    [[ "$refspec" == HEAD ]] || implicit=false
+  done
+  if "$implicit" && [[ "$(git symbolic-ref --short -q HEAD 2>/dev/null)" == main ]]; then
+    refuse
+  fi
+fi
+# A temporary named remote keeps --force-with-lease tied to origin's
+# tracking refs; refuse if that name is already configured anywhere.
+rc=0
+git config --name-only --get-regexp '^remote\.agentapp\.' >/dev/null 2>&1 || rc=$?
+[[ "$rc" -eq 1 ]] || refuse
 origin="$(git remote get-url origin 2>/dev/null)" || refuse
 case "$origin" in
   git@github.com:*) repository="${origin#git@github.com:}" ;;
@@ -88,7 +109,7 @@ repository="${repository%.git}"
 [[ "$repository" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*/[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || refuse
 url="https://github.com/${repository}.git"
 for ((i = 0; i < ${#args[@]}; i++)); do
-  [[ "${args[i]}" != __AGENT_ORIGIN__ ]] || args[i]="$url"
+  [[ "${args[i]}" != __AGENT_ORIGIN__ ]] || args[i]=agentapp
 done
 # Git shell helpers need shell quoting when the checkout path contains spaces.
 printf -v helper '%q' "$SCRIPT_DIR/agent-git-credential.sh"
@@ -97,4 +118,5 @@ export GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false SSH_ASKPASS=/usr/bin/fal
 exec git -c credential.helper= -c "credential.helper=!$helper" \
   -c credential.useHttpPath=true -c http.extraHeader= -c "http.$url.extraHeader=" \
   -c protocol.allow=never -c protocol.https.allow=always \
+  -c "remote.agentapp.url=$url" -c 'remote.agentapp.fetch=+refs/heads/*:refs/remotes/origin/*' \
   "$subcmd" "${args[@]}"

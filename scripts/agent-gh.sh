@@ -72,6 +72,7 @@ for arg in "$@"; do
   [[ "$arg" != *=@* ]] || check_file "${arg#*=@}"
   [[ "$arg" != @* ]] || check_file "${arg#@}"
   [[ "$arg" != -F?* ]] || check_file "${arg#-F}"
+  [[ "$arg" != *#* ]] || check_file "${arg%#*}"
 done
 
 # shellcheck source=scripts/lib/github-app-token.sh

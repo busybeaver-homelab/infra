@@ -47,18 +47,19 @@ READ_TOOLS = {
 }
 CREDENTIAL_PATHS = re.compile(
     r"(?:\.config|Library/Application Support)/gh(?:/|$)|(?:^|[/=@])\.(?:ssh|gnupg)(?:/|$)"
-    r"|\.git-credentials|\.netrc"
+    r"|\.git-credentials|\.netrc|\.config/sops"
 )
-WRAPPER_PATHS = re.compile(r"\.config/sops|keys\.txt|(?:^|[/=@])(?:secrets|\.git)(?:/|$)")
+WRAPPER_PATHS = re.compile(r"keys\.txt|(?:^|[=@]|\./)secrets(?:/|$)|(?:^|[/=@])\.git(?:/|$)")
 INTERPRETERS = re.compile(
-    r"(?:ba|z|da|k|fi)?sh|eval|python[0-9.]*|perl|ruby|node|osascript|g?awk|pwsh|tclsh"
+    r"(?:ba|z|da|k|fi|c|tc)?sh|eval|python[0-9.]*|perl|ruby|node|osascript|g?awk|pwsh|tclsh"
 )
 # Git settings that run programs, redirect hooks or include other config.
 GIT_EXEC_KEYS = re.compile(
     r"(?:core\.(?:hookspath|pager|editor|sshcommand|fsmonitor|askpass|gitproxy)"
     r"|sequence\.editor|diff\.external|diff\..+\.(?:textconv|command)|filter\..+"
     r"|merge\..+\.driver|gpg(?:\..+)?\.program|include\.path|includeif\..+"
-    r"|pager\..+|interactive\.difffilter|uploadpack\..+|receivepack\..+)(?:=.*)?"
+    r"|pager\..+|interactive\.difffilter|uploadpack\..+|receivepack\..+|trailer\..+\.(?:cmd|command)"
+    r"|gpg\.ssh\.defaultkeycommand|core\.alternaterefscommand|init\.templatedir)(?:=.*)?"
 )
 GIT_EXEC_ENV = re.compile(
     r"(?:GIT_(?:EXTERNAL_DIFF|SSH|SSH_COMMAND|ASKPASS|EDITOR|SEQUENCE_EDITOR|EXEC_PATH"
@@ -75,6 +76,14 @@ GATED_TASKS = re.compile(r"(?:github:sync|sync:|drift(?::|$)|ansible:inventory).
 ANSIBLE_INFO = {"--syntax-check", "--list-tasks", "--list-tags", "--list-hosts", "--version", "-h", "--help"}
 SENSITIVE = re.compile(r"(?<![\w-])(?:gh|git|sops|tofu|security|git-crypt|ansible|ansible-playbook)(?![\w-])")
 EXECUTABLES = {"gh", "git", "sops", "tofu", "security", "git-crypt", "ansible", "ansible-playbook", "mise"}
+# Options whose values a program executes, and shell grouping words.
+EXEC_OPTIONS = {"-x", "--exec", "-c", "--config-env", "-e", "-E", "--eval", "-p", "--print", "run", "-exec", "--command"}
+GROUPING = {"(", ")", "!", "{", "}", "coproc"}
+# Commands that may name a wrapper path without running it.
+MENTION_SAFE = {
+    "git", "shellcheck", "shfmt", "cat", "head", "tail", "wc", "ls", "stat", "diff", "grep", "rg",
+    "bats", "file", "oxfmt", "actionlint", "trufflehog",
+}
 LAUNCHERS = {
     "env", "command", "exec", "nohup", "sudo", "time", "xargs", "nice", "timeout", "stdbuf",
     "caffeinate", "ionice", "taskset", "unbuffer",
@@ -127,27 +136,38 @@ try:
     if not words:
         raise ValueError
     # Quoted arguments can carry whole commands (rebase -x, pager settings).
-    # Inspect each nested string that starts with a sensitive executable.
+    # Values a program executes are inspected token by token; other text
+    # (commit messages) only when it starts with a sensitive executable.
     segments, pending = [words], [words]
     while pending:
         if len(segments) >= 64:
             raise ValueError
+        previous = ""
         for word in pending.pop():
+            executed = previous in EXEC_OPTIONS or re.match(r"(?:--exec|[A-Za-z_][\w.]*)=", word)
+            previous = word
             for text in (word, word.split("=", 1)[-1]):
                 if not re.search(r"\s", text):
                     continue
                 try:
                     inner = split(text)
                 except ValueError:
-                    inner = text.split()
+                    inner = [re.sub(r"[\"'\\]", "", w) for w in text.split()]
+                names = {os.path.basename(w) for w in inner}
                 start = [
-                    w for w in inner
-                    if "=" not in w.split("/")[0] and w not in LAUNCHERS and not re.fullmatch(r"-\S*|[0-9.]+[smhd]?", w)
+                    os.path.basename(w) for w in inner
+                    if "=" not in w.split("/")[0] and w not in LAUNCHERS | GROUPING
+                    and not re.fullmatch(r"-\S*|[0-9.]+[smhd]?", w)
                 ][:1]
-                if inner and inner not in segments and (
-                    start and os.path.basename(start[0]) in EXECUTABLES | GATED_SCRIPTS
+                if (executed or start and INTERPRETERS.fullmatch(start[0])) and SENSITIVE.search(text) and any(
+                    INTERPRETERS.fullmatch(name) for name in names
                 ):
-                    segments.append(inner)
+                    deny("Submit the sensitive command directly so the guard can inspect it.")
+                if inner and inner not in segments and (
+                    start and start[0] in EXECUTABLES | GATED_SCRIPTS
+                    or executed and names & (EXECUTABLES | GATED_SCRIPTS)
+                ):
+                    segments.append([w for w in inner if w not in GROUPING])
                     pending.append(inner)
 except (ValueError, TypeError, KeyError, OSError):
     deny("Invalid hook input; refusing the call.")
@@ -159,15 +179,14 @@ wrappers = {"scripts/agent-gh.sh", "scripts/agent-git.sh"}
 wrapper_names = {os.path.basename(wrapper) for wrapper in wrappers}
 # Paths that merely mention a wrapper (git add, shellcheck) are ordinary
 # commands; anything that could execute one must be the literal wrapper call.
-leading = [
-    w for w in words
-    if "=" not in w.split("/")[0] and w not in LAUNCHERS and not INTERPRETERS.fullmatch(os.path.basename(w))
-]
+runner = list(words)
+while runner and runner[0] in {"mise", "exec", "--", "uv", "run", "--locked"}:
+    runner.pop(0)
 if any(name in command for name in wrapper_names) and (
     words[0] in wrappers
     or re.search(r"[;&|<>$`\n\r]", command)
-    or not leading
-    or os.path.basename(leading[0]) in wrapper_names
+    or not runner
+    or os.path.basename(runner[0]) not in MENTION_SAFE
 ):
     # Deliberately narrower than shell grammar. Even quoted expansion/control
     # characters are rejected; put complex PR text in a body file instead.
@@ -271,31 +290,47 @@ def classify(words):
             "reflog", "reset", "restore", "rev-list", "rev-parse", "revert", "rm",
             "shortlog", "show", "show-ref", "sparse-checkout", "stash", "status",
             "switch", "symbolic-ref", "tag", "update-index", "update-ref",
-            "verify-commit", "verify-tag", "version", "worktree",
+            "verify-commit", "verify-tag", "version", "worktree", "mv", "cat-file", "range-diff", "remote",
         }
         if args and args[0] not in local_git:
             deny("Unknown Git commands and aliases are unavailable; use explicit local commands.")
         if any(arg.startswith("--remote") for arg in args):
             deny("Remote Git access requires the App Git wrapper.")
+        if args and args[0] == "remote" and not (
+            set(args[1:]) <= {"-v", "--verbose"} or args[1:2] == ["get-url"]
+        ):
+            deny("Only read-only remote listing is available; network Git uses the App wrapper.")
         if args and args[0] == "config" and any(
             GIT_EXEC_KEYS.fullmatch(arg.lower()) for arg in args[1:]
-        ) and not any(arg in {"--get", "--get-all", "--get-regexp", "-l", "--list"} for arg in args):
+        ) and not any(arg in {"--get", "--get-all", "--get-regexp", "-l", "--list", "get", "list"} for arg in args[:2]):
             deny("Git settings that run programs or redirect hooks are unavailable.")
         if any(len(arg.split("=")[0]) >= 5 and "--no-verify".startswith(arg.split("=")[0]) for arg in args):
             deny("Git hooks are mandatory; --no-verify is forbidden.")
         if args and args[0] == "commit":
+            skip = False
             for arg in args[1:]:
+                if skip:
+                    skip = False
+                    continue
+                if arg in {
+                    "--message", "--file", "--reuse-message", "--reedit-message", "--template", "--author",
+                    "--date", "--fixup", "--squash", "--trailer", "--cleanup",
+                }:
+                    skip = True
+                    continue
                 if not re.fullmatch(r"-[^-].*", arg):
                     continue
-                # Short options stop at the first one that takes a value.
-                for letter in arg[1:]:
+                # Short options stop at the first one that takes a value;
+                # a value-taking letter at the end consumes the next word.
+                for position, letter in enumerate(arg[1:], 1):
                     if letter == "n":
                         deny("Git hooks are mandatory; --no-verify is forbidden.")
                     if letter in "mFcCtS":
+                        skip = letter != "S" and position == len(arg) - 1
                         break
     if "sops" in bases:
         sops_args = words[bases.index("sops") + 1:]
-        if any(re.fullmatch(r"(?:-d|--decrypt|--extract|decrypt|exec-env|exec-file|edit)(?:=.*)?", word) for word in sops_args):
+        if any(re.fullmatch(r"(?:-{1,2}(?:d|decrypt|extract)|decrypt|exec-env|exec-file|edit)(?:=.*)?", word) for word in sops_args):
             deny("Direct secret getters are forbidden; use repository consumers.")
         if not sops_args or sops_args[0] not in SOPS_SUBCOMMANDS | SOPS_FLAGS:
             deny("sops must start with an explicit non-decrypting action; a bare file opens a decrypting editor.")

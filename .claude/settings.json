@@ -57,8 +57,9 @@
       "Edit(/scripts/guard-*)",
       "Edit(/lefthook.yml)",
       "Edit(/.git/hooks/**)",
-      "Edit(/lefthook-local.yml)",
-      "Edit(/.lefthook-local.yml)",
+      "Edit(/lefthook-local.*)",
+      "Edit(/.lefthook-local.*)",
+      "Edit(/.config/lefthook-local.*)",
       "Edit(/.git/config)"
     ]
   },

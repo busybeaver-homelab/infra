@@ -314,7 +314,7 @@ check_decision() {
     'Read(~/.gnupg/**)' 'Read(~/.git-credentials)' 'Read(~/.netrc)' \
     'Edit(/.claude/**)' 'Edit(/.codex/**)' 'Edit(/.agent/hooks/**)' 'Edit(/.agents/hooks.json)' \
     'Edit(/scripts/agent-*)' 'Edit(/scripts/lib/github-app-token.sh)' 'Edit(/scripts/guard-*)' \
-    'Edit(/lefthook.yml)' 'Edit(/.git/hooks/**)' 'Edit(/lefthook-local.yml)' 'Edit(/.lefthook-local.yml)' \
+    'Edit(/lefthook.yml)' 'Edit(/.git/hooks/**)' 'Edit(/lefthook-local.*)' 'Edit(/.lefthook-local.*)' 'Edit(/.config/lefthook-local.*)' \
     'Edit(/.git/config)'; do
     run jq -e --arg rule "$rule" '.permissions.deny | index($rule) != null' "$SETTINGS"
     [ "$status" -eq 0 ] || { echo "missing $rule" >&2; return 1; }
@@ -383,4 +383,50 @@ check_decision() {
   local command="git log" i
   for i in $(seq 1 70); do command+=" 'git status -s $i'"; done
   check_decision deny "$command"
+}
+
+@test "guard inspects executed nested strings token by token" {
+  local command
+  for command in "git rebase -x '(gh auth token)' HEAD~1" "git rebase -x '! gh auth token' HEAD~1" \
+    "git rebase -x 'sh -c \"gh auth token\"' HEAD~1" "git rebase -x 'sh -c \"tofu apply -auto-approve\"' HEAD~1" \
+    "git rebase -x 'env -u X gh auth token' HEAD~1" "git rebase -x 'timeout -s KILL 5 gh auth token' HEAD~1" \
+    "git bisect run 'xargs -I {} gh auth token'" "tcsh -c '(gh auth token)'" "csh -c 'gh auth token'" \
+    "git rebase -x \"g''h auth token # it's\" HEAD~1"; do
+    check_decision deny "$command" || return 1
+  done
+}
+
+@test "guard denies remaining command-running Git settings" {
+  local command
+  for command in "git config trailer.t.cmd ./x" "git config trailer.t.command ./x" \
+    "git -c gpg.format=ssh -c gpg.ssh.defaultKeyCommand=./x commit -S -m x" \
+    "git config core.alternateRefsCommand ./x" "git config init.templateDir /tmp/t"; do
+    check_decision deny "$command" || return 1
+  done
+}
+
+@test "guard requires literal wrapper calls behind launchers and denies sops key paths" {
+  local command
+  for command in 'nice -n 5 scripts/agent-gh.sh pr list' 'timeout 60 scripts/agent-gh.sh pr list' \
+    'env -i scripts/agent-gh.sh pr list' 'env -u X scripts/agent-gh.sh pr list' \
+    'cat /home/example/.config/sops/age/keys.txt' 'sops -r -decrypt secrets/credentials.sops.yaml' \
+    'sops -extract x secrets/credentials.sops.yaml'; do
+    check_decision deny "$command" || return 1
+  done
+}
+
+@test "guard keeps routine development commands unattended" {
+  local command
+  for command in 'git -C /tmp status' 'mise exec -- tflint --init --config "$PWD/.tflint.hcl"' \
+    'uv run --locked ruff check' 'mise exec lefthook -- lefthook run pre-commit' \
+    'scripts/agent-git.sh push --force-with-lease' \
+    'scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main' \
+    'scripts/agent-git.sh push -u origin fix/secrets/rotation' \
+    'git commit -m "feat: x" -m "- Ensure retries"' 'git commit --message "- note" -m y' \
+    'git mv a b' 'git cat-file -p HEAD' 'git range-diff a...b' 'git remote -v' 'git remote get-url origin' \
+    'git config get core.hooksPath' 'mise exec -- shellcheck scripts/agent-gh.sh' 'rg -n agent-git.sh docs'; do
+    check_decision allow "$command" || return 1
+  done
+  check_decision deny 'git remote set-url origin https://example.test/repo'
+  check_decision deny 'git remote show origin'
 }

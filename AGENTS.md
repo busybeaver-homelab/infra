@@ -104,7 +104,7 @@ Before substantive repository work, check the offline model review record and fo
 Before claiming a task is complete, verify your work:
 
 1.  **Run local lint and tests** on changed files. Use the correct tool for the domain. The complete per-domain command lists are in each runbook's "Verification commands" section (§6):
-    - **OpenTofu changes:** `mise exec -- tofu fmt -check -recursive infrastructure` · `mise exec -- tflint --init --config "$PWD/.tflint.hcl"` then `mise exec -- tflint --recursive --config "$PWD/.tflint.hcl"` (from the repo root) · `mise exec -- tofu init -backend=false && mise exec -- tofu validate` (per module) · `mise run test:infra` and `mise run test:tofu:children` (native `tofu test` suites)
+    - **OpenTofu changes:** `mise exec -- tofu fmt -check -recursive infrastructure` · `mise exec -- tflint --init --config "$PWD/.tflint.hcl"` then `mise exec -- tflint --recursive --config "$PWD/.tflint.hcl"` (from the repo root) · `mise exec -- tofu init -backend=false`, then `mise exec -- tofu validate` as a separate command (per module) · `mise run test:infra` and `mise run test:tofu:children` (native `tofu test` suites)
     - **Ansible changes:** `mise exec -- ansible-lint configuration/` · Molecule test suites:
       - `(cd configuration/roles/base_ubuntu_server && mise exec -- molecule test)`
       - `(cd configuration/roles/restic_backup && mise exec -- molecule test)`

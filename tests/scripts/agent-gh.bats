@@ -180,3 +180,7 @@ STUB
   printf '(protected-private-key (rsa))\n' > "$BATS_TEST_TMPDIR/gpg.md"
   refused pr create --body-file "$BATS_TEST_TMPDIR/gpg.md"
 }
+
+@test "refuses release asset labels that hide outside paths" {
+  refused release upload v1 '/etc/hosts#label'
+}
