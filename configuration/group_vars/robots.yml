@@ -1,0 +1,14 @@
+---
+# Non-secret connection settings for the robot (group "robots", populated at run
+# time by Play 1 of playbooks/robots.yml via add_host). Kept minimal on purpose.
+#
+# Everything derived from SOPS or from the run (ansible_host,
+# ansible_ssh_private_key_file, ansible_ssh_common_args with the dedicated
+# known-hosts file, valetudo_robot_known_hosts, valetudo_robot_api_base_url,
+# valetudo_robot_on_lan, valetudo_robot_basic_auth_*, valetudo_robot_wifi_*,
+# valetudo_robot_tailscale_hostname) is passed explicitly by add_host: the SOPS
+# values exist only as localhost facts after community.sops.load_vars, so a
+# "{{ valetudo_robot.wifi.ssid }}" reference here would not resolve for the robot
+# host (R2-GOV-05).
+ansible_user: root
+ansible_connection: ssh
