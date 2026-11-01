@@ -1,3 +1,7 @@
+## Subnet routes and the robot
+
+`tag:type-iot` (the Valetudo robot) is reachable on TCP 80 only and has no outbound grants. Today no device advertises the home LAN as a subnet route. The production policy already grants `autogroup:owner` broad access (`*:*`) to a private range (design spec section 8), and grants can only allow, never deny. If a subnet router later advertises a range that contains the robot's network, owner devices could reach the robot's root SSH over the tailnet, bypassing the HTTP-only design. Whoever adds such a route must re-check the robot design first (see `docs/runbooks/valetudo-x40-ultra.md`).
+
 <!-- BEGIN_TF_DOCS -->
 
 ## Requirements
