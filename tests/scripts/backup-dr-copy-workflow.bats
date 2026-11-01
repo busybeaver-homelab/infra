@@ -106,3 +106,9 @@ setup() {
   echo "${hb_run}" | grep -qF '::error::HEALTHCHECKS_DR_COPY_PING_URL secret is not configured'
   echo "${hb_run}" | grep -qF '${PING_URL}/fail'
 }
+
+@test "ops jobs install mise without the shared Actions cache, which unowned workflows on main can write (design 4.7)" {
+  run yq eval '[.jobs[].steps[] | select(.uses == "*setup-environment*") | .with.cache] | unique | .[]' "${WORKFLOW_FILE}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "false" ]
+}

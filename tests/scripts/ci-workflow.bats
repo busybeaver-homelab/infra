@@ -29,10 +29,13 @@ setup() {
   [ "$output" = "false" ]
 }
 
-@test "setup-environment composite action installs mise with cache true" {
-  run yq eval '.runs.steps[] | select(.uses == "*jdx/mise-action*") | .with.cache' "$ACTION"
+@test "setup-environment composite action installs mise with a cache input that defaults to true" {
+  run yq eval '.inputs.cache.default' "$ACTION"
   [ "$status" -eq 0 ]
   [ "$output" = "true" ]
+  run yq eval '.runs.steps[] | select(.uses == "*jdx/mise-action*") | .with.cache' "$ACTION"
+  [ "$status" -eq 0 ]
+  [ "$output" = "\${{ inputs.cache == 'true' }}" ]
 }
 
 @test "ci.yml exists and is valid YAML" {

@@ -6,14 +6,15 @@ set -euo pipefail
 # environment through an expression, so owner review of those workflows is what guards
 # the secrets stored in them. Remote reusable workflows are refused because a called
 # workflow resolves environments against this repository but is not checked here; local
-# calls into the allowlisted backup workflows are refused outside the allowlist.
+# calls into the allowlisted backup workflows are refused outside the allowlist. Jobs
+# outside workflow-policy.yml may not report the "Workflow Policy" required check name.
 #
 # Usage: scripts/check-workflow-environments.sh [--workflows-dir DIR]
 # Exit codes:
 #   0 - No violation found
 #   1 - A workflow outside the allowlist uses a protected environment or calls a backup
-#       workflow, a job's environment contains an expression, or a job calls a remote
-#       reusable workflow
+#       workflow, a job's environment contains an expression, a job calls a remote
+#       reusable workflow, or another workflow reports the Workflow Policy check name
 #   2 - Fail closed: missing or empty directory, unreadable or unparsable YAML, no jobs mapping
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,15 +23,19 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 WORKFLOWS_DIR="$REPO_ROOT/.github/workflows"
 ALLOWED_FILES=(backup-dr-copy.yml backup-prune.yml)
 PROTECTED_ENVS=(ops backup)
+POLICY_FILE="workflow-policy.yml"
+POLICY_CHECK_NAME="workflow policy"
 
 # Prints "<job>\t<environment name>" for every job that declares an environment, with
 # YAML aliases and merge keys resolved. Map-form environments yield their name.
 JOB_ENV_EXPR='explode(.) | .jobs | to_entries | .[] | select(.value.environment != null) | .key + "\t" + (.value.environment | (if tag == "!!map" then (.name // "") else . end) | to_string)'
+# Prints "<job>\t<check name>" for every job: its name, or its id when it has no name.
+JOB_NAME_EXPR='explode(.) | .jobs | to_entries | .[] | .key + "\t" + ((.value.name // .key) | to_string)'
 # Prints "<job>\t<uses>" for every job that calls a reusable workflow.
 JOB_USES_EXPR='explode(.) | .jobs | to_entries | .[] | select(.value.uses != null) | .key + "\t" + (.value.uses | to_string)'
 
 usage() {
-  sed -n '4,17p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '4,18p' "$0" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
@@ -61,9 +66,10 @@ done
 
 [[ -d "$WORKFLOWS_DIR" ]] || fail_closed "Workflows directory not found: $WORKFLOWS_DIR"
 
-shopt -s nullglob
+# GitHub runs dotfiles in the workflows directory too; match extensions case-insensitively.
+shopt -s nullglob dotglob nocaseglob
 files=("$WORKFLOWS_DIR"/*.yml "$WORKFLOWS_DIR"/*.yaml)
-shopt -u nullglob
+shopt -u nullglob dotglob nocaseglob
 [[ ${#files[@]} -gt 0 ]] || fail_closed "No workflow files (*.yml, *.yaml) found in: $WORKFLOWS_DIR"
 
 violations=()
@@ -75,6 +81,7 @@ for file in "${files[@]}"; do
   [[ "$jobs_tag" == "!!map" ]] || fail_closed "Workflow has no jobs mapping: $base"
   rows="$(yq eval -r "$JOB_ENV_EXPR" "$file" 2>/dev/null)" || fail_closed "Cannot evaluate job environments: $base"
   uses_rows="$(yq eval -r "$JOB_USES_EXPR" "$file" 2>/dev/null)" || fail_closed "Cannot evaluate reusable workflow calls: $base"
+  name_rows="$(yq eval -r "$JOB_NAME_EXPR" "$file" 2>/dev/null)" || fail_closed "Cannot evaluate job names: $base"
 
   allowed=false
   for allowed_file in "${ALLOWED_FILES[@]}"; do
@@ -109,6 +116,16 @@ for file in "${files[@]}"; do
       fi
     done
   done <<<"$uses_rows"
+
+  if [[ "$base" != "$POLICY_FILE" ]]; then
+    while IFS=$'\t' read -r job check_name; do
+      [[ -n "$job" ]] || continue
+      normalized="$(printf '%s' "$check_name" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+      if [[ "$normalized" == "$POLICY_CHECK_NAME" ]]; then
+        violations+=("$base:$job reports the required Workflow Policy check name")
+      fi
+    done <<<"$name_rows"
+  fi
 done
 
 if [[ ${#violations[@]} -gt 0 ]]; then

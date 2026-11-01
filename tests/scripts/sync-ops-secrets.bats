@@ -245,6 +245,13 @@ STUB
   [[ "$output" =~ "--heartbeat-env requires a value" ]] || false
 }
 
+@test "sync-ops-secrets.sh refuses the same environment for ops and heartbeat secrets before any write" {
+  run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE" --repo "example-owner/infra" --env heartbeat
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "must differ" ]] || false
+  [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
+}
+
 @test "sync-ops-secrets.sh validates OCI_BACKUP_HOSTS and GCP_BACKUP_HOSTS before the first gh secret write" {
   mv "$STUB_BIN/tofu" "$STUB_BIN/tofu-real"
   cat >"$STUB_BIN/tofu" <<'STUB'

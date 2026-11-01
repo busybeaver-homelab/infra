@@ -41,6 +41,8 @@ jobs:
 
       - name: Setup Environment
         uses: $/.github/actions/setup-environment
+        with:
+          cache: "false" # no shared tool cache in jobs holding ops secrets (design 4.7)
 
       - name: Cache Restic Repository Metadata
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

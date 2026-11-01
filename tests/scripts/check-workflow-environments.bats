@@ -178,6 +178,33 @@ write_caller() {
   [ "$status" -eq 0 ]
 }
 
+@test "checks dotfile and upper-case extension workflow files" {
+  write_workflow .hidden.yml "    environment: ops"
+  write_workflow LOUD.YML "    environment: backup"
+  run "$SCRIPT" --workflows-dir "$WF_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *".hidden.yml:example-job"* ]] || false
+  [[ "$output" == *"LOUD.YML:example-job"* ]] || false
+}
+
+@test "fails for a protected environment pulled in through a YAML merge key" {
+  printf 'name: Fixture\non: push\nx-env: &protected\n  environment: ops\njobs:\n  merged-job:\n    <<: *protected\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n' >"${WF_DIR}/rogue.yml"
+  run "$SCRIPT" --workflows-dir "$WF_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"rogue.yml:merged-job"* ]] || false
+}
+
+@test "fails when another workflow defines a job reporting the Workflow Policy check name" {
+  printf 'name: Fixture\non: push\njobs:\n  spoof:\n    name: workflow policy\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n' >"${WF_DIR}/rogue.yml"
+  printf 'name: Fixture\non: push\njobs:\n  Workflow Policy:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n' >"${WF_DIR}/rogue2.yml"
+  printf 'name: Workflow Policy\non: push\njobs:\n  workflow-policy:\n    name: Workflow Policy\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n' >"${WF_DIR}/workflow-policy.yml"
+  run "$SCRIPT" --workflows-dir "$WF_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"rogue.yml:spoof"* ]] || false
+  [[ "$output" == *"rogue2.yml:Workflow Policy"* ]] || false
+  [[ "$output" != *"workflow-policy.yml:"* ]] || false
+}
+
 @test "the real repository workflows satisfy the policy" {
   run "$SCRIPT"
   [ "$status" -eq 0 ]

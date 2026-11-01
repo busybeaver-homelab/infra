@@ -54,9 +54,9 @@ setup() {
 
 @test "workflow uses least privilege and declares no environment anywhere" {
   run yq -o=json -I=0 '.permissions' "$WORKFLOW"
+  [ "$output" = '{}' ]
+  run yq -o=json -I=0 '.jobs[].permissions' "$WORKFLOW"
   [ "$output" = '{"contents":"read"}' ]
-  run yq -r '.jobs[] | has("permissions")' "$WORKFLOW"
-  [ "$output" = "false" ]
 
   run yq -r '[.. | select(tag == "!!map") | select(has("environment"))] | length' "$WORKFLOW"
   [ "$status" -eq 0 ]
@@ -76,27 +76,28 @@ setup() {
   [ "$output" = "audit" ]
 }
 
-@test "all uses: entries are SHA-pinned or the local setup composite" {
+@test "all uses: entries are SHA-pinned external actions (no local composite)" {
   local line target count=0
   while IFS= read -r line; do
     target="$(sed -E 's/^[[:space:]]*uses:[[:space:]]*//; s/[[:space:]]*#.*$//' <<<"$line")"
     count=$((count + 1))
-    if [[ "$target" =~ ^(\./|\$/)\.?github/actions/setup-environment$ ]]; then
-      continue
-    fi
     [[ "$target" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+(/[^@]+)?@[a-f0-9]{40}$ ]] || {
       echo "unpinned: $line" >&2
       return 1
     }
   done < <(grep -E '^[[:space:]]*uses:' "$WORKFLOW")
-  [ "$count" -ge 3 ]
+  [ "$count" -eq 2 ]
 }
 
-@test "checkout does not persist credentials and the job runs the policy script via mise" {
+@test "checkout does not persist credentials and the job runs the policy script without mise or repo config" {
   run yq -r '.jobs[].steps[] | select(.uses | test("^actions/checkout@")) | .with."persist-credentials"' "$WORKFLOW"
   [ "$output" = "false" ]
   run yq -r '.jobs[].steps[] | select(.run != null) | .run' "$WORKFLOW"
-  [[ "$output" == *"mise exec -- "*"scripts/check-workflow-environments.sh"* ]] || false
+  [[ "$output" == *'env -i PATH=/usr/local/bin:/usr/bin:/bin /bin/bash scripts/check-workflow-environments.sh'* ]] || false
+  # Unowned mise.toml, mise.lock or .venv must not be able to swap the yq the check uses (design 4.7).
+  [[ "$output" != *"mise"* ]] || false
+  run bash -c "sed -E 's/#.*$//' \"\$1\" | grep -E 'setup-environment|mise'" _ "$WORKFLOW"
+  [ "$status" -eq 1 ]
 }
 
 @test "no run: block interpolates GitHub expressions" {

@@ -32,6 +32,8 @@ jobs:
 
       - name: Setup Environment
         uses: $/.github/actions/setup-environment
+        with:
+          cache: "false" # no shared tool cache in jobs holding ops secrets (design 4.7)
 
       - name: Prune primary OCI backup repository
         env:

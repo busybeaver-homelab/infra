@@ -112,6 +112,12 @@ if [[ ! "$HEARTBEAT_ENV_NAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
   exit 1
 fi
 
+# The heartbeat environment is declared by ci.yml and codeql.yml; ops secrets must never land there.
+if [[ "$(printf '%s' "$ENV_NAME" | tr '[:upper:]' '[:lower:]')" == "$(printf '%s' "$HEARTBEAT_ENV_NAME" | tr '[:upper:]' '[:lower:]')" ]]; then
+  echo "ERROR: --env and --heartbeat-env must differ (both are '$ENV_NAME')." >&2
+  exit 1
+fi
+
 # Prune-capable keys, endpoints, buckets and the prune heartbeat URL (fails closed).
 prune_json="$("$SCRIPT_DIR/get-tofu-restic-vars.sh" --mode prune --tofu-dir "$TOFU_DIR" --sops-file "$CREDENTIALS_FILE")"
 

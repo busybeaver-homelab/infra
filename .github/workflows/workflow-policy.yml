@@ -31,14 +31,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   workflow-policy:
     name: Workflow Policy
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
     timeout-minutes: 10
+    permissions:
+      contents: read # checkout only
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
@@ -50,8 +51,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Environment
-        uses: $/.github/actions/setup-environment
-
+      # No mise and no setup composite: mise.toml, mise.lock and .venv are unowned, so a PR
+      # could otherwise swap the yq this check relies on. The owned script runs with the
+      # runner image's yq under a fixed PATH and fails closed if yq is missing (design 4.7).
       - name: Verify protected workflow environments
-        run: mise exec -- bash scripts/check-workflow-environments.sh
+        run: env -i PATH=/usr/local/bin:/usr/bin:/bin /bin/bash scripts/check-workflow-environments.sh
