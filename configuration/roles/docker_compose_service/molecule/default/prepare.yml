@@ -194,7 +194,7 @@
 
           class Handler(BaseHTTPRequestHandler):
               def do_GET(self):
-                  if self.path == "/repos/busybeaver/homelab-services/releases/latest":
+                  if self.path == "/repos/busybeaver-homelab/services/releases/latest":
                       tag = (ROOT / "active-tag").read_text(encoding="utf-8").strip()
                       payload = {
                           "tag_name": tag,
