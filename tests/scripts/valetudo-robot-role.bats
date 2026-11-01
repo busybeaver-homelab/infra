@@ -390,3 +390,31 @@ YAML
 @test "tailscale always-cleanup removes the staged key and its .part file" {
   [ "$(yq eval '[.. | select(tag == "!!map" and has("always")) | .always[] | select(.["ansible.builtin.raw"] == "rm -f /data/.incoming/tskey /data/.incoming/tskey.part")] | length' "${TAILSCALE}")" -eq 1 ]
 }
+
+@test "every block in the role rescues, and each phase block fails again through reraise.yml (CKV2_ANSIBLE_3)" {
+  local f checked=0
+  for f in "${ROLE_DIR}"/tasks/*.yml; do
+    [ "$(yq eval '[.. | select(tag == "!!map" and has("block") and (has("rescue") | not))] | length' "${f}")" -eq 0 ] || {
+      echo "$(basename "${f}"): block without rescue"
+      return 1
+    }
+    [ "$(yq eval '[.[] | select(has("block")) | select(.rescue[-1]["ansible.builtin.import_tasks"] != "reraise.yml")] | length' "${f}")" -eq 0 ] || {
+      echo "$(basename "${f}"): phase block rescue does not end by importing reraise.yml"
+      return 1
+    }
+    checked=$((checked + 1))
+  done
+  [ "${checked}" -ge 7 ]
+}
+
+@test "reraise.yml repeats only messages authored by fail/assert and otherwise names the task" {
+  local reraise="${ROLE_DIR}/tasks/reraise.yml"
+  [ "$(yq eval 'length' "${reraise}")" -eq 1 ]
+  local msg
+  msg=$(yq eval '.[0]["ansible.builtin.fail"].msg' "${reraise}")
+  [[ "${msg}" == *"if valetudo_robot_reraise_authored"[[:space:]]* ]] || false
+  [[ "${msg}" == *"ansible_failed_task.name"* ]] || false
+  [[ "$(yq eval '.[0].vars.valetudo_robot_reraise_authored' "${reraise}")" == *"in ['fail', 'assert']"* ]] || false
+  # Raw module output never reaches the message.
+  [ "$(yq eval '[.. | select(tag == "!!str") | select(test("[.](stderr|stdout)"))] | length' "${reraise}")" -eq 0 ]
+}

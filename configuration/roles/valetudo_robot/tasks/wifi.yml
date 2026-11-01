@@ -155,3 +155,6 @@
 
     - name: End the host after the Wi-Fi submission
       ansible.builtin.meta: end_host
+  rescue:
+    - name: Fail again with the wifi phase failure
+      ansible.builtin.import_tasks: reraise.yml

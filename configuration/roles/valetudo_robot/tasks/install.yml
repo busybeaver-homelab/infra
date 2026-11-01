@@ -322,3 +322,6 @@
           Applying the postboot block failed with exit {{ valetudo_robot_postboot.rc | default('unknown') }}:
           {{ valetudo_robot_postboot_errors[valetudo_robot_postboot.rc | string] | default('unexpected robot-provision.sh failure') }}.
         quiet: true
+  rescue:
+    - name: Fail again with the install phase failure
+      ansible.builtin.import_tasks: reraise.yml

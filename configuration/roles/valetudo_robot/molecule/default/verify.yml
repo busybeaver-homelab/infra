@@ -186,6 +186,55 @@
               - ansible_failed_result.results | map(attribute='msg') | join(' ') is search('valetudo_robot_tailscale_version must be')
             quiet: true
 
+    # The shared phase rescue: a non-authored failure (slurp names its path in the
+    # message) is reported by task name only, even though the raw result holds it.
+    - name: Report a non-authored phase failure by task name only
+      block:
+        - name: Run a phase-shaped block whose no_log slurp fails
+          block:
+            - name: Read a missing marker file
+              ansible.builtin.slurp:
+                src: /nonexistent/reraise-marker
+              delegate_to: localhost
+              no_log: true
+          rescue:
+            - name: Fail again through the role's shared rescue
+              ansible.builtin.import_tasks: "{{ playbook_dir }}/../../tasks/reraise.yml"
+        - name: Fail if the shared rescue swallowed the failure
+          ansible.builtin.fail:
+            msg: The shared rescue swallowed a failure.
+      rescue:
+        - name: Assert only the task name is reported
+          ansible.builtin.assert:
+            that:
+              - ansible_failed_result.msg is match('^Task "Read a missing marker file" failed;')
+              - "'reraise-marker' not in ansible_failed_result.msg"
+            quiet: true
+
+    - name: Repeat the failed items of an authored loop
+      block:
+        - name: Run a phase-shaped block whose looped assert fails on one item
+          block:
+            - name: Assert every synthetic item is good
+              ansible.builtin.assert:
+                that:
+                  - item != 'bad'
+                fail_msg: "item {{ item }} is not good"
+                quiet: true
+              loop: [good, bad]
+          rescue:
+            - name: Fail again through the role's shared rescue
+              ansible.builtin.import_tasks: "{{ playbook_dir }}/../../tasks/reraise.yml"
+        - name: Fail if the shared rescue swallowed the loop failure
+          ansible.builtin.fail:
+            msg: The shared rescue swallowed a loop failure.
+      rescue:
+        - name: Assert the failed item's message passes through unchanged
+          ansible.builtin.assert:
+            that:
+              - ansible_failed_result.msg == 'item bad is not good'
+            quiet: true
+
     # API paths are role defaults, so recon can correct them in one place.
     - name: Load the role's API path defaults
       ansible.builtin.include_vars:

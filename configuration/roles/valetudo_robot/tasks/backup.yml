@@ -191,3 +191,6 @@
       failed_when: >-
         valetudo_robot_backup_mark.rc != 0
         or valetudo_robot_backup_mark.stdout is not search('CHANGED=[01]')
+  rescue:
+    - name: Fail again with the backup phase failure
+      ansible.builtin.import_tasks: reraise.yml

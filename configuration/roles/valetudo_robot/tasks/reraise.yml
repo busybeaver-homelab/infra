@@ -1,0 +1,25 @@
+---
+# Shared rescue for the phase blocks (imported, so phase tags apply). Every block
+# rescues (Checkov CKV2_ANSIBLE_3) and fails again here, so a failure still stops
+# the host and the block's always section still runs.
+#
+# Messages written by this role's fail/assert tasks are sanitized and pass through
+# unchanged; a loop reports its failed items' messages. Any other module's result
+# is raw here even when its task is no_log, and can carry robot addresses or
+# credentials, so only the task name is reported.
+
+- name: Fail again with the phase failure
+  vars:
+    valetudo_robot_reraise_authored: >-
+      {{ (ansible_failed_task.action | default('') | regex_replace('^ansible[.](builtin|legacy)[.]', ''))
+         in ['fail', 'assert'] }}
+    valetudo_robot_reraise_item_msgs: >-
+      {{ ansible_failed_result.results | default([]) | selectattr('failed', 'defined') | selectattr('failed')
+         | map(attribute='msg') | select('defined') | list }}
+  ansible.builtin.fail:
+    msg: >-
+      {{ ((valetudo_robot_reraise_item_msgs | join(' ')) if valetudo_robot_reraise_item_msgs | length > 0
+          else ansible_failed_result.msg | default('the task failed without a message'))
+         if valetudo_robot_reraise_authored
+         else 'Task "' ~ (ansible_failed_task.name | default('unknown')) ~ '" failed; its output is hidden or'
+              ~ ' shown above, and is not repeated here because it can contain robot addresses or credentials.' }}

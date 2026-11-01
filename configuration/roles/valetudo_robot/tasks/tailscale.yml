@@ -259,6 +259,9 @@
               tailscale-join reported success but the robot Tailscale backend is not Running; check the tailnet
               admin console for the device, then re-run with --tags tailscale.
             quiet: true
+      rescue:
+        - name: Fail again with the tailnet join failure
+          ansible.builtin.import_tasks: reraise.yml
       always:
         - name: Remove the controller auth key tempfile
           ansible.builtin.file:
@@ -277,3 +280,6 @@
           changed_when: false
           failed_when: false
           ignore_unreachable: true
+  rescue:
+    - name: Fail again with the tailscale phase failure
+      ansible.builtin.import_tasks: reraise.yml

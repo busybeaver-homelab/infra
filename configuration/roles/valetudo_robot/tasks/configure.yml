@@ -281,3 +281,6 @@
       changed_when: true
       when: not ansible_check_mode
       no_log: true
+  rescue:
+    - name: Fail again with the configure phase failure
+      ansible.builtin.import_tasks: reraise.yml
