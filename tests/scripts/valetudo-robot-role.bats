@@ -73,12 +73,41 @@ SPECS="${ROLE_DIR}/meta/argument_specs.yml"
 @test "tasks/main.yml imports the preflight (always), backup, install, wifi and configure phases" {
   local main="${ROLE_DIR}/tasks/main.yml"
   [ -f "${main}" ]
-  [ "$(yq eval '[.[] | .["ansible.builtin.import_tasks"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml,wifi.yml,configure.yml" ]
-  [ "$(yq eval '.[0].tags | sort | join(",")' "${main}")" = "always,preflight" ]
-  [ "$(yq eval '.[1].tags | join(",")' "${main}")" = "backup" ]
-  [ "$(yq eval '.[2].tags | join(",")' "${main}")" = "install" ]
-  [ "$(yq eval '.[3].tags | join(",")' "${main}")" = "wifi" ]
-  [ "$(yq eval '.[4].tags | join(",")' "${main}")" = "configure" ]
+  [ "$(yq eval '[.[] | select(has("ansible.builtin.import_tasks")) | .["ansible.builtin.import_tasks"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml,wifi.yml,configure.yml" ]
+  [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "preflight.yml") | .tags | sort | join(",")' "${main}")" = "always,preflight" ]
+  [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "backup.yml") | .tags | join(",")' "${main}")" = "backup" ]
+  [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "install.yml") | .tags | join(",")' "${main}")" = "install" ]
+  [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "wifi.yml") | .tags | join(",")' "${main}")" = "wifi" ]
+  [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "configure.yml") | .tags | join(",")' "${main}")" = "configure" ]
+}
+
+@test "main.yml flushes handlers (always) between the install and wifi imports" {
+  local main="${ROLE_DIR}/tasks/main.yml"
+  [ "$(yq eval '[.[] | .["ansible.builtin.import_tasks"] // .["ansible.builtin.meta"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml,flush_handlers,wifi.yml,configure.yml" ]
+  [ "$(yq eval '.[3].tags | join(",")' "${main}")" = "always" ]
+}
+
+@test "wifi phase treats a response-less PUT as submitted and fails on an HTTP error" {
+  local wifi="${ROLE_DIR}/tasks/wifi.yml"
+  grep -qF 'failed_when: false' "${wifi}"
+  grep -qF 'Valetudo rejected the Wi-Fi configuration (HTTP status' "${wifi}"
+  grep -qF "not in [-1, 200, 204]" "${wifi}"
+}
+
+@test "configure phase uses distinct messages for a rejected and an accepted-but-ineffective auth PUT" {
+  local configure="${ROLE_DIR}/tasks/configure.yml"
+  grep -qF "basic auth PUT was accepted but the re-probe still fails; re-run with --tags configure" "${configure}"
+  grep -qF 'basic auth could not be set: Valetudo rejects the SOPS credentials' "${configure}"
+}
+
+@test "secret role inputs are no_log in argument_specs" {
+  local key
+  for key in valetudo_robot_basic_auth_username valetudo_robot_basic_auth_password valetudo_robot_wifi_psk; do
+    [ "$(yq eval ".argument_specs.main.options.${key}.no_log" "${SPECS}")" = true ] || {
+      echo "${key} lacks no_log"
+      return 1
+    }
+  done
 }
 
 @test "backup phase runs the git-crypt guard before pulling calibration data" {

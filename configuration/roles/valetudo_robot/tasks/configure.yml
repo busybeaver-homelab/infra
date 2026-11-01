@@ -161,7 +161,20 @@
       no_log: true
 
     # Review Focus 3: no retry loop. One re-probe, then a clear failure.
-    - name: Fail when basic auth could not be set
+    - name: Fail when Valetudo accepted the auth change but the re-probe still fails
+      ansible.builtin.fail:
+        msg: >-
+          basic auth PUT was accepted but the re-probe still fails; re-run with --tags configure
+          or check Valetudo's auth settings
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+        - valetudo_robot_auth_reprobe.status | default(0) != 200
+        - >-
+          valetudo_robot_auth_put.status | default(0) in [200, 204]
+          or valetudo_robot_auth_put_retry.status | default(0) in [200, 204]
+
+    - name: Fail when Valetudo rejected the auth change
       ansible.builtin.fail:
         msg: >-
           basic auth could not be set: Valetudo rejects the SOPS credentials and refuses unauthenticated
@@ -170,6 +183,8 @@
         - not ansible_check_mode
         - not valetudo_robot_auth_in_sync | bool
         - valetudo_robot_auth_reprobe.status | default(0) != 200
+        - valetudo_robot_auth_put.status | default(0) not in [200, 204]
+        - valetudo_robot_auth_put_retry.status | default(0) not in [200, 204]
 
     - name: Read the current Valetudo settings
       ansible.builtin.uri:

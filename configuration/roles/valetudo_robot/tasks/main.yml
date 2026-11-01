@@ -15,6 +15,15 @@
   ansible.builtin.import_tasks: install.yml
   tags: [install]
 
+# install.yml notifies "Reboot robot". Flush it here, before anything talks to
+# Valetudo, so wifi and configure always reach the rebooted robot and a queued
+# reboot is never dropped by wifi's end_host. Tagged always so that partial
+# re-runs (for example --tags configure,tailscale) keep a flush point; with no
+# handler queued it is a no-op.
+- name: Flush valetudo_robot handlers before the Valetudo API phases
+  ansible.builtin.meta: flush_handlers
+  tags: [always]
+
 - name: Submit valetudo_robot Wi-Fi configuration when off the home network
   ansible.builtin.import_tasks: wifi.yml
   tags: [wifi]

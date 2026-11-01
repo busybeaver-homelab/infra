@@ -96,7 +96,7 @@
     - name: Wait for the mock Valetudo API container to publish its ports
       ansible.builtin.command:
         argv: [docker, port, valetudo-robot-mock-api, "{{ item }}/tcp"]
-      loop: ["8080", "8081"]
+      loop: ["8080", "8081", "8082", "8083"]
       register: valetudo_robot_fixture_ports
       changed_when: false
       retries: 10
@@ -144,6 +144,8 @@
           valetudo_robot_backup_dir: "{{ valetudo_robot_fixture_repo }}/backups/robots/x40-ultra"
           valetudo_robot_api_base_url: "http://127.0.0.1:{{ valetudo_robot_fixture_ports.results[0].stdout_lines[0].split(':')[-1] }}"
           valetudo_robot_verify_mismatch_api_base_url: "http://127.0.0.1:{{ valetudo_robot_fixture_ports.results[1].stdout_lines[0].split(':')[-1] }}"
+          valetudo_robot_verify_wifi_drop_api_base_url: "http://127.0.0.1:{{ valetudo_robot_fixture_ports.results[2].stdout_lines[0].split(':')[-1] }}"
+          valetudo_robot_verify_auth_put_ignored_api_base_url: "http://127.0.0.1:{{ valetudo_robot_fixture_ports.results[3].stdout_lines[0].split(':')[-1] }}"
           valetudo_robot_basic_auth_username: molecule-user
           valetudo_robot_basic_auth_password: "{{ valetudo_robot_fixture_basic_auth_password }}"
           valetudo_robot_wifi_ssid: molecule-test-ssid

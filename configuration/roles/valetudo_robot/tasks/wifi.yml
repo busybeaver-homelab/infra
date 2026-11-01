@@ -36,6 +36,9 @@
         - valetudo_robot_wifi_ssid
         - valetudo_robot_wifi_psk
 
+    # The robot may drop its access point before it answers, so a request that
+    # ends without any HTTP status (-1: connection drop or timeout) counts as
+    # submitted. An HTTP error status is a real rejection and fails below.
     - name: Submit the Wi-Fi configuration to Valetudo
       ansible.builtin.uri:
         url: "{{ valetudo_robot_api_base_url | regex_replace('/+$', '') }}{{ valetudo_robot_api_wifi_path }}"
@@ -52,11 +55,31 @@
               password: "{{ valetudo_robot_wifi_psk }}"
         status_code: [200, 204]
         timeout: "{{ valetudo_robot_api_timeout }}"
+      register: valetudo_robot_wifi_put
+      failed_when: false
+      changed_when: valetudo_robot_wifi_put.status | default(-1) in [-1, 200, 204]
       delegate_to: localhost
       become: false
       when: not ansible_check_mode
-      changed_when: true
       no_log: true
+
+    - name: Fail when Valetudo rejects the Wi-Fi configuration
+      ansible.builtin.fail:
+        msg: >-
+          Valetudo rejected the Wi-Fi configuration (HTTP status {{ valetudo_robot_wifi_put.status }});
+          check the basic-auth credentials and the Wi-Fi settings.
+      when:
+        - not ansible_check_mode
+        - valetudo_robot_wifi_put.status | default(-1) not in [-1, 200, 204]
+
+    - name: Note that the Wi-Fi submission got no HTTP response
+      ansible.builtin.debug:
+        msg: >-
+          Valetudo sent no HTTP response to the Wi-Fi submission; the robot most likely left its access point,
+          so the submission is treated as sent.
+      when:
+        - not ansible_check_mode
+        - valetudo_robot_wifi_put.status | default(-1) == -1
 
     - name: Report that the Wi-Fi submission would change the robot
       ansible.builtin.debug:

@@ -9,8 +9,13 @@ value, and without any request body.
 
 Endpoint paths follow Valetudo's documented v2 API; verify at recon (plan Task 0).
 
-Start-up flag --scenario auth_mismatch pre-enables auth with credentials that
-differ from anything the role sends.
+Start-up flag --scenario selects a failure mode:
+  auth_mismatch    auth is pre-enabled with credentials that differ from anything
+                   the role sends.
+  auth_put_ignored an auth PUT is acknowledged with 200 but enables auth with the
+                   preset credentials instead, so the role's re-probe fails.
+  wifi_drop        a valid Wi-Fi PUT is logged (status 0) and the connection is
+                   closed without any response, like a robot leaving its AP.
 """
 
 import argparse
@@ -40,6 +45,7 @@ class MockState:
 
     def __init__(self, scenario: str, log_path: str) -> None:
         self.lock = threading.Lock()
+        self.scenario = scenario
         self.log_path = log_path
         self.auth_enabled = scenario == "auth_mismatch"
         self.auth_username = PRESET_USERNAME if self.auth_enabled else ""
@@ -90,6 +96,9 @@ def make_handler(state: MockState) -> type[BaseHTTPRequestHandler]:
                 self.send_header(name, value)
             self.end_headers()
             self.wfile.write(body)
+            self._record(status)
+
+        def _record(self, status: int) -> None:
             entry = {
                 "method": self.command,
                 "path": self.path.split("?", 1)[0],
@@ -145,6 +154,12 @@ def make_handler(state: MockState) -> type[BaseHTTPRequestHandler]:
             if not valid:
                 self._finish(400, {"error": "invalid auth configuration"})
                 return
+            if state.scenario == "auth_put_ignored":
+                state.auth_enabled = True
+                state.auth_username = PRESET_USERNAME
+                state.auth_password = PRESET_PASSWORD
+                self._finish(200, {"status": "ok"})
+                return
             enabled = body["enabled"]
             state.auth_enabled = enabled
             state.auth_username = body["username"] if enabled else ""
@@ -175,6 +190,10 @@ def make_handler(state: MockState) -> type[BaseHTTPRequestHandler]:
                 self._finish(400, {"error": "invalid wifi configuration"})
                 return
             state.wifi_ssid = body["ssid"]
+            if state.scenario == "wifi_drop":
+                self._record(0)
+                self.close_connection = True
+                return
             self._finish(200, {"status": "ok"})
 
         def _capability(self, method: str, name: str) -> None:
@@ -206,7 +225,9 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--log", default="/tmp/requests.jsonl")
     parser.add_argument(
-        "--scenario", choices=["default", "auth_mismatch"], default="default"
+        "--scenario",
+        choices=["default", "auth_mismatch", "auth_put_ignored", "wifi_drop"],
+        default="default",
     )
     args = parser.parse_args()
     state = MockState(args.scenario, args.log)

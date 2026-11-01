@@ -126,10 +126,12 @@ argument_specs:
       valetudo_robot_basic_auth_username:
         type: str
         required: false
+        no_log: true
         description: Valetudo basic-auth username from SOPS. Required by the configure and wifi phases; never defaulted (R2-GOV-05).
       valetudo_robot_basic_auth_password:
         type: str
         required: false
+        no_log: true
         description: Valetudo basic-auth password from SOPS. Required by the configure and wifi phases; never defaulted (R2-GOV-05).
       valetudo_robot_wifi_ssid:
         type: str
@@ -138,4 +140,5 @@ argument_specs:
       valetudo_robot_wifi_psk:
         type: str
         required: false
+        no_log: true
         description: Home Wi-Fi WPA2 pre-shared key from SOPS. Required by the wifi phase; never defaulted (R2-GOV-05).
