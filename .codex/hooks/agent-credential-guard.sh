@@ -25,7 +25,7 @@ fi
 
 # Codex currently fails open on PreToolUse ask. Translate a well-formed ask to a
 # blocking exit instead; the owner runs gated operations outside the agent.
-if printf '%s' "$decision" | python3 -c '
+if printf '%s' "$decision" | python3 -I -c '
 import json
 import sys
 try:

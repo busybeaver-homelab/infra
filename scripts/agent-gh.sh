@@ -12,7 +12,7 @@ refuse() {
 # Check every argument, including commands preceded by gh global options.
 for arg in "$@"; do
   case "$arg" in
-    auth | secret | secrets | variable | variables | ruleset | rulesets | alias | aliases | extension | extensions | ext | --admin*) refuse ;;
+    auth | secret | secrets | variable | variables | ruleset | rulesets | alias | aliases | extension | extensions | ext | ssh-key | gpg-key | --admin*) refuse ;;
   esac
 done
 repo_value=false
@@ -44,6 +44,33 @@ if [[ "$args" == *' api '* ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# This wrapper runs outside the agent sandbox. Any argument naming a local file
+# must stay in this checkout or a temporary directory and carry no key material.
+repo_root="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+tmp_root="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
+system_tmp="$(cd /tmp && pwd -P)"
+secret_pattern='-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----|AGE-SECRET-KEY-1|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}'
+check_file() {
+  local path="$1" real
+  [[ "$path" != - && -e "$path" ]] || return 0
+  real="$(cd "$(dirname "$path")" && pwd -P)/$(basename "$path")"
+  case "$real" in
+    "$repo_root"/secrets | "$repo_root"/secrets/* | "$repo_root"/.git | "$repo_root"/.git/*) refuse ;;
+    "$repo_root"/* | "$tmp_root"/* | "$system_tmp"/*) ;;
+    *) refuse ;;
+  esac
+  if [[ -f "$real" ]] && LC_ALL=C grep -aqE -- "$secret_pattern" "$real"; then
+    refuse
+  fi
+}
+for arg in "$@"; do
+  check_file "$arg"
+  [[ "$arg" != *=* ]] || check_file "${arg#*=}"
+  [[ "$arg" != *=@* ]] || check_file "${arg#*=@}"
+  [[ "$arg" != @* ]] || check_file "${arg#@}"
+  [[ "$arg" != -F?* ]] || check_file "${arg#-F}"
+done
+
 # shellcheck source=scripts/lib/github-app-token.sh
 source "$SCRIPT_DIR/lib/github-app-token.sh"
 token="$(github_app_mint_token)" || exit $?

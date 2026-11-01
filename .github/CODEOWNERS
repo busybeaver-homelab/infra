@@ -9,6 +9,14 @@
 /.agent/agent-permissions.json      @busybeaver
 /scripts/agent-*                   @busybeaver
 /scripts/lib/github-app-token.sh   @busybeaver
+/tests/scripts/agent-credential-guard.bats @busybeaver
+/tests/scripts/codex-credential-guard.bats @busybeaver
+/tests/scripts/antigravity-credential-guard.bats @busybeaver
+/tests/scripts/agent-routing.bats @busybeaver
+/tests/scripts/agent-gh.bats @busybeaver
+/tests/scripts/agent-git.bats @busybeaver
+/tests/scripts/helpers/agent_app.bash @busybeaver
+/tests/scripts/helpers/agent_routing.bash @busybeaver
 /.sops.yaml                         @busybeaver
 /.sops-recipients.allowlist        @busybeaver
 /.gitattributes                     @busybeaver

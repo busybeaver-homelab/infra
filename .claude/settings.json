@@ -41,7 +41,22 @@
       "mcp__github__update_security_advisory",
       "mcp__github__create_repository_security_advisory",
       "mcp__github__update_code_scanning_alert",
-      "mcp__github__update_secret_scanning_alert"
+      "mcp__github__update_secret_scanning_alert",
+      "Read(~/.config/gh/**)",
+      "Read(~/Library/Application Support/gh/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.git-credentials)",
+      "Read(~/.netrc)",
+      "Edit(/.claude/**)",
+      "Edit(/.codex/**)",
+      "Edit(/.agent/hooks/**)",
+      "Edit(/.agents/hooks.json)",
+      "Edit(/scripts/agent-*)",
+      "Edit(/scripts/lib/github-app-token.sh)",
+      "Edit(/scripts/guard-*)",
+      "Edit(/lefthook.yml)",
+      "Edit(/.git/hooks/**)"
     ]
   },
   "sandbox": {
@@ -54,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-credential-guard.sh\""
+            "command": "guard=\"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-credential-guard.sh\"; test -f \"$guard\" || { printf '%s\\n' 'Agent credential guard: classifier unavailable; refusing the call.' >&2; exit 2; }; exec /bin/bash \"$guard\""
           }
         ]
       },
@@ -63,7 +78,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-credential-guard.sh\""
+            "command": "guard=\"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-credential-guard.sh\"; test -f \"$guard\" || { printf '%s\\n' 'Agent credential guard: classifier unavailable; refusing the call.' >&2; exit 2; }; exec /bin/bash \"$guard\""
           }
         ]
       }

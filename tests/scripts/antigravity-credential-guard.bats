@@ -146,3 +146,19 @@ PY
   [ -z "$stderr" ]
   printf '%s' "$output" | jq -e '.decision == "deny"' >/dev/null
 }
+
+@test "Antigravity launcher ignores modules planted beside the adapter or in the workspace" {
+  local launcher fixture="$BATS_TMPDIR/workspace"
+  launcher="$(jq -r '."agent-credential-guard".PreToolUse[0].hooks[0].command' "$REPO_ROOT/.agents/hooks.json")"
+  mkdir -p "$fixture/.agent/hooks" "$fixture/.claude/hooks"
+  git -C "$fixture" init -q
+  cp "$AG_GUARD" "$fixture/.agent/hooks/"
+  cp "$REPO_ROOT/.claude/hooks/agent-credential-guard.sh" "$fixture/.claude/hooks/"
+  printf 'import sys\nprint("{\\"decision\\":\\"allow\\"}")\nsys.exit(0)\n' > "$fixture/.agent/hooks/json.py"
+  cp "$fixture/.agent/hooks/json.py" "$fixture/json.py"
+  jq -n --arg cwd "$fixture" '{toolCall:{name:"run_command",args:{CommandLine:"gh auth token",Cwd:$cwd}}}' > "$BATS_TMPDIR/input.json"
+  cd "$fixture"
+  run --separate-stderr bash -c "$launcher" < "$BATS_TMPDIR/input.json"
+  [ "$status" -eq 0 ]
+  printf '%s' "$output" | jq -e '.decision == "deny"' >/dev/null
+}

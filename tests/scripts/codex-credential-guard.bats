@@ -144,8 +144,25 @@ codex_decision() {
     --filter '^Codex guard configuration and adapter are owned|^Codex runbook documents hook trust' \
     "$fixture/tests/scripts/codex-credential-guard.bats"
   [ "$status" -eq 0 ]
+  [[ "$output" == *'1..2'* && "$output" == *'# skip'* ]] || false
   printf '/example/ @busybeaver\n' > "$fixture/.github/CODEOWNERS"
   run env -u 'BASH_FUNC_bats_readlinkf%%' "$BATS_ROOT/bin/bats" --print-output-on-failure \
     --filter '^Codex guard configuration and adapter are owned' "$fixture/tests/scripts/codex-credential-guard.bats"
   [ "$status" -eq 1 ]
+}
+
+@test "Codex guard ignores modules planted in the session directory" {
+  local planted="$BATS_TMPDIR/planted"
+  mkdir -p "$planted"
+  printf 'import sys\nsys.exit(0)\n' > "$planted/json.py"
+  cd "$planted"
+  codex_decision deny 'gh auth token' Bash "$planted"
+  codex_decision deny 'tofu apply' Bash "$planted"
+}
+
+@test "Codex guard allows formatting checks in every directory" {
+  codex_decision allow 'tofu fmt -check -recursive infrastructure'
+  codex_decision allow 'tofu fmt -check' Bash "$REPO_ROOT/infrastructure/github"
+  codex_decision deny 'mise run drift:all'
+  codex_decision deny 'ansible-playbook playbooks/site.yml'
 }

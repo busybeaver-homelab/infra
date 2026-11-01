@@ -7,9 +7,12 @@ if ! command -v python3 >/dev/null 2>&1; then
   printf '%s\n' 'Agent credential guard: Python 3 is required; refusing the call.' >&2
   exit 2
 fi
+guard_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
 # Keep hook JSON on fd 3; stdin supplies the fixed program, not incoming code.
-if python3 - "$@" 3<&0 <<'PY'
+# -I keeps the session directory and PYTHON* variables out of module lookup.
+if AGENT_GUARD_ROOT="$guard_root" python3 -I - "$@" 3<&0 <<'PY'
+import glob
 import json
 import os
 import re
@@ -42,9 +45,54 @@ READ_TOOLS = {
     "search_users", "actions_get", "actions_list", "get_job_logs",
     "get_code_quality_finding", "get_code_scanning_alert",
 }
+CREDENTIAL_PATHS = re.compile(
+    r"(?:\.config|Library/Application Support)/gh(?:/|$)|(?:^|[/=@])\.(?:ssh|gnupg)(?:/|$)"
+    r"|\.git-credentials|\.netrc"
+)
+WRAPPER_PATHS = re.compile(r"\.config/sops|keys\.txt|(?:^|[/=@])(?:secrets|\.git)(?:/|$)")
+INTERPRETERS = re.compile(
+    r"(?:ba|z|da|k|fi)?sh|eval|python[0-9.]*|perl|ruby|node|osascript|g?awk|pwsh|tclsh"
+)
+# Git settings that run programs, redirect hooks or include other config.
+GIT_EXEC_KEYS = re.compile(
+    r"(?:core\.(?:hookspath|pager|editor|sshcommand|fsmonitor|askpass|gitproxy)"
+    r"|sequence\.editor|diff\.external|diff\..+\.(?:textconv|command)|filter\..+"
+    r"|merge\..+\.driver|gpg(?:\..+)?\.program|include\.path|includeif\..+"
+    r"|pager\..+|interactive\.difffilter|uploadpack\..+|receivepack\..+)(?:=.*)?"
+)
+GIT_EXEC_ENV = re.compile(
+    r"(?:GIT_(?:EXTERNAL_DIFF|SSH|SSH_COMMAND|ASKPASS|EDITOR|SEQUENCE_EDITOR|EXEC_PATH"
+    r"|CONFIG_PARAMETERS|CONFIG_COUNT|CONFIG_KEY_\w+|CONFIG_VALUE_\w+|CONFIG_GLOBAL"
+    r"|CONFIG_SYSTEM|TEMPLATE_DIR)|LEFTHOOK\w*)=.*"
+)
+# Repository entry points that consume production credentials (R2-GOV-05).
+GATED_SCRIPTS = {
+    "sync-github-repo-settings.sh", "sync-ops-secrets.sh", "sync-cloudflare-budget-alert.sh",
+    "drift.sh", "drift-cloudflare.sh", "drift-dns.sh", "bootstrap-state-backend.sh",
+    "generate-inventory.sh", "get-tofu-restic-vars.sh", "get-tofu-robot-vars.sh",
+}
+GATED_TASKS = re.compile(r"(?:github:sync|sync:|drift(?::|$)|ansible:inventory).*")
+SOPS_ACTIONS = {
+    "-e", "--encrypt", "encrypt", "updatekeys", "-r", "--rotate", "rotate", "filestatus",
+    "set", "unset", "--version", "-v", "version", "-h", "--help", "help",
+}
+ANSIBLE_INFO = {"--syntax-check", "--list-tasks", "--list-tags", "--list-hosts", "--version", "-h", "--help"}
+SENSITIVE = re.compile(r"(?<![\w-])(?:gh|git|sops|tofu|security|git-crypt|ansible|ansible-playbook)(?![\w-])")
+EXECUTABLES = {"gh", "git", "sops", "tofu", "security", "git-crypt", "ansible", "ansible-playbook", "mise"}
+LAUNCHERS = {"env", "command", "exec", "nohup", "sudo", "time", "xargs"}
 
 if sys.argv[1:] not in ([], ["--all-tofu-gated"]):
     deny("Unsupported classifier options.")
+all_tofu_gated = sys.argv[1:] == ["--all-tofu-gated"]
+guard_root = os.environ.get("AGENT_GUARD_ROOT", "")
+
+
+def split(text):
+    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    return list(lexer)
+
 
 try:
     with os.fdopen(3) as stream:
@@ -53,7 +101,10 @@ try:
     if not isinstance(tool, str):
         raise ValueError
     if tool != "Bash":
-        if ("github" in tool.lower() or "octocode" in tool.lower()) and tool.rsplit("__", 1)[-1] not in READ_TOOLS:
+        lowered = tool.lower()
+        server = lowered.split("__")[1] if lowered.startswith("mcp__") and lowered.count("__") >= 2 else lowered
+        github_tool = "github" in lowered or "octocode" in lowered or re.search(r"(?:^|[_-])gh(?:[_-]|$)", server)
+        if github_tool and tool.rsplit("__", 1)[-1] not in READ_TOOLS:
             deny("GitHub writes and unclassified tools must use the App wrappers.")
         raise SystemExit(0)
     command = payload["tool_input"]["command"]
@@ -62,14 +113,31 @@ try:
         raise ValueError
     if not isinstance(cwd, str) or not os.path.isabs(cwd):
         raise ValueError
-    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
-    lexer.whitespace_split = True
-    lexer.commenters = ""
-    words = list(lexer)
+    if not os.path.isabs(guard_root):
+        raise ValueError
+    words = split(command)
     if not words:
         raise ValueError
+    # Quoted arguments can carry whole commands (rebase -x, pager settings).
+    # Inspect each nested string that starts with a sensitive executable.
+    segments, pending = [words], [words]
+    while pending and len(segments) < 64:
+        for word in pending.pop():
+            for text in (word, word.split("=", 1)[-1]):
+                if not re.search(r"\s", text):
+                    continue
+                inner = split(text)
+                start = [w for w in inner if "=" not in w.split("/")[0] and w not in LAUNCHERS][:1]
+                if inner and inner not in segments and (
+                    start and os.path.basename(start[0]) in EXECUTABLES | GATED_SCRIPTS
+                ):
+                    segments.append(inner)
+                    pending.append(inner)
 except (ValueError, TypeError, KeyError, OSError):
     deny("Invalid hook input; refusing the call.")
+
+if any(CREDENTIAL_PATHS.search(word) for word in words):
+    deny("Owner credential files are unavailable to agents.")
 
 wrappers = {"scripts/agent-gh.sh", "scripts/agent-git.sh"}
 if any(wrapper in command for wrapper in wrappers):
@@ -79,101 +147,195 @@ if any(wrapper in command for wrapper in wrappers):
         deny("Invoke the App wrapper as the literal first word.")
     if re.search(r"[;&|<>$`\\\n\r#*?\[\]{}~]", command):
         deny("App wrapper calls must be a single literal command without expansion or redirection.")
+    if any(WRAPPER_PATHS.search(word) for word in words):
+        deny("App wrappers cannot read secrets, keys or Git internals.")
+    # The wrappers run outside the sandbox: they must match the reviewed copy
+    # that backs this guard, including what they source or execute.
+    required = [words[0], "scripts/lib/github-app-token.sh"]
+    if words[0] == "scripts/agent-git.sh":
+        required.append("scripts/agent-git-credential.sh")
+    try:
+        for relative in required:
+            with open(os.path.join(cwd, relative), "rb") as local, open(os.path.join(guard_root, relative), "rb") as reviewed:
+                if local.read() != reviewed.read():
+                    raise ValueError
+    except (OSError, ValueError):
+        deny("The App wrapper differs from the reviewed project copy.")
     raise SystemExit(0)
 
 # Shell substitutions and compound commands obscure executable/directory
 # boundaries. Refuse them rather than pretending shlex is a shell parser.
-if re.search(r"\b(gh|git|sops|tofu|security|git-crypt)\b", command) and re.search(
-    r"[;&|<>$`\n\r]", command
-):
+if SENSITIVE.search(command) and re.search(r"[;&|<>$`\n\r]", command):
     deny("Submit each sensitive operation as one literal command without shell composition.")
 
-# Inspect normalized tokens as well as spelling: quoting or backslash escapes
-# must not turn a direct gh invocation into an allowed command.
+# Inline interpreter code cannot be classified; refuse it near sensitive tools.
 bases = [os.path.basename(word) for word in words]
-if "gh" in bases or re.search(r"(?:^|[\s`])gh(?:[\s`]|$)", command):
-    deny("Use scripts/agent-gh.sh for GitHub CLI access.")
-if "git" in bases and any(word in words for word in (
-    "push", "fetch", "pull", "clone", "ls-remote", "remote-https", "remote-http"
-)):
-    deny("Use scripts/agent-git.sh for Git network access.")
-if "git" in bases and any("alias." in word for word in words):
-    deny("Inline Git aliases may bypass App transport; use explicit local Git commands.")
-if "git" in bases and ("credential" in words or any(
-    "credential." in word or "http." in word and "extraheader" in word.lower()
-    for word in words
-)):
-    deny("Owner Git credentials and helpers are unavailable to agents.")
-if "git" in bases:
-    args = words[bases.index("git") + 1:]
-    while args and args[0].startswith("-"):
-        option = args.pop(0)
-        if option in {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"}:
-            if not args:
-                deny("Incomplete Git options.")
-            args.pop(0)
-    local_git = {
-        "add", "am", "apply", "archive", "bisect", "blame", "branch", "check-attr",
-        "check-ignore", "checkout", "cherry", "cherry-pick", "clean", "commit",
-        "config", "describe", "diff", "diff-files", "diff-index", "diff-tree",
-        "for-each-ref", "format-patch", "fsck", "grep", "hash-object", "init",
-        "log", "ls-files", "ls-tree", "merge", "merge-base", "notes", "rebase",
-        "reflog", "reset", "restore", "rev-list", "rev-parse", "revert", "rm",
-        "shortlog", "show", "show-ref", "sparse-checkout", "stash", "status",
-        "switch", "symbolic-ref", "tag", "update-index", "update-ref",
-        "verify-commit", "verify-tag", "version", "worktree",
-    }
-    if args and args[0] not in local_git:
-        deny("Unknown Git commands and aliases are unavailable; use explicit local commands.")
-    if any(arg.startswith("--remote") for arg in args):
-        deny("Remote Git access requires the App Git wrapper.")
-if "sops" in bases and any(word in words for word in ("-d", "--decrypt", "--decrypt=true", "decrypt", "--extract")) or (
-    "sops" in bases and any(word.startswith("--extract=") for word in words)
-):
-    deny("Direct secret getters are forbidden; use repository consumers.")
-if "git-crypt" in bases and "export-key" in words:
-    deny("Secret key export is forbidden.")
-if any(".config/gh" in word or "Library/Application Support/gh" in word for word in words):
-    deny("Reading the owner's GitHub CLI configuration is forbidden.")
-if "security" in bases and any(word.startswith("find-") and word.endswith("-password") for word in words):
-    deny("Reading password credentials from Keychain is forbidden.")
-
-# Compound/indirect sensitive commands cannot be safely classified as local.
-# This is a guardrail for normal agent calls, not a shell isolation boundary.
-if re.search(r"\b(gh|git|sops|tofu|security)\b", command) and any(
-    base in {"bash", "sh", "zsh", "eval"} for base in bases
-):
+if SENSITIVE.search(command) and any(INTERPRETERS.fullmatch(base) for base in bases):
     deny("Submit the sensitive command directly so the guard can inspect it.")
 
-if "tofu" in bases:
-    if re.search(r"[$`\\]", command):
-        deny("Submit literal OpenTofu arguments so this invocation can be reviewed.")
-    index = bases.index("tofu")
-    args = words[index + 1:]
-    if any(arg in {"show", "output"} for arg in args) or (
-        "state" in args and "pull" in args
-    ):
-        deny("State and plan dumps are forbidden.")
-    if any(arg in {"apply", "destroy", "import"} for arg in args) or (
-        "state" in args and any(arg in {"mv", "rm"} for arg in args)
-    ):
-        ask("R2-GOV-05: confirm the exact effect of this infrastructure mutation for this invocation.")
-    target = os.path.realpath(cwd)
-    for arg in args:
-        if arg.startswith("-chdir="):
-            target = os.path.realpath(os.path.join(cwd, arg.split("=", 1)[1]))
-    github = sys.argv[1:] == ["--all-tofu-gated"] or (
-        target.endswith("/infrastructure/github") or "/infrastructure/github/" in target
-    )
-    compound = bool(re.search(r"[;&|`$\n\r]", command))
-    if "plan" in args and (github or compound):
-        ask("R2-GOV-05: GitHub planning reads owner credentials and may run external programs; confirm this invocation.")
-    if github and "init" in args and (
-        "-backend=false" not in args or any(arg.startswith("-backend=") and arg != "-backend=false" for arg in args)
-    ):
-        ask("R2-GOV-05: confirm GitHub backend initialization; only init -backend=false is unattended.")
-    if github and not any(arg in {"test", "validate"} for arg in args) and "init" not in args:
-        ask("R2-GOV-05: only mock tests, validation and init -backend=false are unattended in infrastructure/github.")
+# Quoting, escapes or embedding in another argument must not hide gh.
+if re.search(r"(?<![\w./-])gh(?![\w./-])", command):
+    deny("Use scripts/agent-gh.sh for GitHub CLI access.")
+
+
+def github_module(path):
+    if path.endswith("/infrastructure/github") or "/infrastructure/github/" in path:
+        return True
+    for name in sorted(glob.glob(os.path.join(path, "*.tf")))[:200]:
+        try:
+            with open(name, encoding="utf-8", errors="replace") as handle:
+                if "integrations/github" in handle.read(1_000_000):
+                    return True
+        except OSError:
+            return True
+    return False
+
+
+def mock_only(path, test_dir):
+    files = glob.glob(os.path.join(path, "*.tftest.hcl")) + glob.glob(os.path.join(path, test_dir, "*.tftest.hcl"))
+    for name in files[:200]:
+        try:
+            with open(name, encoding="utf-8", errors="replace") as handle:
+                text = handle.read(1_000_000)
+        except OSError:
+            return False
+        if not re.search(r'^\s*mock_provider\s+"github"', text, re.M) or re.search(r'^\s*provider\s+"github"', text, re.M):
+            return False
+    return True
+
+
+# Collect approvals so a deny in any nested command still wins.
+approvals = []
+
+
+def classify(words):
+    bases = [os.path.basename(word) for word in words]
+    if "gh" in bases:
+        deny("Use scripts/agent-gh.sh for GitHub CLI access.")
+    if "git" in bases and any(word in words for word in (
+        "push", "fetch", "pull", "clone", "ls-remote", "remote-https", "remote-http"
+    )):
+        deny("Use scripts/agent-git.sh for Git network access.")
+    if "git" in bases and any("alias." in word for word in words):
+        deny("Inline Git aliases may bypass App transport; use explicit local Git commands.")
+    if "git" in bases and ("credential" in words or any(
+        "credential." in word or "http." in word and "extraheader" in word.lower()
+        for word in words
+    )):
+        deny("Owner Git credentials and helpers are unavailable to agents.")
+    if "git" in bases:
+        if any(GIT_EXEC_ENV.fullmatch(word) for word in words[:bases.index("git")]):
+            deny("Git and hook environment overrides are unavailable to agents.")
+        args = words[bases.index("git") + 1:]
+        while args and args[0].startswith("-"):
+            option = args.pop(0)
+            if option in {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"}:
+                if not args:
+                    deny("Incomplete Git options.")
+                value = args.pop(0)
+                if option in {"-c", "--config-env"} and GIT_EXEC_KEYS.fullmatch(value.lower()):
+                    deny("Git settings that run programs or redirect hooks are unavailable.")
+        local_git = {
+            "add", "am", "apply", "archive", "bisect", "blame", "branch", "check-attr",
+            "check-ignore", "checkout", "cherry", "cherry-pick", "clean", "commit",
+            "config", "describe", "diff", "diff-files", "diff-index", "diff-tree",
+            "for-each-ref", "format-patch", "fsck", "grep", "hash-object", "init",
+            "log", "ls-files", "ls-tree", "merge", "merge-base", "notes", "rebase",
+            "reflog", "reset", "restore", "rev-list", "rev-parse", "revert", "rm",
+            "shortlog", "show", "show-ref", "sparse-checkout", "stash", "status",
+            "switch", "symbolic-ref", "tag", "update-index", "update-ref",
+            "verify-commit", "verify-tag", "version", "worktree",
+        }
+        if args and args[0] not in local_git:
+            deny("Unknown Git commands and aliases are unavailable; use explicit local commands.")
+        if any(arg.startswith("--remote") for arg in args):
+            deny("Remote Git access requires the App Git wrapper.")
+        if args and args[0] == "config" and any(
+            GIT_EXEC_KEYS.fullmatch(arg.lower()) for arg in args[1:]
+        ) and not any(arg in {"--get", "--get-all", "--get-regexp", "-l", "--list"} for arg in args):
+            deny("Git settings that run programs or redirect hooks are unavailable.")
+        if "--no-verify" in args or args and args[0] == "commit" and any(
+            re.fullmatch(r"-[A-Za-z]*n[A-Za-z]*", arg) for arg in args[1:]
+        ):
+            deny("Git hooks are mandatory; --no-verify is forbidden.")
+    if "sops" in bases:
+        sops_args = words[bases.index("sops") + 1:]
+        if any(word in sops_args for word in (
+            "-d", "--decrypt", "--decrypt=true", "decrypt", "--extract", "exec-env", "exec-file", "edit"
+        )) or any(word.startswith("--extract=") for word in sops_args):
+            deny("Direct secret getters are forbidden; use repository consumers.")
+        if not any(word in SOPS_ACTIONS for word in sops_args):
+            deny("sops without an explicit non-decrypting action opens a decrypting editor.")
+    if "git-crypt" in bases and "export-key" in words:
+        deny("Secret key export is forbidden.")
+    if "security" in bases and any(word.startswith("find-") and word.endswith("-password") for word in words):
+        deny("Reading password credentials from Keychain is forbidden.")
+    if "mise" in bases and any(re.fullmatch(r"secret:\S*:get", word) for word in words):
+        deny("Direct secret getters are forbidden; use repository consumers.")
+
+    gated = None
+    if "mise" in bases and any(GATED_TASKS.fullmatch(word) for word in words):
+        gated = "R2-GOV-05: this task reads production credentials; confirm this invocation."
+    if GATED_SCRIPTS.intersection(bases):
+        gated = "R2-GOV-05: this script reads production credentials; confirm this invocation."
+    if {"ansible", "ansible-playbook"}.intersection(bases) and not ANSIBLE_INFO.intersection(words):
+        gated = "R2-GOV-05: confirm this Ansible run against its inventory for this invocation."
+
+    if "tofu" in bases:
+        if re.search(r"[$`\\]", command):
+            deny("Submit literal OpenTofu arguments so this invocation can be reviewed.")
+        index = bases.index("tofu")
+        args = words[index + 1:]
+        if any(arg in {"show", "output"} for arg in args) or (
+            "state" in args and "pull" in args
+        ):
+            deny("State and plan dumps are forbidden.")
+        if any(arg in {"apply", "destroy", "import", "refresh", "taint", "untaint", "force-unlock", "console"} for arg in args) or (
+            "state" in args and any(arg in {"mv", "rm", "push", "replace-provider"} for arg in args)
+        ) or ("workspace" in args and "delete" in args):
+            approvals.append("R2-GOV-05: confirm the exact effect of this infrastructure mutation for this invocation.")
+        # Wrappers such as mise -C change the directory OpenTofu starts in.
+        target = cwd
+        prefix = words[:index]
+        for position, word in enumerate(prefix):
+            if word in {"-C", "--cd", "--chdir", "--directory"} and position + 1 < len(prefix):
+                target = os.path.join(target, prefix[position + 1])
+            elif word.startswith(("--cd=", "--chdir=", "--directory=")):
+                target = os.path.join(target, word.split("=", 1)[1])
+        test_dir = "tests"
+        for position, arg in enumerate(args):
+            if arg.startswith("-chdir="):
+                target = os.path.join(target, arg.split("=", 1)[1])
+            elif arg.startswith("-test-directory="):
+                test_dir = arg.split("=", 1)[1]
+            elif arg == "-test-directory" and position + 1 < len(args):
+                test_dir = args[position + 1]
+        target = os.path.realpath(target)
+        github = all_tofu_gated or github_module(target)
+        subcommand = next((arg for arg in args if not arg.startswith("-")), "")
+        compound = bool(re.search(r"[;&|`$\n\r]", command))
+        if subcommand == "plan" and (github or compound):
+            approvals.append("R2-GOV-05: GitHub planning reads owner credentials and may run external programs; confirm this invocation.")
+        if github and subcommand == "init" and (
+            "-backend=false" not in args or any(arg.startswith("-backend=") and arg != "-backend=false" for arg in args)
+        ):
+            approvals.append("R2-GOV-05: confirm GitHub backend initialization; only init -backend=false is unattended.")
+        if github and subcommand == "test":
+            reviewed = [target] if github_module(target) else []
+            if all_tofu_gated:
+                reviewed.append(os.path.join(guard_root, "infrastructure/github"))
+            if not all(mock_only(path, test_dir) for path in reviewed):
+                approvals.append("R2-GOV-05: GitHub tests without mock providers use owner credentials; confirm this invocation.")
+        if github and subcommand not in {"fmt", "validate", "version", "test", "init"}:
+            approvals.append("R2-GOV-05: only formatting, mock tests, validation and init -backend=false are unattended in infrastructure/github.")
+    if gated:
+        approvals.append(gated)
+
+
+for segment in segments:
+    classify(segment)
+if approvals:
+    ask(approvals[0])
 PY
 then
   exit 0

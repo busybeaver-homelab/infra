@@ -173,3 +173,33 @@ helper_get() {
   [ ! -e "$APP_FIXTURE/owner-helper-called" ]
   [[ "$output" == *password=ghs_SYNTHETICtoken0000* ]] || false
 }
+
+@test "refuses push options that skip hooks or rewrite remote branches" {
+  local option
+  for option in --no-verify --mirror --delete -d --all --branches --prune --force -f -fu --force=true; do
+    run bash "$WRAPPER" push "$option" origin HEAD
+    [ "$status" -eq 64 ] && [ ! -e "$APP_FIXTURE/git.argv" ] || { echo "accepted $option" >&2; return 1; }
+  done
+}
+
+@test "refuses deleting forced or main-targeted refspecs" {
+  refused push origin :feature/example
+  refused push origin +HEAD:feature/example
+  refused push origin HEAD:main
+  refused push origin main
+  refused push origin HEAD:refs/heads/main
+}
+
+@test "allows lease-protected feature pushes" {
+  run bash "$WRAPPER" push --force-with-lease -u origin HEAD:feature/example
+  [ "$status" -eq 0 ]
+  [ "$output" = 'git child executed' ]
+}
+
+@test "refuses transport when Git hooks are redirected" {
+  "$REAL_GIT" init -q "$BATS_TEST_TMPDIR/hooks-path"
+  cd "$BATS_TEST_TMPDIR/hooks-path"
+  "$REAL_GIT" config core.hooksPath .h
+  refused push origin HEAD
+  refused fetch origin
+}
