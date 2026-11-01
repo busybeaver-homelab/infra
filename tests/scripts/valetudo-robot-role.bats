@@ -632,3 +632,11 @@ robot_key_tempfiles() {
   # fnmatch semantics of the find module: robot_key.* covers prefix + random + suffix.
   [[ "robot_key.AbC123.tskey" == robot_key.* ]]
 }
+
+@test "every block in robots.yml rescues, and Play 2 fails again through the role's reraise.yml for all tags" {
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("block") and (has("rescue") | not))] | length' "${ROBOTS_PLAYBOOK}")" -eq 0 ]
+  [ "$(yq eval '.[1].tasks[0].rescue | length' "${ROBOTS_PLAYBOOK}")" -eq 1 ]
+  [ "$(yq eval '.[1].tasks[0].rescue[0]["ansible.builtin.import_tasks"]' "${ROBOTS_PLAYBOOK}")" = ../roles/valetudo_robot/tasks/reraise.yml ]
+  [ "$(yq eval '.[1].tasks[0].rescue[0].tags | join(",")' "${ROBOTS_PLAYBOOK}")" = always ]
+  [ -f "$(dirname "${ROBOTS_PLAYBOOK}")/../roles/valetudo_robot/tasks/reraise.yml" ]
+}

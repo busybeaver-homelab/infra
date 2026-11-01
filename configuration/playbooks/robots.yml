@@ -266,6 +266,13 @@
         - name: Apply the valetudo_robot role
           ansible.builtin.import_role:
             name: valetudo_robot
+      # Same sanitizing re-raise as the role's phase blocks, for role tasks that
+      # fail outside a phase block (Checkov CKV2_ANSIBLE_3).
+      rescue:
+        - name: Fail again with the role failure
+          ansible.builtin.import_tasks: ../roles/valetudo_robot/tasks/reraise.yml
+          tags:
+            - always
       always:
         - name: Remove the controller SSH key tempfile
           ansible.builtin.file:
