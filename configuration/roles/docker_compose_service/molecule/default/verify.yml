@@ -17,6 +17,25 @@
     docker_compose_service_test_stub_log: /tmp/hc-stub/requests.log
     docker_compose_service_test_ping_url: "http://127.0.0.1:18080/molecule-compose-check"
     docker_compose_service_test_fixtures_dir: /tmp/molecule-fixtures
+    docker_compose_service_test_state_dir: /var/lib/homelab-compose
+    docker_compose_service_test_base_env:
+      APP_MARKER: "molecule-healthy-v1"
+      APP_SECRET_TOKEN: "{{ docker_compose_service_test_secret_token }}"
+      SERVICE_DOMAIN: "app.example.test"
+    # Role inputs shared with converge.yml, so that include_role below re-applies the same host settings.
+    docker_compose_service_enabled: true
+    docker_compose_service_manage_daemon_json: true
+    docker_compose_service_release_api_url: "http://127.0.0.1:18081/repos/busybeaver-homelab/services/releases/latest"
+    docker_compose_service_curl_proto: "=http,https"
+    docker_compose_service_cosign_public_key_src: "/tmp/molecule-fixtures/keys/cosign.pub"
+    docker_compose_service_cosign_public_key_remote_src: true
+    docker_compose_service_targets:
+      gcp:
+        env: "{{ docker_compose_service_test_base_env }}"
+    docker_compose_service_hosts:
+      - host: "{{ inventory_hostname }}"
+        target: gcp
+        healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
   tasks:
     # --- 1. Docker daemon.json & Cosign binary/key verification ---------------------
 
@@ -106,6 +125,8 @@
         - "{{ docker_compose_service_test_credstore }}"
         - "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
         - "{{ docker_compose_service_test_credstore }}/compose_healthchecks_ping_url"
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.previous"
       register: docker_compose_service_cred_stats
 
     - name: Assert encrypted credential store and file permissions
@@ -117,6 +138,9 @@
           - docker_compose_service_cred_stats.results[1].stat.mode == '0400'
           - docker_compose_service_cred_stats.results[2].stat.exists
           - docker_compose_service_cred_stats.results[2].stat.mode == '0400'
+          - docker_compose_service_cred_stats.results[3].stat.exists
+          - docker_compose_service_cred_stats.results[3].stat.mode == '0400'
+          - not docker_compose_service_cred_stats.results[4].stat.exists
 
     - name: Read encrypted homelab_compose_env ciphertext
       ansible.builtin.slurp:
@@ -134,6 +158,7 @@
         argv:
           - systemd-creds
           - decrypt
+          - --name=homelab_compose_env
           - "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
           - "-"
       register: docker_compose_service_env_decrypted
@@ -159,6 +184,24 @@
           - "docker_compose_service_ping_decrypted.stdout == docker_compose_service_test_ping_url"
         quiet: true
 
+    - name: Decrypt the staged homelab_compose_env credential under the active credential name
+      ansible.builtin.command:
+        argv:
+          - systemd-creds
+          - decrypt
+          - --name=homelab_compose_env
+          - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+          - "-"
+      register: docker_compose_service_staged_decrypted
+      changed_when: false
+      no_log: true
+
+    - name: Assert the staged and active settings are identical after a converge
+      ansible.builtin.assert:
+        that:
+          - docker_compose_service_staged_decrypted.stdout == docker_compose_service_env_decrypted.stdout
+        quiet: true
+
     # --- 3. Systemd units & timers verification -------------------------------------
 
     - name: Verify systemd unit files with systemd-analyze verify
@@ -166,6 +209,7 @@
         argv:
           - systemd-analyze
           - verify
+          - /etc/systemd/system/homelab-compose-check.service
           - /etc/systemd/system/homelab-compose-reconcile.service
           - /etc/systemd/system/homelab-compose-reconcile.timer
           - /etc/systemd/system/homelab-compose-failure@.service
@@ -173,21 +217,111 @@
           - /etc/systemd/system/homelab-docker-cleanup.timer
       changed_when: false
 
-    - name: Verify timers are enabled and started
-      ansible.builtin.systemd_service:
-        name: "{{ item }}"
-        enabled: true
-        state: started
-      check_mode: true
+    - name: Read the failure hook of the non-paging check unit
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - show
+          - homelab-compose-check.service
+          - --property=OnFailure
+      register: docker_compose_service_check_unit_props
+      changed_when: false
+
+    - name: Read the check unit definition
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - cat
+          - homelab-compose-check.service
+      register: docker_compose_service_check_unit_cat
+      changed_when: false
+
+    - name: Assert the check unit never pages and reads only the staged credential
+      ansible.builtin.assert:
+        that:
+          - docker_compose_service_check_unit_props.stdout_lines == ['OnFailure=']
+          - "'LoadCredentialEncrypted=homelab_compose_env:/etc/credstore.encrypted/homelab_compose_env.staged' in docker_compose_service_check_unit_cat.stdout"
+
+    # --- 4. Steady state after the staged converge (first deploy already happened) --
+
+    - name: Stat /opt/containers/current symlink and the redeploy marker after converge
+      ansible.builtin.stat:
+        path: "{{ item }}"
       loop:
-        - homelab-compose-reconcile.timer
-        - homelab-docker-cleanup.timer
-      register: docker_compose_service_timer_checks
-      failed_when: docker_compose_service_timer_checks.changed
+        - /opt/containers/current
+        - "{{ docker_compose_service_test_state_dir }}/redeploy-requested"
+      register: docker_compose_service_current_stat
 
-    # --- 4. End-to-end healthy reconcile (v2026.10.16-1) ----------------------------
+    - name: Read Healthchecks stub log written by the first deploy during converge
+      ansible.builtin.slurp:
+        src: "{{ docker_compose_service_test_stub_log }}"
+      register: docker_compose_service_stub_after_first_deploy
 
-    - name: Reset Healthchecks stub log before healthy reconcile
+    - name: Assert converge deployed v2026.10.16-1 and pinged success, and enabled the timers
+      ansible.builtin.assert:
+        that:
+          - docker_compose_service_current_stat.results[0].stat.islnk
+          - docker_compose_service_current_stat.results[0].stat.lnk_source == '/opt/containers/releases/v2026.10.16-1'
+          - not docker_compose_service_current_stat.results[1].stat.exists
+          - "'POST /molecule-compose-check\n' in (docker_compose_service_stub_after_first_deploy.content | b64decode)"
+
+    - name: Snapshot reconcile start time and credential and unit mtimes before an unchanged re-run
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - show
+          - homelab-compose-reconcile.service
+          - --property=ExecMainStartTimestamp
+          - --property=InvocationID
+      register: docker_compose_service_unchanged_before
+      changed_when: false
+
+    - name: Stat credential slots and unit files before an unchanged re-run
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+        - "{{ docker_compose_service_test_credstore }}/compose_healthchecks_ping_url"
+        - /etc/systemd/system/homelab-compose-check.service
+        - /etc/systemd/system/homelab-compose-reconcile.service
+      register: docker_compose_service_unchanged_stats_before
+
+    - name: Re-apply the role with unchanged settings
+      ansible.builtin.include_role:
+        name: docker_compose_service
+
+    - name: Read reconcile start time after an unchanged re-run
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - show
+          - homelab-compose-reconcile.service
+          - --property=ExecMainStartTimestamp
+          - --property=InvocationID
+      register: docker_compose_service_unchanged_after
+      changed_when: false
+
+    - name: Stat credential slots and unit files after an unchanged re-run
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+        - "{{ docker_compose_service_test_credstore }}/compose_healthchecks_ping_url"
+        - /etc/systemd/system/homelab-compose-check.service
+        - /etc/systemd/system/homelab-compose-reconcile.service
+      register: docker_compose_service_unchanged_stats_after
+
+    - name: Assert an unchanged re-run neither redeployed nor rewrote credentials or units
+      ansible.builtin.assert:
+        that:
+          - docker_compose_service_unchanged_after.stdout == docker_compose_service_unchanged_before.stdout
+          - >-
+            docker_compose_service_unchanged_stats_after.results | map(attribute='stat.mtime') | list
+            == docker_compose_service_unchanged_stats_before.results | map(attribute='stat.mtime') | list
+
+    - name: Reset Healthchecks stub log before the steady-state reconcile
       ansible.builtin.copy:
         dest: "{{ docker_compose_service_test_stub_log }}"
         content: ""
@@ -195,27 +329,280 @@
         group: root
         mode: "0644"
 
-    - name: Start homelab-compose-reconcile.service for healthy release v2026.10.16-1
+    - name: Start homelab-compose-reconcile.service for the already deployed release v2026.10.16-1
       ansible.builtin.systemd_service:
         name: homelab-compose-reconcile.service
         state: started
 
-    - name: Stat /opt/containers/current symlink after healthy reconcile
-      ansible.builtin.stat:
-        path: /opt/containers/current
-      register: docker_compose_service_current_stat
-
-    - name: Read Healthchecks stub log after healthy reconcile
+    - name: Read Healthchecks stub log after the steady-state reconcile
       ansible.builtin.slurp:
         src: "{{ docker_compose_service_test_stub_log }}"
       register: docker_compose_service_stub_after_success
 
-    - name: Assert healthy release is deployed, current symlink updated, and heartbeat sent
+    - name: Assert the steady-state reconcile sent a heartbeat
       ansible.builtin.assert:
         that:
-          - docker_compose_service_current_stat.stat.islnk
-          - docker_compose_service_current_stat.stat.lnk_source == '/opt/containers/releases/v2026.10.16-1'
           - "'POST /molecule-compose-check\n' in (docker_compose_service_stub_after_success.content | b64decode)"
+
+    # --- 4b. Changed settings are applied by a redeploy of the current release ------
+
+    - name: Re-apply the role with a changed APP_MARKER
+      ansible.builtin.include_role:
+        name: docker_compose_service
+      vars:
+        docker_compose_service_targets:
+          gcp:
+            env: "{{ docker_compose_service_test_base_env | combine({'APP_MARKER': 'molecule-healthy-v2'}) }}"
+
+    - name: List Compose project containers after the settings redeploy
+      ansible.builtin.command:
+        argv:
+          - docker
+          - ps
+          - --quiet
+          - --filter
+          - label=com.docker.compose.project=homelab
+      register: docker_compose_service_redeploy_ids
+      changed_when: false
+
+    - name: Inspect Compose project containers after the settings redeploy
+      ansible.builtin.command:
+        argv: "{{ ['docker', 'inspect'] + docker_compose_service_redeploy_ids.stdout_lines }}"
+      register: docker_compose_service_redeploy_inspect
+      changed_when: false
+
+    - name: Stat previous slot, redeploy marker, quarantine marker and current after the settings redeploy
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.previous"
+        - "{{ docker_compose_service_test_state_dir }}/redeploy-requested"
+        - "{{ docker_compose_service_test_state_dir }}/quarantined-release"
+        - /opt/containers/current
+      register: docker_compose_service_redeploy_stats
+
+    - name: Assert the stack runs with the new marker and nothing is left over or quarantined
+      ansible.builtin.assert:
+        that:
+          - docker_compose_service_redeploy_ids.stdout_lines | length == 1
+          - "'APP_MARKER=molecule-healthy-v2' in (docker_compose_service_redeploy_inspect.stdout | from_json | map(attribute='Config.Env') | flatten)"
+          - (docker_compose_service_redeploy_inspect.stdout | from_json | map(attribute='State.Health.Status') | list) == ['healthy']
+          - not docker_compose_service_redeploy_stats.results[0].stat.exists
+          - not docker_compose_service_redeploy_stats.results[1].stat.exists
+          - not docker_compose_service_redeploy_stats.results[2].stat.exists
+          - docker_compose_service_redeploy_stats.results[3].stat.lnk_source == '/opt/containers/releases/v2026.10.16-1'
+
+    # --- 4c. Settings that make the stack unhealthy are rolled back ------------------
+
+    - name: Reset Healthchecks stub log before the failing settings redeploy
+      ansible.builtin.copy:
+        dest: "{{ docker_compose_service_test_stub_log }}"
+        content: ""
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Re-apply the role with settings that fail the stack health check
+      block:
+        - name: Include role with the unhealthy sentinel APP_MARKER
+          ansible.builtin.include_role:
+            name: docker_compose_service
+          vars:
+            docker_compose_service_targets:
+              gcp:
+                env: "{{ docker_compose_service_test_base_env | combine({'APP_MARKER': 'molecule-unhealthy'}) }}"
+
+        - name: Record that the unhealthy settings were wrongly accepted
+          ansible.builtin.set_fact:
+            docker_compose_service_unhealthy_accepted: true
+      rescue:
+        - name: Capture the failure message of the unhealthy settings redeploy
+          ansible.builtin.set_fact:
+            docker_compose_service_unhealthy_msg: "{{ ansible_failed_result.msg | default('') }}"
+            docker_compose_service_unhealthy_accepted: false
+
+    - name: Decrypt the active credential after the failed redeploy
+      ansible.builtin.command:
+        argv:
+          - systemd-creds
+          - decrypt
+          - --name=homelab_compose_env
+          - "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
+          - "-"
+      register: docker_compose_service_restored_env
+      changed_when: false
+      no_log: true
+
+    - name: List and inspect Compose project containers after the failed redeploy
+      ansible.builtin.command:
+        argv:
+          - sh
+          - -c
+          - docker inspect $(docker ps --quiet --filter label=com.docker.compose.project=homelab)
+      register: docker_compose_service_restored_inspect
+      changed_when: false
+
+    - name: Wait for the OnFailure unit to record the /fail ping of the failed redeploy
+      ansible.builtin.wait_for:
+        path: "{{ docker_compose_service_test_stub_log }}"
+        search_regex: "POST /molecule-compose-check/fail"
+        timeout: 15
+
+    - name: Assert the failed redeploy was rolled back without leaking settings
+      ansible.builtin.assert:
+        that:
+          - not docker_compose_service_unhealthy_accepted
+          - "'homelab-compose-reconcile.service' in docker_compose_service_unhealthy_msg"
+          - "'journalctl -u homelab-compose-reconcile.service' in docker_compose_service_unhealthy_msg"
+          - "'restore' in (docker_compose_service_unhealthy_msg | lower)"
+          - "'healthy' in (docker_compose_service_unhealthy_msg | lower)"
+          - docker_compose_service_test_secret_token not in docker_compose_service_unhealthy_msg
+          - "'APP_MARKER=molecule-healthy-v2' in docker_compose_service_restored_env.stdout"
+          - "'molecule-unhealthy' not in docker_compose_service_restored_env.stdout"
+          - "'APP_MARKER=molecule-healthy-v2' in (docker_compose_service_restored_inspect.stdout | from_json | map(attribute='Config.Env') | flatten)"
+          - (docker_compose_service_restored_inspect.stdout | from_json | map(attribute='State.Health.Status') | list) == ['healthy']
+
+    # --- 4d. Settings that fail the release check never reach the active slot -------
+
+    - name: Snapshot the active credential and timer states before a failing check
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-enabled
+          - homelab-compose-reconcile.timer
+          - homelab-docker-cleanup.timer
+      register: docker_compose_service_check_timers_before
+      changed_when: false
+
+    - name: Read active credential before a failing check
+      ansible.builtin.command:
+        argv:
+          - systemd-creds
+          - decrypt
+          - --name=homelab_compose_env
+          - "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
+          - "-"
+      register: docker_compose_service_check_active_before
+      changed_when: false
+      no_log: true
+
+    - name: Re-apply the role with a staged env that misses the required APP_MARKER
+      block:
+        - name: Include role with an env lacking a required variable
+          ansible.builtin.include_role:
+            name: docker_compose_service
+          vars:
+            docker_compose_service_targets:
+              gcp:
+                env: "{{ docker_compose_service_test_base_env | dict2items | rejectattr('key', 'equalto', 'APP_MARKER') | items2dict }}"
+
+        - name: Record that the incomplete settings were wrongly accepted
+          ansible.builtin.set_fact:
+            docker_compose_service_check_accepted: true
+      rescue:
+        - name: Capture the failure message of the failing check
+          ansible.builtin.set_fact:
+            docker_compose_service_check_msg: "{{ ansible_failed_result.msg | default('') }}"
+            docker_compose_service_check_accepted: false
+
+    - name: Read active credential after a failing check
+      ansible.builtin.command:
+        argv:
+          - systemd-creds
+          - decrypt
+          - --name=homelab_compose_env
+          - "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
+          - "-"
+      register: docker_compose_service_check_active_after
+      changed_when: false
+      no_log: true
+
+    - name: Read timer states after a failing check
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-enabled
+          - homelab-compose-reconcile.timer
+          - homelab-docker-cleanup.timer
+      register: docker_compose_service_check_timers_after
+      changed_when: false
+
+    - name: Assert the failing check stopped the run before the active slot and timers changed
+      ansible.builtin.assert:
+        that:
+          - not docker_compose_service_check_accepted
+          - "'homelab-compose-check.service' in docker_compose_service_check_msg"
+          - "'journalctl -u homelab-compose-check.service' in docker_compose_service_check_msg"
+          - docker_compose_service_test_secret_token not in docker_compose_service_check_msg
+          - docker_compose_service_check_active_after.stdout == docker_compose_service_check_active_before.stdout
+          - docker_compose_service_check_timers_after.stdout == docker_compose_service_check_timers_before.stdout
+        quiet: true
+
+    # --- 4e. Stale markers from a killed first deploy do not block the retry --------
+
+    - name: Stop the Compose stack to simulate a host without a successful first deploy
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-name
+          - homelab
+          - -f
+          - /opt/containers/releases/v2026.10.16-1/docker-compose.yaml
+          - down
+      changed_when: true
+
+    - name: Remove the current symlink and write stale in-flight and quarantine markers
+      ansible.builtin.copy:
+        dest: "{{ docker_compose_service_test_state_dir }}/{{ item }}"
+        content: "v2026.10.16-1\n"
+        owner: root
+        group: root
+        mode: "0600"
+      loop:
+        - deploying
+        - quarantined-release
+
+    - name: Remove the current symlink of the stopped stack
+      ansible.builtin.file:
+        path: /opt/containers/current
+        state: absent
+
+    - name: Re-apply the role so it performs the first-run deploy despite the stale markers
+      ansible.builtin.include_role:
+        name: docker_compose_service
+      vars:
+        docker_compose_service_targets:
+          gcp:
+            env: "{{ docker_compose_service_test_base_env | combine({'APP_MARKER': 'molecule-healthy-v2'}) }}"
+
+    - name: Stat current, markers and previous slot after the retried first deploy
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /opt/containers/current
+        - "{{ docker_compose_service_test_state_dir }}/deploying"
+        - "{{ docker_compose_service_test_state_dir }}/quarantined-release"
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.previous"
+      register: docker_compose_service_stale_stats
+
+    - name: Check the stack is healthy after the retried first deploy
+      ansible.builtin.command:
+        argv:
+          - sh
+          - -c
+          - docker inspect $(docker ps --quiet --filter label=com.docker.compose.project=homelab)
+      register: docker_compose_service_stale_inspect
+      changed_when: false
+
+    - name: Assert the retried first deploy restored current and cleared the stale markers
+      ansible.builtin.assert:
+        that:
+          - docker_compose_service_stale_stats.results[0].stat.lnk_source == '/opt/containers/releases/v2026.10.16-1'
+          - not docker_compose_service_stale_stats.results[1].stat.exists
+          - not docker_compose_service_stale_stats.results[2].stat.exists
+          - not docker_compose_service_stale_stats.results[3].stat.exists
+          - (docker_compose_service_stale_inspect.stdout | from_json | map(attribute='State.Health.Status') | list) == ['healthy']
 
     # --- 5. End-to-end weekly cleanup under systemd sandbox -------------------------
 
@@ -246,6 +633,14 @@
       ansible.builtin.copy:
         dest: "{{ docker_compose_service_test_fixtures_dir }}/releases/active-tag"
         content: "v2026.10.16-2\n"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Reset Healthchecks stub log before the unhealthy release run
+      ansible.builtin.copy:
+        dest: "{{ docker_compose_service_test_stub_log }}"
+        content: ""
         owner: root
         group: root
         mode: "0644"
@@ -425,17 +820,36 @@
 
     # --- 10. Disablement (STD-AN-29) and re-enablement ------------------------------
 
+    - name: Leave a previous slot and a redeploy marker behind to prove disable removes them
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - src: "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+          dest: "{{ docker_compose_service_test_credstore }}/homelab_compose_env.previous"
+          mode: "0400"
+        - src: "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+          dest: "{{ docker_compose_service_test_state_dir }}/redeploy-requested"
+          mode: "0600"
+      loop_control:
+        label: "{{ item.dest | basename }}"
+      no_log: true
+
     - name: Apply docker_compose_service with enabled=false
       ansible.builtin.include_role:
         name: docker_compose_service
       vars:
         docker_compose_service_enabled: false
-        docker_compose_service_manage_daemon_json: true
 
-    - name: Stat timers, units, scripts, credentials, and preserved release directory after disable
+    - name: Stat units, scripts, credential slots and marker that disable removes
       ansible.builtin.stat:
         path: "{{ item }}"
       loop:
+        - /etc/systemd/system/homelab-compose-check.service
         - /etc/systemd/system/homelab-compose-reconcile.service
         - /etc/systemd/system/homelab-compose-reconcile.timer
         - /etc/systemd/system/homelab-compose-failure@.service
@@ -449,9 +863,18 @@
         - /etc/containers/cosign.pub
         - "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
         - "{{ docker_compose_service_test_credstore }}/compose_healthchecks_ping_url"
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.previous"
+        - "{{ docker_compose_service_test_state_dir }}/redeploy-requested"
+      register: docker_compose_service_disable_removed_stats
+
+    - name: Stat release directory and state directory that disable preserves
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
         - /opt/containers/releases/v2026.10.16-1
-        - /var/lib/homelab-compose
-      register: docker_compose_service_disable_stats
+        - "{{ docker_compose_service_test_state_dir }}"
+      register: docker_compose_service_disable_kept_stats
 
     - name: Check running Compose containers after role disablement
       ansible.builtin.command:
@@ -466,24 +889,11 @@
       register: docker_compose_service_disable_ps
       changed_when: false
 
-    - name: Assert units, scripts, and credentials are removed while containers and releases remain
+    - name: Assert units, scripts, credentials and marker are removed while containers and releases remain
       ansible.builtin.assert:
         that:
-          - not docker_compose_service_disable_stats.results[0].stat.exists
-          - not docker_compose_service_disable_stats.results[1].stat.exists
-          - not docker_compose_service_disable_stats.results[2].stat.exists
-          - not docker_compose_service_disable_stats.results[3].stat.exists
-          - not docker_compose_service_disable_stats.results[4].stat.exists
-          - not docker_compose_service_disable_stats.results[5].stat.exists
-          - not docker_compose_service_disable_stats.results[6].stat.exists
-          - not docker_compose_service_disable_stats.results[7].stat.exists
-          - not docker_compose_service_disable_stats.results[8].stat.exists
-          - not docker_compose_service_disable_stats.results[9].stat.exists
-          - not docker_compose_service_disable_stats.results[10].stat.exists
-          - not docker_compose_service_disable_stats.results[11].stat.exists
-          - not docker_compose_service_disable_stats.results[12].stat.exists
-          - docker_compose_service_disable_stats.results[13].stat.isdir
-          - docker_compose_service_disable_stats.results[14].stat.isdir
+          - docker_compose_service_disable_removed_stats.results | selectattr('stat.exists') | list | length == 0
+          - docker_compose_service_disable_kept_stats.results | selectattr('stat.isdir') | list | length == 2
           - "'running' in docker_compose_service_disable_ps.stdout"
 
     - name: Re-enable docker_compose_service and verify restoration
@@ -491,21 +901,40 @@
         name: docker_compose_service
       vars:
         docker_compose_service_enabled: true
-        docker_compose_service_manage_daemon_json: true
-        docker_compose_service_release_api_url: "http://127.0.0.1:18081/repos/busybeaver-homelab/services/releases/latest"
-        docker_compose_service_curl_proto: "=http,https"
-        docker_compose_service_cosign_public_key_src: "/tmp/molecule-fixtures/keys/cosign.pub"
-        docker_compose_service_cosign_public_key_remote_src: true
-        docker_compose_service_targets:
-          gcp:
-            env:
-              APP_MARKER: "molecule-healthy-v1"
-              APP_SECRET_TOKEN: "{{ docker_compose_service_test_secret_token }}"
-              SERVICE_DOMAIN: "app.example.test"
-        docker_compose_service_hosts:
-          - host: "{{ inventory_hostname }}"
-            target: gcp
-            healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
+
+    - name: Stat credential slots, marker and timers after re-enable
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.previous"
+        - "{{ docker_compose_service_test_state_dir }}/redeploy-requested"
+        - /etc/systemd/system/homelab-compose-check.service
+        - /opt/containers/current
+      register: docker_compose_service_reenable_stats
+
+    - name: Verify timers are enabled and started after re-enable
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      check_mode: true
+      loop:
+        - homelab-compose-reconcile.timer
+        - homelab-docker-cleanup.timer
+      register: docker_compose_service_reenable_timer_checks
+      failed_when: docker_compose_service_reenable_timer_checks.changed
+
+    - name: Assert re-enable restored the slots without leftovers and kept the deployed release
+      ansible.builtin.assert:
+        that:
+          - docker_compose_service_reenable_stats.results[0].stat.exists
+          - docker_compose_service_reenable_stats.results[1].stat.exists
+          - not docker_compose_service_reenable_stats.results[2].stat.exists
+          - not docker_compose_service_reenable_stats.results[3].stat.exists
+          - docker_compose_service_reenable_stats.results[4].stat.exists
+          - docker_compose_service_reenable_stats.results[5].stat.lnk_source == '/opt/containers/releases/v2026.10.16-1'
 
     - name: Verify homelab-compose-reconcile.service succeeds after re-enable
       ansible.builtin.systemd_service:

@@ -1,0 +1,179 @@
+---
+# Staged converge flow (design §5.3, §5.4, §5.6), imported by enable.yml when
+# docker_compose_service_reconcile_on_converge is true and Ansible is not in check mode.
+#
+# Order, each step only after the previous one succeeded: check the latest release against
+# the staged env -> promote the staged env into the active slot (keeping a .previous copy)
+# -> first-run deploy when there is no current release, or redeploy current when the active
+# env changed (restoring .previous on failure) -> drop .previous.
+#
+# Failure messages written by this file's fail tasks name the unit and the journalctl command
+# and never include env values. Any other failure is reported by task name only, because the
+# result of a credential task can carry settings even when the task is no_log.
+
+- name: Check, promote and apply the staged docker_compose_service settings
+  block:
+    # The start of a oneshot unit blocks until it exits, but a oneshot that already ran is
+    # "inactive", so use the command form to guarantee every start really runs and rc reflects it.
+    - name: Start the non-deploying release check against the staged settings # noqa: command-instead-of-module
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - start
+          - homelab-compose-check.service
+      register: docker_compose_service_check_start
+      changed_when: false
+      failed_when: false
+
+    - name: Fail when the staged settings did not pass the release check
+      ansible.builtin.fail:
+        msg: >-
+          homelab-compose-check.service failed: the staged settings do not pass the latest release check, so the active
+          settings and the timers were left unchanged. Inspect it with: journalctl -u homelab-compose-check.service
+      when: docker_compose_service_check_start.rc != 0
+
+    - name: Promote the staged settings into the active credential slot
+      ansible.builtin.command:
+        argv:
+          - "{{ docker_compose_service_libexec_dir }}/homelab-compose-credential-sync"
+          - homelab_compose_env
+          - "{{ docker_compose_service_credstore_dir }}"
+          - "{{ docker_compose_service_credential_key }}"
+          - homelab_compose_env
+          - homelab_compose_env.previous
+        stdin: "{{ docker_compose_service_dotenv_payload }}"
+        stdin_add_newline: false
+      register: docker_compose_service_env_promotion
+      changed_when: docker_compose_service_env_promotion.stdout == 'changed'
+      no_log: true
+      diff: false
+
+    - name: Check whether a release is currently deployed
+      ansible.builtin.stat:
+        path: "{{ docker_compose_service_base_dir }}/current"
+      register: docker_compose_service_current_stat
+
+    - name: Remove stale in-flight and quarantine markers before the first deploy
+      ansible.builtin.file:
+        path: "{{ docker_compose_service_state_dir }}/{{ item }}"
+        state: absent
+      loop:
+        - quarantined-release
+        - deploying
+      when: not docker_compose_service_current_stat.stat.exists
+
+    - name: Start the reconciler for the first-run deploy # noqa: command-instead-of-module
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - start
+          - homelab-compose-reconcile.service
+      register: docker_compose_service_first_deploy
+      changed_when: true
+      failed_when: false
+      when: not docker_compose_service_current_stat.stat.exists
+
+    - name: Fail when the first-run deploy failed
+      ansible.builtin.fail:
+        msg: >-
+          homelab-compose-reconcile.service failed during the first-run deploy. Inspect it with:
+          journalctl -u homelab-compose-reconcile.service
+      when:
+        - not docker_compose_service_current_stat.stat.exists
+        - docker_compose_service_first_deploy.rc != 0
+
+    - name: Redeploy the current release when the active settings changed
+      when:
+        - docker_compose_service_current_stat.stat.exists
+        - docker_compose_service_env_promotion is changed
+      block:
+        - name: Request a redeploy of the current release
+          ansible.builtin.copy:
+            content: ""
+            dest: "{{ docker_compose_service_state_dir }}/redeploy-requested"
+            owner: root
+            group: root
+            mode: "0600"
+
+        - name: Start the reconciler to apply the changed settings # noqa: command-instead-of-module
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - start
+              - homelab-compose-reconcile.service
+          register: docker_compose_service_redeploy
+          changed_when: true
+          failed_when: false
+
+        - name: Fail when the redeploy with the changed settings failed
+          ansible.builtin.fail:
+            msg: redeploy of the current release failed
+          when: docker_compose_service_redeploy.rc != 0
+      rescue:
+        - name: Check whether previous settings are available to restore
+          ansible.builtin.stat:
+            path: "{{ docker_compose_service_credstore_dir }}/homelab_compose_env.previous"
+          register: docker_compose_service_previous_stat
+
+        - name: Restore the previous settings into the active credential slot
+          ansible.builtin.copy:
+            src: "{{ docker_compose_service_credstore_dir }}/homelab_compose_env.previous"
+            dest: "{{ docker_compose_service_credstore_dir }}/homelab_compose_env"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0400"
+          when: docker_compose_service_previous_stat.stat.exists
+          no_log: true
+          diff: false
+
+        - name: Request a redeploy of the restored settings
+          ansible.builtin.copy:
+            content: ""
+            dest: "{{ docker_compose_service_state_dir }}/redeploy-requested"
+            owner: root
+            group: root
+            mode: "0600"
+          when: docker_compose_service_previous_stat.stat.exists
+
+        - name: Start the reconciler to bring the stack back up on the previous settings # noqa: command-instead-of-module
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - start
+              - homelab-compose-reconcile.service
+          register: docker_compose_service_restore
+          changed_when: true
+          failed_when: false
+          when: docker_compose_service_previous_stat.stat.exists
+
+        - name: Fail after the restore attempt of the failed redeploy
+          vars:
+            docker_compose_service_restore_outcome: >-
+              {{ 'No previous settings were available to restore, so the stack may be down.'
+                 if not docker_compose_service_previous_stat.stat.exists
+                 else ('The previous settings were restored and the stack came back healthy.'
+                       if docker_compose_service_restore.rc == 0
+                       else 'The previous settings were restored but the restore start FAILED, so the stack may be down.') }}
+          ansible.builtin.fail:
+            msg: >-
+              homelab-compose-reconcile.service failed to apply the changed settings.
+              {{ docker_compose_service_restore_outcome }}
+              Inspect it with: journalctl -u homelab-compose-reconcile.service
+
+    - name: Remove the previous settings slot after a successful run
+      ansible.builtin.file:
+        path: "{{ docker_compose_service_credstore_dir }}/homelab_compose_env.previous"
+        state: absent
+  rescue:
+    - name: Fail again with the staged converge failure
+      vars:
+        docker_compose_service_reraise_authored: >-
+          {{ (ansible_failed_task.action | default('') | regex_replace('^ansible[.](builtin|legacy)[.]', '')) == 'fail' }}
+      ansible.builtin.fail:
+        msg: >-
+          {{ ansible_failed_result.msg | default('the task failed without a message')
+             if docker_compose_service_reraise_authored
+             else 'Task "' ~ (ansible_failed_task.name | default('unknown')) ~ '" failed; its output is not repeated here'
+                  ~ ' because it can contain settings. Inspect journalctl -u homelab-compose-reconcile.service'
+                  ~ ' and journalctl -u homelab-compose-check.service.' }}
