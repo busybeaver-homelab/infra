@@ -1,0 +1,18 @@
+{
+  "description": "Keep agent GitHub access on the App wrappers. Review and trust in /hooks before use.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|mcp__.*)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "guard_root=$(git rev-parse --show-toplevel 2>/dev/null) && test -f \"$guard_root/.codex/hooks/agent-credential-guard.sh\" || { printf \"%s\\n\" \"Codex credential guard: launcher unavailable; refusing the call.\" >&2; exit 2; }; exec /bin/bash \"$guard_root/.codex/hooks/agent-credential-guard.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking agent credential policy"
+          }
+        ]
+      }
+    ]
+  }
+}

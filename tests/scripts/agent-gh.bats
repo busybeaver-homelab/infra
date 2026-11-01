@@ -135,3 +135,52 @@ STUB
   run shellcheck "$WRAPPER"
   [ "$status" -eq 0 ]
 }
+
+@test "refuses key management subcommands" {
+  refused ssh-key add example.pub
+  refused gpg-key list
+}
+
+@test "refuses file arguments outside the checkout and temporary directories" {
+  refused pr comment 149 --body-file /etc/hosts
+  refused pr comment 149 --body-file=/etc/hosts
+  refused pr create -F /etc/hosts
+  refused api repos/o/r/issues/1/comments -F body=@/etc/hosts
+  refused api repos/o/r/issues/1/comments --field=body=@/etc/hosts
+  refused api repos/o/r/issues --input /etc/hosts
+  refused release upload v1 /etc/hosts
+  refused release create v1 --notes-file /etc/hosts
+  refused pr create --body-file "$REPO_ROOT/secrets/credentials.ci.sops.yaml"
+}
+
+@test "refuses temporary files that contain credential material" {
+  local key_file="$BATS_TEST_TMPDIR/body-key.md" token_file="$BATS_TEST_TMPDIR/body-token.md"
+  printf -- '-----BEGIN %s-----\nsynthetic\n' "OPENSSH PRIVATE KEY" > "$key_file"
+  printf 'oauth_token: %s%s\n' 'gho_' 'SYNTHETICsyntheticSYNTHETICsynthetic0' > "$token_file"
+  refused pr comment 149 --body-file "$key_file"
+  refused api repos/o/r/issues/1/comments -F "body=@$token_file"
+}
+
+@test "allows body files in the checkout or temporary directories" {
+  printf 'Example body\n' > "$BATS_TEST_TMPDIR/body.md"
+  run bash "$WRAPPER" pr comment 149 --body-file "$BATS_TEST_TMPDIR/body.md"
+  [ "$status" -eq 0 ]
+  [ "$output" = 'child executed' ]
+  run bash "$WRAPPER" pr create --body-file "$REPO_ROOT/.github/pull_request_template.md"
+  [ "$status" -eq 0 ]
+  run bash "$WRAPPER" pr comment 149 --body-file -
+  [ "$status" -eq 0 ]
+}
+
+@test "refuses symlinked file arguments and credential-shaped key blocks" {
+  ln -s /etc/hosts "$BATS_TEST_TMPDIR/linked.md"
+  refused pr create --body-file "$BATS_TEST_TMPDIR/linked.md"
+  printf -- '-----BEGIN %s-----\n' "PGP PRIVATE KEY BLOCK" > "$BATS_TEST_TMPDIR/pgp.md"
+  refused pr create --body-file "$BATS_TEST_TMPDIR/pgp.md"
+  printf '(protected-private-key (rsa))\n' > "$BATS_TEST_TMPDIR/gpg.md"
+  refused pr create --body-file "$BATS_TEST_TMPDIR/gpg.md"
+}
+
+@test "refuses release asset labels that hide outside paths" {
+  refused release upload v1 '/etc/hosts#label'
+}

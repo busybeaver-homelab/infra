@@ -7,6 +7,8 @@ description: Use when starting feature work that needs isolation from current wo
 
 ## Overview
 
+The recipes below describe a sequence: submit each sensitive operation as a separate tool call with literal arguments. Resolve placeholders first; do not paste a multi-command block into one shell call.
+
 Git worktrees create isolated workspaces sharing the same repository, allowing work on multiple branches simultaneously without switching.
 
 **Core principle:** Systematic directory selection + safety verification = reliable isolation.
@@ -95,7 +97,7 @@ case $LOCATION in
 esac
 
 # Fetch latest default branch so the new worktree branch is never created from a stale local commit
-git fetch origin main
+scripts/agent-git.sh fetch origin refs/heads/main:refs/remotes/origin/main
 
 # Create worktree with new branch from origin/main (preserving git-crypt smudge keys when unlocked);
 # --no-track keeps origin/main from becoming the branch upstream
