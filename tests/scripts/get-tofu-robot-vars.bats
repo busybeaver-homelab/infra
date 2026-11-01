@@ -95,7 +95,7 @@ STUB
   run --separate-stderr "${SCRIPT}" --mesh-json "${FIXTURE_DIR}/empty.json"
   [ "$status" -ne 0 ]
   [ -z "$output" ]
-  [[ "$stderr" == *"ERROR: Missing required OpenTofu output robot_auth_key in module mesh"* ]] || false
+  [[ "$stderr" == *"ERROR: Invalid OpenTofu output robot_auth_key in module mesh (expected non-empty string)"* ]] || false
 }
 
 @test "fails closed with empty stdout when robot_auth_key is not a string" {
@@ -104,7 +104,8 @@ STUB
   run --separate-stderr "${SCRIPT}" --mesh-json "${FIXTURE_DIR}/null.json"
   [ "$status" -ne 0 ]
   [ -z "$output" ]
-  [[ "$stderr" == *"robot_auth_key"* ]] || false
+  [[ "$stderr" == *"ERROR: Invalid OpenTofu output robot_auth_key in module mesh (expected non-empty string)"* ]] || false
+  [[ "$stderr" != *"Missing"* ]] || false
 }
 
 @test "fails closed with empty stdout when mesh json is not an object or is missing" {

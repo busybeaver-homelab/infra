@@ -10,11 +10,15 @@
 #
 # consumed by the Valetudo robot playbook to enrol the robot as tag:type-iot.
 #
+# WARNING: stdout carries a live credential. Run only under per-action owner
+# confirmation (AGENTS.md section 4) and never into a transcript or log.
+#
 # Live mode always resolves the R2 state backend credentials and the state
 # encryption passphrase from SOPS inside this process, so AWS_* variables
 # exported by the caller never leak into the backend. Values travel only through
 # pipes (never argv, temp files or here-strings). Fails closed with no stdout if
-# the output is missing, empty or not a string.
+# the output is missing, empty or not a string (absent is reported as Missing,
+# any other bad value as Invalid).
 #
 # The key is single-use and short-lived. A non-empty key may be expired or
 # consumed; this script cannot detect that. Refresh it with
@@ -152,10 +156,14 @@ mesh_raw="$(read_mesh_json)"
 
 # Feed the document through a pipe so the key never appears on argv.
 printf '%s\n' "${mesh_raw}" | jq -c '
-  (.robot_auth_key.value? // .robot_auth_key? // "") as $val
-  | if ($val | type) == "string" and ($val | length) > 0 then
-      { tofu_robot_auth_key: $val }
-    else
-      "ERROR: Missing required OpenTofu output robot_auth_key in module mesh. Run tofu apply for infrastructure/mesh.\n" | halt_error(1)
-    end
+  if (has("robot_auth_key") | not) then
+    "ERROR: Missing required OpenTofu output robot_auth_key in module mesh. Run tofu apply for infrastructure/mesh.\n" | halt_error(1)
+  else
+    (.robot_auth_key | if type == "object" then .value else . end) as $val
+    | if ($val | type) == "string" and ($val | length) > 0 then
+        { tofu_robot_auth_key: $val }
+      else
+        "ERROR: Invalid OpenTofu output robot_auth_key in module mesh (expected non-empty string).\n" | halt_error(1)
+      end
+  end
 '
