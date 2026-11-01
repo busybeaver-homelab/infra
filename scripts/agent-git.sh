@@ -7,7 +7,7 @@ refuse() {
   exit 64
 }
 # Ambient hook and config overrides must not reach this unsandboxed Git.
-unset "${!LEFTHOOK@}" "${!GIT_CONFIG@}"
+unset ALLOW_MAIN_PUSH "${!GUARD_@}" "${!LEFTHOOK@}" "${!GIT_CONFIG@}"
 subcmd="${1:-}"
 case "$subcmd" in push | fetch | ls-remote) shift ;; *) refuse ;; esac
 
@@ -67,38 +67,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/github-app-token.sh
 source "$SCRIPT_DIR/lib/github-app-token.sh"
 token="$(github_app_mint_token)" || exit $?
-# Refuse all rewrite rules, including includes/global config; clearing a
-# multi-valued insteadOf setting cannot reliably undo Git's longest-match rule.
-rc=0
-git config --name-only --get-regexp '^url\..*\.(insteadof|pushinsteadof)$' >/dev/null 2>&1 || rc=$?
-[[ "$rc" -eq 1 ]] || refuse
-# Hooks run outside the agent sandbox here; refuse redirected hook directories.
-if git config --get core.hooksPath >/dev/null 2>&1; then
-  refuse
-fi
-# Local lefthook overrides can skip or replace the pre-push guard.
-top="$(git rev-parse --show-toplevel 2>/dev/null)" || top=.
-for override in lefthook-local .lefthook-local .config/lefthook-local; do
-  for extension in yml yaml toml json jsonc; do
-    [[ ! -e "$top/$override.$extension" ]] || refuse
-  done
-done
-if [[ "$subcmd" == push ]]; then
-  # Implicit destinations follow the current branch or push.default.
-  [[ "$(git config --get push.default 2>/dev/null)" != matching ]] || refuse
-  implicit=true
-  for refspec in ${refspecs[@]+"${refspecs[@]}"}; do
-    [[ "$refspec" == HEAD ]] || implicit=false
-  done
-  if "$implicit" && [[ "$(git symbolic-ref --short -q HEAD 2>/dev/null)" == main ]]; then
-    refuse
-  fi
-fi
-# A temporary named remote keeps --force-with-lease tied to origin's
-# tracking refs; refuse if that name is already configured anywhere.
-rc=0
-git config --name-only --get-regexp '^remote\.agentapp\.' >/dev/null 2>&1 || rc=$?
-[[ "$rc" -eq 1 ]] || refuse
 origin="$(git remote get-url origin 2>/dev/null)" || refuse
 case "$origin" in
   git@github.com:*) repository="${origin#git@github.com:}" ;;
@@ -108,6 +76,37 @@ esac
 repository="${repository%.git}"
 [[ "$repository" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*/[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || refuse
 url="https://github.com/${repository}.git"
+# Checks see the temporary remote, so hasconfig includes resolve as at run time.
+probe=(git -c "remote.agentapp.url=$url")
+# Refuse all rewrite rules, including includes/global config; clearing a
+# multi-valued insteadOf setting cannot reliably undo Git's longest-match rule.
+rc=0
+"${probe[@]}" config --name-only --get-regexp '^url\..*\.(insteadof|pushinsteadof)$' >/dev/null 2>&1 || rc=$?
+[[ "$rc" -eq 1 ]] || refuse
+# Hooks run outside the agent sandbox here; refuse redirected hook directories.
+if "${probe[@]}" config --get core.hooksPath >/dev/null 2>&1; then
+  refuse
+fi
+# A temporary named remote keeps --force-with-lease tied to origin's
+# tracking refs; refuse any other setting for that name.
+[[ "$("${probe[@]}" config --name-only --get-regexp '^remote\.agentapp\.' 2>/dev/null)" == remote.agentapp.url ]] || refuse
+# Local lefthook overrides can skip or replace the pre-push guard.
+top="$(git rev-parse --show-toplevel 2>/dev/null)" || top=.
+for override in lefthook-local .lefthook-local .config/lefthook-local; do
+  for extension in yml yaml toml json jsonc; do
+    [[ ! -e "$top/$override.$extension" ]] || refuse
+  done
+done
+if [[ "$subcmd" == push ]]; then
+  # Implicit destinations follow the current branch; push.default is pinned below.
+  implicit=true
+  for refspec in ${refspecs[@]+"${refspecs[@]}"}; do
+    [[ "$refspec" == HEAD || "$refspec" == @ ]] || implicit=false
+  done
+  if "$implicit" && [[ "$(git symbolic-ref --short -q HEAD 2>/dev/null)" == main ]]; then
+    refuse
+  fi
+fi
 for ((i = 0; i < ${#args[@]}; i++)); do
   [[ "${args[i]}" != __AGENT_ORIGIN__ ]] || args[i]=agentapp
 done
@@ -115,8 +114,17 @@ done
 printf -v helper '%q' "$SCRIPT_DIR/agent-git-credential.sh"
 export AGENT_GIT_TOKEN="$token" AGENT_GIT_PATH="${repository}.git"
 export GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false SSH_ASKPASS=/usr/bin/false
-exec git -c credential.helper= -c "credential.helper=!$helper" \
+rc=0
+git -c credential.helper= -c "credential.helper=!$helper" \
   -c credential.useHttpPath=true -c http.extraHeader= -c "http.$url.extraHeader=" \
-  -c protocol.allow=never -c protocol.https.allow=always \
+  -c protocol.allow=never -c protocol.https.allow=always -c push.default=simple \
   -c "remote.agentapp.url=$url" -c 'remote.agentapp.fetch=+refs/heads/*:refs/remotes/origin/*' \
-  "$subcmd" "${args[@]}"
+  "$subcmd" "${args[@]}" || rc=$?
+unset AGENT_GIT_TOKEN
+# push -u records the temporary remote; point tracking back at origin.
+if [[ "$subcmd" == push ]]; then
+  while read -r key value; do
+    [[ "$value" != agentapp ]] || git config "$key" origin
+  done < <(git config --local --get-regexp '^branch\..*\.remote$' 2>/dev/null || true)
+fi
+exit "$rc"

@@ -430,3 +430,12 @@ check_decision() {
   check_decision deny 'git remote set-url origin https://example.test/repo'
   check_decision deny 'git remote show origin'
 }
+
+@test "guard inspects commands attached to short options" {
+  local command
+  for command in 'git rebase -x"git push origin HEAD:main" HEAD~1' 'git rebase -ix"gh pr merge 1 --admin" HEAD~1' \
+    'git rebase -ex"git push origin HEAD" HEAD~1'; do
+    check_decision deny "$command" || return 1
+  done
+  check_decision allow 'git commit -uno -m x'
+}

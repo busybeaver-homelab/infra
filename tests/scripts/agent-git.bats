@@ -11,7 +11,9 @@ setup() {
   cat >"$APP_FIXTURE/bin/git" <<'STUB'
 #!/usr/bin/env bash
 printf 'called\n' >>"$APP_FIXTURE/git.calls"
-if [[ "$1" == config || "$1" == rev-parse || "$1" == symbolic-ref ]]; then
+probe=("$@")
+while [[ "${probe[0]:-}" == -c ]]; do probe=("${probe[@]:2}"); done
+if [[ "${probe[0]:-}" == config || "$1" == rev-parse || "$1" == symbolic-ref ]]; then
   "$REAL_GIT" "$@"
   exit $?
 fi
@@ -34,6 +36,10 @@ if [[ -n "${APP_INSPECT_CREDENTIALS:-}" ]]; then
   exit $?
 fi
 jq -n --args '$ARGS.positional' -- "$@" >"$APP_FIXTURE/git.argv"
+env >"$APP_FIXTURE/git.env"
+if [[ -n "${APP_SET_UPSTREAM:-}" ]]; then
+  "$REAL_GIT" config "branch.$APP_SET_UPSTREAM.remote" agentapp
+fi
 [[ "${AGENT_GIT_TOKEN:-}" == ghs_SYNTHETICtoken0000 ]] || exit 91
 [[ "${GIT_TERMINAL_PROMPT:-}" == 0 ]] || exit 92
 [[ "${GIT_ASKPASS:-}" == /usr/bin/false ]] || exit 93
@@ -221,14 +227,46 @@ helper_get() {
   refused push origin HEAD
 }
 
-@test "refuses implicit pushes from main and matching push defaults" {
+@test "refuses implicit pushes from main" {
   "$REAL_GIT" init -q -b main "$BATS_TEST_TMPDIR/on-main"
   cd "$BATS_TEST_TMPDIR/on-main"
   refused push origin HEAD
+  refused push origin @
   refused push origin
-  "$REAL_GIT" switch -q -c feature/example
-  "$REAL_GIT" config push.default matching
-  refused push origin
+}
+
+@test "pins push.default so upstream mappings cannot redirect to main" {
+  "$REAL_GIT" init -q -b feature/example "$BATS_TEST_TMPDIR/upstream"
+  cd "$BATS_TEST_TMPDIR/upstream"
+  "$REAL_GIT" config push.default upstream
+  "$REAL_GIT" config branch.feature/example.merge refs/heads/main
+  run bash "$WRAPPER" push origin feature/example
+  [ "$status" -eq 0 ]
+  run jq -e 'index("push.default=simple") != null' "$APP_FIXTURE/git.argv"
+  [ "$status" -eq 0 ]
+}
+
+@test "clears main-push guard overrides from the environment" {
+  ALLOW_MAIN_PUSH=1 GUARD_PROTECTED_REF=refs/heads/x run bash "$WRAPPER" push origin HEAD:feature/example
+  [ "$status" -eq 0 ]
+  run grep -c 'ALLOW_MAIN_PUSH\|GUARD_' "$APP_FIXTURE/git.env"
+  [ "$output" = 0 ]
+}
+
+@test "records origin rather than the temporary remote as upstream" {
+  "$REAL_GIT" init -q -b feature/example "$BATS_TEST_TMPDIR/upstream-record"
+  cd "$BATS_TEST_TMPDIR/upstream-record"
+  APP_SET_UPSTREAM=feature/example run bash "$WRAPPER" push -u origin feature/example
+  [ "$status" -eq 0 ]
+  [ "$("$REAL_GIT" config --get branch.feature/example.remote)" = origin ]
+}
+
+@test "evaluates config includes with the temporary remote in place" {
+  "$REAL_GIT" init -q -b feature/example "$BATS_TEST_TMPDIR/include"
+  cd "$BATS_TEST_TMPDIR/include"
+  printf '[remote "agentapp"]\n\tpushurl = https://evil.example.test/o/r\n' > "$BATS_TEST_TMPDIR/evil.inc"
+  "$REAL_GIT" config 'includeIf.hasconfig:remote.*.url:https://github.com/**.path' "$BATS_TEST_TMPDIR/evil.inc"
+  refused push origin HEAD:feature/example
 }
 
 @test "refuses a preconfigured temporary remote and every lefthook override form" {

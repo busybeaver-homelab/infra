@@ -146,7 +146,15 @@ try:
         for word in pending.pop():
             executed = previous in EXEC_OPTIONS or re.match(r"(?:--exec|[A-Za-z_][\w.]*)=", word)
             previous = word
-            for text in (word, word.split("=", 1)[-1]):
+            candidates = [(word, executed), (word.split("=", 1)[-1], executed)]
+            # Short options can carry their value attached (-x"git push").
+            if re.match(r"-[A-Za-z]", word):
+                for position, letter in enumerate(word[1:], 1):
+                    if not letter.isalpha():
+                        break
+                    if letter in "xceEp":
+                        candidates.append((word[position + 1:], True))
+            for text, executed in candidates:
                 if not re.search(r"\s", text):
                     continue
                 try:
@@ -325,8 +333,8 @@ def classify(words):
                 for position, letter in enumerate(arg[1:], 1):
                     if letter == "n":
                         deny("Git hooks are mandatory; --no-verify is forbidden.")
-                    if letter in "mFcCtS":
-                        skip = letter != "S" and position == len(arg) - 1
+                    if letter in "mFcCtSu":
+                        skip = letter not in "Su" and position == len(arg) - 1
                         break
     if "sops" in bases:
         sops_args = words[bases.index("sops") + 1:]
