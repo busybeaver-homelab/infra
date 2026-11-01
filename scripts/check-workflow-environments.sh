@@ -7,14 +7,16 @@ set -euo pipefail
 # the secrets stored in them. Remote reusable workflows are refused because a called
 # workflow resolves environments against this repository but is not checked here; local
 # calls into the allowlisted backup workflows are refused outside the allowlist. Jobs
-# outside workflow-policy.yml may not report the "Workflow Policy" required check name.
+# outside workflow-policy.yml may not report the "Workflow Policy" required check name, and
+# no workflow may grant statuses or checks write, which could post that check.
 #
 # Usage: scripts/check-workflow-environments.sh [--workflows-dir DIR]
 # Exit codes:
 #   0 - No violation found
 #   1 - A workflow outside the allowlist uses a protected environment or calls a backup
 #       workflow, a job's environment contains an expression, a job calls a remote
-#       reusable workflow, or another workflow reports the Workflow Policy check name
+#       reusable workflow, another workflow reports the Workflow Policy check name, or a
+#       workflow grants statuses/checks write
 #   2 - Fail closed: missing or empty directory, unreadable or unparsable YAML, no jobs mapping
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,18 +27,44 @@ ALLOWED_FILES=(backup-dr-copy.yml backup-prune.yml)
 PROTECTED_ENVS=(ops backup)
 POLICY_FILE="workflow-policy.yml"
 POLICY_CHECK_NAME="workflow policy"
+# Expression parts of a job name can evaluate to anything, so compare only the literal parts.
+POLICY_CHECK_LETTERS="workflowpolicy"
 
 # Prints "<job>\t<environment name>" for every job that declares an environment, with
 # YAML aliases and merge keys resolved. Map-form environments yield their name.
 JOB_ENV_EXPR='explode(.) | .jobs | to_entries | .[] | select(.value.environment != null) | .key + "\t" + (.value.environment | (if tag == "!!map" then (.name // "") else . end) | to_string)'
 # Prints "<job>\t<check name>" for every job: its name, or its id when it has no name.
 JOB_NAME_EXPR='explode(.) | .jobs | to_entries | .[] | .key + "\t" + ((.value.name // .key) | to_string)'
+# Prints "<scope>\t<grant>" for the workflow and every job that sets permissions: the string
+# form as is, the map form reduced to its statuses and checks entries.
+PERMISSIONS_EXPR='explode(.) | ([{"k": "(workflow)", "v": .permissions}] + [.jobs | to_entries | .[] | {"k": .key, "v": .value.permissions}]) | .[] | select(.v != null) | .k + "\t" + (.v | (if tag == "!!map" then ([to_entries | .[] | select(.key == "statuses" or .key == "checks") | .key + "=" + (.value | to_string)] | join(",")) else to_string end))'
 # Prints "<job>\t<uses>" for every job that calls a reusable workflow.
 JOB_USES_EXPR='explode(.) | .jobs | to_entries | .[] | select(.value.uses != null) | .key + "\t" + (.value.uses | to_string)'
 
 usage() {
-  sed -n '4,18p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '4,20p' "$0" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
+}
+
+# could_spoof_policy_name <name>: succeeds when the name, after its ${{ }} expressions take
+# any value, could equal the Workflow Policy check name (case and whitespace ignored).
+could_spoof_policy_name() {
+  local rest="$1" remaining="$POLICY_CHECK_LETTERS" segment
+  local -a segments=()
+  # shellcheck disable=SC2016 # literal expression delimiters, not shell expansions
+  while [[ "$rest" == *'${{'* ]]; do
+    segments+=("${rest%%'${{'*}")
+    rest="${rest#*'${{'}"
+    if [[ "$rest" == *'}}'* ]]; then rest="${rest#*'}}'}"; else rest=""; fi
+  done
+  segments+=("$rest")
+  for segment in "${segments[@]}"; do
+    segment="$(printf '%s' "$segment" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+    [[ -n "$segment" ]] || continue
+    [[ "$remaining" == *"$segment"* ]] || return 1
+    remaining="${remaining#*"$segment"}"
+  done
+  return 0
 }
 
 fail_closed() {
@@ -82,6 +110,7 @@ for file in "${files[@]}"; do
   rows="$(yq eval -r "$JOB_ENV_EXPR" "$file" 2>/dev/null)" || fail_closed "Cannot evaluate job environments: $base"
   uses_rows="$(yq eval -r "$JOB_USES_EXPR" "$file" 2>/dev/null)" || fail_closed "Cannot evaluate reusable workflow calls: $base"
   name_rows="$(yq eval -r "$JOB_NAME_EXPR" "$file" 2>/dev/null)" || fail_closed "Cannot evaluate job names: $base"
+  permission_rows="$(yq eval -r "$PERMISSIONS_EXPR" "$file" 2>/dev/null)" || fail_closed "Cannot evaluate permissions: $base"
 
   allowed=false
   for allowed_file in "${ALLOWED_FILES[@]}"; do
@@ -121,11 +150,20 @@ for file in "${files[@]}"; do
     while IFS=$'\t' read -r job check_name; do
       [[ -n "$job" ]] || continue
       normalized="$(printf '%s' "$check_name" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-      if [[ "$normalized" == "$POLICY_CHECK_NAME" ]]; then
+      # shellcheck disable=SC2016 # literal expression opener, not a shell expansion
+      if [[ "$normalized" == "$POLICY_CHECK_NAME" ]] || { [[ "$check_name" == *'${{'* ]] && could_spoof_policy_name "$check_name"; }; then
         violations+=("$base:$job reports the required Workflow Policy check name")
       fi
     done <<<"$name_rows"
   fi
+
+  while IFS=$'\t' read -r scope grant; do
+    [[ -n "$scope" ]] || continue
+    grant="$(printf '%s' "$grant" | tr '[:upper:]' '[:lower:]')"
+    if [[ "$grant" == "write-all" || "$grant" == *"statuses=write"* || "$grant" == *"checks=write"* ]]; then
+      violations+=("$base:$scope grants statuses or checks write, which could post the Workflow Policy check")
+    fi
+  done <<<"$permission_rows"
 done
 
 if [[ ${#violations[@]} -gt 0 ]]; then

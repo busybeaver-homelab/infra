@@ -205,6 +205,37 @@ write_caller() {
   [[ "$output" != *"workflow-policy.yml:"* ]] || false
 }
 
+@test "fails for expression job names that could evaluate to the Workflow Policy check name" {
+  printf 'name: Fixture\non: push\njobs:\n  a:\n    name: ${{ '"'"'Workflow Policy'"'"' }}\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n  b:\n    name: Workflow ${{ '"'"'Policy'"'"' }}\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n' >"${WF_DIR}/rogue.yml"
+  run "$SCRIPT" --workflows-dir "$WF_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"rogue.yml:a "* ]] || false
+  [[ "$output" == *"rogue.yml:b "* ]] || false
+}
+
+@test "allows expression job names whose literal text rules out the Workflow Policy name" {
+  printf 'name: Fixture\non: push\njobs:\n  molecule:\n    name: Molecule (${{ matrix.scenario }})\n    runs-on: ubuntu-latest\n    strategy:\n      matrix:\n        scenario: [one]\n    steps:\n      - run: "true"\n' >"${WF_DIR}/matrix.yml"
+  run "$SCRIPT" --workflows-dir "$WF_DIR"
+  [ "$status" -eq 0 ]
+}
+
+@test "fails for any workflow granting statuses or checks write, which could post the required check" {
+  printf 'name: Fixture\non: push\njobs:\n  job-scope:\n    runs-on: ubuntu-latest\n    permissions:\n      statuses: write\n    steps:\n      - run: "true"\n' >"${WF_DIR}/statuses.yml"
+  printf 'name: Fixture\non: push\npermissions: write-all\njobs:\n  plain:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n' >"${WF_DIR}/writeall.yml"
+  printf 'name: Fixture\non: push\njobs:\n  check-scope:\n    runs-on: ubuntu-latest\n    permissions:\n      checks: write\n    steps:\n      - run: "true"\n' >"${WF_DIR}/checks.yml"
+  run "$SCRIPT" --workflows-dir "$WF_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"statuses.yml:job-scope"* ]] || false
+  [[ "$output" == *"writeall.yml:(workflow)"* ]] || false
+  [[ "$output" == *"checks.yml:check-scope"* ]] || false
+}
+
+@test "allows read-only checks and statuses permissions" {
+  printf 'name: Fixture\non: push\npermissions:\n  checks: read\n  statuses: read\njobs:\n  plain:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n' >"${WF_DIR}/readonly.yml"
+  run "$SCRIPT" --workflows-dir "$WF_DIR"
+  [ "$status" -eq 0 ]
+}
+
 @test "the real repository workflows satisfy the policy" {
   run "$SCRIPT"
   [ "$status" -eq 0 ]

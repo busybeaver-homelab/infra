@@ -112,3 +112,9 @@ setup() {
   [ "${status}" -eq 0 ]
   [ "${output}" = "false" ]
 }
+
+@test "backup-dr-copy.yml restores no Actions cache, which unowned workflows on main could poison (design 4.7)" {
+  run yq eval '[.jobs[].steps[] | select(.uses == "actions/cache*")] | length' "${WORKFLOW_FILE}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "0" ]
+}
