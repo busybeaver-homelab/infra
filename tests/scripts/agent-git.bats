@@ -11,7 +11,7 @@ setup() {
   cat >"$APP_FIXTURE/bin/git" <<'STUB'
 #!/usr/bin/env bash
 printf 'called\n' >>"$APP_FIXTURE/git.calls"
-if [[ "$1" == config ]]; then
+if [[ "$1" == config || "$1" == rev-parse ]]; then
   "$REAL_GIT" "$@"
   exit $?
 fi
@@ -202,4 +202,21 @@ helper_get() {
   "$REAL_GIT" config core.hooksPath .h
   refused push origin HEAD
   refused fetch origin
+}
+
+@test "refuses abbreviated push options and expanded main refspecs" {
+  local option
+  for option in --no-veri --no-v --del --mirr --pru --al --bra --forc; do
+    run bash "$WRAPPER" push "$option" origin HEAD
+    [ "$status" -eq 64 ] && [ ! -e "$APP_FIXTURE/git.argv" ] || { echo "accepted $option" >&2; return 1; }
+  done
+  refused push origin HEAD:heads/main
+  refused push origin heads/main
+}
+
+@test "refuses transport when local lefthook overrides exist" {
+  "$REAL_GIT" init -q "$BATS_TEST_TMPDIR/local-hooks"
+  cd "$BATS_TEST_TMPDIR/local-hooks"
+  printf 'pre-push:\n  skip: true\n' > lefthook-local.yml
+  refused push origin HEAD
 }

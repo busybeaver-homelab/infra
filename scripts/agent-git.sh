@@ -32,8 +32,13 @@ for arg in "$@"; do
         ;;
       -*)
         # Pushes keep their hooks and cannot delete, mirror or force-overwrite refs.
-        if [[ "$subcmd" == push && ("$arg" =~ ^-[A-Za-z0-9]*[df] || "$arg" =~ ^--(no-verify|mirror|delete|all|branches|prune|force)(=.*)?$) ]]; then
-          refuse
+        # Git accepts unambiguous prefixes of long options, so match those too.
+        if [[ "$subcmd" == push ]]; then
+          [[ ! "$arg" =~ ^-[A-Za-z0-9]*[df] ]] || refuse
+          name="${arg%%=*}"
+          for forbidden in --no-verify --mirror --delete --all --branches --prune --force; do
+            [[ ${#name} -lt 4 || "$forbidden" != "$name"* ]] || refuse
+          done
         fi
         args+=("$arg")
         continue
@@ -46,7 +51,7 @@ for arg in "$@"; do
     remote_seen=true
   else
     # main changes only through the merge queue; agents never push it.
-    if [[ "$subcmd" == push && ("$arg" == :* || "$arg" == +* || "${arg##*:}" == main || "${arg##*:}" == refs/heads/main) ]]; then
+    if [[ "$subcmd" == push && ("$arg" == :* || "$arg" == +* || "${arg##*:}" =~ ^(refs/)?(heads/)?main$) ]]; then
       refuse
     fi
     args+=("$arg")
@@ -68,6 +73,11 @@ git config --name-only --get-regexp '^url\..*\.(insteadof|pushinsteadof)$' >/dev
 if git config --get core.hooksPath >/dev/null 2>&1; then
   refuse
 fi
+# Local lefthook overrides can skip or replace the pre-push guard.
+top="$(git rev-parse --show-toplevel 2>/dev/null)" || top=.
+for override in lefthook-local.yml lefthook-local.yaml .lefthook-local.yml .lefthook-local.yaml; do
+  [[ ! -e "$top/$override" ]] || refuse
+done
 origin="$(git remote get-url origin 2>/dev/null)" || refuse
 case "$origin" in
   git@github.com:*) repository="${origin#git@github.com:}" ;;

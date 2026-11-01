@@ -49,10 +49,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 tmp_root="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
 system_tmp="$(cd /tmp && pwd -P)"
-secret_pattern='-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----|AGE-SECRET-KEY-1|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}'
+secret_pattern='-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----|\((protected-)?private-key|AGE-SECRET-KEY-1|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}'
 check_file() {
   local path="$1" real
-  [[ "$path" != - && -e "$path" ]] || return 0
+  [[ "$path" != - ]] || return 0
+  # A symlink could point anywhere; only real files and directories qualify.
+  [[ ! -L "$path" ]] || refuse
+  [[ -e "$path" ]] || return 0
   real="$(cd "$(dirname "$path")" && pwd -P)/$(basename "$path")"
   case "$real" in
     "$repo_root"/secrets | "$repo_root"/secrets/* | "$repo_root"/.git | "$repo_root"/.git/*) refuse ;;

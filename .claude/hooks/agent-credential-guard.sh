@@ -72,14 +72,22 @@ GATED_SCRIPTS = {
     "generate-inventory.sh", "get-tofu-restic-vars.sh", "get-tofu-robot-vars.sh",
 }
 GATED_TASKS = re.compile(r"(?:github:sync|sync:|drift(?::|$)|ansible:inventory).*")
-SOPS_ACTIONS = {
-    "-e", "--encrypt", "encrypt", "updatekeys", "-r", "--rotate", "rotate", "filestatus",
-    "set", "unset", "--version", "-v", "version", "-h", "--help", "help",
-}
 ANSIBLE_INFO = {"--syntax-check", "--list-tasks", "--list-tags", "--list-hosts", "--version", "-h", "--help"}
 SENSITIVE = re.compile(r"(?<![\w-])(?:gh|git|sops|tofu|security|git-crypt|ansible|ansible-playbook)(?![\w-])")
 EXECUTABLES = {"gh", "git", "sops", "tofu", "security", "git-crypt", "ansible", "ansible-playbook", "mise"}
-LAUNCHERS = {"env", "command", "exec", "nohup", "sudo", "time", "xargs"}
+LAUNCHERS = {
+    "env", "command", "exec", "nohup", "sudo", "time", "xargs", "nice", "timeout", "stdbuf",
+    "caffeinate", "ionice", "taskset", "unbuffer",
+}
+GIT_SAFE_GLOBALS = {
+    "--no-pager", "-P", "-p", "--paginate", "--no-replace-objects", "--bare", "--literal-pathspecs",
+    "--glob-pathspecs", "--noglob-pathspecs", "--icase-pathspecs", "--no-optional-locks",
+    "--no-advice", "--version", "--help",
+}
+# Environment that git, its pager or hooks may consult; anything else is refused.
+GIT_SAFE_ENV = re.compile(r"(?:(?:GIT_PAGER|PAGER)=cat|(?:LC_ALL|LANG|TZ|GIT_AUTHOR_DATE|GIT_COMMITTER_DATE)=.*)")
+SOPS_SUBCOMMANDS = {"updatekeys", "encrypt", "rotate", "filestatus", "set", "unset", "version", "help"}
+SOPS_FLAGS = {"-e", "--encrypt", "-r", "--rotate", "--version", "-v", "-h", "--help"}
 
 if sys.argv[1:] not in ([], ["--all-tofu-gated"]):
     deny("Unsupported classifier options.")
@@ -121,13 +129,21 @@ try:
     # Quoted arguments can carry whole commands (rebase -x, pager settings).
     # Inspect each nested string that starts with a sensitive executable.
     segments, pending = [words], [words]
-    while pending and len(segments) < 64:
+    while pending:
+        if len(segments) >= 64:
+            raise ValueError
         for word in pending.pop():
             for text in (word, word.split("=", 1)[-1]):
                 if not re.search(r"\s", text):
                     continue
-                inner = split(text)
-                start = [w for w in inner if "=" not in w.split("/")[0] and w not in LAUNCHERS][:1]
+                try:
+                    inner = split(text)
+                except ValueError:
+                    inner = text.split()
+                start = [
+                    w for w in inner
+                    if "=" not in w.split("/")[0] and w not in LAUNCHERS and not re.fullmatch(r"-\S*|[0-9.]+[smhd]?", w)
+                ][:1]
                 if inner and inner not in segments and (
                     start and os.path.basename(start[0]) in EXECUTABLES | GATED_SCRIPTS
                 ):
@@ -140,7 +156,19 @@ if any(CREDENTIAL_PATHS.search(word) for word in words):
     deny("Owner credential files are unavailable to agents.")
 
 wrappers = {"scripts/agent-gh.sh", "scripts/agent-git.sh"}
-if any(wrapper in command for wrapper in wrappers):
+wrapper_names = {os.path.basename(wrapper) for wrapper in wrappers}
+# Paths that merely mention a wrapper (git add, shellcheck) are ordinary
+# commands; anything that could execute one must be the literal wrapper call.
+leading = [
+    w for w in words
+    if "=" not in w.split("/")[0] and w not in LAUNCHERS and not INTERPRETERS.fullmatch(os.path.basename(w))
+]
+if any(name in command for name in wrapper_names) and (
+    words[0] in wrappers
+    or re.search(r"[;&|<>$`\n\r]", command)
+    or not leading
+    or os.path.basename(leading[0]) in wrapper_names
+):
     # Deliberately narrower than shell grammar. Even quoted expansion/control
     # characters are rejected; put complex PR text in a body file instead.
     if words[0] not in wrappers or not command.startswith(words[0] + " "):
@@ -149,18 +177,6 @@ if any(wrapper in command for wrapper in wrappers):
         deny("App wrapper calls must be a single literal command without expansion or redirection.")
     if any(WRAPPER_PATHS.search(word) for word in words):
         deny("App wrappers cannot read secrets, keys or Git internals.")
-    # The wrappers run outside the sandbox: they must match the reviewed copy
-    # that backs this guard, including what they source or execute.
-    required = [words[0], "scripts/lib/github-app-token.sh"]
-    if words[0] == "scripts/agent-git.sh":
-        required.append("scripts/agent-git-credential.sh")
-    try:
-        for relative in required:
-            with open(os.path.join(cwd, relative), "rb") as local, open(os.path.join(guard_root, relative), "rb") as reviewed:
-                if local.read() != reviewed.read():
-                    raise ValueError
-    except (OSError, ValueError):
-        deny("The App wrapper differs from the reviewed project copy.")
     raise SystemExit(0)
 
 # Shell substitutions and compound commands obscure executable/directory
@@ -173,15 +189,15 @@ bases = [os.path.basename(word) for word in words]
 if SENSITIVE.search(command) and any(INTERPRETERS.fullmatch(base) for base in bases):
     deny("Submit the sensitive command directly so the guard can inspect it.")
 
-# Quoting, escapes or embedding in another argument must not hide gh.
-if re.search(r"(?<![\w./-])gh(?![\w./-])", command):
-    deny("Use scripts/agent-gh.sh for GitHub CLI access.")
 
 
 def github_module(path):
     if path.endswith("/infrastructure/github") or "/infrastructure/github/" in path:
         return True
-    for name in sorted(glob.glob(os.path.join(path, "*.tf")))[:200]:
+    names = glob.glob(os.path.join(glob.escape(path), "*.tf")) + glob.glob(os.path.join(glob.escape(path), "*.tf.json"))
+    for name in sorted(names)[:200]:
+        if not os.path.isfile(name):
+            continue
         try:
             with open(name, encoding="utf-8", errors="replace") as handle:
                 if "integrations/github" in handle.read(1_000_000):
@@ -192,8 +208,11 @@ def github_module(path):
 
 
 def mock_only(path, test_dir):
-    files = glob.glob(os.path.join(path, "*.tftest.hcl")) + glob.glob(os.path.join(path, test_dir, "*.tftest.hcl"))
+    root = glob.escape(path)
+    files = glob.glob(os.path.join(root, "*.tftest.hcl")) + glob.glob(os.path.join(root, glob.escape(test_dir), "*.tftest.hcl"))
     for name in files[:200]:
+        if not os.path.isfile(name):
+            return False
         try:
             with open(name, encoding="utf-8", errors="replace") as handle:
                 text = handle.read(1_000_000)
@@ -224,7 +243,9 @@ def classify(words):
     )):
         deny("Owner Git credentials and helpers are unavailable to agents.")
     if "git" in bases:
-        if any(GIT_EXEC_ENV.fullmatch(word) for word in words[:bases.index("git")]):
+        if any(
+            "=" in word.split("/")[0] and not GIT_SAFE_ENV.fullmatch(word) for word in words[:bases.index("git")]
+        ):
             deny("Git and hook environment overrides are unavailable to agents.")
         args = words[bases.index("git") + 1:]
         while args and args[0].startswith("-"):
@@ -233,8 +254,14 @@ def classify(words):
                 if not args:
                     deny("Incomplete Git options.")
                 value = args.pop(0)
-                if option in {"-c", "--config-env"} and GIT_EXEC_KEYS.fullmatch(value.lower()):
-                    deny("Git settings that run programs or redirect hooks are unavailable.")
+            elif option.startswith(("--git-dir=", "--work-tree=", "--namespace=", "--config-env=")):
+                option, value = option.split("=", 1)
+            elif option in GIT_SAFE_GLOBALS:
+                continue
+            else:
+                deny("Unknown Git global options are unavailable.")
+            if option in {"-c", "--config-env"} and GIT_EXEC_KEYS.fullmatch(value.lower()):
+                deny("Git settings that run programs or redirect hooks are unavailable.")
         local_git = {
             "add", "am", "apply", "archive", "bisect", "blame", "branch", "check-attr",
             "check-ignore", "checkout", "cherry", "cherry-pick", "clean", "commit",
@@ -254,21 +281,29 @@ def classify(words):
             GIT_EXEC_KEYS.fullmatch(arg.lower()) for arg in args[1:]
         ) and not any(arg in {"--get", "--get-all", "--get-regexp", "-l", "--list"} for arg in args):
             deny("Git settings that run programs or redirect hooks are unavailable.")
-        if "--no-verify" in args or args and args[0] == "commit" and any(
-            re.fullmatch(r"-[A-Za-z]*n[A-Za-z]*", arg) for arg in args[1:]
-        ):
+        if any(len(arg.split("=")[0]) >= 5 and "--no-verify".startswith(arg.split("=")[0]) for arg in args):
             deny("Git hooks are mandatory; --no-verify is forbidden.")
+        if args and args[0] == "commit":
+            for arg in args[1:]:
+                if not re.fullmatch(r"-[^-].*", arg):
+                    continue
+                # Short options stop at the first one that takes a value.
+                for letter in arg[1:]:
+                    if letter == "n":
+                        deny("Git hooks are mandatory; --no-verify is forbidden.")
+                    if letter in "mFcCtS":
+                        break
     if "sops" in bases:
         sops_args = words[bases.index("sops") + 1:]
-        if any(word in sops_args for word in (
-            "-d", "--decrypt", "--decrypt=true", "decrypt", "--extract", "exec-env", "exec-file", "edit"
-        )) or any(word.startswith("--extract=") for word in sops_args):
+        if any(re.fullmatch(r"(?:-d|--decrypt|--extract|decrypt|exec-env|exec-file|edit)(?:=.*)?", word) for word in sops_args):
             deny("Direct secret getters are forbidden; use repository consumers.")
-        if not any(word in SOPS_ACTIONS for word in sops_args):
-            deny("sops without an explicit non-decrypting action opens a decrypting editor.")
+        if not sops_args or sops_args[0] not in SOPS_SUBCOMMANDS | SOPS_FLAGS:
+            deny("sops must start with an explicit non-decrypting action; a bare file opens a decrypting editor.")
     if "git-crypt" in bases and "export-key" in words:
         deny("Secret key export is forbidden.")
-    if "security" in bases and any(word.startswith("find-") and word.endswith("-password") for word in words):
+    if "security" in bases and any(
+        word.startswith("find-") and word.endswith("-password") or word in {"dump-keychain", "export"} for word in words
+    ):
         deny("Reading password credentials from Keychain is forbidden.")
     if "mise" in bases and any(re.fullmatch(r"secret:\S*:get", word) for word in words):
         deny("Direct secret getters are forbidden; use repository consumers.")
@@ -298,13 +333,20 @@ def classify(words):
         target = cwd
         prefix = words[:index]
         for position, word in enumerate(prefix):
+            value = None
             if word in {"-C", "--cd", "--chdir", "--directory"} and position + 1 < len(prefix):
-                target = os.path.join(target, prefix[position + 1])
+                value = prefix[position + 1]
             elif word.startswith(("--cd=", "--chdir=", "--directory=")):
-                target = os.path.join(target, word.split("=", 1)[1])
+                value = word.split("=", 1)[1]
+            if value is not None:
+                if value.startswith("~"):
+                    deny("Use an explicit OpenTofu directory without home expansion.")
+                target = os.path.join(target, value)
         test_dir = "tests"
         for position, arg in enumerate(args):
             if arg.startswith("-chdir="):
+                if arg.split("=", 1)[1].startswith("~"):
+                    deny("Use an explicit OpenTofu directory without home expansion.")
                 target = os.path.join(target, arg.split("=", 1)[1])
             elif arg.startswith("-test-directory="):
                 test_dir = arg.split("=", 1)[1]

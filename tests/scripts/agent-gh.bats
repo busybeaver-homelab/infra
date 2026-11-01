@@ -171,3 +171,12 @@ STUB
   run bash "$WRAPPER" pr comment 149 --body-file -
   [ "$status" -eq 0 ]
 }
+
+@test "refuses symlinked file arguments and credential-shaped key blocks" {
+  ln -s /etc/hosts "$BATS_TEST_TMPDIR/linked.md"
+  refused pr create --body-file "$BATS_TEST_TMPDIR/linked.md"
+  printf -- '-----BEGIN %s-----\n' "PGP PRIVATE KEY BLOCK" > "$BATS_TEST_TMPDIR/pgp.md"
+  refused pr create --body-file "$BATS_TEST_TMPDIR/pgp.md"
+  printf '(protected-private-key (rsa))\n' > "$BATS_TEST_TMPDIR/gpg.md"
+  refused pr create --body-file "$BATS_TEST_TMPDIR/gpg.md"
+}

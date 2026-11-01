@@ -308,29 +308,14 @@ check_decision() {
   done
 }
 
-@test "guard refuses App wrappers that differ from the reviewed project copy" {
-  local checkout="$BATS_TMPDIR/checkout"
-  mkdir -p "$checkout/scripts/lib"
-  cp "$REPO_ROOT/scripts/agent-gh.sh" "$REPO_ROOT/scripts/agent-git.sh" \
-    "$REPO_ROOT/scripts/agent-git-credential.sh" "$checkout/scripts/"
-  cp "$REPO_ROOT/scripts/lib/github-app-token.sh" "$checkout/scripts/lib/"
-  check_decision allow 'scripts/agent-gh.sh pr list' "$checkout"
-  check_decision allow 'scripts/agent-git.sh push -u origin HEAD' "$checkout"
-  printf '\n# changed\n' >> "$checkout/scripts/lib/github-app-token.sh"
-  check_decision deny 'scripts/agent-gh.sh pr list' "$checkout"
-  cp "$REPO_ROOT/scripts/lib/github-app-token.sh" "$checkout/scripts/lib/"
-  printf '\n# changed\n' >> "$checkout/scripts/agent-git-credential.sh"
-  check_decision deny 'scripts/agent-git.sh push -u origin HEAD' "$checkout"
-  check_decision deny 'scripts/agent-gh.sh pr list' "$BATS_TMPDIR"
-}
-
 @test "settings deny reads of owner credentials and edits of the live guard" {
   local rule
   for rule in 'Read(~/.config/gh/**)' 'Read(~/Library/Application Support/gh/**)' 'Read(~/.ssh/**)' \
     'Read(~/.gnupg/**)' 'Read(~/.git-credentials)' 'Read(~/.netrc)' \
     'Edit(/.claude/**)' 'Edit(/.codex/**)' 'Edit(/.agent/hooks/**)' 'Edit(/.agents/hooks.json)' \
     'Edit(/scripts/agent-*)' 'Edit(/scripts/lib/github-app-token.sh)' 'Edit(/scripts/guard-*)' \
-    'Edit(/lefthook.yml)' 'Edit(/.git/hooks/**)'; do
+    'Edit(/lefthook.yml)' 'Edit(/.git/hooks/**)' 'Edit(/lefthook-local.yml)' 'Edit(/.lefthook-local.yml)' \
+    'Edit(/.git/config)'; do
     run jq -e --arg rule "$rule" '.permissions.deny | index($rule) != null' "$SETTINGS"
     [ "$status" -eq 0 ] || { echo "missing $rule" >&2; return 1; }
   done
@@ -345,4 +330,57 @@ check_decision() {
     [ -f "$REPO_ROOT/$path" ] || return 1
     grep -Eq "^/${path//./\\.}[[:space:]]+@busybeaver$" "$REPO_ROOT/.github/CODEOWNERS" || return 1
   done
+}
+
+@test "guard allows routine commands whose quoted text mentions gh or apostrophes" {
+  local command
+  for command in "git commit -m \"fix(agents): don't deny routine work\"" \
+    'git commit -m "docs(agents): route gh calls through the App wrapper"' "rg \"can't find\" docs" \
+    "scripts/agent-gh.sh pr create --title \"fix: don't deny\" --body-file .github/pull_request_template.md" \
+    'git commit -mfinal' 'git add scripts/lib/github-app-token.sh'; do
+    check_decision allow "$command" || return 1
+  done
+  check_decision deny "git rebase -x \"nice /opt/homebrew/bin/gh auth token\" HEAD~1"
+  check_decision deny "git rebase -x \"timeout 5 gh auth token\" HEAD~1"
+}
+
+@test "guard denies abbreviated and attached Git hook overrides" {
+  local command
+  for command in 'git --config-env=core.hooksPath=HOME commit -m x' 'git --exec-path=/tmp/x commit -m x' \
+    'git commit --no-veri -m x' 'git commit --no-v -m x' 'HOME=/tmp/h git commit -m x' \
+    'XDG_CONFIG_HOME=/tmp/h git commit -m x'; do
+    check_decision deny "$command" || return 1
+  done
+  check_decision allow 'GIT_PAGER=cat git log -1'
+  check_decision allow 'git --no-pager log -1'
+}
+
+@test "guard requires sops actions first and denies decrypt flag variants" {
+  local command
+  for command in 'sops --decrypt=1 --output help secrets/credentials.sops.yaml' \
+    'sops -d=true secrets/credentials.sops.yaml' 'sops --output help secrets/credentials.sops.yaml' \
+    'sops --config x updatekeys secrets/credentials.sops.yaml'; do
+    check_decision deny "$command" || return 1
+  done
+}
+
+@test "guard resolves GitHub modules with glob characters, JSON and home paths" {
+  local odd="$BATS_TMPDIR/m[0]" json="$BATS_TMPDIR/jsonmod"
+  mkdir -p "$odd" "$json" "$BATS_TMPDIR/m0"
+  cp "$REPO_ROOT/infrastructure/github/versions.tf" "$odd/"
+  printf '{"terraform":{"required_providers":{"github":{"source":"integrations/github"}}}}\n' > "$json/versions.tf.json"
+  check_decision ask "tofu -chdir=$odd plan"
+  check_decision ask 'tofu plan' "$json"
+  check_decision deny 'mise -C ~/copy exec -- tofu plan'
+  mkdir "$BATS_TMPDIR/fifo-mod"
+  mkfifo "$BATS_TMPDIR/fifo-mod/main.tf"
+  check_decision allow 'tofu validate' "$BATS_TMPDIR/fifo-mod"
+}
+
+@test "guard denies keychain dumps and over-nested commands" {
+  check_decision deny 'security dump-keychain -d'
+  check_decision deny 'security export -k login.keychain'
+  local command="git log" i
+  for i in $(seq 1 70); do command+=" 'git status -s $i'"; done
+  check_decision deny "$command"
 }

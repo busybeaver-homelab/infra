@@ -56,7 +56,10 @@
       "Edit(/scripts/lib/github-app-token.sh)",
       "Edit(/scripts/guard-*)",
       "Edit(/lefthook.yml)",
-      "Edit(/.git/hooks/**)"
+      "Edit(/.git/hooks/**)",
+      "Edit(/lefthook-local.yml)",
+      "Edit(/.lefthook-local.yml)",
+      "Edit(/.git/config)"
     ]
   },
   "sandbox": {
