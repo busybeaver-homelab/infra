@@ -643,6 +643,10 @@ for (const dep of ["Hypfer/Valetudo", "tailscale/tailscale"]) {
   if (last === undefined || rules[last].automerge !== false || last < automergeIdx) {
     console.error("never-automerge gate missing or before the automerge rule: " + dep); process.exit(1);
   }
+  // The tailscale/tailscale name also matches the OpenTofu provider, so the gate is file-scoped.
+  if (!Array.isArray(rules[last].matchFileNames) || !rules[last].matchFileNames.includes(path)) {
+    console.error("never-automerge gate must be constrained to the valetudo_robot defaults file: " + dep); process.exit(1);
+  }
 }
 console.log("valetudo_robot pins tracked: " + Object.keys(found).sort().join(","));
 ' "$config" "$defaults_yml"

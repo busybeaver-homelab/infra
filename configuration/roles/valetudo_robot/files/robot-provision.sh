@@ -63,11 +63,16 @@ lower() {
   printf '%s' "$1" | tr 'A-F' 'a-f'
 }
 
+# file_sha <file>: print the lowercase sha256; abort (exit 2) unless the tool
+# produced a valid 64-hex digest, so an empty result is never compared as a hash.
+# Call it as a plain assignment (_x=$(file_sha f)) so set -e propagates the abort.
 file_sha() {
-  sha256sum "$1" | {
-    read -r _sum _rest
-    printf '%s' "${_sum}"
-  }
+  _fs=$(sha256sum "$1" 2>/dev/null | {
+    read -r _sum _rest || :
+    printf '%s' "${_sum:-}"
+  }) || :
+  is_sha256 "${_fs}" || die 2 'could not compute a sha256 checksum'
+  printf '%s' "${_fs}" | tr 'A-F' 'a-f'
 }
 
 emit_changed() {
@@ -113,7 +118,11 @@ cmd_install() {
     die 4 'staged file checksum mismatch'
   fi
 
-  if [ -f "${_dest}" ] && [ "$(file_sha "${_dest}")" = "${_want}" ]; then
+  _current=''
+  if [ -f "${_dest}" ]; then
+    _current=$(file_sha "${_dest}")
+  fi
+  if [ "${_current}" = "${_want}" ]; then
     rm -f -- "${_staged}"
     emit_changed 0
     return 0
@@ -121,6 +130,7 @@ cmd_install() {
 
   chmod 0755 "${_staged}"
   ensure_dir "$(dirname -- "${_dest}")"
+  sync
   mv -f -- "${_staged}" "${_dest}"
   emit_changed 1
 }
@@ -179,12 +189,17 @@ cmd_postboot() {
     die 7 'postboot managed-block markers are malformed (expected exactly one BEGIN and one END)'
   fi
 
-  if [ "${_created}" -eq 0 ] && [ "$(file_sha "${TMP_FILE}")" = "$(file_sha "${_target}")" ]; then
-    emit_changed 0
-    return 0
+  if [ "${_created}" -eq 0 ]; then
+    _new_sha=$(file_sha "${TMP_FILE}")
+    _cur_sha=$(file_sha "${_target}")
+    if [ "${_new_sha}" = "${_cur_sha}" ]; then
+      emit_changed 0
+      return 0
+    fi
   fi
 
   chmod 0755 "${TMP_FILE}"
+  sync
   mv -f -- "${TMP_FILE}" "${_target}"
   TMP_FILE=''
   emit_changed 1

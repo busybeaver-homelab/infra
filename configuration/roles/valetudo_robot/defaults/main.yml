@@ -27,6 +27,9 @@ valetudo_robot_expected_arch: aarch64
 valetudo_robot_transport: ssh
 valetudo_robot_container: ""
 valetudo_robot_known_hosts: "{{ playbook_dir }}/../../.cache/ansible/robot_known_hosts"
+# Gitignored controller directory (0700) for the short-lived auth key tempfile; its
+# robot_key.* files are swept by the robots playbook after an interrupted run
+valetudo_robot_controller_cache_dir: "{{ playbook_dir }}/../../.cache/ansible"
 
 # One-time calibration capture into the git-crypt protected backups/ tree
 valetudo_robot_backup_repo_root: "{{ playbook_dir }}/../.."

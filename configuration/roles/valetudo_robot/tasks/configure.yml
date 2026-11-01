@@ -7,7 +7,9 @@
 # Auth handling (Review Focus 3): probe a protected endpoint with the SOPS
 # credentials. If auth is not enabled with those credentials, PUT the auth
 # configuration once (without credentials, retrying with the SOPS credentials
-# only if that is refused) and re-probe once. A failing re-probe is fatal:
+# only if that is refused), re-probe once and re-read the auth configuration,
+# which must show auth enabled with the SOPS username (a 200 probe alone proves
+# nothing while auth is disabled). A failing re-probe or re-read is fatal:
 # there is no loop.
 #
 # Idempotence: auth is PUT only when the probe or the auth config differs; a
@@ -185,6 +187,38 @@
         - valetudo_robot_auth_reprobe.status | default(0) != 200
         - valetudo_robot_auth_put.status | default(0) not in [200, 204]
         - valetudo_robot_auth_put_retry.status | default(0) not in [200, 204]
+
+    # A 200 probe is not proof: Valetudo answers 200 while auth is disabled, and a
+    # PUT can be acknowledged without taking effect. Re-read the real state and
+    # require auth enabled with the SOPS username. (API path: verify at recon.)
+    - name: Re-read the Valetudo basic-auth configuration after the change
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ valetudo_robot_api_auth_config_path }}"
+        method: GET
+        url_username: "{{ valetudo_robot_basic_auth_username }}"
+        url_password: "{{ valetudo_robot_basic_auth_password }}"
+        force_basic_auth: true
+        status_code: [200, 401]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      register: valetudo_robot_auth_recheck
+      changed_when: false
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+      no_log: true
+
+    - name: Fail when the basic-auth configuration did not take effect
+      ansible.builtin.fail:
+        msg: >-
+          basic auth PUT was accepted but Valetudo's auth configuration does not show auth enabled
+          with the SOPS username; re-run with --tags configure or check Valetudo's auth settings
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+        - >-
+          valetudo_robot_auth_recheck.status | default(0) != 200
+          or (valetudo_robot_auth_recheck.json.enabled | default(false)) is not true
+          or valetudo_robot_auth_recheck.json.username | default('') != valetudo_robot_basic_auth_username
 
     - name: Read the current Valetudo settings
       ansible.builtin.uri:

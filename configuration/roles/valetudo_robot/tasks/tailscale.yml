@@ -138,9 +138,22 @@
               (per-action owner confirmation) and re-run with --tags tailscale (R2-GOV-05).
             quiet: true
 
+        # The tempfile lives in the gitignored controller cache (not the system
+        # temp dir) under the robot_key. prefix that the playbook's stale sweep
+        # removes, so a Ctrl-C between create and cleanup cannot leave the key behind.
+        - name: Make sure the controller cache directory exists and is private
+          ansible.builtin.file:
+            path: "{{ valetudo_robot_controller_cache_dir }}"
+            state: directory
+            mode: "0700"
+          delegate_to: localhost
+          become: false
+
         - name: Create the controller auth key tempfile
           ansible.builtin.tempfile:
             state: file
+            path: "{{ valetudo_robot_controller_cache_dir }}"
+            prefix: robot_key.
             suffix: .tskey
           delegate_to: localhost
           become: false
@@ -257,9 +270,10 @@
           when: valetudo_robot_tskey_tmp.path is defined
 
         # tailscale-join already removes the key; this covers a failed push or an
-        # abort before the join. Best effort: the robot may be unreachable here.
+        # abort before the join, including a half-written .part file from an
+        # interrupted push. Best effort: the robot may be unreachable here.
         - name: Remove any staged auth key from the robot
-          ansible.builtin.raw: rm -f /data/.incoming/tskey
+          ansible.builtin.raw: rm -f /data/.incoming/tskey /data/.incoming/tskey.part
           changed_when: false
           failed_when: false
           ignore_unreachable: true

@@ -88,6 +88,7 @@ logged_args() {
     -o "UserKnownHostsFile=${ROBOT_KNOWN_HOSTS}" \
     -o StrictHostKeyChecking=accept-new \
     -o BatchMode=yes \
+    -o IdentitiesOnly=yes \
     -o ConnectTimeout=10 \
     -o ServerAliveInterval=15 \
     -o ServerAliveCountMax=3 \
@@ -124,8 +125,24 @@ logged_args() {
   run "${SCRIPT}" push "${BATS_TMPDIR}/src" /data/.incoming/tskey 0600
   [ "${status}" -eq 0 ]
   remote_cmd="$(logged_args | tail -n 1)"
-  [ "${remote_cmd}" = "umask 077 && cat > '/data/.incoming/tskey.part' && chmod 0600 '/data/.incoming/tskey.part' && [ \"\$(wc -c < '/data/.incoming/tskey.part')\" -eq 14 ] && mv '/data/.incoming/tskey.part' '/data/.incoming/tskey' || { rm -f '/data/.incoming/tskey.part'; exit 1; }" ]
+  [ "${remote_cmd}" = "umask 077 && rm -f '/data/.incoming/tskey.part' && cat > '/data/.incoming/tskey.part' && chmod 0600 '/data/.incoming/tskey.part' && [ \"\$(wc -c < '/data/.incoming/tskey.part')\" -eq 14 ] && mv '/data/.incoming/tskey.part' '/data/.incoming/tskey' || { rm -f '/data/.incoming/tskey.part'; exit 1; }" ]
   [ "$(cat "${STUB_STDIN}")" = 'payload-bytes' ]
+}
+
+@test "push with a mode replaces a leftover permissive .part with a private file" {
+  export ROBOT_TRANSPORT='docker' ROBOT_CONTAINER='robot-sim'
+  unset ROBOT_HOST ROBOT_SSH_KEY ROBOT_KNOWN_HOSTS
+  dest_dir="${BATS_TMPDIR}/incoming"
+  mkdir -p "${dest_dir}"
+  printf 'stale\n' >"${dest_dir}/tskey.part"
+  chmod 0666 "${dest_dir}/tskey.part"
+  printf 'synthetic-%s\n' "$(openssl rand -hex 8)" >"${BATS_TMPDIR}/src"
+  umask 022
+  run "${SCRIPT}" push "${BATS_TMPDIR}/src" "${dest_dir}/tskey" 0600
+  [ "${status}" -eq 0 ]
+  cmp -s "${BATS_TMPDIR}/src" "${dest_dir}/tskey"
+  [ ! -e "${dest_dir}/tskey.part" ]
+  [ "$(ls -l "${dest_dir}/tskey" | cut -c1-10)" = '-rw-------' ]
 }
 
 @test "push rejects an invalid mode with exit 2 before contacting the robot" {

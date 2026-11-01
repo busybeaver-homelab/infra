@@ -14,6 +14,8 @@ Start-up flag --scenario selects a failure mode:
                    the role sends.
   auth_put_ignored an auth PUT is acknowledged with 200 but enables auth with the
                    preset credentials instead, so the role's re-probe fails.
+  auth_put_noop    an auth PUT is acknowledged with 200 but changes nothing, so auth
+                   stays disabled and only a re-read of the auth state shows it.
   wifi_drop        a valid Wi-Fi PUT is logged (status 0) and the connection is
                    closed without any response, like a robot leaving its AP.
 """
@@ -160,6 +162,9 @@ def make_handler(state: MockState) -> type[BaseHTTPRequestHandler]:
                 state.auth_password = PRESET_PASSWORD
                 self._finish(200, {"status": "ok"})
                 return
+            if state.scenario == "auth_put_noop":
+                self._finish(200, {"status": "ok"})
+                return
             enabled = body["enabled"]
             state.auth_enabled = enabled
             state.auth_username = body["username"] if enabled else ""
@@ -226,7 +231,13 @@ def main() -> None:
     parser.add_argument("--log", default="/tmp/requests.jsonl")
     parser.add_argument(
         "--scenario",
-        choices=["default", "auth_mismatch", "auth_put_ignored", "wifi_drop"],
+        choices=[
+            "default",
+            "auth_mismatch",
+            "auth_put_ignored",
+            "auth_put_noop",
+            "wifi_drop",
+        ],
         default="default",
     )
     args = parser.parse_args()

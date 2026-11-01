@@ -310,6 +310,51 @@
               - valetudo_robot_wifi_psk not in ansible_failed_result.msg
             quiet: true
 
+    - name: Read the auth_mismatch mock request log after the Wi-Fi phase
+      ansible.builtin.raw: cat /tmp/requests-auth-mismatch.jsonl
+      delegate_to: valetudo-robot-mock-api
+      register: valetudo_robot_verify_mismatch_wifi_log
+      changed_when: false
+
+    # The Wi-Fi PUT goes out without credentials first; only the 401 makes the
+    # phase retry with them.
+    - name: Assert the Wi-Fi phase sent no credentials first and retried with them after the 401
+      vars:
+        valetudo_robot_verify_mismatch_wifi_puts: >-
+          {{ valetudo_robot_verify_mismatch_wifi_log.stdout_lines | map('trim') | reject('equalto', '') | map('from_json') | list
+          | selectattr('method', 'equalto', 'PUT') | selectattr('path', 'equalto', valetudo_robot_verify_wifi_path) | list }}
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_verify_mismatch_wifi_puts | length == 2
+          - valetudo_robot_verify_mismatch_wifi_puts | map(attribute='authorization') | list == ['absent', 'present']
+          - valetudo_robot_verify_mismatch_wifi_puts | map(attribute='status') | unique | list == [401]
+          - valetudo_robot_wifi_psk not in valetudo_robot_verify_mismatch_wifi_log.stdout
+        quiet: true
+      no_log: true
+
+    # No Valetudo API answers: the phase fails before any PUT, so a missing HTTP
+    # status is never read as "Wi-Fi dropped".
+    - name: Fail when the robot API is not reachable before the Wi-Fi submission
+      block:
+        - name: Run the Wi-Fi phase against an address nothing listens on
+          ansible.builtin.include_role:
+            name: valetudo_robot
+            tasks_from: wifi.yml
+          vars:
+            valetudo_robot_api_base_url: "http://127.0.0.1:1"
+            valetudo_robot_on_lan: false
+        - name: Fail if the Wi-Fi phase accepted an unreachable robot API
+          ansible.builtin.fail:
+            msg: The Wi-Fi phase accepted an unreachable robot API.
+      rescue:
+        - name: Assert the unreachable failure is sanitized
+          ansible.builtin.assert:
+            that:
+              - ansible_failed_result.msg is match('^The robot API is not reachable;')
+              - "'127.0.0.1' not in ansible_failed_result.msg"
+              - valetudo_robot_wifi_psk not in ansible_failed_result.msg
+            quiet: true
+
     # The PUT is accepted (200) but the re-probe still fails: a distinct message.
     - name: Fail with a distinct message when an accepted auth PUT does not take effect
       block:
@@ -356,6 +401,56 @@
         quiet: true
       no_log: true
 
+    # The auth PUT is acknowledged with 200 but changes nothing, so the 200
+    # probe (auth disabled) is meaningless: only re-reading the state shows it.
+    - name: Fail when an acknowledged auth PUT leaves auth disabled
+      block:
+        - name: Run the configure phase against the auth_put_noop mock
+          ansible.builtin.include_role:
+            name: valetudo_robot
+            tasks_from: configure.yml
+          vars:
+            valetudo_robot_api_base_url: "{{ valetudo_robot_verify_auth_put_noop_api_base_url }}"
+            valetudo_robot_on_lan: true
+            valetudo_robot_settings: []
+        - name: Fail if the configure phase trusted the 200 probe
+          ansible.builtin.fail:
+            msg: The configure phase accepted an auth PUT that changed nothing.
+      rescue:
+        - name: Assert the unchanged-state failure message is exact
+          ansible.builtin.assert:
+            that:
+              - >-
+                ansible_failed_result.msg == "basic auth PUT was accepted but Valetudo's auth configuration
+                does not show auth enabled with the SOPS username; re-run with --tags configure
+                or check Valetudo's auth settings"
+              - valetudo_robot_basic_auth_password not in ansible_failed_result.msg
+            quiet: true
+
+    - name: Read the auth_put_noop mock request log
+      ansible.builtin.raw: cat /tmp/requests-auth-put-noop.jsonl
+      delegate_to: valetudo-robot-mock-api
+      register: valetudo_robot_verify_noop_log
+      changed_when: false
+
+    - name: Assert the auth_put_noop run PUT once and re-read the auth state
+      vars:
+        valetudo_robot_verify_noop_requests: >-
+          {{ valetudo_robot_verify_noop_log.stdout_lines | map('trim') | reject('equalto', '') | map('from_json') | list }}
+        valetudo_robot_verify_noop_puts: "{{ valetudo_robot_verify_noop_requests | selectattr('method', 'equalto', 'PUT') | list }}"
+        valetudo_robot_verify_noop_auth_reads: >-
+          {{ valetudo_robot_verify_noop_requests | selectattr('method', 'equalto', 'GET')
+          | selectattr('path', 'equalto', valetudo_robot_verify_auth_path) | list }}
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_verify_noop_puts | length == 1
+          - valetudo_robot_verify_noop_puts[0].status == 200
+          # The initial read and the re-read after the PUT.
+          - valetudo_robot_verify_noop_auth_reads | length == 2
+          - valetudo_robot_basic_auth_password not in valetudo_robot_verify_noop_log.stdout
+        quiet: true
+      no_log: true
+
 # end_host ends the host for the rest of the play, so the Wi-Fi phase runs in
 # its own play and the next play proves that nothing after it ran.
 - name: Verify the Wi-Fi phase submits once and ends the host
@@ -398,7 +493,9 @@
       register: valetudo_robot_verify_wifi_log
       changed_when: false
 
-    - name: Assert the host ended after exactly one Wi-Fi PUT
+    # Converge enabled basic auth on this instance, so the credential-free PUT
+    # is refused with 401 and only then repeated with the credentials.
+    - name: Assert the host ended after the credential-free PUT and one authenticated retry
       vars:
         valetudo_robot_verify_wifi_puts: >-
           {{ valetudo_robot_verify_wifi_log.stdout_lines | map('trim') | reject('equalto', '') | map('from_json') | list
@@ -406,8 +503,9 @@
       ansible.builtin.assert:
         that:
           - valetudo_robot_verify_after_wifi is not defined
-          - valetudo_robot_verify_wifi_puts | length == 1
-          - valetudo_robot_verify_wifi_puts[0].status == 200
+          - valetudo_robot_verify_wifi_puts | length == 2
+          - valetudo_robot_verify_wifi_puts | map(attribute='authorization') | list == ['absent', 'present']
+          - valetudo_robot_verify_wifi_puts | map(attribute='status') | list == [401, 200]
           - valetudo_robot_wifi_psk not in valetudo_robot_verify_wifi_log.stdout
         quiet: true
       no_log: true
@@ -464,6 +562,70 @@
           - valetudo_robot_verify_after_wifi_drop is not defined
           - valetudo_robot_verify_drop_puts | length == 1
           - valetudo_robot_verify_drop_puts[0].status == 0
+          - valetudo_robot_verify_drop_puts[0].authorization == 'absent'
           - valetudo_robot_wifi_psk not in valetudo_robot_verify_drop_log.stdout
+        quiet: true
+      no_log: true
+
+# First build: Valetudo has no auth yet, so the Wi-Fi PUT succeeds without
+# credentials and the basic-auth password never crosses the access point.
+- name: Verify the first-build Wi-Fi phase sends no credentials
+  hosts: robots
+  gather_facts: false
+  tasks:
+    - name: Load generated Molecule fixture variables
+      ansible.builtin.include_vars:
+        file: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/robot_vars.yml"
+
+    - name: Run the Wi-Fi phase against the mock that has no auth yet
+      ansible.builtin.include_role:
+        name: valetudo_robot
+        tasks_from: wifi.yml
+      vars:
+        valetudo_robot_api_base_url: "{{ valetudo_robot_verify_first_build_api_base_url }}"
+        valetudo_robot_on_lan: false
+
+    - name: Mark that tasks after the first-build Wi-Fi submission still ran
+      ansible.builtin.set_fact:
+        valetudo_robot_verify_after_wifi_first_build: true
+
+- name: Verify the first-build Wi-Fi submission in the mock log
+  hosts: robots
+  gather_facts: false
+  tasks:
+    - name: Load generated Molecule fixture variables
+      ansible.builtin.include_vars:
+        file: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/robot_vars.yml"
+
+    - name: Load the role's API path defaults
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../defaults/main.yml"
+        name: valetudo_robot_verify_defaults
+
+    - name: Read the first-build mock request log
+      ansible.builtin.raw: cat /tmp/requests-first-build.jsonl
+      delegate_to: valetudo-robot-mock-api
+      register: valetudo_robot_verify_first_build_log
+      changed_when: false
+
+    - name: Assert one credential-free Wi-Fi PUT after the reachability probe
+      vars:
+        valetudo_robot_verify_first_build_requests: >-
+          {{ valetudo_robot_verify_first_build_log.stdout_lines | map('trim') | reject('equalto', '') | map('from_json') | list }}
+        valetudo_robot_verify_first_build_puts: >-
+          {{ valetudo_robot_verify_first_build_requests | selectattr('method', 'equalto', 'PUT')
+          | selectattr('path', 'equalto', valetudo_robot_verify_defaults.valetudo_robot_api_wifi_path) | list }}
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_verify_after_wifi_first_build is not defined
+          - valetudo_robot_verify_first_build_requests | length == 2
+          - valetudo_robot_verify_first_build_requests[0].method == 'GET'
+          - valetudo_robot_verify_first_build_requests[0].path == valetudo_robot_verify_defaults.valetudo_robot_api_version_path
+          - valetudo_robot_verify_first_build_puts | length == 1
+          - valetudo_robot_verify_first_build_puts[0].status == 200
+          - valetudo_robot_verify_first_build_puts[0].authorization == 'absent'
+          - valetudo_robot_verify_first_build_requests | map(attribute='authorization') | unique | list == ['absent']
+          - valetudo_robot_basic_auth_password not in valetudo_robot_verify_first_build_log.stdout
+          - valetudo_robot_wifi_psk not in valetudo_robot_verify_first_build_log.stdout
         quiet: true
       no_log: true

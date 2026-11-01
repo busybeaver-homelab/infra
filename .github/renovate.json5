@@ -400,6 +400,7 @@
     {
       description: "Require human review for Valetudo and Tailscale robot pins so their SHA-256 checksums are updated",
       matchPackageNames: ["Hypfer/Valetudo", "tailscale/tailscale"],
+      matchFileNames: ["configuration/roles/valetudo_robot/defaults/main.yml"],
       semanticCommitType: "chore",
       semanticCommitScope: "deps/ansible",
       automerge: false,

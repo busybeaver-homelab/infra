@@ -175,6 +175,46 @@ stage_file() {
   [ ! -e "${ROOT}/data/valetudo" ]
 }
 
+@test "install aborts with exit 2 when sha256sum yields no digest" {
+  sum="$(stage_file valetudo 'binary-v1')"
+  printf '#!/bin/sh\nexit 0\n' >"${STUB_BIN}/sha256sum"
+  chmod 0755 "${STUB_BIN}/sha256sum"
+  run --separate-stderr provision install /data/.incoming/valetudo /data/valetudo "$sum"
+  [ "$status" -eq 2 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *"could not compute a sha256 checksum"* ]] || false
+  [ ! -e "${ROOT}/data/valetudo" ]
+}
+
+@test "install aborts with exit 2 when the existing destination cannot be hashed" {
+  sum="$(stage_file valetudo 'binary-v1')"
+  provision install /data/.incoming/valetudo /data/valetudo "$sum" >/dev/null
+  stage_file valetudo 'binary-v1' >/dev/null
+  # Only the destination hash fails: the staged file is hashed first and must pass.
+  cat >"${STUB_BIN}/sha256sum" <<'SHIM'
+#!/bin/sh
+case "$1" in
+  */data/valetudo) exit 0 ;;
+esac
+exec shasum -a 256 "$@"
+SHIM
+  chmod 0755 "${STUB_BIN}/sha256sum"
+  run --separate-stderr provision install /data/.incoming/valetudo /data/valetudo "$sum"
+  [ "$status" -eq 2 ]
+  [ -z "$output" ]
+  [ "$(cat "${ROOT}/data/valetudo")" = "binary-v1" ]
+}
+
+@test "install syncs before moving the file into place" {
+  sum="$(stage_file valetudo 'binary-v1')"
+  printf '#!/bin/sh\nprintf "sync\\n" >>"${STUB_LOG}"\n' >"${STUB_BIN}/sync"
+  chmod 0755 "${STUB_BIN}/sync"
+  run provision install /data/.incoming/valetudo /data/valetudo "$sum"
+  [ "$status" -eq 0 ]
+  [ "$output" = "CHANGED=1" ]
+  [ "$(grep -c '^sync$' "${STUB_LOG}")" -eq 1 ]
+}
+
 # -------------------------------------------------------------------- postboot
 
 write_template() {
@@ -277,6 +317,30 @@ write_block() {
   [ "$status" -eq 0 ]
   run ls -A "${ROOT}/data"
   [[ "$output" != *.postboot.* ]] || false
+}
+
+@test "postboot aborts with exit 2 and leaves the file untouched when sha256sum yields no digest" {
+  printf '#!/bin/sh\n' >"${ROOT}/data/_root_postboot.sh"
+  write_block 'echo one'
+  printf '#!/bin/sh\nexit 0\n' >"${STUB_BIN}/sha256sum"
+  chmod 0755 "${STUB_BIN}/sha256sum"
+  run --separate-stderr provision postboot /data/.incoming/postboot.block
+  [ "$status" -eq 2 ]
+  [ -z "$output" ]
+  [ "$(cat "${ROOT}/data/_root_postboot.sh")" = '#!/bin/sh' ]
+  run ls -A "${ROOT}/data"
+  [[ "$output" != *.postboot.* ]] || false
+}
+
+@test "postboot syncs before moving the file into place" {
+  write_template
+  write_block 'echo one'
+  printf '#!/bin/sh\nprintf "sync\\n" >>"${STUB_LOG}"\n' >"${STUB_BIN}/sync"
+  chmod 0755 "${STUB_BIN}/sync"
+  run provision postboot /data/.incoming/postboot.block
+  [ "$status" -eq 0 ]
+  [ "$output" = "CHANGED=1" ]
+  [ "$(grep -c '^sync$' "${STUB_LOG}")" -eq 1 ]
 }
 
 # ------------------------------------------------------- backup-status / mark

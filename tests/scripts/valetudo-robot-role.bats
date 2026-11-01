@@ -333,3 +333,60 @@ YAML
   [ -n "${helper_ln}" ]
   [ "${hosts_ln}" -lt "${helper_ln}" ]
 }
+
+@test "wifi phase probes the version endpoint, sends the PUT without credentials and retries with them only after a 401" {
+  local wifi="${ROLE_DIR}/tasks/wifi.yml"
+  local ready='.. | select(tag == "!!map" and has("ansible.builtin.uri")) | select(.["ansible.builtin.uri"].url | test("valetudo_robot_api_version_path"))'
+  local first='.. | select(tag == "!!map" and has("ansible.builtin.uri")) | select(.["ansible.builtin.uri"].method == "PUT") | select(.register == "valetudo_robot_wifi_put")'
+  local retry='.. | select(tag == "!!map" and has("ansible.builtin.uri")) | select(.["ansible.builtin.uri"].method == "PUT") | select(.register == "valetudo_robot_wifi_put_retry")'
+  [ "$(yq eval "[${ready}] | length" "${wifi}")" -eq 1 ]
+  [ "$(yq eval "[${first}] | length" "${wifi}")" -eq 1 ]
+  [ "$(yq eval "[${retry}] | length" "${wifi}")" -eq 1 ]
+  # The probe and the first PUT never carry the basic-auth credentials.
+  [ "$(yq eval "${ready} | .[\"ansible.builtin.uri\"] | has(\"url_password\")" "${wifi}")" = false ]
+  [ "$(yq eval "${first} | .[\"ansible.builtin.uri\"] | (has(\"url_password\") or has(\"url_username\") or has(\"force_basic_auth\"))" "${wifi}")" = false ]
+  # The retry carries them and runs only after an HTTP 401.
+  [ "$(yq eval "${retry} | .[\"ansible.builtin.uri\"] | has(\"url_password\")" "${wifi}")" = true ]
+  yq eval "${retry} | .when | tostring" "${wifi}" | grep -qF 'valetudo_robot_wifi_put.status | default(-1) == 401'
+  # Order: reachability probe, credential-free PUT, retry.
+  local ready_ln first_ln retry_ln
+  ready_ln=$(grep -n 'Check that the robot API answers' "${wifi}" | head -n1 | cut -d: -f1)
+  first_ln=$(grep -n 'without credentials$' "${wifi}" | head -n1 | cut -d: -f1)
+  retry_ln=$(grep -n 'Retry the Wi-Fi configuration with the basic-auth credentials' "${wifi}" | head -n1 | cut -d: -f1)
+  [ -n "${ready_ln}" ] && [ -n "${first_ln}" ] && [ -n "${retry_ln}" ]
+  [ "${ready_ln}" -lt "${first_ln}" ]
+  [ "${first_ln}" -lt "${retry_ln}" ]
+  # An unreachable robot API is a sanitized failure, not a "Wi-Fi dropped" success.
+  grep -qF 'The robot API is not reachable;' "${wifi}"
+  [ "$(grep -c 'valetudo_robot_api_base_url' <(grep -A3 'The robot API is not reachable;' "${wifi}"))" -eq 0 ]
+}
+
+@test "configure phase re-reads the auth configuration and requires enabled with the SOPS username" {
+  local configure="${ROLE_DIR}/tasks/configure.yml"
+  local recheck='.. | select(tag == "!!map" and has("ansible.builtin.uri")) | select(.register == "valetudo_robot_auth_recheck")'
+  [ "$(yq eval "[${recheck}] | length" "${configure}")" -eq 1 ]
+  [ "$(yq eval "${recheck} | .[\"ansible.builtin.uri\"].method" "${configure}")" = GET ]
+  [ "$(yq eval "${recheck} | .[\"ansible.builtin.uri\"].url | test(\"valetudo_robot_api_auth_config_path\")" "${configure}")" = true ]
+  [ "$(yq eval "${recheck} | .no_log" "${configure}")" = true ]
+  local fail='.. | select(tag == "!!map" and has("ansible.builtin.fail")) | select(.when | tostring | test("valetudo_robot_auth_recheck"))'
+  [ "$(yq eval "[${fail}] | length" "${configure}")" -eq 1 ]
+  yq eval "${fail} | .when | tostring" "${configure}" | grep -qF 'json.enabled'
+  yq eval "${fail} | .when | tostring" "${configure}" | grep -qF 'json.username'
+  [ "$(yq eval "${fail} | .[\"ansible.builtin.fail\"].msg | test(\"[{][{]\")" "${configure}")" = false ]
+}
+
+@test "tailscale key tempfile lives in the gitignored controller cache with the swept robot_key prefix" {
+  local tmpf='.. | select(tag == "!!map" and has("ansible.builtin.tempfile")) | .["ansible.builtin.tempfile"]'
+  [ "$(yq eval "${tmpf} | .path" "${TAILSCALE}")" = '{{ valetudo_robot_controller_cache_dir }}' ]
+  [ "$(yq eval "${tmpf} | .prefix" "${TAILSCALE}")" = 'robot_key.' ]
+  [ "$(yq eval '.valetudo_robot_controller_cache_dir' "${DEFAULTS}")" = '{{ playbook_dir }}/../../.cache/ansible' ]
+  # The directory is created 0700 before the tempfile and the file is removed in always.
+  local dir='.. | select(tag == "!!map" and has("ansible.builtin.file")) | select(.["ansible.builtin.file"].path == "{{ valetudo_robot_controller_cache_dir }}")'
+  [ "$(yq eval "${dir} | .[\"ansible.builtin.file\"] | [.state, .mode] | join(\",\")" "${TAILSCALE}")" = 'directory,0700' ]
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("always")) | .always[] | select(.["ansible.builtin.file"].path == "{{ valetudo_robot_tskey_tmp.path }}" and .["ansible.builtin.file"].state == "absent")] | length' "${TAILSCALE}")" -eq 1 ]
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("ansible.builtin.tempfile")) | .["ansible.builtin.tempfile"] | select(has("path") | not)] | length' "${TAILSCALE}")" -eq 0 ]
+}
+
+@test "tailscale always-cleanup removes the staged key and its .part file" {
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("always")) | .always[] | select(.["ansible.builtin.raw"] == "rm -f /data/.incoming/tskey /data/.incoming/tskey.part")] | length' "${TAILSCALE}")" -eq 1 ]
+}

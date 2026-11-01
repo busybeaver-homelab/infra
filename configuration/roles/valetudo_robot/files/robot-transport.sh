@@ -16,9 +16,10 @@
 # address) is captured and replaced by one generic line. The SSH key is only
 # passed as a path and its contents are never read or printed.
 #
-# push with a mode (for example 0600 for a secret) creates the remote .part
-# under umask 077 and chmods it before the size-checked rename, so the file is
-# never readable by others at any point on the robot.
+# push with a mode (for example 0600 for a secret) removes any leftover .part,
+# creates a fresh one under umask 077 and chmods it before the size-checked
+# rename, so the file is never readable by others at any point on the robot and
+# a stale permissive .part can never keep its mode.
 
 set -euo pipefail
 
@@ -74,6 +75,7 @@ remote() {
         -o UserKnownHostsFile="${ROBOT_KNOWN_HOSTS}" \
         -o StrictHostKeyChecking=accept-new \
         -o BatchMode=yes \
+        -o IdentitiesOnly=yes \
         -o ConnectTimeout=10 \
         -o ServerAliveInterval=15 \
         -o ServerAliveCountMax=3 \
@@ -122,7 +124,7 @@ cmd_push() {
   qdest="$(sh_quote "${dest}")"
   qpart="$(sh_quote "${dest}.part")"
   if [[ -n "${mode}" ]]; then
-    prefix='umask 077 && '
+    prefix="umask 077 && rm -f ${qpart} && "
     chmod_step="chmod ${mode} ${qpart} && "
   fi
   # The byte count guards against promoting a truncated file when the link

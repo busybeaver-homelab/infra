@@ -60,6 +60,10 @@ argument_specs:
         type: str
         default: "{{ playbook_dir }}/../../.cache/ansible/robot_known_hosts"
         description: Dedicated known-hosts file for the robot (gitignored path); passed to robot-transport.sh.
+      valetudo_robot_controller_cache_dir:
+        type: str
+        default: "{{ playbook_dir }}/../../.cache/ansible"
+        description: Gitignored controller directory (created 0700) for the short-lived auth key tempfile; robot_key.* files are swept by the robots playbook.
       valetudo_robot_backup_repo_root:
         type: str
         default: "{{ playbook_dir }}/../.."
