@@ -564,18 +564,20 @@ robot_key_tempfiles() {
   [[ "${output}" != *"Load SOPS credentials"* ]] || false
 }
 
-@test "add_host ssh args keep accept-new host keys and LogLevel=ERROR next to the dedicated known-hosts file" {
+@test "add_host ssh args keep accept-new host keys, IdentitiesOnly and LogLevel=ERROR next to the dedicated known-hosts file" {
   [ "$(yq eval '[.[0].tasks[].block[]? | select(has("ansible.builtin.add_host")) | .["ansible.builtin.add_host"].ansible_ssh_common_args] | .[0]' "${ROBOTS_PLAYBOOK}")" != null ]
   local args
   args=$(yq eval '[.[0].tasks[].block[]? | select(has("ansible.builtin.add_host")) | .["ansible.builtin.add_host"].ansible_ssh_common_args] | .[0]' "${ROBOTS_PLAYBOOK}")
   [[ "${args}" == *'-o StrictHostKeyChecking=accept-new'* ]] || false
+  [[ "${args}" == *'-o IdentitiesOnly=yes'* ]] || false
   [[ "${args}" == *'-o LogLevel=ERROR'* ]] || false
   [[ "${args}" == *'-o "UserKnownHostsFile={{ _robot_known_hosts }}"'* ]] || false
 }
 
 @test "robots.yml removes the key in a localhost Play 3 and sweeps stale keys at the start of Play 1" {
   [ -f "${ROBOTS_PLAYBOOK}" ]
-  # Play 3: runs after the robot play even when Play 2's always section is skipped (end_host, unreachable).
+  # Play 3: runs after the robot play even when Play 2's always section is skipped by the wifi phase's end_host.
+  # Aborted runs (unreachable or all hosts failed) never reach it; the next run's stale sweep covers those.
   [ "$(yq eval '.[2].hosts' "${ROBOTS_PLAYBOOK}")" = localhost ]
   [ "$(yq eval '.[2].connection' "${ROBOTS_PLAYBOOK}")" = local ]
   [ "$(yq eval '.[2].gather_facts' "${ROBOTS_PLAYBOOK}")" = false ]
@@ -615,4 +617,18 @@ robot_key_tempfiles() {
   [ "$(yq eval 'keys | sort | join(",")' "${gv}")" = "ansible_connection,ansible_user" ]
   [ "$(grep -c 'robot_known_hosts"' "${ROBOTS_PLAYBOOK}")" -eq 1 ]
   grep -qF -- '-o "UserKnownHostsFile={{ _robot_known_hosts }}"' "${ROBOTS_PLAYBOOK}"
+}
+
+@test "the role's auth key tempfile is swept by the robots playbook's robot_key stale sweep" {
+  [ -f "${ROBOTS_PLAYBOOK}" ]
+  local prefix pattern
+  prefix=$(yq eval '.. | select(tag == "!!map" and has("ansible.builtin.tempfile")) | .["ansible.builtin.tempfile"].prefix' "${TAILSCALE}")
+  [ "${prefix}" = 'robot_key.' ]
+  pattern=$(yq eval '.. | select(tag == "!!map" and has("ansible.builtin.find")) | .["ansible.builtin.find"].patterns' "${ROBOTS_PLAYBOOK}")
+  [ "${pattern}" = 'robot_key.*' ]
+  # Same gitignored directory on both sides (resolved relative to playbook_dir).
+  [ "$(yq eval '.valetudo_robot_controller_cache_dir' "${DEFAULTS}")" = '{{ playbook_dir }}/../../.cache/ansible' ]
+  grep -qF '_robot_cache_dir: "{{ playbook_dir }}/../../.cache/ansible"' "${ROBOTS_PLAYBOOK}"
+  # fnmatch semantics of the find module: robot_key.* covers prefix + random + suffix.
+  [[ "robot_key.AbC123.tskey" == robot_key.* ]]
 }

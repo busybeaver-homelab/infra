@@ -234,6 +234,7 @@
             ansible_ssh_common_args: >-
               -o "UserKnownHostsFile={{ _robot_known_hosts }}"
               -o StrictHostKeyChecking=accept-new
+              -o IdentitiesOnly=yes
               -o LogLevel=ERROR
             valetudo_robot_known_hosts: "{{ _robot_known_hosts }}"
             valetudo_robot_on_lan: "{{ _robot_on_lan }}"
