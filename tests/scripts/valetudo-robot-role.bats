@@ -7,6 +7,24 @@ load 'helpers/test_helper'
 ROLE_DIR="${REPO_ROOT}/configuration/roles/valetudo_robot"
 DEFAULTS="${ROLE_DIR}/defaults/main.yml"
 SPECS="${ROLE_DIR}/meta/argument_specs.yml"
+TAILSCALE="${ROLE_DIR}/tasks/tailscale.yml"
+
+# Templated references to secret material: the Tailscale auth key (and the raw
+# helper output that carries it), the robot SSH key and the transport
+# environment that holds its path, the Wi-Fi PSK and the basic-auth password.
+SECRET_REF_PATTERN='\{\{[^}]*(tofu_robot_auth_key|tofu_vars_raw\.stdout|private_key_file|ROBOT_SSH_KEY|transport_env|wifi_psk|basic_auth_password)[^}]*\}\}'
+
+# Prints the name of every task in a task file that templates secret material
+# without no_log: true. A block is judged without its block/rescue/always lists,
+# whose tasks are judged on their own.
+secret_tasks_without_no_log() {
+  PATTERN="${SECRET_REF_PATTERN}" yq eval '
+    [.. | select(tag == "!!map" and has("name"))
+        | with_entries(select(.key != "block" and .key != "rescue" and .key != "always"))
+        | select(.no_log != true)
+        | select([.. | select(tag == "!!str") | select(test(strenv(PATTERN)))] | length > 0)
+        | .name] | .[]' "$1"
+}
 
 @test "every pinned version has a 64-hex sha256" {
   [ -f "${DEFAULTS}" ]
@@ -70,20 +88,21 @@ SPECS="${ROLE_DIR}/meta/argument_specs.yml"
   done <<<"${keys}"
 }
 
-@test "tasks/main.yml imports the preflight (always), backup, install, wifi and configure phases" {
+@test "tasks/main.yml imports the preflight (always), backup, install, wifi, configure and tailscale phases" {
   local main="${ROLE_DIR}/tasks/main.yml"
   [ -f "${main}" ]
-  [ "$(yq eval '[.[] | select(has("ansible.builtin.import_tasks")) | .["ansible.builtin.import_tasks"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml,wifi.yml,configure.yml" ]
+  [ "$(yq eval '[.[] | select(has("ansible.builtin.import_tasks")) | .["ansible.builtin.import_tasks"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml,wifi.yml,configure.yml,tailscale.yml" ]
   [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "preflight.yml") | .tags | sort | join(",")' "${main}")" = "always,preflight" ]
   [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "backup.yml") | .tags | join(",")' "${main}")" = "backup" ]
   [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "install.yml") | .tags | join(",")' "${main}")" = "install" ]
   [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "wifi.yml") | .tags | join(",")' "${main}")" = "wifi" ]
   [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "configure.yml") | .tags | join(",")' "${main}")" = "configure" ]
+  [ "$(yq eval '.[] | select(.["ansible.builtin.import_tasks"] == "tailscale.yml") | .tags | join(",")' "${main}")" = "tailscale" ]
 }
 
 @test "main.yml flushes handlers (always) between the install and wifi imports" {
   local main="${ROLE_DIR}/tasks/main.yml"
-  [ "$(yq eval '[.[] | .["ansible.builtin.import_tasks"] // .["ansible.builtin.meta"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml,flush_handlers,wifi.yml,configure.yml" ]
+  [ "$(yq eval '[.[] | .["ansible.builtin.import_tasks"] // .["ansible.builtin.meta"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml,flush_handlers,wifi.yml,configure.yml,tailscale.yml" ]
   [ "$(yq eval '.[3].tags | join(",")' "${main}")" = "always" ]
 }
 
@@ -193,4 +212,97 @@ SPECS="${ROLE_DIR}/meta/argument_specs.yml"
       return 1
     }
   done
+}
+
+@test "every task in valetudo_robot touching tofu_robot_auth_key, ssh key, wifi psk or basic auth password has no_log: true" {
+  [ -f "${TAILSCALE}" ]
+  # The guard must see the auth key, or it proves nothing for the tailscale phase.
+  grep -qF 'tofu_robot_auth_key' "${TAILSCALE}"
+  local f offenders checked=0
+  for f in "${ROLE_DIR}"/tasks/*.yml "${ROLE_DIR}"/handlers/*.yml; do
+    offenders=$(secret_tasks_without_no_log "${f}")
+    [ -z "${offenders}" ] || {
+      echo "$(basename "${f}"): secret-bearing tasks without no_log: ${offenders}"
+      return 1
+    }
+    checked=$((checked + 1))
+  done
+  [ "${checked}" -ge 7 ]
+}
+
+@test "no_log guard flags a synthetic secret-bearing task that lacks no_log" {
+  local fixture="${BATS_TEST_TMPDIR}/tasks.yml"
+  cat >"${fixture}" <<'YAML'
+- name: Outer block
+  block:
+    - name: Leaky copy
+      ansible.builtin.copy:
+        content: "{{ (valetudo_robot_tofu_vars_raw.stdout | from_json).tofu_robot_auth_key }}"
+        dest: /tmp/example
+        mode: "0600"
+    - name: Hidden copy
+      ansible.builtin.copy:
+        content: "{{ valetudo_robot_wifi_psk }}"
+        dest: /tmp/example
+        mode: "0600"
+      no_log: true
+YAML
+  run secret_tasks_without_no_log "${fixture}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "Leaky copy" ]
+}
+
+@test "tailscale phase runs the robot vars helper like cloud.yml: no_log, run_once, check_mode false, on localhost" {
+  [ -f "${TAILSCALE}" ]
+  local helper='.. | select(tag == "!!map" and has("ansible.builtin.command")) | select(.["ansible.builtin.command"].argv | tostring | test("valetudo_robot_tofu_vars_script"))'
+  [ "$(yq eval "[${helper}] | length" "${TAILSCALE}")" -eq 1 ]
+  [ "$(yq eval "${helper} | .no_log" "${TAILSCALE}")" = true ]
+  [ "$(yq eval "${helper} | .run_once" "${TAILSCALE}")" = true ]
+  [ "$(yq eval "${helper} | .check_mode" "${TAILSCALE}")" = false ]
+  [ "$(yq eval "${helper} | .changed_when" "${TAILSCALE}")" = false ]
+  [ "$(yq eval "${helper} | .delegate_to" "${TAILSCALE}")" = localhost ]
+  [ "$(yq eval "${helper} | .become" "${TAILSCALE}")" = false ]
+  # Its block rescues with a pointer that never surfaces the helper's stderr.
+  local rescue='.. | select(tag == "!!map" and has("block") and has("rescue")) | select([.block[] | .["ansible.builtin.command"].argv // "" | tostring | test("valetudo_robot_tofu_vars_script")] | any) | .rescue'
+  [ "$(yq eval "${rescue} | .[0].[\"ansible.builtin.fail\"].msg | test(\"get-tofu-robot-vars.sh\")" "${TAILSCALE}")" = true ]
+  [ "$(yq eval "[${rescue} | .[] | .. | select(tag == \"!!str\") | select(test(\"[.](stderr|stdout|msg)\"))] | length" "${TAILSCALE}")" -eq 0 ]
+  [[ "$(yq eval '.valetudo_robot_tofu_vars_script' "${DEFAULTS}")" == */scripts/get-tofu-robot-vars.sh ]] || false
+  [ "$(yq eval '.valetudo_robot_tofu_vars_args | length' "${DEFAULTS}")" -eq 0 ]
+}
+
+@test "tailscale phase is gated on valetudo_robot_tailscale_enabled and keeps the key off argv and out of check mode" {
+  [ -f "${TAILSCALE}" ]
+  [ "$(yq eval 'length' "${TAILSCALE}")" -eq 1 ]
+  yq eval '.[0].when | tostring' "${TAILSCALE}" | grep -qF 'valetudo_robot_tailscale_enabled'
+  # Key file: controller tempfile written 0600 with no_log and diff false, removed in always.
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("ansible.builtin.tempfile"))] | length' "${TAILSCALE}")" -eq 1 ]
+  [ "$(yq eval '.. | select(tag == "!!map" and has("ansible.builtin.copy")) | [.["ansible.builtin.copy"].mode, .no_log, .diff] | join(",")' "${TAILSCALE}")" = "0600,true,false" ]
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("always")) | .always[] | select(.["ansible.builtin.file"].state == "absent")] | length' "${TAILSCALE}")" -ge 1 ]
+  # The key travels as a file: robot-transport.sh push to the staging path, then tailscale-join reads it.
+  grep -qF '/data/.incoming/tskey' "${TAILSCALE}"
+  grep -qF 'sh -s -- tailscale-join {{ valetudo_robot_tailscale_hostname | quote }}' "${TAILSCALE}"
+  grep -qE '\{\{ valetudo_robot_tailscale_tag \| quote \}\} data/\.incoming/tskey <<.VALETUDO_EOF.$' "${TAILSCALE}"
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("ansible.builtin.raw")) | select(.["ansible.builtin.raw"] | test("tailscale-join")) | .no_log] | join(",")' "${TAILSCALE}")" = true ]
+  # Check mode reports the tag only; the hostname is sensitive.
+  grep -qF 'would join tailnet as {{ valetudo_robot_tailscale_tag }}' "${TAILSCALE}"
+  # The hostname value is templated only into the tailscale-join command, never into a message.
+  [ "$(grep -cE '\{\{[^}]*valetudo_robot_tailscale_hostname' "${TAILSCALE}")" -eq 1 ]
+  grep -E '\{\{[^}]*valetudo_robot_tailscale_hostname' "${TAILSCALE}" | grep -qF 'sh -s -- tailscale-join'
+}
+
+@test "tailscale phase explains a rejected key, a stopped tailscaled and a usage error" {
+  [ -f "${TAILSCALE}" ]
+  grep -qF "tofu apply -replace='tailscale_tailnet_key.robot'" "${TAILSCALE}"
+  grep -qF 'may be expired or already used' "${TAILSCALE}"
+  grep -qF 're-run with --tags tailscale' "${TAILSCALE}"
+  grep -qF 'tailscaled is not running' "${TAILSCALE}"
+  grep -qF 'reboot' "${TAILSCALE}"
+  grep -qF 'invalid arguments' "${TAILSCALE}"
+}
+
+@test "argument_specs declares valetudo_robot_tailscale_hostname without a default" {
+  [ "$(yq eval '.argument_specs.main.options | has("valetudo_robot_tailscale_hostname")' "${SPECS}")" = true ]
+  [ "$(yq eval '.argument_specs.main.options.valetudo_robot_tailscale_hostname.type' "${SPECS}")" = str ]
+  [ "$(yq eval '.argument_specs.main.options.valetudo_robot_tailscale_hostname | has("default")' "${SPECS}")" = false ]
+  [ "$(yq eval 'has("valetudo_robot_tailscale_hostname")' "${DEFAULTS}")" = false ]
 }

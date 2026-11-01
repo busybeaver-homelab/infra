@@ -13,6 +13,7 @@ Each phase is a task file imported by `tasks/main.yml` with its own tag:
 | `install`             | `install.yml`   | Downloads and verifies the pinned Valetudo and Tailscale artifacts on the controller, pushes only binaries that differ from their pin, installs them and maintains the managed postboot block. |
 | `wifi`                | `wifi.yml`      | Only when `valetudo_robot_on_lan` is false: PUTs the home Wi-Fi to Valetudo, tells the operator to reconnect and re-run with `--tags configure,tailscale`, then ends the host.                 |
 | `configure`           | `configure.yml` | Probes a protected endpoint with the SOPS basic-auth credentials, enables basic auth when needed (one re-probe, no loop) and applies the settings whose `desired` is not a subset.             |
+| `tailscale`           | `tailscale.yml` | Only when `valetudo_robot_tailscale_enabled`: joins the tailnet with the single-use OpenTofu auth key unless the robot's Tailscale backend is already `Running`.                               |
 
 ### Install
 
@@ -37,6 +38,14 @@ Both phases call Valetudo's REST API from the controller with `ansible.builtin.u
 - `configure`: if the probe fails, the auth config is PUT without credentials (retried once with the SOPS credentials if refused) and the endpoint is re-probed once. If it still fails, the play stops with `basic auth could not be set: Valetudo rejects the SOPS credentials and refuses unauthenticated changes; reset auth via SSH per runbook`. Each entry of `valetudo_robot_settings` is read first and PUT only when `desired` is not a subset of the response.
 - Check mode: reads and probes run, PUTs are skipped with a `would change` message. A converged robot receives zero PUTs.
 - Every task that carries credentials, the PSK or API responses is `no_log: true`; messages never include the base URL.
+
+### Tailscale
+
+1. Asserts `valetudo_robot_tailscale_hostname` (no default, from SOPS) and `valetudo_robot_tailscale_tag`, then reads the robot's Tailscale state read-only. A robot that is already `Running` is left alone: no key fetch, no push, `changed=0`.
+2. Otherwise `scripts/get-tofu-robot-vars.sh` (`valetudo_robot_tofu_vars_script`, extra arguments from `valetudo_robot_tofu_vars_args`) runs on the controller with `no_log`, `run_once` and `check_mode: false`, exactly like `cloud.yml` runs `get-tofu-restic-vars.sh`. A failure points at the helper without showing its stderr.
+3. The key goes to a `0600` controller tempfile, `robot-transport.sh push` stages it as `/data/.incoming/tskey` and `robot-provision.sh tailscale-join` runs `tailscale up --auth-key=file:...`. The tempfile and any staged key are removed in `always`; the key never appears in argv or output. The backend state is re-read afterwards and must be `Running`.
+4. Exit 6 means the key may be expired or already used: refresh it with `tofu apply -replace='tailscale_tailnet_key.robot'` in `infrastructure/mesh` (per-action owner confirmation), then re-run with `--tags tailscale`. If `tailscaled` is not running, reboot the robot so the postboot hook starts it.
+5. Check mode: only the state read runs, and `would join tailnet as <tag>` is reported. Messages never include the hostname.
 
 ### Calibration backup
 
@@ -76,6 +85,9 @@ The phase reports `changed` only when a capture happened. The playbook never com
 | `valetudo_robot_reboot_enabled`                    | `true`                                                      | Allow reboots after installing binaries or the postboot hook.                |
 | `valetudo_robot_tailscale_enabled`                 | `true`                                                      | Controls only the tailnet join; install always ships the Tailscale binaries. |
 | `valetudo_robot_tailscale_tag`                     | `tag:type-iot`                                              | Tailscale tag the robot advertises.                                          |
+| `valetudo_robot_tailscale_hostname`                | none (SOPS)                                                 | Tailnet hostname; required while the join is enabled, never printed.         |
+| `valetudo_robot_tofu_vars_script`                  | `<repo root>/scripts/get-tofu-robot-vars.sh`                | Controller helper that prints the robot auth key from OpenTofu outputs.      |
+| `valetudo_robot_tofu_vars_args`                    | `[]`                                                        | Extra helper arguments (tests pass `--mesh-json <fixture>`).                 |
 | `valetudo_robot_api_base_url`                      | none (set by the playbook)                                  | Valetudo REST API base URL from SOPS-loaded values.                          |
 | `valetudo_robot_on_lan`                            | none (set by the playbook)                                  | Whether the controller is on the home network; the wifi phase needs it.      |
 | `valetudo_robot_basic_auth_username` / `_password` | none (SOPS)                                                 | Valetudo basic-auth credentials; never defaulted.                            |

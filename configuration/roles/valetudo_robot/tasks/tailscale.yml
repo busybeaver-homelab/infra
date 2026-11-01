@@ -1,0 +1,245 @@
+---
+# Tailscale phase for valetudo_robot. The install phase already shipped the
+# binaries and the postboot block that starts tailscaled; this phase only joins
+# the tailnet, and only when valetudo_robot_tailscale_enabled is true.
+#
+# The robot's Tailscale state is read first. A robot whose backend is already
+# Running is left alone, so a re-run neither fetches nor pushes the single-use
+# auth key and reports no change. Otherwise the key is read on the controller
+# with scripts/get-tofu-robot-vars.sh (exactly like cloud.yml runs
+# get-tofu-restic-vars.sh), written to a 0600 controller tempfile, pushed to
+# /data/.incoming/tskey and consumed by robot-provision.sh tailscale-join, which
+# removes it on every path. The key never appears in argv or output (STD-AN-20,
+# STD-AN-21). The hostname is sensitive, so no message includes it.
+#
+# Check mode: only the read-only state probe runs; the key is neither fetched
+# nor pushed and a "would join tailnet" message is reported.
+
+- name: Join the robot to the tailnet
+  when: valetudo_robot_tailscale_enabled | bool
+  vars:
+    # Prints exactly one TS_STATE= line. status --json names tailnet addresses,
+    # so it only feeds grep and is never printed.
+    valetudo_robot_tailscale_probe: >-
+      if [ ! -x /data/tailscale/tailscale ]; then echo TS_STATE=nocli;
+      elif [ ! -S /tmp/tailscaled.sock ]; then echo TS_STATE=nodaemon;
+      elif /data/tailscale/tailscale --socket=/tmp/tailscaled.sock status --json 2>/dev/null
+      | grep -q '"BackendState"[[:space:]]*:[[:space:]]*"Running"'; then echo TS_STATE=running;
+      else echo TS_STATE=stopped; fi
+  block:
+    # R2-GOV-05: fail closed on missing inputs; messages never include the hostname.
+    # The patterns match what robot-provision.sh tailscale-join accepts.
+    - name: Assert the Tailscale hostname and tag are valid
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_tailscale_hostname is defined
+          - valetudo_robot_tailscale_hostname is string
+          - valetudo_robot_tailscale_hostname is match('^[A-Za-z0-9][A-Za-z0-9-]*$')
+          - valetudo_robot_tailscale_tag is string
+          - valetudo_robot_tailscale_tag is match('^tag:[A-Za-z0-9-]+$')
+        fail_msg: >-
+          valetudo_robot_tailscale_hostname must be set to letters, digits and hyphens (not starting with a hyphen)
+          and valetudo_robot_tailscale_tag must look like tag:<name> while valetudo_robot_tailscale_enabled is true
+          (R2-GOV-05).
+        quiet: true
+
+    - name: Read the robot Tailscale state
+      ansible.builtin.raw: "{{ valetudo_robot_tailscale_probe }}"
+      register: valetudo_robot_tailscale_state_raw
+      changed_when: false
+      check_mode: false
+
+    # raw may allocate a PTY, so stdout can carry CR characters.
+    - name: Parse the robot Tailscale state
+      ansible.builtin.set_fact:
+        valetudo_robot_tailscale_state: >-
+          {{ valetudo_robot_tailscale_state_raw.stdout
+             | regex_search('TS_STATE=(nocli|nodaemon|running|stopped)', '\1')
+             | default([], true) | first | default('unknown') }}
+
+    - name: Report that a real run would join the tailnet
+      ansible.builtin.debug:
+        msg: "Check mode: would join tailnet as {{ valetudo_robot_tailscale_tag }} (auth key not fetched)."
+      changed_when: true
+      when:
+        - ansible_check_mode
+        - valetudo_robot_tailscale_state != 'running'
+
+    - name: Assert the robot can run tailscale up
+      vars:
+        valetudo_robot_tailscale_state_errors:
+          nocli: The Tailscale CLI is missing from /data/tailscale; run the install phase (--tags install) first.
+          nodaemon: >-
+            tailscaled is not running on the robot (no /tmp/tailscaled.sock). The robot may need a reboot so that
+            the postboot hook starts tailscaled; reboot it, then re-run with --tags tailscale.
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_tailscale_state in ['running', 'stopped']
+        fail_msg: >-
+          {{ valetudo_robot_tailscale_state_errors[valetudo_robot_tailscale_state]
+             | default('Could not read the robot Tailscale state (no TS_STATE line); check the robot shell.') }}
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: Fetch the auth key, push it and run tailscale-join
+      when:
+        - not ansible_check_mode
+        - valetudo_robot_tailscale_state != 'running'
+      block:
+        # The key is single-use and joins one robot, hence run_once.
+        - name: Load the robot auth key from OpenTofu outputs
+          block:
+            - name: Run get-tofu-robot-vars.sh on the controller
+              ansible.builtin.command:
+                argv: "{{ [valetudo_robot_tofu_vars_script] + valetudo_robot_tofu_vars_args }}"
+              delegate_to: localhost
+              become: false
+              run_once: true
+              changed_when: false
+              check_mode: false
+              no_log: true
+              register: valetudo_robot_tofu_vars_raw
+          rescue:
+            # Surfaced without stderr (no_log above); stderr can name backend endpoints.
+            - name: Fail with a pointer to the hidden helper error
+              ansible.builtin.fail:
+                msg: >-
+                  scripts/get-tofu-robot-vars.sh exited with rc={{ valetudo_robot_tofu_vars_raw.rc | default('unknown') }}.
+                  Run it manually from the repository root to see the error (output is hidden here), then initialise
+                  or apply infrastructure/mesh as reported (tofu apply needs per-action owner confirmation).
+              run_once: true
+
+        - name: Assert the helper returned a non-empty auth key
+          ansible.builtin.assert:
+            that:
+              - (valetudo_robot_tofu_vars_raw.stdout | from_json).tofu_robot_auth_key is string
+              - (valetudo_robot_tofu_vars_raw.stdout | from_json).tofu_robot_auth_key | length > 0
+            fail_msg: >-
+              scripts/get-tofu-robot-vars.sh returned no tofu_robot_auth_key; apply infrastructure/mesh
+              (per-action owner confirmation) and re-run with --tags tailscale (R2-GOV-05).
+            quiet: true
+          no_log: true
+
+        - name: Create the controller auth key tempfile
+          ansible.builtin.tempfile:
+            state: file
+            suffix: .tskey
+          delegate_to: localhost
+          become: false
+          register: valetudo_robot_tskey_tmp
+
+        - name: Write the auth key to the controller tempfile
+          ansible.builtin.copy:
+            content: "{{ (valetudo_robot_tofu_vars_raw.stdout | from_json).tofu_robot_auth_key }}"
+            dest: "{{ valetudo_robot_tskey_tmp.path }}"
+            mode: "0600"
+          delegate_to: localhost
+          become: false
+          no_log: true
+          diff: false
+
+        - name: Make sure the robot staging directory exists
+          ansible.builtin.raw: mkdir -p /data/.incoming
+          changed_when: false
+
+        # Transport errors can contain the robot address, so the task output is
+        # hidden and the rescue reports only the exit code.
+        - name: Push the auth key to the robot staging directory
+          block:
+            - name: Run robot-transport.sh to push the auth key
+              ansible.builtin.command:
+                argv:
+                  - "{{ role_path }}/files/robot-transport.sh"
+                  - push
+                  - "{{ valetudo_robot_tskey_tmp.path }}"
+                  - /data/.incoming/tskey
+              environment: "{{ valetudo_robot_transport_env }}"
+              delegate_to: localhost
+              become: false
+              changed_when: false
+              no_log: true
+          rescue:
+            - name: Fail with a sanitized auth key push error
+              ansible.builtin.fail:
+                msg: >-
+                  Pushing the auth key to the robot failed (robot-transport.sh push exited
+                  {{ ansible_failed_result.rc | default('unknown') }}). Transport output is hidden
+                  because it can contain the robot address.
+
+        # The command carries the hostname and tailscale up's stderr can name
+        # tailnet addresses, so the result is hidden and interpreted below.
+        - name: Join the tailnet with tailscale-join
+          ansible.builtin.raw: |-
+            sh -s -- tailscale-join {{ valetudo_robot_tailscale_hostname | quote }} \
+              {{ valetudo_robot_tailscale_tag | quote }} data/.incoming/tskey <<'VALETUDO_EOF'
+            {{ lookup('ansible.builtin.file', 'robot-provision.sh') }}
+            VALETUDO_EOF
+          register: valetudo_robot_tailscale_join
+          changed_when: valetudo_robot_tailscale_join.stdout is search('CHANGED=1')
+          failed_when: false
+          no_log: true
+
+        - name: Assert the robot joined the tailnet
+          vars:
+            valetudo_robot_tailscale_join_output: >-
+              {{ valetudo_robot_tailscale_join.stderr | default('') }}
+              {{ valetudo_robot_tailscale_join.stdout | default('') }}
+            valetudo_robot_tailscale_daemon_down_pattern: failed to connect to local tailscaled|doesn.t appear to be running|tailscaled[.]sock
+            valetudo_robot_tailscale_daemon_msg: >-
+              tailscale up could not reach tailscaled, so tailscaled is not running on the robot. The robot may need
+              a reboot so that the postboot hook starts tailscaled; reboot it, then re-run with --tags tailscale
+            valetudo_robot_tailscale_key_msg: >-
+              tailscale up failed: the single-use auth key may be expired or already used. Refresh it with
+              tofu apply -replace='tailscale_tailnet_key.robot' in infrastructure/mesh (per-action owner
+              confirmation), then re-run with --tags tailscale. If tailscaled is not running, reboot the robot
+              first so that the postboot hook starts it
+            valetudo_robot_tailscale_join_errors:
+              "2": >-
+                robot-provision.sh tailscale-join was called with invalid arguments (hostname, tag or auth key path),
+                the Tailscale CLI is missing or the staged auth key is missing; check valetudo_robot_tailscale_hostname
+                and valetudo_robot_tailscale_tag, then re-run with --tags tailscale
+              "6": >-
+                {{ valetudo_robot_tailscale_daemon_msg
+                   if valetudo_robot_tailscale_join_output is search(valetudo_robot_tailscale_daemon_down_pattern)
+                   else valetudo_robot_tailscale_key_msg }}
+          ansible.builtin.assert:
+            that:
+              - valetudo_robot_tailscale_join.rc == 0
+              - valetudo_robot_tailscale_join.stdout is search('CHANGED=[01]')
+            fail_msg: >-
+              Joining the tailnet failed with exit {{ valetudo_robot_tailscale_join.rc | default('unknown') }}:
+              {{ valetudo_robot_tailscale_join_errors[valetudo_robot_tailscale_join.rc | string]
+                 | default('unexpected robot-provision.sh failure') }}. The auth key was removed from the robot.
+            quiet: true
+
+        # STD-AN-28: the post-condition reads the real backend state.
+        - name: Re-read the robot Tailscale state after the join
+          ansible.builtin.raw: "{{ valetudo_robot_tailscale_probe }}"
+          register: valetudo_robot_tailscale_after_raw
+          changed_when: false
+
+        - name: Assert the robot Tailscale backend is Running
+          ansible.builtin.assert:
+            that:
+              - valetudo_robot_tailscale_after_raw.stdout is search('TS_STATE=running')
+            fail_msg: >-
+              tailscale-join reported success but the robot Tailscale backend is not Running; check the tailnet
+              admin console for the device, then re-run with --tags tailscale.
+            quiet: true
+      always:
+        - name: Remove the controller auth key tempfile
+          ansible.builtin.file:
+            path: "{{ valetudo_robot_tskey_tmp.path }}"
+            state: absent
+          delegate_to: localhost
+          become: false
+          changed_when: false
+          when: valetudo_robot_tskey_tmp.path is defined
+
+        # tailscale-join already removes the key; this covers a failed push or an
+        # abort before the join. Best effort: the robot may be unreachable here.
+        - name: Remove any staged auth key from the robot
+          ansible.builtin.raw: rm -f /data/.incoming/tskey
+          changed_when: false
+          failed_when: false
+          ignore_unreachable: true

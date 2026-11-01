@@ -86,6 +86,23 @@ argument_specs:
         type: str
         default: "tag:type-iot"
         description: Tailscale ACL tag the robot advertises when joining.
+      valetudo_robot_tailscale_hostname:
+        type: str
+        required: false
+        description: >-
+          Tailscale hostname of the robot, from SOPS-loaded values. Required by the tailscale phase while
+          valetudo_robot_tailscale_enabled is true; never defaulted and never printed (R2-GOV-05).
+      valetudo_robot_tofu_vars_script:
+        type: str
+        default: "{{ valetudo_robot_backup_repo_root }}/scripts/get-tofu-robot-vars.sh"
+        description: >-
+          Controller helper that prints {"tofu_robot_auth_key": "<key>"} from the infrastructure/mesh OpenTofu
+          outputs; run by the tailscale phase with no_log.
+      valetudo_robot_tofu_vars_args:
+        type: list
+        elements: str
+        default: []
+        description: Extra arguments for valetudo_robot_tofu_vars_script (for example --mesh-json <fixture> in tests).
       valetudo_robot_api_base_url:
         type: str
         required: false

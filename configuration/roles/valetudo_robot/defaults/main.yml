@@ -38,6 +38,12 @@ valetudo_robot_reboot_enabled: true
 valetudo_robot_tailscale_enabled: true
 valetudo_robot_tailscale_tag: "tag:type-iot"
 
+# Controller helper that reads the single-use robot auth key from the
+# infrastructure/mesh OpenTofu outputs, plus extra arguments for it (tests pass
+# --mesh-json <fixture>). The hostname has no default: set it from SOPS.
+valetudo_robot_tofu_vars_script: "{{ valetudo_robot_backup_repo_root }}/scripts/get-tofu-robot-vars.sh"
+valetudo_robot_tofu_vars_args: []
+
 # Valetudo settings applied through the REST API by the configure phase
 valetudo_robot_settings: []
 

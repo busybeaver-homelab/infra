@@ -31,3 +31,7 @@
 - name: Configure Valetudo through its REST API
   ansible.builtin.import_tasks: configure.yml
   tags: [configure]
+
+- name: Join valetudo_robot to the tailnet
+  ansible.builtin.import_tasks: tailscale.yml
+  tags: [tailscale]
