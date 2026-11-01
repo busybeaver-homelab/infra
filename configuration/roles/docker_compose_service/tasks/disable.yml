@@ -20,11 +20,23 @@
     label: "{{ item.item }}"
   when: item.stat.exists
 
+- name: Check whether the docker_compose_service check unit is installed
+  ansible.builtin.stat:
+    path: /etc/systemd/system/homelab-compose-check.service
+  register: docker_compose_service_check_unit_stat
+
+- name: Stop the docker_compose_service check unit
+  ansible.builtin.systemd_service:
+    name: homelab-compose-check.service
+    state: stopped
+  when: docker_compose_service_check_unit_stat.stat.exists
+
 - name: Remove docker_compose_service systemd units and timers
   ansible.builtin.file:
     path: "/etc/systemd/system/{{ item }}"
     state: absent
   loop:
+    - homelab-compose-check.service
     - homelab-compose-failure@.service
     - homelab-compose-reconcile.service
     - homelab-compose-reconcile.timer
@@ -46,6 +58,9 @@
     - "{{ docker_compose_service_cosign_next_public_key_path }}"
     - "{{ docker_compose_service_credstore_dir }}/homelab_compose_env"
     - "{{ docker_compose_service_credstore_dir }}/compose_healthchecks_ping_url"
+    - "{{ docker_compose_service_credstore_dir }}/homelab_compose_env.staged"
+    - "{{ docker_compose_service_credstore_dir }}/homelab_compose_env.previous"
+    - "{{ docker_compose_service_state_dir }}/redeploy-requested"
 
 - name: Remove role-managed /etc/docker/daemon.json when owned by docker_compose_service
   ansible.builtin.file:

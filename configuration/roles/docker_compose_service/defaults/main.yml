@@ -1,8 +1,17 @@
 ---
 # Defaults for docker_compose_service role
 
-# Master feature toggle (disabled by default until upstream signed releases exist)
-docker_compose_service_enabled: false
+# Master feature toggle, resolved per host from the `enabled` flag on the host's compose.hosts entry in SOPS.
+# False when the host has no entry or the entry has no flag. Explicit overrides (-e, Molecule) win.
+docker_compose_service_enabled: >-
+  {{ (docker_compose_service_hosts
+  | selectattr('host', 'equalto', inventory_hostname)
+  | map(attribute='enabled', default=false)
+  | first
+  | default(false)) | bool }}
+
+# Whether a converge validates the latest release with the non-deploying check unit and, on success, activates the staged credentials.
+docker_compose_service_reconcile_on_converge: true
 
 # Whether this role writes /etc/docker/daemon.json directly.
 # Set to false on cloud hosts where geerlingguy.docker manages daemon.json via docker_daemon_options;

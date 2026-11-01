@@ -11,7 +11,13 @@ argument_specs:
       docker_compose_service_enabled:
         type: bool
         default: false
-        description: Whether the GitOps Docker Compose reconciler and cleanup timers are enabled on this host.
+        description: >-
+          Whether the GitOps Docker Compose reconciler and cleanup timers are enabled on this host.
+          Defaults to the enabled flag of this host's docker_compose_service_hosts entry (false when absent).
+      docker_compose_service_reconcile_on_converge:
+        type: bool
+        default: true
+        description: Whether a converge runs the non-deploying release check and activates staged credentials only when it passes.
       docker_compose_service_manage_daemon_json:
         type: bool
         default: false
