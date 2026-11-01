@@ -368,7 +368,7 @@ run_reconcile() {
     COMPOSE_PROJECT_NAME="homelab" \
     COMPOSE_WAIT_TIMEOUT="180" \
     KEEP_RELEASES="3" \
-    bash "${BATS_TMPDIR}/reconcile.sh"
+    bash "${BATS_TMPDIR}/reconcile.sh" "$@"
 }
 
 run_cleanup() {
@@ -465,6 +465,59 @@ SH
   run bash -c "printf 'SECRET_TOKEN=topsecret' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${BATS_TMPDIR}/credstore' host"
   [ "$status" -eq 0 ]
   [ "$output" = "unchanged" ]
+}
+
+@test "credential-sync: writes to an explicit destination, backs up the previous file only when changing, and rejects unsafe file names" {
+  mkdir -p "${BATS_TMPDIR}/bin" "${BATS_TMPDIR}/credstore"
+  cat >"${BATS_TMPDIR}/bin/systemd-creds" <<'SH'
+#!/usr/bin/env bash
+echo "systemd-creds $*" >> "${BATS_TMPDIR}/systemd-creds.log"
+case "$1" in
+  encrypt)
+    cat > "$5"
+    ;;
+  decrypt)
+    cat "$2"
+    ;;
+esac
+SH
+  chmod +x "${BATS_TMPDIR}/bin/systemd-creds"
+  local store="${BATS_TMPDIR}/credstore"
+
+  run bash -c "printf 'SYNTHETIC_A=1' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host homelab_compose_env.staged"
+  [ "$status" -eq 0 ]
+  [ "$output" = "changed" ]
+  [ -f "${store}/homelab_compose_env.staged" ]
+  [ ! -e "${store}/homelab_compose_env" ]
+  grep -F -- "--name=homelab_compose_env " "${BATS_TMPDIR}/systemd-creds.log"
+
+  run bash -c "printf 'SYNTHETIC_A=1' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host homelab_compose_env.staged homelab_compose_env.previous"
+  [ "$status" -eq 0 ]
+  [ "$output" = "unchanged" ]
+  [ ! -e "${store}/homelab_compose_env.previous" ]
+
+  run bash -c "printf 'SYNTHETIC_B=2' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host homelab_compose_env.staged homelab_compose_env.previous"
+  [ "$status" -eq 0 ]
+  [ "$output" = "changed" ]
+  [ "$(cat "${store}/homelab_compose_env.previous")" = "SYNTHETIC_A=1" ]
+  [ "$(cat "${store}/homelab_compose_env.staged")" = "SYNTHETIC_B=2" ]
+  [ "$(stat -c '%a' "${store}/homelab_compose_env.previous" 2>/dev/null || stat -f '%Lp' "${store}/homelab_compose_env.previous")" = "400" ]
+
+  # No backup name given: no backup is written
+  rm -f "${store}/homelab_compose_env.previous"
+  run bash -c "printf 'SYNTHETIC_C=3' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host homelab_compose_env.staged"
+  [ "$status" -eq 0 ]
+  [ "$output" = "changed" ]
+  [ ! -e "${store}/homelab_compose_env.previous" ]
+
+  # Unsafe destination / backup names are rejected
+  for bad in "../x" "a/b" "UPPER" "-rf"; do
+    run bash -c "printf 'SYNTHETIC_D=4' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host '${bad}'"
+    [ "$status" -eq 2 ]
+    run bash -c "printf 'SYNTHETIC_D=4' | PATH='${BATS_TMPDIR}/bin:${PATH}' bash '${CRED_SYNC_SCRIPT}' homelab_compose_env '${store}' host homelab_compose_env.staged '${bad}'"
+    [ "$status" -eq 2 ]
+  done
+  [ "$(cat "${store}/homelab_compose_env.staged")" = "SYNTHETIC_C=3" ]
 }
 
 @test "reconcile: first deploy verifies bundle, deploys stack, sets current symlink without previous, and sends heartbeat" {
@@ -726,6 +779,155 @@ SH
 {"Service":"worker","State":"running","Health":"","ExitCode":0,"Labels":""}' \
     run_reconcile
   [ "$status" -eq 1 ]
+}
+
+@test "reconcile --check: validates latest release and exits 0 without pulling, deploying, changing symlinks, writing markers or pinging" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp" "services: {web: {image: 'v1'}}"
+  run_reconcile
+  [ "$status" -eq 0 ]
+  prepare_mock_release "v2026.10.16-2" "gcp" "services: {web: {image: 'v2'}}"
+  rm -f "${BATS_TMPDIR}/docker_up.log" "${BATS_TMPDIR}/docker.log" "${BATS_TMPDIR}/cosign.log"
+  ping_lines="$(wc -l <"${BATS_TMPDIR}/curl.stdin.log" | tr -d ' ')"
+
+  run_reconcile --check
+  [ "$status" -eq 0 ]
+  [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
+  run grep -E "^docker compose .* (pull|up) " "${BATS_TMPDIR}/docker.log"
+  [ "$status" -ne 0 ]
+  [ -s "${BATS_TMPDIR}/cosign.log" ]
+  [ "$(readlink "${BATS_TMPDIR}/opt/containers/current")" = "${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-1" ]
+  [ ! -e "${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-2" ]
+  [ ! -e "${BATS_TMPDIR}/opt/containers/previous" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/deploying" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release" ]
+  [ "$(wc -l <"${BATS_TMPDIR}/curl.stdin.log" | tr -d ' ')" -eq "${ping_lines}" ]
+  grep -F "flock" "${BATS_TMPDIR}/flock.log"
+}
+
+@test "reconcile --check: fails on missing required variable, missing target asset, and bad signature" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp"
+
+  STUB_VARIABLES_JSON='{"MISSING_SECRET":{"Name":"MISSING_SECRET","DefaultValue":"","PresenceValue":""}}' \
+    run_reconcile --check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"MISSING_SECRET"* ]]
+
+  jq '.assets |= map(select(.name != "docker-compose.gcp.yaml"))' "${BATS_TMPDIR}/mock_server/latest.json" >"${BATS_TMPDIR}/latest.tmp"
+  mv "${BATS_TMPDIR}/latest.tmp" "${BATS_TMPDIR}/mock_server/latest.json"
+  run_reconcile --check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"missing required release asset"* ]]
+  [[ "$output" == *"enabled: false"* ]]
+
+  prepare_mock_release "v2026.10.16-1" "gcp"
+  STUB_COSIGN_RC=1 run_reconcile --check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Cosign signature verification failed"* ]]
+
+  [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
+  [ ! -e "${BATS_TMPDIR}/opt/containers/current" ]
+}
+
+@test "reconcile --check: ignores a quarantined latest tag and an existing current" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp" "services: {web: {image: 'v1'}}"
+  run_reconcile
+  [ "$status" -eq 0 ]
+  printf 'v2026.10.16-1\n' >"${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release"
+  rm -f "${BATS_TMPDIR}/docker_up.log"
+
+  run_reconcile --check
+  [ "$status" -eq 0 ]
+  [ "$(cat "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release")" = "v2026.10.16-1" ]
+  [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
+}
+
+@test "reconcile --check: skips interrupted-deployment recovery and the redeploy marker" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp" "services: {web: {image: 'v1'}}"
+  run_reconcile
+  [ "$status" -eq 0 ]
+  rm -f "${BATS_TMPDIR}/docker_up.log"
+  printf 'v2026.10.16-9\n' >"${BATS_TMPDIR}/var/lib/homelab-compose/deploying"
+  : >"${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested"
+
+  run_reconcile --check
+  [ "$status" -eq 0 ]
+  [ "$(cat "${BATS_TMPDIR}/var/lib/homelab-compose/deploying")" = "v2026.10.16-9" ]
+  [ -e "${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release" ]
+  [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
+}
+
+@test "reconcile: rejects unknown arguments" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp"
+  run_reconcile --bogus
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"ERROR: unknown argument"* ]]
+  run_reconcile --check extra
+  [ "$status" -eq 2 ]
+  [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
+}
+
+@test "reconcile: redeploy marker re-runs up on current, removes marker, pings success, without GitHub" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp" "services: {web: {image: 'v1'}}"
+  run_reconcile
+  [ "$status" -eq 0 ]
+  rm -f "${BATS_TMPDIR}/docker_up.log" "${BATS_TMPDIR}/curl.stdin.log" "${BATS_TMPDIR}/curl.argv.log"
+  : >"${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested"
+
+  STUB_CURL_RC=22 run_reconcile
+  [ "$status" -eq 0 ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/deploying" ]
+  [ "$(wc -l <"${BATS_TMPDIR}/docker_up.log" | tr -d ' ')" -eq 1 ]
+  run grep -F "up project=homelab file=${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-1/docker-compose.yaml" "${BATS_TMPDIR}/docker_up.log"
+  [ "$status" -eq 0 ]
+  run grep -F "releases/latest" "${BATS_TMPDIR}/curl.argv.log"
+  [ "$status" -ne 0 ]
+  run grep -F 'url = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000001"' "${BATS_TMPDIR}/curl.stdin.log"
+  [ "$status" -eq 0 ]
+  [ "$(readlink "${BATS_TMPDIR}/opt/containers/current")" = "${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-1" ]
+}
+
+@test "reconcile: redeploy marker on unhealthy stack exits non-zero without quarantine" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp" "services: {web: {image: 'v1'}}"
+  run_reconcile
+  [ "$status" -eq 0 ]
+  rm -f "${BATS_TMPDIR}/docker_up.log" "${BATS_TMPDIR}/curl.stdin.log"
+
+  : >"${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested"
+  STUB_FAIL_PS_FOR_TAG="v2026.10.16-1" STUB_CURL_RC=22 run_reconcile
+  [ "$status" -ne 0 ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release" ]
+  [ ! -e "${BATS_TMPDIR}/curl.stdin.log" ]
+
+  : >"${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested"
+  STUB_UP_RC=1 STUB_CURL_RC=22 run_reconcile
+  [ "$status" -ne 0 ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release" ]
+  [ "$(readlink "${BATS_TMPDIR}/opt/containers/current")" = "${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-1" ]
+}
+
+@test "reconcile: redeploy marker without current is removed and the normal path runs" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp" "services: {web: {image: 'v1'}}"
+  : >"${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested"
+
+  run_reconcile
+  [ "$status" -eq 0 ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested" ]
+  [ "$(readlink "${BATS_TMPDIR}/opt/containers/current")" = "${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-1" ]
+  run grep -F "up project=homelab" "${BATS_TMPDIR}/docker_up.log"
+  [ "$status" -eq 0 ]
 }
 
 @test "cleanup: removes stale holds, prunes containers, holds current+previous images, prunes images/networks/builders, cleans holds on exit, and never prunes volumes" {

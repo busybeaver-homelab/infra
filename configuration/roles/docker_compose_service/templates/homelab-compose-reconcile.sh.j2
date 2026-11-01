@@ -6,6 +6,8 @@
 #   - Queries latest GitHub Release and verifies Cosign bundle + SHA256SUMS offline
 #   - Enforces compose manifest security constraints and required env vars
 #   - Performs health-gated deployment with automatic rollback and release quarantine
+#   - Re-runs the current stack when a redeploy marker is present (settings change)
+#   - With --check, only validates the latest release against the loaded env (no side effects)
 set -Eeuo pipefail
 umask 077
 
@@ -28,6 +30,17 @@ readonly KEEP_RELEASES="${KEEP_RELEASES:-{{ docker_compose_service_keep_releases
 log() {
   printf 'homelab-compose-reconcile: %s\n' "$*" >&2
 }
+
+CHECK_MODE=false
+case "$#:${1:-}" in
+  0:) ;;
+  1:--check) CHECK_MODE=true ;;
+  *)
+    log "ERROR: unknown argument '$*' (usage: homelab-compose-reconcile [--check])"
+    exit 2
+    ;;
+esac
+readonly CHECK_MODE
 
 if [ -z "${CREDENTIALS_DIRECTORY:-}" ]; then
   log "ERROR: CREDENTIALS_DIRECTORY is not set"
@@ -224,7 +237,7 @@ if [ -L "${BASE_DIR}/current" ]; then
   current_tag="$(basename "${current_dir}")"
 fi
 
-if [ -s "${STATE_DIR}/deploying" ]; then
+if [ "${CHECK_MODE}" = "false" ] && [ -s "${STATE_DIR}/deploying" ]; then
   interrupted_tag="$(tr -d '\r\n' < "${STATE_DIR}/deploying")"
   log "WARNING: detected interrupted deployment of '${interrupted_tag}'; quarantining and restoring current"
   printf '%s\n' "${interrupted_tag}" > "${STATE_DIR}/quarantined-release"
@@ -233,6 +246,24 @@ if [ -s "${STATE_DIR}/deploying" ]; then
   if [ -n "${current_dir}" ] && [ -f "${current_dir}/docker-compose.yaml" ]; then
     compose_cmd "${current_dir}/docker-compose.yaml" up -d --wait --wait-timeout "${COMPOSE_WAIT_TIMEOUT}" --remove-orphans || true
   fi
+fi
+
+# 2b. Redeploy requested after a settings change: re-run the current release with the
+# active env, without consulting GitHub. The marker is consumed in every outcome and the
+# release is never quarantined here, because it is not at fault.
+if [ "${CHECK_MODE}" = "false" ] && [ -e "${STATE_DIR}/redeploy-requested" ]; then
+  rm -f "${STATE_DIR}/redeploy-requested"
+  if [ -n "${current_dir}" ] && [ -f "${current_dir}/docker-compose.yaml" ]; then
+    log "redeploy requested; re-running current release '${current_tag}'"
+    if compose_cmd "${current_dir}/docker-compose.yaml" up -d --wait --wait-timeout "${COMPOSE_WAIT_TIMEOUT}" --remove-orphans \
+       && verify_stack_health "${current_dir}/docker-compose.yaml"; then
+      notify_success
+      exit 0
+    fi
+    log "ERROR: redeploy of current release '${current_tag}' failed health verification"
+    exit 1
+  fi
+  log "redeploy requested but no current release exists; continuing with the normal path"
 fi
 
 # 3. Query GitHub Releases latest endpoint
@@ -246,8 +277,8 @@ if [[ ! "${tag}" =~ ^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]+$ ]]; then
   exit 1
 fi
 
-# 4. Check quarantine state
-if [ -s "${STATE_DIR}/quarantined-release" ]; then
+# 4. Check quarantine state (skipped in check mode)
+if [ "${CHECK_MODE}" = "false" ] && [ -s "${STATE_DIR}/quarantined-release" ]; then
   quarantined_tag="$(tr -d '\r\n' < "${STATE_DIR}/quarantined-release")"
   if [ "${tag}" = "${quarantined_tag}" ]; then
     log "ERROR: latest release '${tag}' is quarantined; awaiting a newer release"
@@ -259,7 +290,7 @@ if [ -s "${STATE_DIR}/quarantined-release" ]; then
 fi
 
 # 5. Steady-state check when latest tag is already deployed
-if [ -n "${current_tag}" ] && [ "${tag}" = "${current_tag}" ]; then
+if [ "${CHECK_MODE}" = "false" ] && [ -n "${current_tag}" ] && [ "${tag}" = "${current_tag}" ]; then
   if verify_stack_health "${current_dir}/docker-compose.yaml"; then
     notify_success
     exit 0
@@ -270,7 +301,7 @@ if [ -n "${current_tag}" ] && [ "${tag}" = "${current_tag}" ]; then
 fi
 
 # 6. Anti-rollback / monotonic version check against current_tag
-if [ -n "${current_tag}" ]; then
+if [ "${CHECK_MODE}" = "false" ] && [ -n "${current_tag}" ]; then
   highest_tag="$(printf '%s\n%s\n' "${current_tag}" "${tag}" | LC_ALL=C sort -V | tail -n 1)"
   if [ "${highest_tag}" != "${tag}" ]; then
     log "ERROR: refusing downgrade from '${current_tag}' to '${tag}'"
@@ -287,6 +318,9 @@ for asset in "RELEASE" "SHA256SUMS" "SHA256SUMS.sigstore.json" "${target_asset}"
   asset_url="$(jq -r --arg name "${asset}" '.assets[]? | select(.name == $name) | .browser_download_url' <<<"${release_json}")"
   if [ -z "${asset_url}" ] || [ "${asset_url}" = "null" ]; then
     log "ERROR: missing required release asset '${asset}' in release '${tag}'"
+    if [ "${CHECK_MODE}" = "true" ]; then
+      log "ERROR: upstream has not published '${asset}' yet; keep enabled: false for this host until it does"
+    fi
     exit 1
   fi
   curl --proto "${CURL_PROTO}" --proto-redir "${CURL_PROTO}" -fsSL --max-time 60 \
@@ -327,6 +361,11 @@ chmod 0640 "${STAGING_DIR}"/*
 if ! validate_compose_manifest "${STAGING_DIR}/docker-compose.yaml"; then
   log "ERROR: compose manifest validation failed for release '${tag}'"
   exit 1
+fi
+
+if [ "${CHECK_MODE}" = "true" ]; then
+  log "check passed for release '${tag}' (target '${COMPOSE_TARGET}')"
+  exit 0
 fi
 
 # 8. Unchanged-manifest fast path
