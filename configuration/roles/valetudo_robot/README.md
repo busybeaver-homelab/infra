@@ -43,7 +43,7 @@ Both phases call Valetudo's REST API from the controller with `ansible.builtin.u
 
 1. Asserts `valetudo_robot_tailscale_hostname` (no default, from SOPS) and `valetudo_robot_tailscale_tag`, then reads the robot's Tailscale state read-only. A robot that is already `Running` is left alone: no key fetch, no push, `changed=0`.
 2. Otherwise `scripts/get-tofu-robot-vars.sh` (`valetudo_robot_tofu_vars_script`, extra arguments from `valetudo_robot_tofu_vars_args`) runs on the controller with `no_log`, `run_once` and `check_mode: false`, exactly like `cloud.yml` runs `get-tofu-restic-vars.sh`. A failure points at the helper without showing its stderr.
-3. The key goes to a `0600` controller tempfile, `robot-transport.sh push` stages it as `/data/.incoming/tskey` and `robot-provision.sh tailscale-join` runs `tailscale up --auth-key=file:...`. The tempfile and any staged key are removed in `always`; the key never appears in argv or output. The backend state is re-read afterwards and must be `Running`.
+3. The play must target exactly one robot (the key is single-use). The key goes to a `0600` controller tempfile, `robot-transport.sh push <tmp> /data/.incoming/tskey 0600` stages it with mode `0600` (created under `umask 077`) in a `0700` staging directory, and `robot-provision.sh tailscale-join` runs `tailscale up --auth-key=file:...`. The tempfile and any staged key are removed in `always`; the key never appears in argv or output. The backend state is re-read afterwards and must be `Running`.
 4. Exit 6 means the key may be expired or already used: refresh it with `tofu apply -replace='tailscale_tailnet_key.robot'` in `infrastructure/mesh` (per-action owner confirmation), then re-run with `--tags tailscale`. If `tailscaled` is not running, reboot the robot so the postboot hook starts it.
 5. Check mode: only the state read runs, and `would join tailnet as <tag>` is reported. Messages never include the hostname.
 
@@ -61,7 +61,7 @@ The phase reports `changed` only when a capture happened. The playbook never com
 | Script                       | Runs on    | Purpose                                                                                             |
 | ---------------------------- | ---------- | --------------------------------------------------------------------------------------------------- |
 | `robot-provision.sh`         | robot      | Piped through `raw` as a heredoc (`sh -s -- <command>`): space checks, installs, postboot, markers. |
-| `robot-transport.sh`         | controller | `probe`, `push` and `pull-calibration` over SSH (or `docker exec` for Molecule).                    |
+| `robot-transport.sh`         | controller | `probe`, `push [<mode>]` and `pull-calibration` over SSH (or `docker exec` for Molecule).           |
 | `assert-git-crypt-target.sh` | controller | Refuses a calibration target that is not git-crypt protected.                                       |
 
 ## Role Variables

@@ -3,7 +3,7 @@
 #
 # Usage:
 #   robot-transport.sh probe
-#   robot-transport.sh push <local_src> <remote_dest>
+#   robot-transport.sh push <local_src> <remote_dest> [<octal mode>]
 #   robot-transport.sh pull-calibration <local_dest>
 #
 # Configuration comes only from the environment:
@@ -15,6 +15,10 @@
 # 1 any other failure. Raw ssh/docker stderr (which can contain the robot
 # address) is captured and replaced by one generic line. The SSH key is only
 # passed as a path and its contents are never read or printed.
+#
+# push with a mode (for example 0600 for a secret) creates the remote .part
+# under umask 077 and chmods it before the size-checked rename, so the file is
+# never readable by others at any point on the robot.
 
 set -euo pipefail
 
@@ -35,7 +39,7 @@ die() {
 }
 
 usage() {
-  printf 'usage: %s probe | push <local_src> <remote_dest> | pull-calibration <local_dest>\n' \
+  printf 'usage: %s probe | push <local_src> <remote_dest> [<octal mode>] | pull-calibration <local_dest>\n' \
     "${0##*/}" >&2
   exit 2
 }
@@ -105,20 +109,27 @@ cmd_probe() {
 }
 
 cmd_push() {
-  (($# == 2)) || usage
-  local src="$1" dest="$2" qdest qpart size cmd
+  (($# == 2 || $# == 3)) || usage
+  local src="$1" dest="$2" mode="${3-}" qdest qpart size cmd prefix='' chmod_step=''
   [[ -n "${dest}" ]] || usage
+  if (($# == 3)); then
+    [[ "${mode}" =~ ^0?[0-7]{3}$ ]] || die 2 "invalid mode (expected octal like 0600): ${mode}"
+  fi
   [[ -f "${src}" && -r "${src}" ]] || die 2 "local source not readable: ${src}"
   size="$(wc -c <"${src}")"
   size="${size//[[:space:]]/}"
   [[ "${size}" =~ ^[0-9]+$ ]] || die 1 "could not determine the size of ${src}"
   qdest="$(sh_quote "${dest}")"
   qpart="$(sh_quote "${dest}.part")"
+  if [[ -n "${mode}" ]]; then
+    prefix='umask 077 && '
+    chmod_step="chmod ${mode} ${qpart} && "
+  fi
   # The byte count guards against promoting a truncated file when the link
   # drops mid-transfer (the remote cat then sees EOF and exits 0).
   # shellcheck disable=SC2016 # $(wc ...) is expanded by the robot's shell
-  printf -v cmd 'cat > %s && [ "$(wc -c < %s)" -eq %s ] && mv %s %s || { rm -f %s; exit 1; }' \
-    "${qpart}" "${qpart}" "${size}" "${qpart}" "${qdest}" "${qpart}"
+  printf -v cmd '%scat > %s && %s[ "$(wc -c < %s)" -eq %s ] && mv %s %s || { rm -f %s; exit 1; }' \
+    "${prefix}" "${qpart}" "${chmod_step}" "${qpart}" "${size}" "${qpart}" "${qdest}" "${qpart}"
   new_err_file
   remote "${cmd}" <"${src}" 2>"${ERR_FILE}" ||
     die 1 "push to robot failed (transport error or size mismatch): ${dest}"

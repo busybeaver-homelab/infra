@@ -109,6 +109,55 @@ logged_args() {
   run ! grep -Eq 'FORBIDDEN|scp|sftp' "${STUB_LOG}"
 }
 
+@test "push without a mode keeps the remote command free of umask and chmod" {
+  printf 'payload-bytes\n' >"${BATS_TMPDIR}/src"
+  run "${SCRIPT}" push "${BATS_TMPDIR}/src" /data/.incoming/valetudo
+  [ "${status}" -eq 0 ]
+  remote_cmd="$(logged_args | tail -n 1)"
+  [[ "${remote_cmd}" == "cat > '/data/.incoming/valetudo.part' && "* ]] || false
+  [[ "${remote_cmd}" != *umask* ]] || false
+  [[ "${remote_cmd}" != *chmod* ]] || false
+}
+
+@test "push with a mode creates the .part under umask 077 and chmods it before the size-checked mv" {
+  printf 'payload-bytes\n' >"${BATS_TMPDIR}/src"
+  run "${SCRIPT}" push "${BATS_TMPDIR}/src" /data/.incoming/tskey 0600
+  [ "${status}" -eq 0 ]
+  remote_cmd="$(logged_args | tail -n 1)"
+  [ "${remote_cmd}" = "umask 077 && cat > '/data/.incoming/tskey.part' && chmod 0600 '/data/.incoming/tskey.part' && [ \"\$(wc -c < '/data/.incoming/tskey.part')\" -eq 14 ] && mv '/data/.incoming/tskey.part' '/data/.incoming/tskey' || { rm -f '/data/.incoming/tskey.part'; exit 1; }" ]
+  [ "$(cat "${STUB_STDIN}")" = 'payload-bytes' ]
+}
+
+@test "push rejects an invalid mode with exit 2 before contacting the robot" {
+  printf 'x' >"${BATS_TMPDIR}/src"
+  local mode
+  for mode in 0800 600x 77 00600 -600 '' 'u=rw'; do
+    run "${SCRIPT}" push "${BATS_TMPDIR}/src" /data/.incoming/tskey "${mode}"
+    [ "${status}" -eq 2 ] || {
+      echo "mode '${mode}' gave exit ${status}"
+      return 1
+    }
+  done
+  [ ! -s "${STUB_LOG}" ]
+}
+
+@test "push over docker with a mode leaves the destination with exactly that mode" {
+  export ROBOT_TRANSPORT='docker' ROBOT_CONTAINER='robot-sim'
+  unset ROBOT_HOST ROBOT_SSH_KEY ROBOT_KNOWN_HOSTS
+  dest_dir="${BATS_TMPDIR}/incoming"
+  mkdir -p "${dest_dir}"
+  printf 'synthetic-%s\n' "$(openssl rand -hex 8)" >"${BATS_TMPDIR}/src"
+  umask 022
+  run "${SCRIPT}" push "${BATS_TMPDIR}/src" "${dest_dir}/tskey" 0600
+  [ "${status}" -eq 0 ]
+  cmp -s "${BATS_TMPDIR}/src" "${dest_dir}/tskey"
+  [ ! -e "${dest_dir}/tskey.part" ]
+  [ "$(ls -l "${dest_dir}/tskey" | cut -c1-10)" = '-rw-------' ]
+  run "${SCRIPT}" push "${BATS_TMPDIR}/src" "${dest_dir}/other" 640
+  [ "${status}" -eq 0 ]
+  [ "$(ls -l "${dest_dir}/other" | cut -c1-10)" = '-rw-r-----' ]
+}
+
 @test "push over docker writes the destination atomically via docker exec" {
   export ROBOT_TRANSPORT='docker' ROBOT_CONTAINER='robot-sim'
   unset ROBOT_HOST ROBOT_SSH_KEY ROBOT_KNOWN_HOSTS

@@ -306,3 +306,30 @@ YAML
   [ "$(yq eval '.argument_specs.main.options.valetudo_robot_tailscale_hostname | has("default")' "${SPECS}")" = false ]
   [ "$(yq eval 'has("valetudo_robot_tailscale_hostname")' "${DEFAULTS}")" = false ]
 }
+
+@test "tailscale phase stages the auth key 0600 in a 0700 staging directory" {
+  [ -f "${TAILSCALE}" ]
+  local push='.. | select(tag == "!!map" and has("ansible.builtin.command")) | select(.["ansible.builtin.command"].argv | tostring | test("robot-transport.sh"))'
+  [ "$(yq eval "[${push}] | length" "${TAILSCALE}")" -eq 1 ]
+  [ "$(yq eval "${push} | .[\"ansible.builtin.command\"].argv | .[1:] | join(\" \")" "${TAILSCALE}")" = 'push {{ valetudo_robot_tskey_tmp.path }} /data/.incoming/tskey 0600' ]
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("ansible.builtin.raw")) | select(.["ansible.builtin.raw"] | test("mkdir -p /data/.incoming"))] | .[] | .["ansible.builtin.raw"]' "${TAILSCALE}")" = 'umask 077; mkdir -p /data/.incoming && chmod 0700 /data/.incoming' ]
+}
+
+@test "tailscale phase shows the key check failure and refuses more than one robot before the key fetch" {
+  [ -f "${TAILSCALE}" ]
+  # The visible assert works on a boolean computed by a no_log set_fact; it never touches the key.
+  local check='.. | select(tag == "!!map" and has("ansible.builtin.assert")) | select(.["ansible.builtin.assert"].that | tostring | test("valetudo_robot_tailscale_key_ok"))'
+  [ "$(yq eval "[${check}] | length" "${TAILSCALE}")" -eq 1 ]
+  [ "$(yq eval "${check} | .no_log // false" "${TAILSCALE}")" = false ]
+  [ "$(yq eval "${check} | .[\"ansible.builtin.assert\"].that | tostring | test(\"tofu_robot_auth_key|tofu_vars_raw\")" "${TAILSCALE}")" = false ]
+  [ "$(yq eval "${check} | tostring | test(\"[{][{][^}]*(tofu_robot_auth_key|tofu_vars_raw)\")" "${TAILSCALE}")" = false ]
+  yq eval "${check} | .[\"ansible.builtin.assert\"].fail_msg" "${TAILSCALE}" | grep -qF 'R2-GOV-05'
+  [ "$(yq eval '.. | select(tag == "!!map" and has("ansible.builtin.set_fact")) | select(.["ansible.builtin.set_fact"] | has("valetudo_robot_tailscale_key_ok")) | .no_log' "${TAILSCALE}")" = true ]
+  # One robot per run: asserted before the run_once helper.
+  local hosts_ln helper_ln
+  hosts_ln=$(grep -n 'ansible_play_hosts | length == 1' "${TAILSCALE}" | head -n1 | cut -d: -f1)
+  helper_ln=$(grep -n 'valetudo_robot_tofu_vars_script' "${TAILSCALE}" | head -n1 | cut -d: -f1)
+  [ -n "${hosts_ln}" ]
+  [ -n "${helper_ln}" ]
+  [ "${hosts_ln}" -lt "${helper_ln}" ]
+}

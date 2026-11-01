@@ -86,7 +86,17 @@
         - not ansible_check_mode
         - valetudo_robot_tailscale_state != 'running'
       block:
-        # The key is single-use and joins one robot, hence run_once.
+        # The key is single-use and joins exactly one robot, hence run_once and
+        # this guard: a second host would receive an already-consumed key.
+        - name: Assert the play targets exactly one robot
+          ansible.builtin.assert:
+            that:
+              - ansible_play_hosts | length == 1
+            fail_msg: >-
+              The robot auth key is single-use and joins exactly one robot per run, but this play targets
+              {{ ansible_play_hosts | length }} hosts; limit the run to one robot (--limit) and re-run with --tags tailscale.
+            quiet: true
+
         - name: Load the robot auth key from OpenTofu outputs
           block:
             - name: Run get-tofu-robot-vars.sh on the controller
@@ -109,16 +119,24 @@
                   or apply infrastructure/mesh as reported (tofu apply needs per-action owner confirmation).
               run_once: true
 
+        # The check reads the key, so it is reduced to a boolean under no_log; the
+        # assert below only sees the boolean and can show its message.
+        - name: Check that the helper returned a non-empty auth key
+          ansible.builtin.set_fact:
+            valetudo_robot_tailscale_key_ok: >-
+              {{ (valetudo_robot_tofu_vars_raw.stdout | default('') is match('^\s*[{]'))
+              and ((valetudo_robot_tofu_vars_raw.stdout | from_json).tofu_robot_auth_key | default(none) is string)
+              and ((valetudo_robot_tofu_vars_raw.stdout | from_json).tofu_robot_auth_key | default('') | length > 0) }}
+          no_log: true
+
         - name: Assert the helper returned a non-empty auth key
           ansible.builtin.assert:
             that:
-              - (valetudo_robot_tofu_vars_raw.stdout | from_json).tofu_robot_auth_key is string
-              - (valetudo_robot_tofu_vars_raw.stdout | from_json).tofu_robot_auth_key | length > 0
+              - valetudo_robot_tailscale_key_ok is sameas true
             fail_msg: >-
               scripts/get-tofu-robot-vars.sh returned no tofu_robot_auth_key; apply infrastructure/mesh
               (per-action owner confirmation) and re-run with --tags tailscale (R2-GOV-05).
             quiet: true
-          no_log: true
 
         - name: Create the controller auth key tempfile
           ansible.builtin.tempfile:
@@ -138,8 +156,9 @@
           no_log: true
           diff: false
 
-        - name: Make sure the robot staging directory exists
-          ansible.builtin.raw: mkdir -p /data/.incoming
+        # Root-only staging directory: the key file is created 0600 inside it.
+        - name: Make sure the robot staging directory exists and is private
+          ansible.builtin.raw: umask 077; mkdir -p /data/.incoming && chmod 0700 /data/.incoming
           changed_when: false
 
         # Transport errors can contain the robot address, so the task output is
@@ -153,6 +172,7 @@
                   - push
                   - "{{ valetudo_robot_tskey_tmp.path }}"
                   - /data/.incoming/tskey
+                  - "0600"
               environment: "{{ valetudo_robot_transport_env }}"
               delegate_to: localhost
               become: false
