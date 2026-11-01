@@ -800,3 +800,19 @@ if unknown:
   run yq -e 'has("restic_backup_repository") or has("restic_backup_password")' "$REPO_ROOT/configuration/roles/restic_backup/defaults/main.yml"
   [ "$status" -ne 0 ]
 }
+
+@test "robots.yml passes syntax check" {
+  run mise exec -- ansible-playbook -i "localhost," -e allow_empty_inventory=true --syntax-check "$REPO_ROOT/configuration/playbooks/robots.yml"
+  [ "$status" -eq 0 ] || false
+}
+
+@test "site.yml does not import robots.yml" {
+  [ -f "$REPO_ROOT/configuration/playbooks/robots.yml" ]
+  run grep -E 'robots' "$REPO_ROOT/configuration/playbooks/site.yml"
+  [ "$status" -ne 0 ] || false
+}
+
+@test "inventory declares an empty robots group" {
+  [ "$(yq eval '.all.children.robots | tag' "$REPO_ROOT/configuration/inventories/hosts.yml")" = '!!map' ]
+  [ "$(yq eval '.all.children.robots | length' "$REPO_ROOT/configuration/inventories/hosts.yml")" -eq 0 ]
+}

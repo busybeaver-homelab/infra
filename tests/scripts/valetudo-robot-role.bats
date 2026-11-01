@@ -425,3 +425,218 @@ YAML
   # Raw module output never reaches the message.
   [ "$(yq eval '[.. | select(tag == "!!str") | select(test("[.](stderr|stdout)"))] | length' "${reraise}")" -eq 0 ]
 }
+
+ROBOTS_PLAYBOOK="${REPO_ROOT}/configuration/playbooks/robots.yml"
+ROBOT_KEY_DIR="${REPO_ROOT}/.cache/ansible"
+
+# Skips unless the CI SOPS file can be decrypted with a key from the environment
+# or the default age key location. Only a non-secret flag is extracted, to /dev/null.
+require_ci_sops() {
+  if [ -z "${SOPS_AGE_KEY:-}" ] && [ -z "${SOPS_AGE_KEY_FILE:-}" ] && [ -f "${HOME}/.config/sops/age/keys.txt" ]; then
+    export SOPS_AGE_KEY_FILE="${HOME}/.config/sops/age/keys.txt"
+  fi
+  sops decrypt --extract '["is_production"]' "${REPO_ROOT}/secrets/credentials.ci.sops.yaml" >/dev/null 2>&1 \
+    || skip "needs SOPS_AGE_KEY for the CI SOPS file (shell-bats CI job has none; run locally)"
+}
+
+# Removes the seeded stale key even when a test fails before its own checks.
+teardown() {
+  if [ -n "${STALE_KEY:-}" ]; then
+    rm -f "${STALE_KEY}"
+  fi
+}
+
+# Number of controller key tempfiles that Play 1 of robots.yml leaves behind.
+robot_key_tempfiles() {
+  find "${ROBOT_KEY_DIR}" -maxdepth 1 -name 'robot_key.*' 2>/dev/null | wc -l | tr -d ' '
+}
+
+@test "robots.yml preflight fails on placeholder values" {
+  require_ci_sops
+  local before
+  before=$(robot_key_tempfiles)
+  cd "${REPO_ROOT}"
+  # Synthetic override of the whole valetudo_robot map; only wifi.psk is a placeholder.
+  local robot_vars='{"valetudo_robot": {"lan_host": "203.0.113.5", "ap_host": "203.0.113.6", "ssh_private_key": "synthetic", "wifi": {"ssid": "example-ssid", "psk": "PLACEHOLDER-x"}, "basic_auth": {"username": "example-user", "password": "example-pass"}, "tailscale_hostname": "example-robot"}}'
+  run mise exec -- ansible-playbook -i "localhost," "${ROBOTS_PLAYBOOK}" \
+    -e custom_sops_secrets_file=credentials.ci.sops.yaml -e is_production=false -e is_ci_environment=true \
+    -e valetudo_robot_force_placeholder_check=true -e valetudo_robot_probe_timeout=1 \
+    -e "${robot_vars}"
+  [ "$status" -ne 0 ] || false
+  [[ "${output}" == *"wifi.psk"* ]] || false
+  [[ "${output}" != *"PLACEHOLDER-x"* ]] || false
+  [[ "${output}" != *"203.0.113"* ]] || false
+  [ "$(robot_key_tempfiles)" -eq "${before}" ] || false
+}
+
+@test "robots.yml preflight flags a TEST-NET-1 address as a placeholder by key name" {
+  require_ci_sops
+  cd "${REPO_ROOT}"
+  local robot_vars='{"valetudo_robot": {"lan_host": "192.0.2.77", "ap_host": "203.0.113.6", "ssh_private_key": "synthetic", "wifi": {"ssid": "example-ssid", "psk": "example-psk"}, "basic_auth": {"username": "example-user", "password": "example-pass"}, "tailscale_hostname": "example-robot"}}'
+  run mise exec -- ansible-playbook -i "localhost," "${ROBOTS_PLAYBOOK}" \
+    -e custom_sops_secrets_file=credentials.ci.sops.yaml -e is_production=false -e is_ci_environment=true \
+    -e valetudo_robot_force_placeholder_check=true -e valetudo_robot_probe_timeout=1 \
+    -e "${robot_vars}"
+  [ "$status" -ne 0 ] || false
+  [[ "${output}" == *"lan_host"* ]] || false
+  [[ "${output}" != *"192.0.2.77"* ]] || false
+}
+
+@test "preflight fails when neither address answers" {
+  require_ci_sops
+  cd "${REPO_ROOT}"
+  run mise exec -- ansible-playbook -i "localhost," "${ROBOTS_PLAYBOOK}" \
+    -e custom_sops_secrets_file=credentials.ci.sops.yaml -e is_production=false -e is_ci_environment=true \
+    -e valetudo_robot_probe_timeout=1
+  [ "$status" -ne 0 ] || false
+  # Ansible folds long messages across lines; compare on whitespace-normalised output.
+  local flat
+  flat=$(printf '%s' "${output}" | tr '\n' ' ' | tr -s ' ')
+  [[ "${flat}" == *"robot not reachable at lan_host or ap_host (asleep, off Wi-Fi, or placeholder address)"* ]] || false
+  [[ "${output}" != *"198.51.100."* ]] || false
+  [[ "${output}" != *"PRIVATE KEY"* ]] || false
+  # The failed run removes the controller key tempfile it created.
+  [ "$(robot_key_tempfiles)" -eq 0 ] || false
+}
+
+@test "robots.yml preflight shape: sentinel, load_vars, placeholder check, no_log key, probe, add_host, cleanup" {
+  [ -f "${ROBOTS_PLAYBOOK}" ]
+  [ "$(yq eval 'length' "${ROBOTS_PLAYBOOK}")" -eq 3 ]
+  [ "$(yq eval '.[0].hosts' "${ROBOTS_PLAYBOOK}")" = localhost ]
+  [ "$(yq eval '.[0].connection' "${ROBOTS_PLAYBOOK}")" = local ]
+  [ "$(yq eval '.[1].hosts' "${ROBOTS_PLAYBOOK}")" = robots ]
+  [ "$(yq eval '.[1].gather_facts' "${ROBOTS_PLAYBOOK}")" = false ]
+  [ "$(yq eval '[.[1].tasks[].block[] | select(has("ansible.builtin.import_role")) | .["ansible.builtin.import_role"].name] | .[0]' "${ROBOTS_PLAYBOOK}")" = valetudo_robot ]
+  # Order inside Play 1: sentinel, load_vars, placeholder check, key tempfile, probe, add_host.
+  local sentinel load placeholder tempfile probe add
+  first_code_line() { grep -n '' "${ROBOTS_PLAYBOOK}" | grep -v '^[0-9]*:[[:space:]]*#' | grep -F -- "$1" | head -n1 | cut -d: -f1; }
+  sentinel=$(first_code_line 'environment sentinel')
+  load=$(first_code_line 'community.sops.load_vars')
+  placeholder=$(first_code_line 'PLACEHOLDER-')
+  tempfile=$(first_code_line 'ansible.builtin.tempfile')
+  probe=$(first_code_line 'robot-transport.sh')
+  add=$(first_code_line 'ansible.builtin.add_host')
+  [ -n "${sentinel}" ] && [ -n "${load}" ] && [ -n "${placeholder}" ] && [ -n "${tempfile}" ] && [ -n "${probe}" ] && [ -n "${add}" ]
+  [ "${sentinel}" -lt "${load}" ]
+  [ "${load}" -lt "${placeholder}" ]
+  [ "${placeholder}" -lt "${tempfile}" ]
+  [ "${tempfile}" -lt "${probe}" ]
+  [ "${probe}" -lt "${add}" ]
+}
+
+@test "robots.yml refuses is_ci_environment with the production SOPS file before loading it" {
+  cd "${REPO_ROOT}"
+  run mise exec -- ansible-playbook -i "localhost," "${ROBOTS_PLAYBOOK}" \
+    -e custom_sops_secrets_file=credentials.sops.yaml -e is_production=false -e is_ci_environment=true
+  [ "$status" -ne 0 ] || false
+  local flat
+  flat=$(printf '%s' "${output}" | tr '\n' ' ' | tr -s ' ')
+  [[ "${flat}" == *"is_ci_environment may only be combined with credentials.ci.sops.yaml"* ]] || false
+  # The refusal comes before any SOPS decryption or robot contact.
+  [[ "${output}" != *"Load SOPS credentials"* ]] || false
+}
+
+@test "preflight sweeps stale robot key tempfiles from the controller cache" {
+  require_ci_sops
+  cd "${REPO_ROOT}"
+  mkdir -p "${ROBOT_KEY_DIR}"
+  STALE_KEY="${ROBOT_KEY_DIR}/robot_key.bats-stale-$$"
+  : >"${STALE_KEY}"
+  run mise exec -- ansible-playbook -i "localhost," "${ROBOTS_PLAYBOOK}" \
+    -e custom_sops_secrets_file=credentials.ci.sops.yaml -e is_production=false -e is_ci_environment=true \
+    -e valetudo_robot_probe_timeout=1
+  # Checked before any cleanup: only the playbook's sweep can have removed the seeded file.
+  [ ! -e "${STALE_KEY}" ] || false
+  [ "$status" -ne 0 ] || false
+  [[ "${output}" == *"Remove stale controller SSH key tempfiles"* ]] || false
+  [[ "${output}" != *"bats-stale"* ]] || false
+  [ "$(robot_key_tempfiles)" -eq 0 ] || false
+}
+
+@test "robots.yml refuses is_production with the CI SOPS file before loading it" {
+  cd "${REPO_ROOT}"
+  run mise exec -- ansible-playbook -i "localhost," "${ROBOTS_PLAYBOOK}" \
+    -e custom_sops_secrets_file=credentials.ci.sops.yaml -e is_production=true -e is_ci_environment=false
+  [ "$status" -ne 0 ] || false
+  local flat
+  flat=$(printf '%s' "${output}" | tr '\n' ' ' | tr -s ' ')
+  [[ "${flat}" == *"is_production may only be combined with credentials.sops.yaml"* ]] || false
+  [[ "${output}" != *"Load SOPS credentials"* ]] || false
+}
+
+@test "add_host ssh args keep accept-new host keys, IdentitiesOnly and LogLevel=ERROR next to the dedicated known-hosts file" {
+  [ "$(yq eval '[.[0].tasks[].block[]? | select(has("ansible.builtin.add_host")) | .["ansible.builtin.add_host"].ansible_ssh_common_args] | .[0]' "${ROBOTS_PLAYBOOK}")" != null ]
+  local args
+  args=$(yq eval '[.[0].tasks[].block[]? | select(has("ansible.builtin.add_host")) | .["ansible.builtin.add_host"].ansible_ssh_common_args] | .[0]' "${ROBOTS_PLAYBOOK}")
+  [[ "${args}" == *'-o StrictHostKeyChecking=accept-new'* ]] || false
+  [[ "${args}" == *'-o IdentitiesOnly=yes'* ]] || false
+  [[ "${args}" == *'-o LogLevel=ERROR'* ]] || false
+  [[ "${args}" == *'-o "UserKnownHostsFile={{ _robot_known_hosts }}"'* ]] || false
+}
+
+@test "robots.yml removes the key in a localhost Play 3 and sweeps stale keys at the start of Play 1" {
+  [ -f "${ROBOTS_PLAYBOOK}" ]
+  # Play 3: runs after the robot play even when Play 2's always section is skipped by the wifi phase's end_host.
+  # Aborted runs (unreachable or all hosts failed) never reach it; the next run's stale sweep covers those.
+  [ "$(yq eval '.[2].hosts' "${ROBOTS_PLAYBOOK}")" = localhost ]
+  [ "$(yq eval '.[2].connection' "${ROBOTS_PLAYBOOK}")" = local ]
+  [ "$(yq eval '.[2].gather_facts' "${ROBOTS_PLAYBOOK}")" = false ]
+  [ "$(yq eval '.[2].tags | join(",")' "${ROBOTS_PLAYBOOK}")" = always ]
+  [ "$(yq eval '.[2].tasks[0]["ansible.builtin.file"].state' "${ROBOTS_PLAYBOOK}")" = absent ]
+  [ "$(yq eval '.[2].tasks[0].no_log' "${ROBOTS_PLAYBOOK}")" = true ]
+  yq eval '.[2].tasks[0]["ansible.builtin.file"].path' "${ROBOTS_PLAYBOOK}" | grep -qF '_robot_key_tmp.path'
+  # Play 2 keeps its own always cleanup.
+  [ "$(yq eval '.[1].tasks[0].always | length' "${ROBOTS_PLAYBOOK}")" -eq 1 ]
+  # Sweep: finds robot_key.* in the cache dir after the dir exists and before the tempfile is created.
+  local dir find tmp
+  first_code_line() { grep -n '' "${ROBOTS_PLAYBOOK}" | grep -v '^[0-9]*:[[:space:]]*#' | grep -F -- "$1" | head -n1 | cut -d: -f1; }
+  dir=$(first_code_line 'Ensure the controller cache directory exists')
+  find=$(first_code_line 'ansible.builtin.find')
+  tmp=$(first_code_line 'ansible.builtin.tempfile')
+  [ "${dir}" -lt "${find}" ]
+  [ "${find}" -lt "${tmp}" ]
+  grep -qF 'patterns: robot_key.*' "${ROBOTS_PLAYBOOK}"
+}
+
+@test "robots.yml asserts CI mode never contacts a robot after TCP reachability and before the SSH probe" {
+  [ -f "${ROBOTS_PLAYBOOK}" ]
+  first_code_line() { grep -n '' "${ROBOTS_PLAYBOOK}" | grep -v '^[0-9]*:[[:space:]]*#' | grep -F -- "$1" | head -n1 | cut -d: -f1; }
+  local reach guard probe add
+  reach=$(first_code_line 'robot not reachable at lan_host or ap_host')
+  guard=$(first_code_line 'CI mode never contacts a robot')
+  probe=$(first_code_line 'robot-transport.sh')
+  add=$(first_code_line 'ansible.builtin.add_host')
+  [ -n "${reach}" ] && [ -n "${guard}" ] && [ -n "${probe}" ] && [ -n "${add}" ]
+  [ "${reach}" -lt "${guard}" ]
+  [ "${guard}" -lt "${probe}" ]
+  [ "${probe}" -lt "${add}" ]
+}
+
+@test "robots group_vars stay minimal and the known-hosts path is defined once in Play 1" {
+  local gv="${REPO_ROOT}/configuration/group_vars/robots.yml"
+  [ "$(yq eval 'keys | sort | join(",")' "${gv}")" = "ansible_connection,ansible_user" ]
+  [ "$(grep -c 'robot_known_hosts"' "${ROBOTS_PLAYBOOK}")" -eq 1 ]
+  grep -qF -- '-o "UserKnownHostsFile={{ _robot_known_hosts }}"' "${ROBOTS_PLAYBOOK}"
+}
+
+@test "the role's auth key tempfile is swept by the robots playbook's robot_key stale sweep" {
+  [ -f "${ROBOTS_PLAYBOOK}" ]
+  local prefix pattern
+  prefix=$(yq eval '.. | select(tag == "!!map" and has("ansible.builtin.tempfile")) | .["ansible.builtin.tempfile"].prefix' "${TAILSCALE}")
+  [ "${prefix}" = 'robot_key.' ]
+  pattern=$(yq eval '.. | select(tag == "!!map" and has("ansible.builtin.find")) | .["ansible.builtin.find"].patterns' "${ROBOTS_PLAYBOOK}")
+  [ "${pattern}" = 'robot_key.*' ]
+  # Same gitignored directory on both sides (resolved relative to playbook_dir).
+  [ "$(yq eval '.valetudo_robot_controller_cache_dir' "${DEFAULTS}")" = '{{ playbook_dir }}/../../.cache/ansible' ]
+  grep -qF '_robot_cache_dir: "{{ playbook_dir }}/../../.cache/ansible"' "${ROBOTS_PLAYBOOK}"
+  # fnmatch semantics of the find module: robot_key.* covers prefix + random + suffix.
+  [[ "robot_key.AbC123.tskey" == robot_key.* ]]
+}
+
+@test "every block in robots.yml rescues, and Play 2 fails again through the role's reraise.yml for all tags" {
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("block") and (has("rescue") | not))] | length' "${ROBOTS_PLAYBOOK}")" -eq 0 ]
+  [ "$(yq eval '.[1].tasks[0].rescue | length' "${ROBOTS_PLAYBOOK}")" -eq 1 ]
+  [ "$(yq eval '.[1].tasks[0].rescue[0]["ansible.builtin.import_tasks"]' "${ROBOTS_PLAYBOOK}")" = ../roles/valetudo_robot/tasks/reraise.yml ]
+  [ "$(yq eval '.[1].tasks[0].rescue[0].tags | join(",")' "${ROBOTS_PLAYBOOK}")" = always ]
+  [ -f "$(dirname "${ROBOTS_PLAYBOOK}")/../roles/valetudo_robot/tasks/reraise.yml" ]
+}

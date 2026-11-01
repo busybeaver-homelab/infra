@@ -1,0 +1,304 @@
+---
+# Rebuilds the rooted Dreame X40 Ultra (valetudo_robot role). Operator-run only:
+# this playbook is deliberately NOT imported by site.yml.
+#
+# Play 1 runs on the controller: environment sentinel, SOPS load, placeholder
+# check, SSH key tempfile, TCP 22 reachability (lan_host, then ap_host) and the
+# robot-transport.sh probe. It then registers the robot with add_host, passing
+# every secret-derived role variable explicitly: the SOPS values exist only as
+# localhost facts, so group_vars/robots.yml (non-secret values only) cannot
+# template them. Play 2 runs the role against that dynamic host and always
+# deletes the controller key tempfile when the role fails. Key cleanup by case:
+#   - the role's wifi phase ends the host (meta: end_host): Play 2's always section
+#     is skipped, Play 3 (localhost) removes the key;
+#   - a role task fails: Play 2's always section removes the key;
+#   - the host is unreachable or all hosts fail: the run aborts before Play 3, so
+#     the key stays (mode 0600, gitignored .cache/ansible) until the next run's
+#     stale sweep at the start of Play 1 removes it.
+#
+# Optional extra vars: valetudo_robot_probe_timeout (seconds, default 5),
+# valetudo_robot_force_placeholder_check (true to run the placeholder check in CI mode).
+- name: Preflight — load robot secrets and reach the robot
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  # Preflight artifacts (probe, key tempfile) are controller-local, so --check still needs them.
+  check_mode: false
+  # Always runs, so --tags <phase> still builds the robots group for Play 2.
+  tags:
+    - always
+  vars:
+    _robot_cache_dir: "{{ playbook_dir }}/../../.cache/ansible"
+    _robot_known_hosts: "{{ playbook_dir }}/../../.cache/ansible/robot_known_hosts"
+    _robot_probe_timeout: "{{ valetudo_robot_probe_timeout | default(5) | int }}"
+    # Never printed: only the key names are ever shown (R2-GOV-05).
+    _robot_secret_values:
+      lan_host: "{{ ((valetudo_robot | default({})).lan_host | default('')) | string | trim }}"
+      ap_host: "{{ ((valetudo_robot | default({})).ap_host | default('')) | string | trim }}"
+      ssh_private_key: "{{ ((valetudo_robot | default({})).ssh_private_key | default('')) | string | trim }}"
+      wifi.ssid: "{{ (((valetudo_robot | default({})).wifi | default({})).ssid | default('')) | string | trim }}"
+      wifi.psk: "{{ (((valetudo_robot | default({})).wifi | default({})).psk | default('')) | string | trim }}"
+      basic_auth.username: "{{ (((valetudo_robot | default({})).basic_auth | default({})).username | default('')) | string | trim }}"
+      basic_auth.password: "{{ (((valetudo_robot | default({})).basic_auth | default({})).password | default('')) | string | trim }}"
+      tailscale_hostname: "{{ ((valetudo_robot | default({})).tailscale_hostname | default('')) | string | trim }}"
+  tasks:
+    - name: Validate SOPS file name (environment sentinel, part 1)
+      ansible.builtin.assert:
+        that:
+          - (custom_sops_secrets_file | default('credentials.sops.yaml')) in ['credentials.sops.yaml', 'credentials.ci.sops.yaml']
+          - >-
+            not (is_ci_environment | default(false) | bool)
+            or (custom_sops_secrets_file | default('credentials.sops.yaml')) == 'credentials.ci.sops.yaml'
+          - >-
+            not (is_production | default(false) | bool)
+            or (custom_sops_secrets_file | default('credentials.sops.yaml')) == 'credentials.sops.yaml'
+        fail_msg: >-
+          Refusing to execute playbook: custom_sops_secrets_file must be one of the two canonical files,
+          is_ci_environment may only be combined with credentials.ci.sops.yaml, and is_production
+          may only be combined with credentials.sops.yaml.
+
+    - name: Load SOPS credentials
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../../secrets/{{ custom_sops_secrets_file | default('credentials.sops.yaml') }}"
+      no_log: true
+
+    - name: Validate environment sentinel
+      ansible.builtin.assert:
+        that:
+          - (custom_sops_secrets_file | default('credentials.sops.yaml')) in ['credentials.sops.yaml', 'credentials.ci.sops.yaml']
+          - (is_production | default(false) | bool) != (is_ci_environment | default(false) | bool)
+          - not (is_production | default(false) | bool) or (custom_sops_secrets_file | default('credentials.sops.yaml')) == 'credentials.sops.yaml'
+          - not (is_ci_environment | default(false) | bool) or (ansible_connection | default('ssh')) in ['docker', 'local', 'community.docker.docker']
+        fail_msg: >-
+          Refusing to execute playbook: custom_sops_secrets_file must be one of the two canonical files,
+          exactly one of is_production or is_ci_environment must be true (XOR), and CI mode is restricted
+          to container/local test connections.
+        success_msg: "Environment sentinel verified successfully."
+
+    - name: Collect missing valetudo_robot keys
+      ansible.builtin.set_fact:
+        _robot_missing_keys: "{{ _robot_secret_values | dict2items | selectattr('value', 'eq', '') | map(attribute='key') | list }}"
+      no_log: true
+
+    - name: Fail closed on missing valetudo_robot keys
+      ansible.builtin.fail:
+        msg: >-
+          R2-GOV-05: valetudo_robot values missing or empty in the SOPS file: {{ _robot_missing_keys | join(', ') }}.
+          Add them to secrets/credentials.sops.yaml; no fallback to decoys or defaults exists.
+      when: _robot_missing_keys | length > 0
+
+    - name: Collect placeholder valetudo_robot keys
+      ansible.builtin.set_fact:
+        _robot_placeholder_keys: >-
+          {{ _robot_secret_values | dict2items
+             | selectattr('value', 'match', '^(PLACEHOLDER-|192[.]0[.]2[.][0-9]{1,3}$)')
+             | map(attribute='key') | list }}
+      no_log: true
+      when: >-
+        not (is_ci_environment | default(false) | bool)
+        or (valetudo_robot_force_placeholder_check | default(false) | bool)
+
+    - name: Fail closed on placeholder valetudo_robot values
+      ansible.builtin.fail:
+        msg: >-
+          R2-GOV-05: valetudo_robot keys still hold a PLACEHOLDER- value or a 192.0.2.0/24 address:
+          {{ _robot_placeholder_keys | join(', ') }}. Replace them in secrets/credentials.sops.yaml before running.
+      when: _robot_placeholder_keys | default([]) | length > 0
+
+    - name: Ensure the controller cache directory exists
+      ansible.builtin.file:
+        path: "{{ _robot_cache_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Find stale controller SSH key tempfiles
+      ansible.builtin.find:
+        paths: "{{ _robot_cache_dir }}"
+        patterns: robot_key.*
+        file_type: file
+      register: _robot_stale_keys
+      no_log: true
+
+    - name: Remove stale controller SSH key tempfiles
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ _robot_stale_keys.files }}"
+      loop_control:
+        label: stale robot key tempfile
+      no_log: true
+
+    - name: Stage the robot SSH key and probe the robot
+      block:
+        - name: Create the controller SSH key tempfile
+          ansible.builtin.tempfile:
+            state: file
+            path: "{{ _robot_cache_dir }}"
+            prefix: robot_key.
+          register: _robot_key_tmp
+          no_log: true
+
+        - name: Write the robot SSH key to the tempfile
+          ansible.builtin.copy:
+            dest: "{{ _robot_key_tmp.path }}"
+            content: "{{ valetudo_robot.ssh_private_key | trim }}\n"
+            mode: "0600"
+          no_log: true
+
+        # The robot address is never displayed, so these results are read back, not shown.
+        - name: Check TCP 22 on lan_host
+          ansible.builtin.wait_for:
+            host: "{{ valetudo_robot['lan_host'] }}"
+            port: 22
+            state: started
+            timeout: "{{ _robot_probe_timeout }}"
+            connect_timeout: "{{ _robot_probe_timeout }}"
+          register: _robot_lan_check
+          failed_when: false
+          no_log: true
+
+        - name: Check TCP 22 on ap_host
+          ansible.builtin.wait_for:
+            host: "{{ valetudo_robot.ap_host }}"
+            port: 22
+            state: started
+            timeout: "{{ _robot_probe_timeout }}"
+            connect_timeout: "{{ _robot_probe_timeout }}"
+          register: _robot_ap_check
+          failed_when: false
+          no_log: true
+          when: (_robot_lan_check.state | default('')) != 'started'
+
+        - name: Fail when the robot answers on neither address
+          ansible.builtin.fail:
+            msg: robot not reachable at lan_host or ap_host (asleep, off Wi-Fi, or placeholder address)
+          when:
+            - (_robot_lan_check.state | default('')) != 'started'
+            - (_robot_ap_check.state | default('')) != 'started'
+
+        - name: Refuse to contact a robot in CI mode
+          ansible.builtin.fail:
+            msg: CI mode never contacts a robot
+          when: is_ci_environment | default(false) | bool
+
+        - name: Record which address answered
+          ansible.builtin.set_fact:
+            _robot_on_lan: "{{ (_robot_lan_check.state | default('')) == 'started' }}"
+            _robot_answering_host: >-
+              {{ valetudo_robot['lan_host'] if (_robot_lan_check.state | default('')) == 'started' else valetudo_robot.ap_host }}
+          no_log: true
+
+        - name: Probe SSH login on the answering address
+          ansible.builtin.command:
+            argv:
+              - "{{ playbook_dir }}/../roles/valetudo_robot/files/robot-transport.sh"
+              - probe
+          environment:
+            ROBOT_TRANSPORT: ssh
+            ROBOT_HOST: "{{ _robot_answering_host }}"
+            ROBOT_SSH_KEY: "{{ _robot_key_tmp.path }}"
+            ROBOT_KNOWN_HOSTS: "{{ _robot_known_hosts }}"
+          register: _robot_probe
+          changed_when: false
+          failed_when: false
+          no_log: true
+
+        # Fixed messages: the helper's own text names the address for rc 8.
+        - name: Fail when the robot host key changed
+          ansible.builtin.fail:
+            msg: >-
+              robot host key changed (factory reset?). Remove its entry from
+              .cache/ansible/robot_known_hosts (runbook: "Clearing a host key"), then re-run.
+          when: _robot_probe.rc == 7
+
+        - name: Fail when the SSH login to the robot fails
+          ansible.builtin.fail:
+            msg: >-
+              robot reachable on TCP 22 but the SSH login failed (key rejected, sshd not ready, or another
+              device at that address). The helper output is hidden to keep the robot address out of logs.
+          when: _robot_probe.rc == 8
+
+        - name: Fail when the SSH probe fails for another reason
+          ansible.builtin.fail:
+            msg: >-
+              robot-transport.sh probe failed with rc={{ _robot_probe.rc }} (rc 2 means incomplete transport
+              settings). Its output is hidden to keep the robot address out of logs.
+          when: _robot_probe.rc != 0
+
+        - name: Register the robot in the robots group
+          ansible.builtin.add_host:
+            name: x40-ultra
+            groups: robots
+            ansible_host: "{{ _robot_answering_host }}"
+            ansible_ssh_private_key_file: "{{ _robot_key_tmp.path }}"
+            ansible_ssh_common_args: >-
+              -o "UserKnownHostsFile={{ _robot_known_hosts }}"
+              -o StrictHostKeyChecking=accept-new
+              -o IdentitiesOnly=yes
+              -o LogLevel=ERROR
+            valetudo_robot_known_hosts: "{{ _robot_known_hosts }}"
+            valetudo_robot_on_lan: "{{ _robot_on_lan }}"
+            valetudo_robot_api_base_url: "http://{{ _robot_answering_host }}"
+            valetudo_robot_basic_auth_username: "{{ valetudo_robot.basic_auth.username }}"
+            valetudo_robot_basic_auth_password: "{{ valetudo_robot.basic_auth.password }}"
+            valetudo_robot_wifi_ssid: "{{ valetudo_robot.wifi.ssid }}"
+            valetudo_robot_wifi_psk: "{{ valetudo_robot.wifi.psk }}"
+            valetudo_robot_tailscale_hostname: "{{ valetudo_robot.tailscale_hostname }}"
+          no_log: true
+      rescue:
+        - name: Remove the controller SSH key tempfile after a failed preflight
+          ansible.builtin.file:
+            path: "{{ _robot_key_tmp.path }}"
+            state: absent
+          when: _robot_key_tmp.path is defined
+          no_log: true
+
+        - name: Fail with the preflight message
+          ansible.builtin.fail:
+            msg: "{{ ansible_failed_result.msg | default('robot preflight failed') }}"
+
+- name: Rebuild the robot with Valetudo and Tailscale
+  hosts: robots
+  gather_facts: false
+  tasks:
+    - name: Run the valetudo_robot role and clean up the controller key
+      block:
+        - name: Apply the valetudo_robot role
+          ansible.builtin.import_role:
+            name: valetudo_robot
+      # Same sanitizing re-raise as the role's phase blocks, for role tasks that
+      # fail outside a phase block (Checkov CKV2_ANSIBLE_3).
+      rescue:
+        - name: Fail again with the role failure
+          ansible.builtin.import_tasks: ../roles/valetudo_robot/tasks/reraise.yml
+          tags:
+            - always
+      always:
+        - name: Remove the controller SSH key tempfile
+          ansible.builtin.file:
+            path: "{{ ansible_ssh_private_key_file }}"
+            state: absent
+          delegate_to: localhost
+          become: false
+          check_mode: false
+          no_log: true
+          tags:
+            - always
+
+# The wifi phase ends the host (meta: end_host), which skips Play 2's always
+# section, so the key is removed here. Unreachable or all-hosts-failed runs abort
+# before this play; the next run's stale sweep in Play 1 covers them.
+- name: Remove the controller SSH key tempfile
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  check_mode: false
+  tags:
+    - always
+  tasks:
+    - name: Remove the controller SSH key tempfile after the robot play
+      ansible.builtin.file:
+        path: "{{ _robot_key_tmp.path }}"
+        state: absent
+      when: _robot_key_tmp.path is defined
+      no_log: true
