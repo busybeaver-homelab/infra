@@ -68,7 +68,7 @@ docker_daemon_options:
 
 # GitOps Docker Compose Reconciler (docker_compose_service)
 # Disabled by default until first signed release exists for each target;
-# enable per-group or per-host once homelab-services vX.Y.Z is published.
+# enable per-group or per-host once busybeaver-homelab/services vX.Y.Z is published.
 docker_compose_service_enabled: false
 docker_compose_service_manage_daemon_json: false
 docker_compose_service_hosts: "{{ compose.hosts | default([]) }}"

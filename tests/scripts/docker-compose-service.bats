@@ -54,7 +54,7 @@ ctx = {
     "docker_compose_service_cosign_next_public_key_path": f"{tmp}/etc/containers/cosign-next.pub",
     "docker_compose_service_allow_macvlan": allow_macvlan,
     "docker_compose_service_curl_proto": "=https",
-    "docker_compose_service_release_api_url": "https://api.example.test/repos/busybeaver/homelab-services/releases/latest",
+    "docker_compose_service_release_api_url": "https://api.example.test/repos/busybeaver-homelab/services/releases/latest",
     "docker_compose_service_target": "gcp",
     "docker_compose_service_project_name": "homelab",
     "docker_compose_service_wait_timeout": 180,
@@ -363,7 +363,7 @@ run_reconcile() {
   run env \
     PATH="${BATS_TMPDIR}/bin:${PATH}" \
     CREDENTIALS_DIRECTORY="${BATS_TMPDIR}/creds" \
-    COMPOSE_RELEASE_API_URL="https://api.example.test/repos/busybeaver/homelab-services/releases/latest" \
+    COMPOSE_RELEASE_API_URL="https://api.example.test/repos/busybeaver-homelab/services/releases/latest" \
     COMPOSE_TARGET="${COMPOSE_TARGET:-gcp}" \
     COMPOSE_PROJECT_NAME="homelab" \
     COMPOSE_WAIT_TIMEOUT="180" \
@@ -390,6 +390,14 @@ run_cleanup() {
       [ "$status" -eq 0 ]
     fi
   done
+}
+
+@test "release API URL defaults to the busybeaver-homelab/services repository in defaults and argument specs" {
+  local url="https://api.github.com/repos/busybeaver-homelab/services/releases/latest"
+  run grep -Fx "docker_compose_service_release_api_url: \"${url}\"" "${ROLE_DIR}/defaults/main.yml"
+  [ "$status" -eq 0 ]
+  run grep -Fx "        default: \"${url}\"" "${ROLE_DIR}/meta/argument_specs.yml"
+  [ "$status" -eq 0 ]
 }
 
 @test "homelab-compose-notify sends heartbeat via curl --config - without leaking URL in argv" {

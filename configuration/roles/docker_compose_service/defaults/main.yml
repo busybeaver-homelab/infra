@@ -26,7 +26,7 @@ docker_compose_service_healthchecks_ping_url: ""
 docker_compose_service_project_name: "homelab"
 docker_compose_service_wait_timeout: 180
 docker_compose_service_keep_releases: 5
-docker_compose_service_release_api_url: "https://api.github.com/repos/busybeaver/homelab-services/releases/latest"
+docker_compose_service_release_api_url: "https://api.github.com/repos/busybeaver-homelab/services/releases/latest"
 docker_compose_service_curl_proto: "=https"
 
 # Pinned Sigstore cosign v3 release and per-architecture SHA-256 checksums
