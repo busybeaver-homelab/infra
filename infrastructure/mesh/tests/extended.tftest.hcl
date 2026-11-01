@@ -523,3 +523,57 @@ run "reject_invalid_acls_external_link" {
     var.acls_external_link,
   ]
 }
+
+run "allow_absent_device_is_skipped_when_missing" {
+  command = plan
+
+  variables {
+    infrastructure_devices = {
+      "robot-test" = {
+        tags         = ["tag:type-iot"]
+        allow_absent = true
+      }
+    }
+  }
+
+  assert {
+    condition     = length(tailscale_device_key.nodes) == 0
+    error_message = "An allow_absent device missing from the tailnet must not be managed."
+  }
+
+  assert {
+    condition     = length(tailscale_device_tags.nodes) == 0 && length(tailscale_device_authorization.nodes) == 0
+    error_message = "An allow_absent device missing from the tailnet must not get tag or authorization resources."
+  }
+
+  assert {
+    condition     = contains(keys(local.tag_owners), "tag:type-iot")
+    error_message = "Tag owners must still include tag:type-iot when its allow_absent device is missing."
+  }
+}
+
+run "allow_absent_device_is_managed_when_present" {
+  command = plan
+
+  variables {
+    infrastructure_devices = {
+      "robot-test" = {
+        tags         = ["tag:type-iot"]
+        allow_absent = true
+      }
+    }
+    device_id_overrides = {
+      "robot-test" = "nTEST0001"
+    }
+  }
+
+  assert {
+    condition     = tailscale_device_key.nodes["robot-test"].key_expiry_disabled == true
+    error_message = "A present allow_absent device must be managed with key expiry disabled."
+  }
+
+  assert {
+    condition     = tailscale_device_tags.nodes["robot-test"].device_id == "nTEST0001"
+    error_message = "A present allow_absent device must resolve its device ID."
+  }
+}

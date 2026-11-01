@@ -48,4 +48,9 @@ run "policy_invariants" {
     )
     error_message = "Tailscale ACL tags must remain within the 50-tag Always Free limit, owned solely by autogroup:owner, and enforce a 12h SSH checkPeriod (STD-OT-39, STD-OT-50, STD-OT-59)."
   }
+
+  assert {
+    condition     = try(local.tag_owners["tag:type-iot"], null) == ["autogroup:owner"]
+    error_message = "tag:type-iot must exist and be owned solely by autogroup:owner so robot auth keys can be tagged (STD-OT-59)."
+  }
 }

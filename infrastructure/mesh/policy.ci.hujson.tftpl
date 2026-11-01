@@ -6,14 +6,16 @@
     ]
   },
   "tagOwners": ${tag_owners},
-  "acls": [
+  "grants": [
     {
-      "action": "accept",
       "src": [
-        "*"
+        "autogroup:owner"
       ],
       "dst": [
-        "*:*"
+        "tag:type-iot"
+      ],
+      "ip": [
+        "tcp:80"
       ]
     }
   ],

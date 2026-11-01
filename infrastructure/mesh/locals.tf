@@ -22,12 +22,14 @@ locals {
       tags                = [for t in v.tags : tostring(t)]
       key_expiry_disabled = try(tobool(v.key_expiry_disabled), true)
       authorized          = try(tobool(v.authorized), true)
+      allow_absent        = try(tobool(v.allow_absent), false)
     }
     } : {
     for item in try(local.sops_config.infrastructure_devices, []) : tostring(item.hostname) => {
       tags                = [for t in item.tags : tostring(t)]
       key_expiry_disabled = try(tobool(item.key_expiry_disabled), true)
       authorized          = try(tobool(item.authorized), true)
+      allow_absent        = try(tobool(item.allow_absent), false)
     }
   }
 
@@ -44,12 +46,19 @@ locals {
     var.device_id_overrides
   )
 
+  # Devices actually managed this run: allow_absent entries are skipped until they have joined the tailnet.
+  managed_devices = {
+    for hostname, dev in local.infrastructure_devices : hostname => dev
+    if !dev.allow_absent || contains(keys(local.device_id_map), hostname)
+  }
+
   base_tag_owners = {
     "tag:type-server"       = ["autogroup:owner"]
     "tag:type-client"       = ["autogroup:owner"]
     "tag:type-nas"          = ["autogroup:owner"]
     "tag:type-network"      = ["autogroup:owner"]
     "tag:type-docker"       = ["autogroup:owner"]
+    "tag:type-iot"          = ["autogroup:owner"]
     "tag:os-linux"          = ["autogroup:owner"]
     "tag:os-windows"        = ["autogroup:owner"]
     "tag:os-macos"          = ["autogroup:owner"]

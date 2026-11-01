@@ -1,5 +1,5 @@
 resource "tailscale_device_tags" "nodes" {
-  for_each  = nonsensitive(local.infrastructure_devices)
+  for_each  = nonsensitive(local.managed_devices)
   device_id = lookup(local.device_id_map, each.key, "")
   tags      = each.value.tags
 
@@ -12,7 +12,7 @@ resource "tailscale_device_tags" "nodes" {
 }
 
 resource "tailscale_device_key" "nodes" {
-  for_each            = nonsensitive(local.infrastructure_devices)
+  for_each            = nonsensitive(local.managed_devices)
   device_id           = lookup(local.device_id_map, each.key, "")
   key_expiry_disabled = each.value.key_expiry_disabled
 
@@ -25,7 +25,7 @@ resource "tailscale_device_key" "nodes" {
 }
 
 resource "tailscale_device_authorization" "nodes" {
-  for_each   = nonsensitive(local.infrastructure_devices)
+  for_each   = nonsensitive(local.managed_devices)
   device_id  = lookup(local.device_id_map, each.key, "")
   authorized = each.value.authorized
 

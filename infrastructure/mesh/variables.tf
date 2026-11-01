@@ -102,12 +102,25 @@ variable "auth_keys" {
   }
 }
 
+variable "robot_auth_key_expiry" {
+  description = "Lifetime in seconds of the single-use robot auth key (tailscale_tailnet_key.robot). Keep it short: the key only needs to survive until the robot joins."
+  type        = number
+  default     = 3600
+  nullable    = false
+
+  validation {
+    condition     = var.robot_auth_key_expiry >= 60 && var.robot_auth_key_expiry <= 86400
+    error_message = "robot_auth_key_expiry must be between 60 and 86400 seconds (1 minute to 1 day)."
+  }
+}
+
 variable "infrastructure_devices" {
-  description = "Declarative specification of managed infrastructure nodes and their tags (sourced from SOPS tailscale.config.infrastructure_devices when empty)."
+  description = "Declarative specification of managed infrastructure nodes and their tags (sourced from SOPS tailscale.config.infrastructure_devices when empty). Entries with allow_absent = true are skipped until the device has joined the tailnet."
   type = map(object({
     tags                = list(string)
     key_expiry_disabled = optional(bool, true)
     authorized          = optional(bool, true)
+    allow_absent        = optional(bool, false)
   }))
   default = {}
 

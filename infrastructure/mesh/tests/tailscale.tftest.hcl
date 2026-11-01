@@ -103,6 +103,40 @@ run "unit_plan_matches_baseline" {
   }
 }
 
+run "robot_auth_key_is_single_use_and_tagged" {
+  command = plan
+
+  assert {
+    condition     = tailscale_tailnet_key.robot.tags == toset(["tag:type-iot"])
+    error_message = "Robot auth key must carry exactly tag:type-iot."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.robot.reusable == false
+    error_message = "Robot auth key must be single-use (reusable = false)."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.robot.ephemeral == false
+    error_message = "Robot auth key must not be ephemeral."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.robot.preauthorized == true
+    error_message = "Robot auth key must be preauthorized."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.robot.expiry == 3600
+    error_message = "Robot auth key expiry must default to 3600 seconds."
+  }
+
+  assert {
+    condition     = tailscale_tailnet_key.robot.recreate_if_invalid == "never"
+    error_message = "Robot auth key must never be recreated automatically (recreate_if_invalid = never)."
+  }
+}
+
 run "verify_computed_outputs_on_apply" {
   command = apply
 
