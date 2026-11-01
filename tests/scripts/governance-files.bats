@@ -103,11 +103,52 @@ is_owned() {
   [ "$status" -eq 0 ]
 }
 
-@test "CODEOWNERS does not own paths that Renovate updates" {
-  local owned
+# Renovate-updated files that stay owned because their jobs run with the ops secrets
+# (owner decision 2026-10-21, design 4.7).
+OPS_BOUND_OWNED_PATHS=(
+  /.github/workflows/backup-dr-copy.yml
+  /.github/workflows/backup-prune.yml
+  /.github/actions/setup-environment/
+  /.github/workflows/workflow-policy.yml
+)
+
+@test "CODEOWNERS does not own paths that Renovate updates, except the ops-bound files" {
+  local owned remaining
   owned="$(grep -vE '^\s*(#|$)' "$CODEOWNERS" | awk 'NF >= 2 {print $1}')"
-  run grep -E '^/?(\.github/workflows|\.github/actions|\.github/renovate\.json5|mise\.(toml|lock)|uv\.lock|pyproject\.toml|configuration/roles/requirements\.yml)' <<< "$owned"
+  remaining="$(grep -vxFf <(printf '%s\n' "${OPS_BOUND_OWNED_PATHS[@]}") <<<"$owned" || true)"
+  run grep -E '^/?(\.github/workflows|\.github/actions|\.github/renovate\.json5|mise\.(toml|lock)|uv\.lock|pyproject\.toml|configuration/roles/requirements\.yml)' <<<"$remaining"
   [ "$status" -eq 1 ]
+}
+
+@test "CODEOWNERS owns the ops-bound workflow files and setup action with the owner (design 4.7)" {
+  local path
+  for path in "${OPS_BOUND_OWNED_PATHS[@]}"; do
+    run grep -E "^${path//./\\.}[[:space:]]+@busybeaver[[:space:]]*\$" "$CODEOWNERS"
+    [ "$status" -eq 0 ]
+    run is_owned "$path"
+    [ "$status" -eq 0 ]
+  done
+  run is_owned "/.github/workflows/ci.yml"
+  [ "$status" -eq 1 ]
+  run is_owned "/.github/workflows/codeql.yml"
+  [ "$status" -eq 1 ]
+  run is_owned "/.github/workflows/drift-detection.yml"
+  [ "$status" -eq 1 ]
+  run is_owned "/.github/renovate.json5"
+  [ "$status" -eq 1 ]
+  run is_owned "/mise.toml"
+  [ "$status" -eq 1 ]
+  run is_owned "/mise.lock"
+  [ "$status" -eq 1 ]
+  run is_owned "/.github/actions/setup-environment/action.yml"
+  [ "$status" -eq 0 ]
+}
+
+@test "CODEOWNERS header documents the ops-bound exception to unowned Renovate paths" {
+  run grep -E '^#.*(EXCEPT|except).*(ops|backup)' "$CODEOWNERS"
+  [ "$status" -eq 0 ]
+  run grep -F "2026-10-21" "$CODEOWNERS"
+  [ "$status" -eq 0 ]
 }
 
 @test "Renovate-managed files inside owned directories are explicitly unowned" {

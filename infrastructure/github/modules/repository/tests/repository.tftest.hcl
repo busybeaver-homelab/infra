@@ -125,6 +125,21 @@ run "verify_repository_module_plan" {
     error_message = "ops environment must restrict deployments to main (R2-CI-01)"
   }
 
+  assert {
+    condition     = github_repository_environment.heartbeat.environment == "heartbeat"
+    error_message = "heartbeat environment must be defined (design 4.7)"
+  }
+
+  assert {
+    condition     = github_repository_environment.heartbeat.deployment_branch_policy[0].protected_branches == false && github_repository_environment.heartbeat.deployment_branch_policy[0].custom_branch_policies == true
+    error_message = "heartbeat environment must use custom_branch_policies (design 4.7)"
+  }
+
+  assert {
+    condition     = github_repository_environment_deployment_policy.heartbeat_main.branch_pattern == "main"
+    error_message = "heartbeat environment must restrict deployments to main (design 4.7)"
+  }
+
   # allowed_actions_config is managed at the organization level (see main.tf comment):
   # assert {
   #   condition     = github_actions_repository_permissions.repo.allowed_actions_config[0].github_owned_allowed == true
@@ -178,6 +193,11 @@ run "verify_repository_module_apply" {
   assert {
     condition     = output.ops_environment_name == "ops" && output.environments.ops == "ops"
     error_message = "ops environment outputs must be populated"
+  }
+
+  assert {
+    condition     = output.environments.heartbeat == "heartbeat" && output.heartbeat_deployment_branch_pattern == "main"
+    error_message = "heartbeat environment outputs must be populated"
   }
 }
 

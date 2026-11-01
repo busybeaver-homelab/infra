@@ -88,6 +88,7 @@ output "environments" {
     ci           = github_repository_environment.ci.environment
     backup       = github_repository_environment.backup.environment
     ops          = github_repository_environment.ops.environment
+    heartbeat    = github_repository_environment.heartbeat.environment
     code_quality = github_repository_environment.code_quality.environment
   }
   description = "Managed GitHub Actions environments."
@@ -115,6 +116,11 @@ output "backup_deployment_branch_pattern" {
 output "ops_deployment_branch_pattern" {
   value       = github_repository_environment_deployment_policy.ops_main.branch_pattern
   description = "Branch pattern allowed to deploy to the 'ops' environment."
+}
+
+output "heartbeat_deployment_branch_pattern" {
+  value       = github_repository_environment_deployment_policy.heartbeat_main.branch_pattern
+  description = "Branch pattern allowed to deploy to the 'heartbeat' environment."
 }
 
 output "deploy_keys" {

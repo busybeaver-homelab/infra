@@ -132,6 +132,7 @@ STUB
   [[ "$output" =~ "Usage:" ]] || false
   [[ "$output" =~ "--dry-run" ]] || false
   [[ "$output" =~ "--tofu-dir" ]] || false
+  [[ "$output" =~ "--heartbeat-env" ]] || false
 }
 
 @test "sync-ops-secrets.sh --dry-run prints secret names without calling gh or leaking values" {
@@ -153,7 +154,7 @@ STUB
   [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
 }
 
-@test "sync-ops-secrets.sh syncs all 21 restic secrets, backup host lists, and healthchecks ping urls to ops environment" {
+@test "sync-ops-secrets.sh syncs 19 secrets to ops and the 2 schedule heartbeat ping urls to heartbeat" {
   run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE"
   [ "$status" -eq 0 ]
   [ -f "$BATS_TEST_TMPDIR/gh.calls" ]
@@ -191,10 +192,10 @@ STUB
   run grep -F "secret set HEALTHCHECKS_DR_COPY_PING_URL --env ops --repo example-owner/infra | stdin=https://hc-ping.example.test/00000000-0000-0000-0000-000000000102" "$BATS_TEST_TMPDIR/gh.calls"
   [ "$status" -eq 0 ]
 
-  run grep -F "secret set HEALTHCHECKS_CI_SCHEDULE_PING_URL --env ops --repo example-owner/infra | stdin=https://hc-ping.example.test/00000000-0000-0000-0000-000000000100" "$BATS_TEST_TMPDIR/gh.calls"
+  run grep -F "secret set HEALTHCHECKS_CI_SCHEDULE_PING_URL --env heartbeat --repo example-owner/infra | stdin=https://hc-ping.example.test/00000000-0000-0000-0000-000000000100" "$BATS_TEST_TMPDIR/gh.calls"
   [ "$status" -eq 0 ]
 
-  run grep -F "secret set HEALTHCHECKS_CODEQL_SCHEDULE_PING_URL --env ops --repo example-owner/infra | stdin=https://hc-ping.example.test/00000000-0000-0000-0000-000000000101" "$BATS_TEST_TMPDIR/gh.calls"
+  run grep -F "secret set HEALTHCHECKS_CODEQL_SCHEDULE_PING_URL --env heartbeat --repo example-owner/infra | stdin=https://hc-ping.example.test/00000000-0000-0000-0000-000000000101" "$BATS_TEST_TMPDIR/gh.calls"
   [ "$status" -eq 0 ]
 
   # Ensure secret values are never echoed to stdout/stderr
@@ -203,6 +204,45 @@ STUB
   [[ ! "$output" =~ "oci-h1" ]] || false
 
   [ "$(wc -l <"$BATS_TEST_TMPDIR/gh.calls" | tr -d ' ')" -eq 21 ]
+  [ "$(grep -c -- '--env ops ' "$BATS_TEST_TMPDIR/gh.calls")" -eq 19 ]
+  [ "$(grep -c -- '--env heartbeat ' "$BATS_TEST_TMPDIR/gh.calls")" -eq 2 ]
+  run grep -E 'SCHEDULE_PING_URL --env ops ' "$BATS_TEST_TMPDIR/gh.calls"
+  [ "$status" -ne 0 ]
+}
+
+@test "sync-ops-secrets.sh --env and --heartbeat-env override the target environments" {
+  run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE" --repo "example-owner/infra" --env ops-test --heartbeat-env heartbeat-test
+  [ "$status" -eq 0 ]
+  [ "$(grep -c -- '--env ops-test ' "$BATS_TEST_TMPDIR/gh.calls")" -eq 19 ]
+  [ "$(grep -c -- '--env heartbeat-test ' "$BATS_TEST_TMPDIR/gh.calls")" -eq 2 ]
+  run grep -E 'HEALTHCHECKS_(CI|CODEQL)_SCHEDULE_PING_URL --env heartbeat-test ' "$BATS_TEST_TMPDIR/gh.calls"
+  [ "$status" -eq 0 ]
+}
+
+@test "sync-ops-secrets.sh --dry-run names the target environment per secret" {
+  run "$SCRIPT" --dry-run --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE" --repo "example-owner/infra"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "secret HEALTHCHECKS_CI_SCHEDULE_PING_URL in environment heartbeat on example-owner/infra" ]] || false
+  [[ "$output" =~ "secret HEALTHCHECKS_CODEQL_SCHEDULE_PING_URL in environment heartbeat on example-owner/infra" ]] || false
+  [[ "$output" =~ "secret HEALTHCHECKS_BACKUP_PRUNE_PING_URL in environment ops on example-owner/infra" ]] || false
+  [[ "$output" =~ "secret OCI_RESTIC_PASSWORD in environment ops on example-owner/infra" ]] || false
+  [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
+}
+
+@test "sync-ops-secrets.sh validates --heartbeat-env and --env before any write" {
+  run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE" --repo "example-owner/infra" --heartbeat-env 'bad env;x'
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Invalid heartbeat environment name" ]] || false
+  [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
+
+  run "$SCRIPT" --tofu-dir "$FAKE_INFRA" --sops-file "$SOPS_FILE" --repo "example-owner/infra" --env 'bad env;x'
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "Invalid environment name" ]] || false
+  [ ! -f "$BATS_TEST_TMPDIR/gh.calls" ]
+
+  run "$SCRIPT" --heartbeat-env
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "--heartbeat-env requires a value" ]] || false
 }
 
 @test "sync-ops-secrets.sh validates OCI_BACKUP_HOSTS and GCP_BACKUP_HOSTS before the first gh secret write" {

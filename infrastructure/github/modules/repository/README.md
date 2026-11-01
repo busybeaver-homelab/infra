@@ -16,25 +16,27 @@
 
 ## Resources
 
-| Name                                                                                                                                                                                      | Type     |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| [github_actions_environment_secret.backup_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                          | resource |
-| [github_actions_environment_secret.ci_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                              | resource |
-| [github_actions_environment_secret.ops_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                             | resource |
-| [github_actions_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_repository_permissions)                            | resource |
-| [github_repository.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository)                                                                    | resource |
-| [github_repository_dependabot_security_updates.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_dependabot_security_updates)            | resource |
-| [github_repository_deploy_key.deploy_keys](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_deploy_key)                                       | resource |
-| [github_repository_environment.backup](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                          | resource |
-| [github_repository_environment.ci](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                              | resource |
-| [github_repository_environment.code_quality](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                    | resource |
-| [github_repository_environment.ops](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                             | resource |
-| [github_repository_environment_deployment_policy.backup_main](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment_deployment_policy) | resource |
-| [github_repository_environment_deployment_policy.ci](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment_deployment_policy)          | resource |
-| [github_repository_environment_deployment_policy.ops_main](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment_deployment_policy)    | resource |
-| [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_ruleset)                                         | resource |
-| [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_vulnerability_alerts)                          | resource |
-| [github_workflow_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/workflow_repository_permissions)                          | resource |
+| Name                                                                                                                                                                                         | Type     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| [github_actions_environment_secret.backup_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                             | resource |
+| [github_actions_environment_secret.ci_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                                 | resource |
+| [github_actions_environment_secret.ops_secrets](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_environment_secret)                                | resource |
+| [github_actions_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/actions_repository_permissions)                               | resource |
+| [github_repository.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository)                                                                       | resource |
+| [github_repository_dependabot_security_updates.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_dependabot_security_updates)               | resource |
+| [github_repository_deploy_key.deploy_keys](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_deploy_key)                                          | resource |
+| [github_repository_environment.backup](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                             | resource |
+| [github_repository_environment.ci](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                                 | resource |
+| [github_repository_environment.code_quality](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                       | resource |
+| [github_repository_environment.heartbeat](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                          | resource |
+| [github_repository_environment.ops](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment)                                                | resource |
+| [github_repository_environment_deployment_policy.backup_main](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment_deployment_policy)    | resource |
+| [github_repository_environment_deployment_policy.ci](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment_deployment_policy)             | resource |
+| [github_repository_environment_deployment_policy.heartbeat_main](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment_deployment_policy) | resource |
+| [github_repository_environment_deployment_policy.ops_main](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_environment_deployment_policy)       | resource |
+| [github_repository_ruleset.main_protection](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_ruleset)                                            | resource |
+| [github_repository_vulnerability_alerts.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/repository_vulnerability_alerts)                             | resource |
+| [github_workflow_repository_permissions.repo](https://registry.terraform.io/providers/integrations/github/6.13.0/docs/resources/workflow_repository_permissions)                             | resource |
 
 ## Inputs
 
@@ -69,6 +71,7 @@
 | <a name="output_deploy_keys"></a> [deploy\_keys](#output_deploy_keys)                                                                               | Managed deploy keys.                                                                                     |
 | <a name="output_environments"></a> [environments](#output_environments)                                                                             | Managed GitHub Actions environments.                                                                     |
 | <a name="output_has_issues"></a> [has\_issues](#output_has_issues)                                                                                  | Whether GitHub Issues are enabled on the repository (required for Renovate Dependency Dashboard).        |
+| <a name="output_heartbeat_deployment_branch_pattern"></a> [heartbeat\_deployment\_branch\_pattern](#output_heartbeat_deployment_branch_pattern)     | Branch pattern allowed to deploy to the 'heartbeat' environment.                                         |
 | <a name="output_managed_secret_environments"></a> [managed\_secret\_environments](#output_managed_secret_environments)                              | Distinct GitHub Actions environments targeted by managed github\_actions\_environment\_secret resources. |
 | <a name="output_merge_queue_enabled"></a> [merge\_queue\_enabled](#output_merge_queue_enabled)                                                      | Whether GitHub Merge Queue is enabled on the main branch ruleset.                                        |
 | <a name="output_ops_deployment_branch_pattern"></a> [ops\_deployment\_branch\_pattern](#output_ops_deployment_branch_pattern)                       | Branch pattern allowed to deploy to the 'ops' environment.                                               |

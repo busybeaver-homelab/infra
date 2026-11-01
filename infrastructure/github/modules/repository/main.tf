@@ -214,6 +214,23 @@ resource "github_actions_environment_secret" "ops_secrets" {
   value       = var.ops_secrets[each.key]
 }
 
+resource "github_repository_environment" "heartbeat" {
+  environment         = "heartbeat"
+  repository          = github_repository.repo.name
+  prevent_self_review = false
+
+  deployment_branch_policy {
+    protected_branches     = false
+    custom_branch_policies = true
+  }
+}
+
+resource "github_repository_environment_deployment_policy" "heartbeat_main" {
+  repository     = github_repository.repo.name
+  environment    = github_repository_environment.heartbeat.environment
+  branch_pattern = "main"
+}
+
 resource "github_repository_environment" "code_quality" {
   environment = "code_quality"
   repository  = github_repository.repo.name

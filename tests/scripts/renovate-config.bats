@@ -842,3 +842,49 @@ console.log("opentofu core group rule ordered and configured properly");
   [[ "$output" == *"opentofu core group rule ordered and configured properly"* ]] || false
 }
 
+
+@test "owner-reviewed GitHub Actions files get their own group after the generic rules, matching CODEOWNERS (design 4.7)" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  local expected
+  # Ops-bound CODEOWNERS entries under .github/ (workflow files and the setup action directory),
+  # as Renovate globs relative to the repository root.
+  expected="$(grep -E '^/\.github/(workflows|actions)/' "${REPO_ROOT}/.github/CODEOWNERS" | awk '{print $1}' | sed -E 's#^/##; s#/$#/**#' | sort | paste -sd, -)"
+  [ -n "$expected" ]
+  run node -e '
+const cfg = eval("(" + require("fs").readFileSync(process.argv[1], "utf8") + ")");
+const rules = cfg.packageRules;
+const idx = rules.findIndex(r => r.groupSlug === "github-actions-owned");
+const stableIdx = rules.findIndex(r => r.groupSlug === "github-actions-deps");
+const zeroIdx = rules.findIndex(r => r.groupSlug === "github-actions-deps-0x");
+const automergeIdx = rules.findIndex(r => r.automerge === true && r.platformAutomerge === true);
+if (idx < 0) { console.error("missing github-actions-owned rule"); process.exit(1); }
+if (!(idx > stableIdx && idx > zeroIdx && stableIdx >= 0 && zeroIdx >= 0)) {
+  console.error(`owned rule must follow the generic github-actions rules: idx=${idx} stable=${stableIdx} zero=${zeroIdx}`);
+  process.exit(1);
+}
+const r = rules[idx];
+if (JSON.stringify(r.matchManagers) !== JSON.stringify(["github-actions"])) {
+  console.error("matchManagers must be [github-actions], got " + JSON.stringify(r.matchManagers));
+  process.exit(1);
+}
+if (r.groupName !== "github actions (owner-reviewed files)") {
+  console.error("unexpected groupName: " + r.groupName);
+  process.exit(1);
+}
+const expected = process.argv[2];
+const actual = [...r.matchFileNames].sort().join(",");
+if (actual !== expected) {
+  console.error("matchFileNames " + actual + " must equal CODEOWNERS ops-bound paths " + expected);
+  process.exit(1);
+}
+for (const f of r.matchFileNames) {
+  if (/mise\.(toml|lock)|renovate\.json5|ci\.yml|codeql\.yml|drift/.test(f)) {
+    console.error("owned rule must not cover unowned file: " + f);
+    process.exit(1);
+  }
+}
+console.log("owned github-actions rule ordered at " + idx + " (automerge rule at " + automergeIdx + ")");
+' "$config" "$expected"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"owned github-actions rule ordered"* ]] || false
+}

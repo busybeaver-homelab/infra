@@ -1,0 +1,57 @@
+---
+name: Workflow Policy
+
+# Required status check (design 4.7): fails when any workflow outside the backup workflows
+# declares the protected 'ops' or 'backup' environment, or selects an environment through an
+# expression. This file is owner-reviewed (.github/CODEOWNERS); do not add path filters or
+# job-level conditions, otherwise the required check would never report.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - main
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "docs/**"
+      - "refactor/**"
+      - "test/**"
+      - "ci/**"
+      - "perf/**"
+      - "style/**"
+      - "build/**"
+  merge_group:
+    types: [checks_requested]
+    branches: [main]
+
+# Merge queue entries get unique refs (see ci.yml); queue runs are never cancelled (STD-CI-44).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-policy:
+    name: Workflow Policy
+    runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
+    timeout-minutes: 10
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Environment
+        uses: $/.github/actions/setup-environment
+
+      - name: Verify protected workflow environments
+        run: mise exec -- bash scripts/check-workflow-environments.sh

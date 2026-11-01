@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Synchronize OpenTofu backup prune credentials and SOPS Restic passwords
-# into the GitHub Actions 'ops' environment secrets for .github/workflows/backup-prune.yml.
+# into the GitHub Actions 'ops' environment secrets for the backup workflows. The two scheduled-run
+# Healthchecks ping URLs go to the separate 'heartbeat' environment used by the CI and CodeQL heartbeat jobs.
 #
 # Usage:
 #   scripts/sync-ops-secrets.sh [OPTIONS]
@@ -8,6 +9,8 @@
 # Options:
 #   --repo <owner/repo>       GitHub repository in 'owner/name' format (default: <sops github.owner>/infra)
 #   --env <environment>       GitHub Actions environment name (default: ops)
+#   --heartbeat-env <environment>
+#                             Environment for the CI/CodeQL schedule ping URLs (default: heartbeat)
 #   --tofu-dir <dir>          Base infrastructure directory (default: <repo-root>/infrastructure)
 #   --sops-file <file>        Path to canonical SOPS credentials file (default: secrets/credentials.sops.yaml)
 #   --dry-run                 Validate inputs and list secret names without calling gh or printing values
@@ -22,12 +25,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 REPO=""
 ENV_NAME="ops"
+HEARTBEAT_ENV_NAME="heartbeat"
 TOFU_DIR="$REPO_ROOT/infrastructure"
 CREDENTIALS_FILE="${SOPS_FILE:-$REPO_ROOT/secrets/credentials.sops.yaml}"
 DRY_RUN=false
 
 usage() {
-  sed -n '2,14p' "$0" | sed 's/^# *//'
+  sed -n '2,16p' "$0" | sed 's/^# *//'
   exit 0
 }
 
@@ -48,6 +52,11 @@ while [[ $# -gt 0 ]]; do
     --env)
       require_arg "$@"
       ENV_NAME="$2"
+      shift 2
+      ;;
+    --heartbeat-env)
+      require_arg "$@"
+      HEARTBEAT_ENV_NAME="$2"
       shift 2
       ;;
     --tofu-dir)
@@ -95,6 +104,11 @@ fi
 
 if [[ ! "$ENV_NAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
   echo "ERROR: Invalid environment name: '$ENV_NAME'." >&2
+  exit 1
+fi
+
+if [[ ! "$HEARTBEAT_ENV_NAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "ERROR: Invalid heartbeat environment name: '$HEARTBEAT_ENV_NAME'." >&2
   exit 1
 fi
 
@@ -150,13 +164,23 @@ if [[ "$DRY_RUN" != "true" && -z "${GH_TOKEN:-}" ]]; then
   fi
 fi
 
+# Scheduled-run heartbeat pings live in their own environment so that workflows holding the
+# 'ops' secrets never need to declare it for heartbeat jobs.
+target_env() {
+  case "$1" in
+    HEALTHCHECKS_CI_SCHEDULE_PING_URL | HEALTHCHECKS_CODEQL_SCHEDULE_PING_URL) printf '%s' "$HEARTBEAT_ENV_NAME" ;;
+    *) printf '%s' "$ENV_NAME" ;;
+  esac
+}
+
 for name in "${SECRET_NAMES[@]}"; do
+  env_for_secret="$(target_env "$name")"
   if [[ "$DRY_RUN" == "true" ]]; then
     printf '[%s] [DRY RUN] Would set secret %s in environment %s on %s\n' \
-      "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$name" "$ENV_NAME" "$REPO"
+      "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$name" "$env_for_secret" "$REPO"
   else
-    printf '%s' "${!name}" | gh secret set "$name" --env "$ENV_NAME" --repo "$REPO"
+    printf '%s' "${!name}" | gh secret set "$name" --env "$env_for_secret" --repo "$REPO"
     printf '[%s] [INFO] Synchronized secret %s in environment %s on %s\n' \
-      "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$name" "$ENV_NAME" "$REPO"
+      "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$name" "$env_for_secret" "$REPO"
   fi
 done

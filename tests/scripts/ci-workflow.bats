@@ -535,7 +535,7 @@ setup() {
   done
 }
 
-@test "ci.yml and codeql.yml report heartbeats on scheduled runs via environment: ops (R2-CI-06)" {
+@test "ci.yml and codeql.yml report heartbeats on scheduled runs via environment: heartbeat (design 4.7)" {
   for wf in .github/workflows/ci.yml .github/workflows/codeql.yml; do
     run yq -r '.jobs.heartbeat.if' "${REPO_ROOT}/${wf}"
     [ "$status" -eq 0 ]
@@ -543,7 +543,20 @@ setup() {
 
     run yq -r '.jobs.heartbeat.environment' "${REPO_ROOT}/${wf}"
     [ "$status" -eq 0 ]
-    [ "$output" = "ops" ]
+    [ "$output" = "heartbeat" ]
+
+    run yq -r '.jobs.heartbeat.steps[].run | select(. != null)' "${REPO_ROOT}/${wf}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Missing required heartbeat environment secret: HEALTHCHECKS_"* ]] || false
+    [[ "$output" != *"ops environment secret"* ]] || false
+  done
+}
+
+@test "no job in ci.yml or codeql.yml uses the ops or backup environment (design 4.7)" {
+  for wf in .github/workflows/ci.yml .github/workflows/codeql.yml; do
+    run yq -r '[.jobs[].environment | select(. != null) | (.name // .)] | map(select(. == "ops" or . == "backup")) | length' "${REPO_ROOT}/${wf}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "0" ]
   done
 }
 
