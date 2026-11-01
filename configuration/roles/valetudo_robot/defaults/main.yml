@@ -40,3 +40,13 @@ valetudo_robot_tailscale_tag: "tag:type-iot"
 
 # Valetudo settings applied through the REST API by the configure phase
 valetudo_robot_settings: []
+
+# Valetudo REST API paths used by the wifi and configure phases. These are the
+# documented v2 paths; verify at recon (plan Task 0).
+valetudo_robot_api_version_path: /api/v2/valetudo/version
+valetudo_robot_api_auth_config_path: /api/v2/valetudo/config/interfaces/http/auth
+valetudo_robot_api_wifi_path: /api/v2/robot/capabilities/WifiConfigurationCapability
+# Protected endpoint the configure phase probes with the basic-auth credentials
+valetudo_robot_api_probe_path: /api/v2/robot/capabilities
+# Per-request timeout in seconds for the controller-side API calls
+valetudo_robot_api_timeout: 10

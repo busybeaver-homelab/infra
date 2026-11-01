@@ -14,6 +14,24 @@ platforms:
     image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
     pre_build_image: true
     command: sleep infinity
+    groups: [robots]
+  # Stdlib-only mock of the Valetudo REST API. Two instances share the
+  # container: the default one and one started with --scenario auth_mismatch.
+  # Both ports are published on the controller loopback with ephemeral host
+  # ports, which prepare.yml discovers.
+  - name: valetudo-robot-mock-api
+    image: python:3.13-alpine@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+    pre_build_image: true
+    command: >-
+      sh -c "python /opt/mock/mock_valetudo.py --port 8080 &
+      exec python /opt/mock/mock_valetudo.py --port 8081
+      --scenario auth_mismatch --log /tmp/requests-auth-mismatch.jsonl"
+    volumes:
+      - "${MOLECULE_SCENARIO_DIRECTORY}/mock_valetudo.py:/opt/mock/mock_valetudo.py:ro"
+    published_ports:
+      - "127.0.0.1::8080/tcp"
+      - "127.0.0.1::8081/tcp"
+    groups: [mock]
 
 provisioner:
   name: ansible

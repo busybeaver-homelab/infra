@@ -14,3 +14,11 @@
 - name: Install valetudo_robot binaries and the postboot hook
   ansible.builtin.import_tasks: install.yml
   tags: [install]
+
+- name: Submit valetudo_robot Wi-Fi configuration when off the home network
+  ansible.builtin.import_tasks: wifi.yml
+  tags: [wifi]
+
+- name: Configure Valetudo through its REST API
+  ansible.builtin.import_tasks: configure.yml
+  tags: [configure]

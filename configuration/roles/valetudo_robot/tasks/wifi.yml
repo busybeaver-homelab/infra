@@ -1,0 +1,72 @@
+---
+# Wi-Fi phase for valetudo_robot. Valetudo's HTTP API is called from the
+# controller with uri (the robot has no Python). The phase only acts while the
+# controller is on the robot's access point (valetudo_robot_on_lan is false):
+# it submits the home Wi-Fi credentials and ends the host, because the robot
+# then leaves its access point and nothing further can reach it from here.
+#
+# The API path comes from role defaults; verify at recon (plan Task 0).
+#
+# Check mode: the PUT is skipped and a "would change" message is reported.
+# Every task that carries the PSK or the basic-auth credentials is no_log.
+
+- name: Assert the Wi-Fi phase knows where the controller is
+  ansible.builtin.assert:
+    that:
+      - valetudo_robot_on_lan is defined
+      - valetudo_robot_on_lan is boolean
+    fail_msg: valetudo_robot_on_lan must be set to true or false by the playbook (R2-GOV-05).
+    quiet: true
+
+- name: Submit the home Wi-Fi configuration and end the host
+  when: not valetudo_robot_on_lan
+  block:
+    # R2-GOV-05: fail closed on a missing secret; messages never include values.
+    - name: Assert the Wi-Fi inputs are set
+      ansible.builtin.assert:
+        that:
+          - lookup('ansible.builtin.vars', item, default='') is string
+          - lookup('ansible.builtin.vars', item, default='') | length > 0
+        fail_msg: "{{ item }} must be set to a non-empty value (R2-GOV-05)."
+        quiet: true
+      loop:
+        - valetudo_robot_api_base_url
+        - valetudo_robot_basic_auth_username
+        - valetudo_robot_basic_auth_password
+        - valetudo_robot_wifi_ssid
+        - valetudo_robot_wifi_psk
+
+    - name: Submit the Wi-Fi configuration to Valetudo
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_base_url | regex_replace('/+$', '') }}{{ valetudo_robot_api_wifi_path }}"
+        method: PUT
+        url_username: "{{ valetudo_robot_basic_auth_username }}"
+        url_password: "{{ valetudo_robot_basic_auth_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          ssid: "{{ valetudo_robot_wifi_ssid }}"
+          credentials:
+            type: wpa2_psk
+            typeSpecificSettings:
+              password: "{{ valetudo_robot_wifi_psk }}"
+        status_code: [200, 204]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+      changed_when: true
+      no_log: true
+
+    - name: Report that the Wi-Fi submission would change the robot
+      ansible.builtin.debug:
+        msg: "Check mode: would submit the Wi-Fi configuration to Valetudo (PUT skipped)."
+      when: ansible_check_mode
+
+    - name: Tell the operator how to continue
+      ansible.builtin.debug:
+        msg: Wi-Fi submitted. Reconnect this machine to the home network and re-run with --tags configure,tailscale.
+      when: not ansible_check_mode
+
+    - name: End the host after the Wi-Fi submission
+      ansible.builtin.meta: end_host

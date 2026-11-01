@@ -70,13 +70,15 @@ SPECS="${ROLE_DIR}/meta/argument_specs.yml"
   done <<<"${keys}"
 }
 
-@test "tasks/main.yml imports the preflight (always), backup and install phases only" {
+@test "tasks/main.yml imports the preflight (always), backup, install, wifi and configure phases" {
   local main="${ROLE_DIR}/tasks/main.yml"
   [ -f "${main}" ]
-  [ "$(yq eval '[.[] | .["ansible.builtin.import_tasks"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml" ]
+  [ "$(yq eval '[.[] | .["ansible.builtin.import_tasks"]] | join(",")' "${main}")" = "preflight.yml,backup.yml,install.yml,wifi.yml,configure.yml" ]
   [ "$(yq eval '.[0].tags | sort | join(",")' "${main}")" = "always,preflight" ]
   [ "$(yq eval '.[1].tags | join(",")' "${main}")" = "backup" ]
   [ "$(yq eval '.[2].tags | join(",")' "${main}")" = "install" ]
+  [ "$(yq eval '.[3].tags | join(",")' "${main}")" = "wifi" ]
+  [ "$(yq eval '.[4].tags | join(",")' "${main}")" = "configure" ]
 }
 
 @test "backup phase runs the git-crypt guard before pulling calibration data" {
@@ -131,4 +133,35 @@ SPECS="${ROLE_DIR}/meta/argument_specs.yml"
   [ "$(yq eval '[.[] | select(has("ansible.builtin.wait_for")) | .no_log] | map(select(. == true)) | length' "${handlers}")" -eq 3 ]
   [ "$(yq eval '[.[] | select(.listen == "Reboot robot") | .["ansible.builtin.wait_for"].timeout] | map(select(. != null)) | join(",")' "${handlers}")" = "60,300,300" ]
   grep -qF 'valetudo_robot_reboot_enabled' "${handlers}"
+}
+
+@test "wifi and configure phases keep credentials out of logs and the Wi-Fi phase ends the host" {
+  local wifi="${ROLE_DIR}/tasks/wifi.yml" configure="${ROLE_DIR}/tasks/configure.yml"
+  [ -f "${wifi}" ]
+  [ -f "${configure}" ]
+  # Every uri task carries no_log: no task may call uri without it.
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("ansible.builtin.uri")) | select(.no_log != true)] | length' "${wifi}")" = "0" ]
+  [ "$(yq eval '[.. | select(tag == "!!map" and has("ansible.builtin.uri")) | select(.no_log != true)] | length' "${configure}")" = "0" ]
+  grep -qF 'ansible.builtin.meta: end_host' "${wifi}"
+  grep -qF 'Wi-Fi submitted. Reconnect this machine to the home network and re-run with --tags configure,tailscale.' "${wifi}"
+  grep -qF 'basic auth could not be set: Valetudo rejects the SOPS credentials' "${configure}"
+}
+
+@test "argument_specs covers the API inputs the wifi and configure phases consume" {
+  local key
+  for key in valetudo_robot_api_base_url valetudo_robot_on_lan valetudo_robot_basic_auth_username \
+    valetudo_robot_basic_auth_password valetudo_robot_wifi_ssid valetudo_robot_wifi_psk valetudo_robot_settings; do
+    [ "$(yq eval ".argument_specs.main.options | has(\"${key}\")" "${SPECS}")" = true ] || {
+      echo "argument_specs is missing ${key}"
+      return 1
+    }
+  done
+  # Secrets and the LAN flag are never defaulted (R2-GOV-05).
+  for key in valetudo_robot_api_base_url valetudo_robot_on_lan valetudo_robot_basic_auth_username \
+    valetudo_robot_basic_auth_password valetudo_robot_wifi_ssid valetudo_robot_wifi_psk; do
+    [ "$(yq eval "has(\"${key}\")" "${DEFAULTS}")" = false ] || {
+      echo "${key} must not be defaulted"
+      return 1
+    }
+  done
 }

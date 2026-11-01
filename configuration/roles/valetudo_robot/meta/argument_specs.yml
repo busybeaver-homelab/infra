@@ -94,4 +94,48 @@ argument_specs:
         type: list
         elements: dict
         default: []
-        description: Valetudo settings applied through the REST API by the configure phase.
+        description: >-
+          Valetudo settings applied through the REST API by the configure phase. Each entry has name, path,
+          desired (dict that must be a subset of the GET response) and put_body (dict sent with PUT otherwise).
+      valetudo_robot_api_version_path:
+        type: str
+        default: /api/v2/valetudo/version
+        description: Valetudo API path polled until the API answers (documented v2 path; verify at recon, plan Task 0).
+      valetudo_robot_api_auth_config_path:
+        type: str
+        default: /api/v2/valetudo/config/interfaces/http/auth
+        description: Valetudo API path of the HTTP basic-auth configuration (documented v2 path; verify at recon, plan Task 0).
+      valetudo_robot_api_wifi_path:
+        type: str
+        default: /api/v2/robot/capabilities/WifiConfigurationCapability
+        description: Valetudo API path of the Wi-Fi configuration capability (documented v2 path; verify at recon, plan Task 0).
+      valetudo_robot_api_probe_path:
+        type: str
+        default: /api/v2/robot/capabilities
+        description: Protected Valetudo API path probed with the basic-auth credentials (documented v2 path; verify at recon, plan Task 0).
+      valetudo_robot_api_timeout:
+        type: int
+        default: 10
+        description: Timeout in seconds for each controller-side Valetudo API request.
+      valetudo_robot_on_lan:
+        type: bool
+        required: false
+        description: >-
+          Whether the controller is on the home network (true) or on the robot's access point (false). Set by the
+          playbook; required by the wifi phase, which only runs when it is false. Deliberately not defaulted.
+      valetudo_robot_basic_auth_username:
+        type: str
+        required: false
+        description: Valetudo basic-auth username from SOPS. Required by the configure and wifi phases; never defaulted (R2-GOV-05).
+      valetudo_robot_basic_auth_password:
+        type: str
+        required: false
+        description: Valetudo basic-auth password from SOPS. Required by the configure and wifi phases; never defaulted (R2-GOV-05).
+      valetudo_robot_wifi_ssid:
+        type: str
+        required: false
+        description: Home Wi-Fi SSID from SOPS. Required by the wifi phase; never defaulted (R2-GOV-05).
+      valetudo_robot_wifi_psk:
+        type: str
+        required: false
+        description: Home Wi-Fi WPA2 pre-shared key from SOPS. Required by the wifi phase; never defaulted (R2-GOV-05).

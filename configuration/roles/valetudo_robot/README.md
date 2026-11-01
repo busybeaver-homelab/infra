@@ -11,6 +11,8 @@ Each phase is a task file imported by `tasks/main.yml` with its own tag:
 | `preflight`, `always` | `preflight.yml` | Sets the `valetudo_robot_transport_env` fact for controller-side tasks and checks that `uname -m` equals `valetudo_robot_expected_arch`.                                                       |
 | `backup`              | `backup.yml`    | Captures the factory calibration and identity data once into the git-crypt protected `backups/` tree, writes a `.sha256` sidecar and records the checksum on the robot.                        |
 | `install`             | `install.yml`   | Downloads and verifies the pinned Valetudo and Tailscale artifacts on the controller, pushes only binaries that differ from their pin, installs them and maintains the managed postboot block. |
+| `wifi`                | `wifi.yml`      | Only when `valetudo_robot_on_lan` is false: PUTs the home Wi-Fi to Valetudo, tells the operator to reconnect and re-run with `--tags configure,tailscale`, then ends the host.                 |
+| `configure`           | `configure.yml` | Probes a protected endpoint with the SOPS basic-auth credentials, enables basic auth when needed (one re-probe, no loop) and applies the settings whose `desired` is not a subset.             |
 
 ### Install
 
@@ -26,6 +28,15 @@ Check mode: controller cache work and the read-only robot probe still run; every
 `valetudo_robot_tailscale_enabled` controls only the tailnet join (tailscale phase); the install phase always ships the Tailscale binaries and the guarded managed block.
 
 Reachability and the host-key check run earlier, in the playbook, through `robot-transport.sh probe`.
+
+### Wi-Fi and configure
+
+Both phases call Valetudo's REST API from the controller with `ansible.builtin.uri` (the robot has no Python). The API paths are role defaults (`valetudo_robot_api_*_path`); they are Valetudo's documented v2 paths and must be verified at recon (plan Task 0).
+
+- `wifi`: needs `valetudo_robot_on_lan` (set by the playbook). When it is false the PUT is sent and `meta: end_host` stops the host; when it is true the phase does nothing.
+- `configure`: if the probe fails, the auth config is PUT without credentials (retried once with the SOPS credentials if refused) and the endpoint is re-probed once. If it still fails, the play stops with `basic auth could not be set: Valetudo rejects the SOPS credentials and refuses unauthenticated changes; reset auth via SSH per runbook`. Each entry of `valetudo_robot_settings` is read first and PUT only when `desired` is not a subset of the response.
+- Check mode: reads and probes run, PUTs are skipped with a `would change` message. A converged robot receives zero PUTs.
+- Every task that carries credentials, the PSK or API responses is `no_log: true`; messages never include the base URL.
 
 ### Calibration backup
 
@@ -46,27 +57,32 @@ The phase reports `changed` only when a capture happened. The playbook never com
 
 ## Role Variables
 
-| Variable                           | Default                                                     | Description                                                                  |
-| ---------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `valetudo_robot_valetudo_version`  | pinned (Renovate: `Hypfer/Valetudo`)                        | Valetudo release tag; the `valetudo-aarch64` asset is installed.             |
-| `valetudo_robot_valetudo_sha256`   | pinned                                                      | SHA-256 of `valetudo-aarch64` for the pinned release.                        |
-| `valetudo_robot_tailscale_version` | pinned (Renovate: `tailscale/tailscale`)                    | Tailscale stable version without the leading `v`.                            |
-| `valetudo_robot_tailscale_sha256`  | pinned                                                      | SHA-256 of `tailscale_<version>_arm64.tgz` from `pkgs.tailscale.com/stable`. |
-| `valetudo_robot_valetudo_url`      | upstream release URL template                               | Download URL of `valetudo-aarch64` (Molecule uses a `file://` URL).          |
-| `valetudo_robot_tailscale_url`     | `pkgs.tailscale.com/stable` URL template                    | Download URL of the Tailscale arm64 tarball (Molecule uses a `file://` URL). |
-| `valetudo_robot_cache_dir`         | `{{ playbook_dir }}/../../.cache/valetudo_robot`            | Controller cache for verified downloads and the rendered postboot block.     |
-| `valetudo_robot_expected_arch`     | `aarch64`                                                   | Architecture `uname -m` must report.                                         |
-| `valetudo_robot_transport`         | `ssh`                                                       | `ssh`, or `docker` for Molecule only.                                        |
-| `valetudo_robot_container`         | `""`                                                        | Container name for the `docker` transport.                                   |
-| `valetudo_robot_known_hosts`       | `{{ playbook_dir }}/../../.cache/ansible/robot_known_hosts` | Dedicated, gitignored known-hosts file for the robot.                        |
-| `valetudo_robot_backup_repo_root`  | `{{ playbook_dir }}/../..`                                  | Repository root checked by the git-crypt guard.                              |
-| `valetudo_robot_backup_dir`        | `{{ playbook_dir }}/../../backups/robots/x40-ultra`         | Directory for calibration archives and sidecars (inside the repository).     |
-| `valetudo_robot_backup_label`      | `x40-ultra`                                                 | Archive file name prefix.                                                    |
-| `valetudo_robot_reboot_enabled`    | `true`                                                      | Allow reboots after installing binaries or the postboot hook.                |
-| `valetudo_robot_tailscale_enabled` | `true`                                                      | Controls only the tailnet join; install always ships the Tailscale binaries. |
-| `valetudo_robot_tailscale_tag`     | `tag:type-iot`                                              | Tailscale tag the robot advertises.                                          |
-| `valetudo_robot_api_base_url`      | none (set by the playbook)                                  | Valetudo REST API base URL from SOPS-loaded values.                          |
-| `valetudo_robot_settings`          | `[]`                                                        | Valetudo settings applied by the configure phase.                            |
+| Variable                                           | Default                                                     | Description                                                                  |
+| -------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `valetudo_robot_valetudo_version`                  | pinned (Renovate: `Hypfer/Valetudo`)                        | Valetudo release tag; the `valetudo-aarch64` asset is installed.             |
+| `valetudo_robot_valetudo_sha256`                   | pinned                                                      | SHA-256 of `valetudo-aarch64` for the pinned release.                        |
+| `valetudo_robot_tailscale_version`                 | pinned (Renovate: `tailscale/tailscale`)                    | Tailscale stable version without the leading `v`.                            |
+| `valetudo_robot_tailscale_sha256`                  | pinned                                                      | SHA-256 of `tailscale_<version>_arm64.tgz` from `pkgs.tailscale.com/stable`. |
+| `valetudo_robot_valetudo_url`                      | upstream release URL template                               | Download URL of `valetudo-aarch64` (Molecule uses a `file://` URL).          |
+| `valetudo_robot_tailscale_url`                     | `pkgs.tailscale.com/stable` URL template                    | Download URL of the Tailscale arm64 tarball (Molecule uses a `file://` URL). |
+| `valetudo_robot_cache_dir`                         | `{{ playbook_dir }}/../../.cache/valetudo_robot`            | Controller cache for verified downloads and the rendered postboot block.     |
+| `valetudo_robot_expected_arch`                     | `aarch64`                                                   | Architecture `uname -m` must report.                                         |
+| `valetudo_robot_transport`                         | `ssh`                                                       | `ssh`, or `docker` for Molecule only.                                        |
+| `valetudo_robot_container`                         | `""`                                                        | Container name for the `docker` transport.                                   |
+| `valetudo_robot_known_hosts`                       | `{{ playbook_dir }}/../../.cache/ansible/robot_known_hosts` | Dedicated, gitignored known-hosts file for the robot.                        |
+| `valetudo_robot_backup_repo_root`                  | `{{ playbook_dir }}/../..`                                  | Repository root checked by the git-crypt guard.                              |
+| `valetudo_robot_backup_dir`                        | `{{ playbook_dir }}/../../backups/robots/x40-ultra`         | Directory for calibration archives and sidecars (inside the repository).     |
+| `valetudo_robot_backup_label`                      | `x40-ultra`                                                 | Archive file name prefix.                                                    |
+| `valetudo_robot_reboot_enabled`                    | `true`                                                      | Allow reboots after installing binaries or the postboot hook.                |
+| `valetudo_robot_tailscale_enabled`                 | `true`                                                      | Controls only the tailnet join; install always ships the Tailscale binaries. |
+| `valetudo_robot_tailscale_tag`                     | `tag:type-iot`                                              | Tailscale tag the robot advertises.                                          |
+| `valetudo_robot_api_base_url`                      | none (set by the playbook)                                  | Valetudo REST API base URL from SOPS-loaded values.                          |
+| `valetudo_robot_on_lan`                            | none (set by the playbook)                                  | Whether the controller is on the home network; the wifi phase needs it.      |
+| `valetudo_robot_basic_auth_username` / `_password` | none (SOPS)                                                 | Valetudo basic-auth credentials; never defaulted.                            |
+| `valetudo_robot_wifi_ssid` / `_psk`                | none (SOPS)                                                 | Home Wi-Fi credentials for the wifi phase; never defaulted.                  |
+| `valetudo_robot_api_*_path`                        | documented v2 paths                                         | Version, auth config, Wi-Fi and probe paths (verify at recon).               |
+| `valetudo_robot_api_timeout`                       | `10`                                                        | Seconds per API request.                                                     |
+| `valetudo_robot_settings`                          | `[]`                                                        | Valetudo settings applied by the configure phase.                            |
 
 Pin updates arrive as Renovate PRs with automerge disabled: update the matching `*_sha256` value in `defaults/main.yml` in the same PR.
 
@@ -78,3 +94,5 @@ Pin updates arrive as Renovate PRs with automerge disabled: update the matching 
 ## Testing
 
 `molecule/default` uses a BusyBox container (no Python) as the robot, the `docker` transport of `robot-transport.sh` and synthetic `file://` artifacts. `prepare.yml` also builds a throwaway repository with synthetic git-crypt markers for the calibration backup. Run it with `mise run test:ansible:robot`; the idempotence step proves that a second converge changes nothing.
+
+A second platform (`valetudo-robot-mock-api`, Python alpine pinned by digest) runs `molecule/default/mock_valetudo.py`, a stdlib-only mock of the Valetudo API that logs every request to `/tmp/requests.jsonl` (Authorization recorded only as present or absent). A second instance started with `--scenario auth_mismatch` backs the fail-closed check. Verify reads the logs to prove one auth PUT and one settings PUT on the first converge, zero afterwards, no retry loop on mismatch, and exactly one Wi-Fi PUT followed by `end_host`.

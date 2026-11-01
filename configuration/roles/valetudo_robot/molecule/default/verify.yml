@@ -1,10 +1,13 @@
 ---
 - name: Verify
-  hosts: all
+  hosts: robots
   gather_facts: false
   vars:
     valetudo_robot_verify_begin: "# BEGIN homelab-managed (valetudo_robot)"
     valetudo_robot_verify_end: "# END homelab-managed (valetudo_robot)"
+    valetudo_robot_verify_auth_path: "{{ valetudo_robot_verify_defaults.valetudo_robot_api_auth_config_path }}"
+    valetudo_robot_verify_wifi_path: "{{ valetudo_robot_verify_defaults.valetudo_robot_api_wifi_path }}"
+    valetudo_robot_verify_probe_path: "{{ valetudo_robot_verify_defaults.valetudo_robot_api_probe_path }}"
   tasks:
     - name: Load generated Molecule fixture variables
       ansible.builtin.include_vars:
@@ -182,3 +185,159 @@
             that:
               - ansible_failed_result.results | map(attribute='msg') | join(' ') is search('valetudo_robot_tailscale_version must be')
             quiet: true
+
+    # API paths are role defaults, so recon can correct them in one place.
+    - name: Load the role's API path defaults
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../defaults/main.yml"
+        name: valetudo_robot_verify_defaults
+
+    # Wi-Fi and configure phases, against the mock Valetudo API. Molecule
+    # converges with valetudo_robot_on_lan true, so the Wi-Fi phase was skipped.
+    - name: Read the mock API request log
+      ansible.builtin.raw: cat /tmp/requests.jsonl
+      delegate_to: valetudo-robot-mock-api
+      register: valetudo_robot_verify_mock_log
+      changed_when: false
+
+    - name: Read the recorded per-run PUT counts
+      ansible.builtin.slurp:
+        src: "{{ valetudo_robot_put_counts_file }}"
+      delegate_to: localhost
+      become: false
+      register: valetudo_robot_verify_put_counts
+
+    - name: Assert the configure phase sent exactly the expected PUTs, once
+      vars:
+        valetudo_robot_verify_requests: >-
+          {{ valetudo_robot_verify_mock_log.stdout_lines | map('trim') | reject('equalto', '') | map('from_json') | list }}
+        valetudo_robot_verify_puts: "{{ valetudo_robot_verify_requests | selectattr('method', 'equalto', 'PUT') | list }}"
+        valetudo_robot_verify_count_lines: >-
+          {{ (valetudo_robot_verify_put_counts.content | b64decode).splitlines() | map('trim') | reject('equalto', '') | list }}
+        valetudo_robot_verify_count_sequence: >-
+          {% for line in valetudo_robot_verify_count_lines %}{{ line.split()[0] }}:{{ line.split()[1] }}{{ ',' if not loop.last }}{% endfor %}
+      ansible.builtin.assert:
+        that:
+          # One auth PUT (sent without credentials) and one PUT for the differing setting, nothing else.
+          - valetudo_robot_verify_puts | length == 2
+          - valetudo_robot_verify_puts | selectattr('path', 'equalto', valetudo_robot_verify_auth_path) | list | length == 1
+          - (valetudo_robot_verify_puts | selectattr('path', 'equalto', valetudo_robot_verify_auth_path) | first).authorization == 'absent'
+          - valetudo_robot_verify_puts | selectattr('path', 'equalto', '/api/v2/robot/capabilities/MoleculeDifferingCapability') | list | length == 1
+          - valetudo_robot_verify_puts | selectattr('path', 'equalto', '/api/v2/robot/capabilities/MoleculeMatchingCapability') | list | length == 0
+          - valetudo_robot_verify_puts | selectattr('path', 'equalto', valetudo_robot_verify_wifi_path) | list | length == 0
+          - valetudo_robot_verify_puts | map(attribute='status') | unique | list == [200]
+          # check, converge, idempotence, check: only the first converge may PUT.
+          - valetudo_robot_verify_count_sequence == 'check:0,run:2,run:0,check:0'
+          # Authorization is recorded as present or absent, never as a value.
+          - valetudo_robot_verify_requests | map(attribute='authorization') | unique | sort | list == ['absent', 'present']
+          - valetudo_robot_basic_auth_password not in valetudo_robot_verify_mock_log.stdout
+          - valetudo_robot_wifi_psk not in valetudo_robot_verify_mock_log.stdout
+        quiet: true
+      no_log: true
+
+    # Review Focus 3: the SOPS credentials differ from what Valetudo has enabled.
+    # The mock instance started with --scenario auth_mismatch rejects them and
+    # refuses unauthenticated changes; configure must fail clearly, without looping.
+    - name: Fail closed when Valetudo rejects the SOPS credentials
+      block:
+        - name: Run the configure phase against the auth_mismatch mock
+          ansible.builtin.include_role:
+            name: valetudo_robot
+            tasks_from: configure.yml
+          vars:
+            valetudo_robot_api_base_url: "{{ valetudo_robot_verify_mismatch_api_base_url }}"
+            valetudo_robot_on_lan: true
+            valetudo_robot_settings: []
+        - name: Fail if the configure phase accepted credentials Valetudo rejects
+          ansible.builtin.fail:
+            msg: The configure phase accepted credentials that Valetudo rejects.
+      rescue:
+        - name: Assert the failure message is exact and carries nothing sensitive
+          ansible.builtin.assert:
+            that:
+              - >-
+                ansible_failed_result.msg == 'basic auth could not be set: Valetudo rejects the SOPS credentials
+                and refuses unauthenticated changes; reset auth via SSH per runbook'
+            quiet: true
+
+    - name: Read the auth_mismatch mock request log
+      ansible.builtin.raw: cat /tmp/requests-auth-mismatch.jsonl
+      delegate_to: valetudo-robot-mock-api
+      register: valetudo_robot_verify_mismatch_log
+      changed_when: false
+
+    - name: Assert the auth_mismatch run tried twice, then stopped
+      vars:
+        valetudo_robot_verify_mismatch_requests: >-
+          {{ valetudo_robot_verify_mismatch_log.stdout_lines | map('trim') | reject('equalto', '') | map('from_json') | list }}
+        valetudo_robot_verify_mismatch_puts: "{{ valetudo_robot_verify_mismatch_requests | selectattr('method', 'equalto', 'PUT') | list }}"
+        valetudo_robot_verify_mismatch_probes: >-
+          {{ valetudo_robot_verify_mismatch_requests | selectattr('method', 'equalto', 'GET')
+          | selectattr('path', 'equalto', valetudo_robot_verify_probe_path) | list }}
+      ansible.builtin.assert:
+        that:
+          # Without credentials, then with the SOPS credentials; both rejected; no retry loop.
+          - valetudo_robot_verify_mismatch_puts | length == 2
+          - valetudo_robot_verify_mismatch_puts | map(attribute='status') | unique | list == [401]
+          - valetudo_robot_verify_mismatch_puts | map(attribute='authorization') | sort | list == ['absent', 'present']
+          # Probe, then one re-probe.
+          - valetudo_robot_verify_mismatch_probes | length == 2
+          - valetudo_robot_basic_auth_password not in valetudo_robot_verify_mismatch_log.stdout
+        quiet: true
+      no_log: true
+
+# end_host ends the host for the rest of the play, so the Wi-Fi phase runs in
+# its own play and the next play proves that nothing after it ran.
+- name: Verify the Wi-Fi phase submits once and ends the host
+  hosts: robots
+  gather_facts: false
+  tasks:
+    - name: Load generated Molecule fixture variables
+      ansible.builtin.include_vars:
+        file: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/robot_vars.yml"
+
+    - name: Run the Wi-Fi phase off the home network
+      ansible.builtin.include_role:
+        name: valetudo_robot
+        tasks_from: wifi.yml
+      vars:
+        valetudo_robot_on_lan: false
+
+    - name: Mark that tasks after the Wi-Fi phase still ran
+      ansible.builtin.set_fact:
+        valetudo_robot_verify_after_wifi: true
+
+- name: Verify the Wi-Fi submission in the mock log
+  hosts: robots
+  gather_facts: false
+  vars:
+    valetudo_robot_verify_wifi_path: "{{ valetudo_robot_verify_defaults.valetudo_robot_api_wifi_path }}"
+  tasks:
+    - name: Load generated Molecule fixture variables
+      ansible.builtin.include_vars:
+        file: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/robot_vars.yml"
+
+    - name: Load the role's API path defaults
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../defaults/main.yml"
+        name: valetudo_robot_verify_defaults
+
+    - name: Read the mock API request log
+      ansible.builtin.raw: cat /tmp/requests.jsonl
+      delegate_to: valetudo-robot-mock-api
+      register: valetudo_robot_verify_wifi_log
+      changed_when: false
+
+    - name: Assert the host ended after exactly one Wi-Fi PUT
+      vars:
+        valetudo_robot_verify_wifi_puts: >-
+          {{ valetudo_robot_verify_wifi_log.stdout_lines | map('trim') | reject('equalto', '') | map('from_json') | list
+          | selectattr('method', 'equalto', 'PUT') | selectattr('path', 'equalto', valetudo_robot_verify_wifi_path) | list }}
+      ansible.builtin.assert:
+        that:
+          - valetudo_robot_verify_after_wifi is not defined
+          - valetudo_robot_verify_wifi_puts | length == 1
+          - valetudo_robot_verify_wifi_puts[0].status == 200
+          - valetudo_robot_wifi_psk not in valetudo_robot_verify_wifi_log.stdout
+        quiet: true
+      no_log: true

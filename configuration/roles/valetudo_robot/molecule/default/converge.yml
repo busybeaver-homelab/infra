@@ -1,10 +1,29 @@
 ---
 - name: Converge
-  hosts: all
+  hosts: robots
   gather_facts: false
+  vars:
+    # Play 1 of the real playbook sets these; Molecule converges on the LAN.
+    valetudo_robot_on_lan: true
+    # One setting already matches the mock (ok, no PUT) and one deliberately
+    # differs (exactly one PUT on the first converge, none afterwards).
+    valetudo_robot_settings:
+      - name: molecule matching setting
+        path: /api/v2/robot/capabilities/MoleculeMatchingCapability
+        desired:
+          enabled: false
+        put_body:
+          enabled: false
+      - name: molecule differing setting
+        path: /api/v2/robot/capabilities/MoleculeDifferingCapability
+        desired:
+          enabled: true
+        put_body:
+          enabled: true
   pre_tasks:
-    # Written by prepare.yml: synthetic artifact URLs and checksums, and the
-    # throwaway git-crypt-style repository for the calibration backup.
+    # Written by prepare.yml: synthetic artifact URLs and checksums, the
+    # throwaway git-crypt-style repository for the calibration backup, the mock
+    # API URL and runtime-generated credentials.
     - name: Load generated Molecule fixture variables
       ansible.builtin.include_vars:
         file: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/robot_vars.yml"
@@ -18,6 +37,40 @@
     - name: Expect the container architecture
       ansible.builtin.set_fact:
         valetudo_robot_expected_arch: "{{ valetudo_robot_molecule_uname.stdout_lines | map('trim') | reject('equalto', '') | list | last }}"
+
+    # Marker: the mock's request log length before this run, so the PUTs made by
+    # this run alone can be counted afterwards.
+    - name: Count the requests the mock has logged so far
+      ansible.builtin.raw: wc -l < /tmp/requests.jsonl
+      delegate_to: valetudo-robot-mock-api
+      register: valetudo_robot_molecule_log_before
+      changed_when: false
+      check_mode: false
   roles:
     - role: valetudo_robot
-      tags: [preflight, backup, install]
+      tags: [preflight, backup, install, wifi, configure]
+  post_tasks:
+    - name: Count the PUT requests this run sent to the mock
+      ansible.builtin.raw: >-
+        tail -n +{{ (valetudo_robot_molecule_log_before.stdout_lines | map('trim') | reject('equalto', '') | list | last | int) + 1 }}
+        /tmp/requests.jsonl | grep -c '"method": "PUT"' || true
+      delegate_to: valetudo-robot-mock-api
+      register: valetudo_robot_molecule_puts
+      changed_when: false
+      check_mode: false
+
+    # Verify asserts the sequence of per-run counts (check, converge,
+    # idempotence, check): only the first converge may send PUTs.
+    - name: Record the PUT count of this run
+      ansible.builtin.lineinfile:
+        path: "{{ valetudo_robot_put_counts_file }}"
+        line: >-
+          {{ 'check' if ansible_check_mode else 'run' }}
+          {{ valetudo_robot_molecule_puts.stdout_lines | map('trim') | reject('equalto', '') | list | last | int }}
+          {{ now(fmt='%s%f') }}
+        insertafter: EOF
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      check_mode: false
