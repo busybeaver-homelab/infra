@@ -41,8 +41,8 @@ The repository configuration implements defense-in-depth across multiple layers:
 
 ### 3. Deploy Keys (`R2-TF-08`)
 
-- Declarative deploy keys are sourced from `github.config.deploy_keys` in SOPS (`secrets/credentials.sops.yaml`) or `var.deploy_keys` (default `{}`).
-- Deploy keys support read-write permissions (`read_only = false`), which are required to push code, and must not contain an `@` email comment (`R2-TF-08`).
+- No deploy key is registered on the infra repository. Agents push through the GitHub App wrappers (`scripts/agent-git.sh`), and the owner pushes over HTTPS with their `gh` login.
+- The mechanism is kept for future use: keys are sourced from `github.config.deploy_keys` in SOPS (`secrets/credentials.sops.yaml`) or `var.deploy_keys` (default `{}`). Read-write keys (`read_only = false`) stay permitted, and keys must not contain an `@` email comment (`R2-TF-08`).
 
 ### 4. REST API Synchronization (`mise run github:sync`)
 

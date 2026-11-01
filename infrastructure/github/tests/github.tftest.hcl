@@ -14,13 +14,6 @@ override_data {
               "description": "Infrastructure as Code for my homelab environment",
               "topics": ["homelab", "infrastructure-as-code", "iac"]
             }
-          },
-          "deploy_keys": {
-            "work-laptop": {
-              "title": "work-laptop",
-              "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
-              "read_only": false
-            }
           }
         }
       EOT
@@ -167,8 +160,8 @@ run "verify_github_root_hardening" {
   }
 
   assert {
-    condition     = contains(keys(module.repository["infra"].deploy_keys), "work-laptop") && module.repository["infra"].deploy_keys["work-laptop"].read_only == false
-    error_message = "Deploy key work-laptop must be registered from SOPS with read_only = false (read-write permissions required to push code)"
+    condition     = length(module.repository["infra"].deploy_keys) == 0
+    error_message = "No deploy key may be registered when SOPS github.config has no deploy_keys; agents push via the GitHub App"
   }
 }
 

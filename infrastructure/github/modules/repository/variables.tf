@@ -111,7 +111,7 @@ variable "deploy_keys" {
   sensitive   = true
   default     = {}
 
-  # Note: read-write permissions (`read_only = false`) are permitted and required on the deploy key to push code.
+  # Read-write keys (`read_only = false`) stay permitted; the infra repository currently registers none.
 
   validation {
     condition     = alltrue([for k, v in var.deploy_keys : !can(regex("@", v.key))])
