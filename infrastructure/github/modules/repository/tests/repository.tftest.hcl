@@ -339,7 +339,7 @@ run "accept_writable_deploy_key" {
 
   assert {
     condition     = github_repository_deploy_key.deploy_keys["writable"].read_only == false
-    error_message = "Writable deploy keys (read_only = false) must be accepted because write access is required to push code."
+    error_message = "Writable deploy keys (read_only = false) must stay accepted for future use."
   }
 }
 

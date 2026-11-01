@@ -107,7 +107,7 @@ variable "deploy_keys" {
   sensitive   = true
   default     = {}
 
-  # No deploy key is registered; agents push via the GitHub App. Kept for future use; read-write keys stay permitted.
+  # The infra deploy key is retired; agents push via the GitHub App. Kept for future use; read-write keys stay permitted.
 
   validation {
     condition     = alltrue([for k, v in var.deploy_keys : !can(regex("@", v.key))])

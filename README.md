@@ -88,7 +88,7 @@ Every OpenTofu root module stores its state in Cloudflare R2 (`homelab-infra/sta
 | [`mesh`](infrastructure/mesh/)             | Tailscale                  | Declarative tailnet ACL policy (`policy.hujson.tftpl`), Tailscale SSH (`checkPeriod = "12h"`), ACL flow logs, MagicDNS, security settings, contacts, webhooks, subnet routes, and bootstrap auth keys                                        |
 | [`dns`](infrastructure/dns/)               | NextDNS                    | Multi-account NextDNS security/privacy blocklists, parental control, allowlist/denylist, and split-horizon DNS rewrites via [`modules/profile`](infrastructure/dns/modules/profile/)                                                         |
 | [`monitoring`](infrastructure/monitoring/) | Healthchecks.io            | Dead-man's-switch cron checks and notification channels for host Restic backups, backup pruning, and infrastructure drift detection                                                                                                          |
-| [`github`](infrastructure/github/)         | GitHub                     | Repository governance, `main` branch rulesets, merge queue (`MERGE_QUEUE`), `ci` environment isolation, deploy keys, and Actions SHA-pinning enforcement via [`modules/repository`](infrastructure/github/modules/repository/)               |
+| [`github`](infrastructure/github/)         | GitHub                     | Repository governance, `main` branch rulesets, merge queue (`MERGE_QUEUE`), `ci` environment isolation, and Actions SHA-pinning enforcement via [`modules/repository`](infrastructure/github/modules/repository/)                            |
 
 ### Ansible Configuration Domains (`configuration/`)
 

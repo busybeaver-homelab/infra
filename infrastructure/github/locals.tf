@@ -19,7 +19,7 @@ locals {
   repositories = nonsensitive(try(local.github_config.repositories, {}))
 
   # Deploy keys: use explicit variable override if non-empty, else read from SOPS github.config.deploy_keys (R2-TF-08).
-  # No deploy key is registered: agents push via the GitHub App and the owner over HTTPS. Kept for future use.
+  # The infra deploy key is retired (agents push via the GitHub App, the owner over HTTPS); the mechanism stays for future use.
   deploy_keys = length(var.deploy_keys) > 0 ? var.deploy_keys : try(local.github_config.deploy_keys, {})
 
   # The single CI age identity (decrypts only secrets/credentials.ci.sops.yaml).
