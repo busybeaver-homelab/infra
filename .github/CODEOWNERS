@@ -6,8 +6,6 @@
 
 /.agents/hooks.json                 @busybeaver
 /.agent/hooks/                     @busybeaver
-/.codex/                           @busybeaver
-/.claude/                          @busybeaver
 /.agent/agent-permissions.json      @busybeaver
 /scripts/agent-*                   @busybeaver
 /scripts/lib/github-app-token.sh   @busybeaver
