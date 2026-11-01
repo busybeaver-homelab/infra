@@ -1,0 +1,80 @@
+---
+prerun: false
+dependency:
+  name: galaxy
+  enabled: false
+
+driver:
+  name: docker
+
+# BusyBox stands in for the robot: no Python, no systemd, no SFTP. The role
+# reaches it with raw and with robot-transport.sh in docker transport mode.
+platforms:
+  - name: valetudo-robot
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    pre_build_image: true
+    command: sleep infinity
+    groups: [robots]
+  # Stdlib-only mock of the Valetudo REST API. Six instances share the
+  # container: the default one, a pristine default one for the first-build Wi-Fi
+  # phase (no auth yet) and one per failure scenario (auth_mismatch, wifi_drop,
+  # auth_put_ignored, auth_put_noop). All ports are published on the controller
+  # loopback with ephemeral host ports, which prepare.yml discovers.
+  - name: valetudo-robot-mock-api
+    image: python:3.13-alpine@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+    pre_build_image: true
+    command: >-
+      sh -c "python /opt/mock/mock_valetudo.py --port 8080 &
+      python /opt/mock/mock_valetudo.py --port 8082 --scenario wifi_drop --log /tmp/requests-wifi-drop.jsonl &
+      python /opt/mock/mock_valetudo.py --port 8083 --scenario auth_put_ignored --log /tmp/requests-auth-put-ignored.jsonl &
+      python /opt/mock/mock_valetudo.py --port 8084 --log /tmp/requests-first-build.jsonl &
+      python /opt/mock/mock_valetudo.py --port 8085 --scenario auth_put_noop --log /tmp/requests-auth-put-noop.jsonl &
+      exec python /opt/mock/mock_valetudo.py --port 8081 --scenario auth_mismatch --log /tmp/requests-auth-mismatch.jsonl"
+    volumes:
+      - "${MOLECULE_SCENARIO_DIRECTORY}/mock_valetudo.py:/opt/mock/mock_valetudo.py:ro"
+    published_ports:
+      - "127.0.0.1::8080/tcp"
+      - "127.0.0.1::8081/tcp"
+      - "127.0.0.1::8082/tcp"
+      - "127.0.0.1::8083/tcp"
+      - "127.0.0.1::8084/tcp"
+      - "127.0.0.1::8085/tcp"
+    groups: [mock]
+
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/..:${MOLECULE_PROJECT_DIRECTORY}/../../.galaxy/roles"
+    ANSIBLE_COLLECTIONS_PATH: "${MOLECULE_PROJECT_DIRECTORY}/../../.galaxy/collections"
+  config_options:
+    defaults:
+      callbacks_enabled: profile_tasks
+      roles_path: ${MOLECULE_PROJECT_DIRECTORY}/..:${MOLECULE_PROJECT_DIRECTORY}/../../.galaxy/roles
+      collections_path: ${MOLECULE_PROJECT_DIRECTORY}/../../.galaxy/collections
+  inventory:
+    group_vars:
+      all:
+        valetudo_robot_transport: docker
+        valetudo_robot_container: valetudo-robot
+        valetudo_robot_reboot_enabled: false
+        valetudo_robot_tailscale_enabled: false
+
+scenario:
+  test_sequence:
+    - destroy
+    - syntax
+    - create
+    - prepare
+    # check = converge.yml with --check: must succeed on a fresh and on a converged robot.
+    - check
+    - converge
+    - idempotence
+    - check
+    - verify
+    - destroy
+
+verifier:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/..:${MOLECULE_PROJECT_DIRECTORY}/../../.galaxy/roles"
+    ANSIBLE_COLLECTIONS_PATH: "${MOLECULE_PROJECT_DIRECTORY}/../../.galaxy/collections"

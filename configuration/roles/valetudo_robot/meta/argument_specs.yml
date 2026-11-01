@@ -1,0 +1,165 @@
+---
+argument_specs:
+  main:
+    short_description: Rebuild a rooted Dreame X40 Ultra with pinned Valetudo and Tailscale
+    description:
+      - Runs against a BusyBox robot without Python, using ansible.builtin.raw on the robot and controller-side helper scripts.
+      - Each phase is imported with its own tag; the preflight phase is also tagged always.
+      - The backup phase captures the factory calibration data once into the git-crypt protected backups/ tree.
+      - >-
+        The install phase downloads and verifies the pinned artifacts on the controller, pushes only binaries that
+        differ from the pin, and maintains a managed block in the robot's postboot script.
+    author: homelab-infra
+    options:
+      valetudo_robot_valetudo_version:
+        type: str
+        default: "2026.10.0"
+        description: Pinned Valetudo release tag (Renovate-tracked, Hypfer/Valetudo).
+      valetudo_robot_valetudo_sha256:
+        type: str
+        default: "cdc0c8723e2c924176f0d278df4e01899da10c3765acea97f0d3011ef845432d"
+        description: SHA-256 checksum of the valetudo-aarch64 release asset for the pinned version.
+      valetudo_robot_tailscale_version:
+        type: str
+        default: "1.104.4"
+        description: Pinned Tailscale stable version without the leading v (Renovate-tracked, tailscale/tailscale).
+      valetudo_robot_tailscale_sha256:
+        type: str
+        default: "a1c249ce6bdebef62e1ae3b997595555bce2ae4709bf95a718e9ca7a129dad7e"
+        description: SHA-256 checksum of tailscale_<version>_arm64.tgz from pkgs.tailscale.com/stable.
+      valetudo_robot_valetudo_url:
+        type: str
+        default: "https://github.com/Hypfer/Valetudo/releases/download/{{ valetudo_robot_valetudo_version }}/valetudo-aarch64"
+        description: >-
+          Download URL of the valetudo-aarch64 asset; the download is verified against
+          valetudo_robot_valetudo_sha256 (Molecule overrides it with a file:// URL).
+      valetudo_robot_tailscale_url:
+        type: str
+        default: "https://pkgs.tailscale.com/stable/tailscale_{{ valetudo_robot_tailscale_version }}_arm64.tgz"
+        description: >-
+          Download URL of the Tailscale static arm64 tarball; the download is verified against
+          valetudo_robot_tailscale_sha256 (Molecule overrides it with a file:// URL).
+      valetudo_robot_cache_dir:
+        type: str
+        default: "{{ playbook_dir }}/../../.cache/valetudo_robot"
+        description: Controller directory (gitignored) that caches the verified downloads, the extracted Tailscale binaries and the rendered postboot block.
+      valetudo_robot_expected_arch:
+        type: str
+        default: aarch64
+        description: Architecture that `uname -m` must report on the robot; preflight fails otherwise.
+      valetudo_robot_transport:
+        type: str
+        default: ssh
+        choices: ["ssh", "docker"]
+        description: Transport used by robot-transport.sh on the controller (docker is for Molecule only).
+      valetudo_robot_container:
+        type: str
+        default: ""
+        description: Container name for the docker transport; ignored for ssh.
+      valetudo_robot_known_hosts:
+        type: str
+        default: "{{ playbook_dir }}/../../.cache/ansible/robot_known_hosts"
+        description: Dedicated known-hosts file for the robot (gitignored path); passed to robot-transport.sh.
+      valetudo_robot_controller_cache_dir:
+        type: str
+        default: "{{ playbook_dir }}/../../.cache/ansible"
+        description: Gitignored controller directory (created 0700) for the short-lived auth key tempfile; robot_key.* files are swept by the robots playbook.
+      valetudo_robot_backup_repo_root:
+        type: str
+        default: "{{ playbook_dir }}/../.."
+        description: Repository root used by the git-crypt guard to verify the backup target is encrypted.
+      valetudo_robot_backup_dir:
+        type: str
+        default: "{{ playbook_dir }}/../../backups/robots/x40-ultra"
+        description: Controller directory (inside the repository's git-crypt protected backups/ tree) for calibration archives and .sha256 sidecars.
+      valetudo_robot_backup_label:
+        type: str
+        default: x40-ultra
+        description: File name prefix of calibration archives (<label>-<UTC timestamp>.tar).
+      valetudo_robot_reboot_enabled:
+        type: bool
+        default: true
+        description: Whether the role may reboot the robot after installing binaries or the postboot hook.
+      valetudo_robot_tailscale_enabled:
+        type: bool
+        default: true
+        description: >-
+          Controls only the tailnet join (tailscale phase); the install phase always ships the Tailscale
+          binaries and the guarded managed block.
+      valetudo_robot_tailscale_tag:
+        type: str
+        default: "tag:type-iot"
+        description: Tailscale ACL tag the robot advertises when joining.
+      valetudo_robot_tailscale_hostname:
+        type: str
+        required: false
+        description: >-
+          Tailscale hostname of the robot, from SOPS-loaded values. Required by the tailscale phase while
+          valetudo_robot_tailscale_enabled is true; never defaulted and never printed (R2-GOV-05).
+      valetudo_robot_tofu_vars_script:
+        type: str
+        default: "{{ valetudo_robot_backup_repo_root }}/scripts/get-tofu-robot-vars.sh"
+        description: >-
+          Controller helper that prints {"tofu_robot_auth_key": "<key>"} from the infrastructure/mesh OpenTofu
+          outputs; run by the tailscale phase with no_log.
+      valetudo_robot_tofu_vars_args:
+        type: list
+        elements: str
+        default: []
+        description: Extra arguments for valetudo_robot_tofu_vars_script (for example --mesh-json <fixture> in tests).
+      valetudo_robot_api_base_url:
+        type: str
+        required: false
+        description: Base URL of the Valetudo REST API. Set by the playbook from SOPS-loaded values; required by the configure phase.
+      valetudo_robot_settings:
+        type: list
+        elements: dict
+        default: []
+        description: >-
+          Valetudo settings applied through the REST API by the configure phase. Each entry has name, path,
+          desired (dict that must be a subset of the GET response) and put_body (dict sent with PUT otherwise).
+      valetudo_robot_api_version_path:
+        type: str
+        default: /api/v2/valetudo/version
+        description: Valetudo API path polled until the API answers (documented v2 path; verify at recon, plan Task 0).
+      valetudo_robot_api_auth_config_path:
+        type: str
+        default: /api/v2/valetudo/config/interfaces/http/auth
+        description: Valetudo API path of the HTTP basic-auth configuration (documented v2 path; verify at recon, plan Task 0).
+      valetudo_robot_api_wifi_path:
+        type: str
+        default: /api/v2/robot/capabilities/WifiConfigurationCapability
+        description: Valetudo API path of the Wi-Fi configuration capability (documented v2 path; verify at recon, plan Task 0).
+      valetudo_robot_api_probe_path:
+        type: str
+        default: /api/v2/robot/capabilities
+        description: Protected Valetudo API path probed with the basic-auth credentials (documented v2 path; verify at recon, plan Task 0).
+      valetudo_robot_api_timeout:
+        type: int
+        default: 10
+        description: Timeout in seconds for each controller-side Valetudo API request.
+      valetudo_robot_on_lan:
+        type: bool
+        required: false
+        description: >-
+          Whether the controller is on the home network (true) or on the robot's access point (false). Set by the
+          playbook; required by the wifi phase, which only runs when it is false. Deliberately not defaulted.
+      valetudo_robot_basic_auth_username:
+        type: str
+        required: false
+        no_log: true
+        description: Valetudo basic-auth username from SOPS. Required by the configure and wifi phases; never defaulted (R2-GOV-05).
+      valetudo_robot_basic_auth_password:
+        type: str
+        required: false
+        no_log: true
+        description: Valetudo basic-auth password from SOPS. Required by the configure and wifi phases; never defaulted (R2-GOV-05).
+      valetudo_robot_wifi_ssid:
+        type: str
+        required: false
+        description: Home Wi-Fi SSID from SOPS. Required by the wifi phase; never defaulted (R2-GOV-05).
+      valetudo_robot_wifi_psk:
+        type: str
+        required: false
+        no_log: true
+        description: Home Wi-Fi WPA2 pre-shared key from SOPS. Required by the wifi phase; never defaulted (R2-GOV-05).

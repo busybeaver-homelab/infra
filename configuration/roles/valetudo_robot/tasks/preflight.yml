@@ -1,0 +1,49 @@
+---
+# Preflight for valetudo_robot. Reachability and the host-key check run earlier,
+# in the playbook (robot-transport.sh probe). This file sets the controller-side
+# transport environment and verifies the robot architecture with raw only.
+
+# The environment carries the robot address, so it is never displayed.
+- name: Set valetudo_robot controller transport environment
+  ansible.builtin.set_fact:
+    valetudo_robot_transport_env:
+      ROBOT_TRANSPORT: "{{ valetudo_robot_transport }}"
+      ROBOT_HOST: "{{ ansible_host | default(inventory_hostname) }}"
+      ROBOT_SSH_KEY: "{{ ansible_ssh_private_key_file | default(ansible_private_key_file | default('')) }}"
+      ROBOT_KNOWN_HOSTS: "{{ valetudo_robot_known_hosts }}"
+      ROBOT_CONTAINER: "{{ valetudo_robot_container }}"
+  no_log: true
+
+- name: Assert valetudo_robot transport settings are complete
+  ansible.builtin.assert:
+    that:
+      - >-
+        valetudo_robot_transport != 'ssh'
+        or (valetudo_robot_transport_env.ROBOT_HOST | length > 0
+            and valetudo_robot_transport_env.ROBOT_SSH_KEY | length > 0
+            and valetudo_robot_transport_env.ROBOT_KNOWN_HOSTS | length > 0)
+      - valetudo_robot_transport != 'docker' or valetudo_robot_container | length > 0
+    fail_msg: >-
+      valetudo_robot transport '{{ valetudo_robot_transport }}' is missing settings: ssh needs
+      ansible_host, ansible_ssh_private_key_file and valetudo_robot_known_hosts; docker needs
+      valetudo_robot_container.
+    quiet: true
+
+- name: Read robot architecture
+  ansible.builtin.raw: uname -m
+  register: valetudo_robot_uname
+  changed_when: false
+  check_mode: false
+
+# raw may allocate a PTY, so stdout can carry CR characters and stderr lines.
+- name: Assert robot architecture matches valetudo_robot_expected_arch
+  vars:
+    valetudo_robot_detected_arch: >-
+      {{ valetudo_robot_uname.stdout_lines | map('trim') | reject('equalto', '') | list | last | default('') }}
+  ansible.builtin.assert:
+    that:
+      - valetudo_robot_detected_arch == valetudo_robot_expected_arch
+    fail_msg: >-
+      Robot architecture '{{ valetudo_robot_detected_arch }}' does not match
+      valetudo_robot_expected_arch '{{ valetudo_robot_expected_arch }}'.
+    quiet: true

@@ -1,0 +1,37 @@
+---
+# Tasks for valetudo_robot role. The robot runs BusyBox without Python, so
+# robot-side work uses ansible.builtin.raw and byte transfers go through the
+# controller-side robot-transport.sh helper.
+
+- name: Run valetudo_robot preflight checks
+  ansible.builtin.import_tasks: preflight.yml
+  tags: [preflight, always]
+
+- name: Capture valetudo_robot calibration backup
+  ansible.builtin.import_tasks: backup.yml
+  tags: [backup]
+
+- name: Install valetudo_robot binaries and the postboot hook
+  ansible.builtin.import_tasks: install.yml
+  tags: [install]
+
+# install.yml notifies "Reboot robot". Flush it here, before anything talks to
+# Valetudo, so wifi and configure always reach the rebooted robot and a queued
+# reboot is never dropped by wifi's end_host. Tagged always so that partial
+# re-runs (for example --tags configure,tailscale) keep a flush point; with no
+# handler queued it is a no-op.
+- name: Flush valetudo_robot handlers before the Valetudo API phases
+  ansible.builtin.meta: flush_handlers
+  tags: [always]
+
+- name: Submit valetudo_robot Wi-Fi configuration when off the home network
+  ansible.builtin.import_tasks: wifi.yml
+  tags: [wifi]
+
+- name: Configure Valetudo through its REST API
+  ansible.builtin.import_tasks: configure.yml
+  tags: [configure]
+
+- name: Join valetudo_robot to the tailnet
+  ansible.builtin.import_tasks: tailscale.yml
+  tags: [tailscale]

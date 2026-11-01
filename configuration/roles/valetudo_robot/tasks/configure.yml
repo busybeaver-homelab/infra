@@ -1,0 +1,286 @@
+---
+# Configure phase for valetudo_robot: sets Valetudo's HTTP basic auth and the
+# desired settings through its REST API. All calls run on the controller with
+# uri (the robot has no Python). API paths come from role defaults; verify at
+# recon (plan Task 0).
+#
+# Auth handling (Review Focus 3): probe a protected endpoint with the SOPS
+# credentials. If auth is not enabled with those credentials, PUT the auth
+# configuration once (without credentials, retrying with the SOPS credentials
+# only if that is refused), re-probe once and re-read the auth configuration,
+# which must show auth enabled with the SOPS username (a 200 probe alone proves
+# nothing while auth is disabled). A failing re-probe or re-read is fatal:
+# there is no loop.
+#
+# Idempotence: auth is PUT only when the probe or the auth config differs; a
+# setting is PUT only when its `desired` dict is not a subset of the GET
+# response. A converged robot receives zero PUTs.
+#
+# Check mode: GET and probe tasks run (check_mode: false); PUTs are skipped and
+# a "would change" message is reported. Every task that sends or receives
+# credentials or API responses is no_log, and no failure message names the base
+# URL or echoes a response.
+
+# R2-GOV-05: fail closed on a missing input; messages never include values.
+- name: Assert the configure inputs are set
+  ansible.builtin.assert:
+    that:
+      - lookup('ansible.builtin.vars', item, default='') is string
+      - lookup('ansible.builtin.vars', item, default='') | length > 0
+    fail_msg: "{{ item }} must be set to a non-empty value (R2-GOV-05)."
+    quiet: true
+  loop:
+    - valetudo_robot_api_base_url
+    - valetudo_robot_basic_auth_username
+    - valetudo_robot_basic_auth_password
+
+- name: Configure Valetudo from the controller
+  delegate_to: localhost
+  become: false
+  vars:
+    valetudo_robot_api_root: "{{ valetudo_robot_api_base_url | regex_replace('/+$', '') }}"
+  block:
+    - name: Wait for the Valetudo API to answer
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ valetudo_robot_api_version_path }}"
+        method: GET
+        status_code: [200, 401]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      register: valetudo_robot_api_ready
+      until: valetudo_robot_api_ready.status | default(-1) in [200, 401]
+      retries: 6
+      delay: 5
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      no_log: true
+
+    - name: Fail when the Valetudo API does not answer
+      ansible.builtin.fail:
+        msg: The Valetudo API did not answer; check that the robot is up and the API base URL is correct.
+      when: valetudo_robot_api_ready.status | default(-1) not in [200, 401]
+
+    - name: Probe a protected endpoint with the SOPS basic-auth credentials
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ valetudo_robot_api_probe_path }}"
+        method: GET
+        url_username: "{{ valetudo_robot_basic_auth_username }}"
+        url_password: "{{ valetudo_robot_basic_auth_password }}"
+        force_basic_auth: true
+        status_code: [200, 401]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      register: valetudo_robot_auth_probe
+      changed_when: false
+      check_mode: false
+      no_log: true
+
+    - name: Read the Valetudo basic-auth configuration
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ valetudo_robot_api_auth_config_path }}"
+        method: GET
+        url_username: "{{ valetudo_robot_basic_auth_username }}"
+        url_password: "{{ valetudo_robot_basic_auth_password }}"
+        force_basic_auth: true
+        status_code: [200, 401]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      register: valetudo_robot_auth_config
+      changed_when: false
+      check_mode: false
+      no_log: true
+
+    # A 200 probe proves the password only while auth is enabled, so the auth
+    # config must also say enabled with the SOPS username.
+    - name: Decide whether the basic-auth configuration must change
+      ansible.builtin.set_fact:
+        valetudo_robot_auth_in_sync: >-
+          {{ valetudo_robot_auth_probe.status | default(0) == 200
+          and valetudo_robot_auth_config.status | default(0) == 200
+          and (valetudo_robot_auth_config.json.enabled | default(false)) is true
+          and valetudo_robot_auth_config.json.username | default('') == valetudo_robot_basic_auth_username }}
+      no_log: true
+
+    - name: Report that the basic-auth configuration would change
+      ansible.builtin.debug:
+        msg: "Check mode: would enable Valetudo basic auth with the SOPS credentials (PUT skipped)."
+      when:
+        - ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+
+    - name: Enable basic auth without credentials
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ valetudo_robot_api_auth_config_path }}"
+        method: PUT
+        body_format: json
+        body:
+          enabled: true
+          username: "{{ valetudo_robot_basic_auth_username }}"
+          password: "{{ valetudo_robot_basic_auth_password }}"
+        status_code: [200, 204, 401, 403]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      register: valetudo_robot_auth_put
+      changed_when: valetudo_robot_auth_put.status | default(0) in [200, 204]
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+      no_log: true
+
+    - name: Retry enabling basic auth with the SOPS credentials
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ valetudo_robot_api_auth_config_path }}"
+        method: PUT
+        url_username: "{{ valetudo_robot_basic_auth_username }}"
+        url_password: "{{ valetudo_robot_basic_auth_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          enabled: true
+          username: "{{ valetudo_robot_basic_auth_username }}"
+          password: "{{ valetudo_robot_basic_auth_password }}"
+        status_code: [200, 204, 401, 403]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      register: valetudo_robot_auth_put_retry
+      changed_when: valetudo_robot_auth_put_retry.status | default(0) in [200, 204]
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+        - valetudo_robot_auth_put.status | default(0) not in [200, 204]
+      no_log: true
+
+    - name: Re-probe the protected endpoint after the basic-auth change
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ valetudo_robot_api_probe_path }}"
+        method: GET
+        url_username: "{{ valetudo_robot_basic_auth_username }}"
+        url_password: "{{ valetudo_robot_basic_auth_password }}"
+        force_basic_auth: true
+        status_code: [200, 401]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      register: valetudo_robot_auth_reprobe
+      changed_when: false
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+      no_log: true
+
+    # Review Focus 3: no retry loop. One re-probe, then a clear failure.
+    - name: Fail when Valetudo accepted the auth change but the re-probe still fails
+      ansible.builtin.fail:
+        msg: >-
+          basic auth PUT was accepted but the re-probe still fails; re-run with --tags configure
+          or check Valetudo's auth settings
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+        - valetudo_robot_auth_reprobe.status | default(0) != 200
+        - >-
+          valetudo_robot_auth_put.status | default(0) in [200, 204]
+          or valetudo_robot_auth_put_retry.status | default(0) in [200, 204]
+
+    - name: Fail when Valetudo rejected the auth change
+      ansible.builtin.fail:
+        msg: >-
+          basic auth could not be set: Valetudo rejects the SOPS credentials and refuses unauthenticated
+          changes; reset auth via SSH per runbook
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+        - valetudo_robot_auth_reprobe.status | default(0) != 200
+        - valetudo_robot_auth_put.status | default(0) not in [200, 204]
+        - valetudo_robot_auth_put_retry.status | default(0) not in [200, 204]
+
+    # A 200 probe is not proof: Valetudo answers 200 while auth is disabled, and a
+    # PUT can be acknowledged without taking effect. Re-read the real state and
+    # require auth enabled with the SOPS username. (API path: verify at recon.)
+    - name: Re-read the Valetudo basic-auth configuration after the change
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ valetudo_robot_api_auth_config_path }}"
+        method: GET
+        url_username: "{{ valetudo_robot_basic_auth_username }}"
+        url_password: "{{ valetudo_robot_basic_auth_password }}"
+        force_basic_auth: true
+        status_code: [200, 401]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      register: valetudo_robot_auth_recheck
+      changed_when: false
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+      no_log: true
+
+    - name: Fail when the basic-auth configuration did not take effect
+      ansible.builtin.fail:
+        msg: >-
+          basic auth PUT was accepted but Valetudo's auth configuration does not show auth enabled
+          with the SOPS username; re-run with --tags configure or check Valetudo's auth settings
+      when:
+        - not ansible_check_mode
+        - not valetudo_robot_auth_in_sync | bool
+        - >-
+          valetudo_robot_auth_recheck.status | default(0) != 200
+          or (valetudo_robot_auth_recheck.json.enabled | default(false)) is not true
+          or valetudo_robot_auth_recheck.json.username | default('') != valetudo_robot_basic_auth_username
+
+    - name: Read the current Valetudo settings
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ item.path }}"
+        method: GET
+        url_username: "{{ valetudo_robot_basic_auth_username }}"
+        url_password: "{{ valetudo_robot_basic_auth_password }}"
+        force_basic_auth: true
+        # Check mode may run before auth is enabled, so a 401 only means "would change" there.
+        status_code: "{{ [200, 401] if ansible_check_mode else [200] }}"
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      loop: "{{ valetudo_robot_settings }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: valetudo_robot_settings_current
+      changed_when: false
+      check_mode: false
+      no_log: true
+
+    # A setting is in sync when `desired` is a (recursive) subset of the response.
+    - name: Work out which settings differ from the desired state
+      ansible.builtin.set_fact:
+        valetudo_robot_settings_pending: >-
+          {% set pending = [] %}{% for result in valetudo_robot_settings_current.results
+          if result.status | default(0) != 200
+          or result.json is not mapping
+          or (result.json | combine(result.item.desired, recursive=true)) != result.json %}
+          {% set _ = pending.append(result.item) %}{% endfor %}{{ pending | to_json }}
+      no_log: true
+
+    - name: Report the settings that already match
+      vars:
+        valetudo_robot_pending_names: "{{ valetudo_robot_settings_pending | from_json | map(attribute='name') | list }}"
+      ansible.builtin.debug:
+        msg: "ok: {{ valetudo_robot_settings | map(attribute='name') | difference(valetudo_robot_pending_names) | join(', ') }}"
+      when: valetudo_robot_settings | length > 0
+
+    - name: Report the settings that would change
+      ansible.builtin.debug:
+        msg: "Check mode: would change setting {{ item.name }} (PUT skipped)."
+      loop: "{{ valetudo_robot_settings_pending | from_json }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: ansible_check_mode
+
+    - name: Apply the settings that differ
+      ansible.builtin.uri:
+        url: "{{ valetudo_robot_api_root }}{{ item.path }}"
+        method: PUT
+        url_username: "{{ valetudo_robot_basic_auth_username }}"
+        url_password: "{{ valetudo_robot_basic_auth_password }}"
+        force_basic_auth: true
+        body_format: json
+        body: "{{ item.put_body }}"
+        status_code: [200, 204]
+        timeout: "{{ valetudo_robot_api_timeout }}"
+      loop: "{{ valetudo_robot_settings_pending | from_json }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: true
+      when: not ansible_check_mode
+      no_log: true
+  rescue:
+    - name: Fail again with the configure phase failure
+      ansible.builtin.import_tasks: reraise.yml

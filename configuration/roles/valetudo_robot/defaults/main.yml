@@ -1,0 +1,61 @@
+---
+# Defaults for valetudo_robot role (rooted Dreame X40 Ultra, BusyBox userland)
+
+# Pinned Valetudo release (static aarch64 binary) and its SHA-256 checksum
+# renovate: datasource=github-releases depName=Hypfer/Valetudo
+valetudo_robot_valetudo_version: "2026.10.0"
+valetudo_robot_valetudo_sha256: "cdc0c8723e2c924176f0d278df4e01899da10c3765acea97f0d3011ef845432d"
+
+# Pinned Tailscale stable release (static arm64 tarball from pkgs.tailscale.com)
+# and the SHA-256 checksum of the .tgz
+# renovate: datasource=github-releases depName=tailscale/tailscale
+valetudo_robot_tailscale_version: "1.104.4"
+valetudo_robot_tailscale_sha256: "a1c249ce6bdebef62e1ae3b997595555bce2ae4709bf95a718e9ca7a129dad7e"
+
+# Download URL templates for the pinned artifacts. Molecule points them at
+# synthetic file:// artifacts; production uses the upstream release URLs.
+valetudo_robot_valetudo_url: "https://github.com/Hypfer/Valetudo/releases/download/{{ valetudo_robot_valetudo_version }}/valetudo-aarch64"
+valetudo_robot_tailscale_url: "https://pkgs.tailscale.com/stable/tailscale_{{ valetudo_robot_tailscale_version }}_arm64.tgz"
+
+# Controller-side cache for the verified downloads and the extracted Tailscale tarball
+valetudo_robot_cache_dir: "{{ playbook_dir }}/../../.cache/valetudo_robot"
+
+# Architecture reported by `uname -m` on the robot
+valetudo_robot_expected_arch: aarch64
+
+# Controller-to-robot transport for robot-transport.sh (docker is Molecule only)
+valetudo_robot_transport: ssh
+valetudo_robot_container: ""
+valetudo_robot_known_hosts: "{{ playbook_dir }}/../../.cache/ansible/robot_known_hosts"
+# Gitignored controller directory (0700) for the short-lived auth key tempfile; its
+# robot_key.* files are swept by the robots playbook after an interrupted run
+valetudo_robot_controller_cache_dir: "{{ playbook_dir }}/../../.cache/ansible"
+
+# One-time calibration capture into the git-crypt protected backups/ tree
+valetudo_robot_backup_repo_root: "{{ playbook_dir }}/../.."
+valetudo_robot_backup_dir: "{{ playbook_dir }}/../../backups/robots/x40-ultra"
+valetudo_robot_backup_label: x40-ultra
+
+# Feature toggles
+valetudo_robot_reboot_enabled: true
+valetudo_robot_tailscale_enabled: true
+valetudo_robot_tailscale_tag: "tag:type-iot"
+
+# Controller helper that reads the single-use robot auth key from the
+# infrastructure/mesh OpenTofu outputs, plus extra arguments for it (tests pass
+# --mesh-json <fixture>). The hostname has no default: set it from SOPS.
+valetudo_robot_tofu_vars_script: "{{ valetudo_robot_backup_repo_root }}/scripts/get-tofu-robot-vars.sh"
+valetudo_robot_tofu_vars_args: []
+
+# Valetudo settings applied through the REST API by the configure phase
+valetudo_robot_settings: []
+
+# Valetudo REST API paths used by the wifi and configure phases. These are the
+# documented v2 paths; verify at recon (plan Task 0).
+valetudo_robot_api_version_path: /api/v2/valetudo/version
+valetudo_robot_api_auth_config_path: /api/v2/valetudo/config/interfaces/http/auth
+valetudo_robot_api_wifi_path: /api/v2/robot/capabilities/WifiConfigurationCapability
+# Protected endpoint the configure phase probes with the basic-auth credentials
+valetudo_robot_api_probe_path: /api/v2/robot/capabilities
+# Per-request timeout in seconds for the controller-side API calls
+valetudo_robot_api_timeout: 10

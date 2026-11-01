@@ -255,6 +255,13 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "ci.yml runs the valetudo_robot role scenario in the molecule matrix" {
+  run yq eval '.jobs.molecule.strategy.matrix.include[] | select(.scenario == "valetudo_robot") | .workdir + "|" + .args' "$WORKFLOW"
+  [ "$status" -eq 0 ]
+  [ "$output" = "configuration/roles/valetudo_robot|test" ]
+  [ -f "$REPO_ROOT/configuration/roles/valetudo_robot/molecule/default/molecule.yml" ]
+}
+
 @test "ci.yml caches OpenTofu plugins in tofu-validate job" {
   local cache_step
   cache_step=$(yq eval '.jobs.tofu-validate.steps[] | select(.name == "Cache OpenTofu Plugins")' "$WORKFLOW")
@@ -432,7 +439,7 @@ setup() {
   [ "$output" = "0" ]
 
   run yq '.jobs.molecule.strategy.matrix.include | length' "$WORKFLOW"
-  [ "$output" = "6" ]
+  [ "$output" = "7" ]
 
   run yq '[.jobs.molecule.steps[] | select(.name == "Run Molecule (${{ matrix.scenario }})")] | length' "$WORKFLOW"
   [ "$output" = "1" ]

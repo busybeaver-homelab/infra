@@ -604,6 +604,56 @@ console.log("cosign customManager ok: " + m.groups.currentValue);
   [[ "$output" == *"cosign customManager ok"* ]] || false
 }
 
+@test "renovate tracks valetudo_robot pins with automerge disabled" {
+  local config="${REPO_ROOT}/.github/renovate.json5"
+  local defaults_yml="${REPO_ROOT}/configuration/roles/valetudo_robot/defaults/main.yml"
+  run node -e '
+const fs = require("fs");
+const config = eval("(" + fs.readFileSync(process.argv[1], "utf8") + ")");
+const path = "configuration/roles/valetudo_robot/defaults/main.yml";
+const mgr = (config.customManagers || []).find(m =>
+  m.customType === "regex" &&
+  Array.isArray(m.managerFilePatterns) &&
+  m.managerFilePatterns.some(p => new RegExp(p).test(path))
+);
+if (!mgr) { console.error("valetudo_robot customManager missing"); process.exit(1); }
+const content = fs.readFileSync(process.argv[2], "utf8");
+const found = {};
+for (const ms of mgr.matchStrings) {
+  for (const m of content.matchAll(new RegExp(ms, "g"))) {
+    if (m.groups.datasource !== "github-releases" || !m.groups.currentValue) {
+      console.error("bad match: " + JSON.stringify(m.groups)); process.exit(1);
+    }
+    found[m.groups.depName] = m.groups.currentValue;
+  }
+}
+for (const dep of ["Hypfer/Valetudo", "tailscale/tailscale"]) {
+  if (!found[dep]) { console.error("pin not matched: " + dep); process.exit(1); }
+}
+const extract = new RegExp(mgr.extractVersionTemplate || "^(?<version>.*)$");
+const ver = (extract.exec("v" + found["tailscale/tailscale"]) || {}).groups;
+if (!ver || ver.version !== found["tailscale/tailscale"]) {
+  console.error("extractVersionTemplate must strip the leading v of tailscale tags"); process.exit(1);
+}
+const rules = config.packageRules;
+const automergeIdx = rules.findIndex(r => r.automerge === true && r.platformAutomerge === true);
+for (const dep of ["Hypfer/Valetudo", "tailscale/tailscale"]) {
+  const last = rules.map((r, i) => (Array.isArray(r.matchPackageNames) && r.matchPackageNames.includes(dep)) ? i : -1)
+    .filter(i => i >= 0).pop();
+  if (last === undefined || rules[last].automerge !== false || last < automergeIdx) {
+    console.error("never-automerge gate missing or before the automerge rule: " + dep); process.exit(1);
+  }
+  // The tailscale/tailscale name also matches the OpenTofu provider, so the gate is file-scoped.
+  if (!Array.isArray(rules[last].matchFileNames) || !rules[last].matchFileNames.includes(path)) {
+    console.error("never-automerge gate must be constrained to the valetudo_robot defaults file: " + dep); process.exit(1);
+  }
+}
+console.log("valetudo_robot pins tracked: " + Object.keys(found).sort().join(","));
+' "$config" "$defaults_yml"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"valetudo_robot pins tracked: Hypfer/Valetudo,tailscale/tailscale"* ]] || false
+}
+
 @test ".github/renovate.json5 disables the terraform required_version depType" {
   local config="${REPO_ROOT}/.github/renovate.json5"
   run node -e '

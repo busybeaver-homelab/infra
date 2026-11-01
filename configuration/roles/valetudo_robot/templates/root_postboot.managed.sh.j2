@@ -1,0 +1,6 @@
+# Managed by Ansible (valetudo_robot): do not edit between the markers.
+# Start Tailscale in userspace networking once its binary is installed.
+if [ -x /data/tailscale/tailscaled ]; then
+  mkdir -p /data/tailscale/state
+  /data/tailscale/tailscaled --tun=userspace-networking --statedir=/data/tailscale/state --socket=/tmp/tailscaled.sock --no-logs-no-support >/dev/null 2>&1 &
+fi

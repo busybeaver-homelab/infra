@@ -392,6 +392,9 @@ jobs:
           - scenario: homelab
             workdir: configuration
             args: test -s homelab
+          - scenario: valetudo_robot
+            workdir: configuration/roles/valetudo_robot
+            args: test
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
