@@ -14,13 +14,6 @@ override_data {
               "description": "Infrastructure as Code for my homelab environment",
               "topics": ["homelab", "infrastructure-as-code", "iac"]
             }
-          },
-          "deploy_keys": {
-            "work-laptop": {
-              "title": "work-laptop",
-              "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
-              "read_only": false
-            }
           }
         }
       EOT
@@ -80,8 +73,8 @@ run "policy_invariants" {
       keys(local.ci_environment_secrets) == ["SOPS_AGE_KEY_CI"] &&
       !contains(keys(local.backup_environment_secrets), "SOPS_AGE_KEY_CI") &&
       !contains(keys(local.ops_environment_secrets), "SOPS_AGE_KEY_CI") &&
-      module.repository["infra"].deploy_keys["work-laptop"].read_only == false
+      length(module.repository["infra"].deploy_keys) == 0
     )
-    error_message = "GitHub Actions permissions must require SHA pinning on selected actions, deploy key must retain read-write permissions to push code, and CI Age key must stay isolated to the ci environment (STD-OT-52, STD-OT-59)."
+    error_message = "GitHub Actions permissions must require SHA pinning on selected actions, no deploy key may be registered (agents push via the GitHub App), and CI Age key must stay isolated to the ci environment (STD-OT-52, STD-OT-59)."
   }
 }

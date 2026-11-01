@@ -107,7 +107,7 @@ variable "deploy_keys" {
   sensitive   = true
   default     = {}
 
-  # Note: read-write permissions (`read_only = false`) are permitted and required on the deploy key to push code.
+  # The infra deploy key is retired; agents push via the GitHub App. Kept for future use; read-write keys stay permitted.
 
   validation {
     condition     = alltrue([for k, v in var.deploy_keys : !can(regex("@", v.key))])

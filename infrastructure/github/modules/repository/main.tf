@@ -256,7 +256,7 @@ resource "github_repository_deploy_key" "deploy_keys" {
   repository = github_repository.repo.name
   title      = var.deploy_keys[each.key].title
   key        = var.deploy_keys[each.key].key
-  # Read-write permissions (`read_only = false`) are required on the deploy key to push code.
+  # Read-write keys (`read_only = false`) stay permitted; the infra repository currently registers none.
   read_only = var.deploy_keys[each.key].read_only
 }
 

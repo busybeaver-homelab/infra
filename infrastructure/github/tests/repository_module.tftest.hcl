@@ -136,7 +136,7 @@ run "verify_repository_child_module" {
 
   assert {
     condition     = github_repository_deploy_key.deploy_keys["work-laptop"].read_only == false
-    error_message = "Deploy key work-laptop must support read_only = false (read-write permissions required to push code)"
+    error_message = "Deploy key work-laptop must support read_only = false (read-write keys stay permitted)"
   }
 
   assert {

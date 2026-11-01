@@ -14,13 +14,6 @@ override_data {
               "description": "Infrastructure as Code for my homelab environment",
               "topics": ["homelab", "infrastructure-as-code", "iac"]
             }
-          },
-          "deploy_keys": {
-            "work-laptop": {
-              "title": "work-laptop",
-              "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
-              "read_only": false
-            }
           }
         }
       EOT
@@ -167,8 +160,8 @@ run "verify_github_root_hardening" {
   }
 
   assert {
-    condition     = contains(keys(module.repository["infra"].deploy_keys), "work-laptop") && module.repository["infra"].deploy_keys["work-laptop"].read_only == false
-    error_message = "Deploy key work-laptop must be registered from SOPS with read_only = false (read-write permissions required to push code)"
+    condition     = length(module.repository["infra"].deploy_keys) == 0
+    error_message = "No deploy key may be registered when SOPS github.config has no deploy_keys (retired; agents push via the GitHub App)"
   }
 }
 
@@ -211,6 +204,86 @@ run "merge_queue_root_override_disables_queue" {
   assert {
     condition     = module.repository["infra"].ci_deployment_branch_patterns == tolist(["main", "refs/pull/*/merge"])
     error_message = "CI environment must drop merge queue refs when the merge queue is disabled"
+  }
+}
+
+run "sops_deploy_keys_still_registered" {
+  command = plan
+
+  override_data {
+    target = data.external.sops_github_config
+    values = {
+      result = {
+        json = <<-EOT
+          {
+            "repositories": {
+              "infra": {
+                "name": "infra",
+                "description": "Infrastructure as Code for my homelab environment",
+                "topics": ["homelab", "infrastructure-as-code", "iac"]
+              }
+            },
+            "deploy_keys": {
+              "sops-key": {
+                "title": "sops-key",
+                "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockSopsKeyForTestingOnly00000000000000000000",
+                "read_only": true
+              }
+            }
+          }
+        EOT
+      }
+    }
+  }
+
+  assert {
+    condition     = keys(module.repository["infra"].deploy_keys) == ["sops-key"]
+    error_message = "Deploy keys present in SOPS github.config.deploy_keys must still be registered (mechanism kept for future use)"
+  }
+}
+
+run "deploy_keys_variable_overrides_sops" {
+  command = plan
+
+  override_data {
+    target = data.external.sops_github_config
+    values = {
+      result = {
+        json = <<-EOT
+          {
+            "repositories": {
+              "infra": {
+                "name": "infra",
+                "description": "Infrastructure as Code for my homelab environment",
+                "topics": ["homelab", "infrastructure-as-code", "iac"]
+              }
+            },
+            "deploy_keys": {
+              "sops-key": {
+                "title": "sops-key",
+                "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockSopsKeyForTestingOnly00000000000000000000",
+                "read_only": true
+              }
+            }
+          }
+        EOT
+      }
+    }
+  }
+
+  variables {
+    deploy_keys = {
+      "override-key" = {
+        title     = "override-key"
+        key       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockOverrideKeyForTestingOnly000000000000000"
+        read_only = true
+      }
+    }
+  }
+
+  assert {
+    condition     = keys(module.repository["infra"].deploy_keys) == ["override-key"]
+    error_message = "A non-empty deploy_keys variable must replace, not merge with, the SOPS deploy keys"
   }
 }
 

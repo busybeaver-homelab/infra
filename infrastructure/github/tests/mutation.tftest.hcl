@@ -14,13 +14,6 @@ override_data {
               "description": "Infrastructure as Code for my homelab environment",
               "topics": ["homelab", "infrastructure-as-code", "iac"]
             }
-          },
-          "deploy_keys": {
-            "work-laptop": {
-              "title": "work-laptop",
-              "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyForTestingOnly0000000000000000000000",
-              "read_only": false
-            }
           }
         }
       EOT
@@ -84,7 +77,7 @@ run "mutate_deploy_keys" {
 
   assert {
     condition     = contains(keys(module.repository["infra"].deploy_keys), "work-laptop")
-    error_message = "Work laptop deploy key must remain registered"
+    error_message = "The deploy_keys variable override must still register work-laptop"
   }
 }
 
