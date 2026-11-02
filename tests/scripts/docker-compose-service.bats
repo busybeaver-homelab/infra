@@ -257,6 +257,11 @@ JSON
       if [ -n "${STUB_FAIL_UP_FOR_TAG:-}" ] && [[ "${compose_file}" == *"${STUB_FAIL_UP_FOR_TAG}"* ]]; then
         exit 1
       fi
+      if [ -n "${STUB_TERM_PARENT_ON_UP:-}" ]; then
+        kill -TERM "${PPID}"
+        sleep 5
+        exit 1
+      fi
       exit "${STUB_UP_RC:-0}"
       ;;
     ps)
@@ -938,6 +943,49 @@ run_cleanup() {
   [ "$(readlink "${BATS_TMPDIR}/opt/containers/current")" = "${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-1" ]
 }
 
+@test "reconcile: redeploy marker with a manifest that no longer validates exits non-zero without up, quarantine or GitHub and removes the marker" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp" "services: {web: {image: 'v1'}}"
+  run_reconcile
+  [ "$status" -eq 0 ]
+  rm -f "${BATS_TMPDIR}/docker_up.log" "${BATS_TMPDIR}/curl.stdin.log" "${BATS_TMPDIR}/curl.argv.log"
+
+  : >"${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested"
+  STUB_VARIABLES_JSON='{"MISSING_SECRET":{"Name":"MISSING_SECRET","DefaultValue":"","PresenceValue":""}}' \
+    STUB_CURL_RC=22 run_reconcile
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"MISSING_SECRET"* ]]
+  [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/deploying" ]
+  [ ! -e "${BATS_TMPDIR}/curl.stdin.log" ]
+  [ ! -e "${BATS_TMPDIR}/curl.argv.log" ]
+  [ "$(readlink "${BATS_TMPDIR}/opt/containers/current")" = "${BATS_TMPDIR}/opt/containers/releases/v2026.10.16-1" ]
+}
+
+@test "reconcile: redeploy marker survives a reconciler killed during up and is retried by the next start" {
+  render_templates
+  prepare_mock_release "v2026.10.16-1" "gcp" "services: {web: {image: 'v1'}}"
+  run_reconcile
+  [ "$status" -eq 0 ]
+  rm -f "${BATS_TMPDIR}/docker_up.log"
+
+  : >"${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested"
+  STUB_TERM_PARENT_ON_UP=1 STUB_CURL_RC=22 run_reconcile
+  [ "$status" -ne 0 ]
+  [ -e "${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested" ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release" ]
+  run grep -c "^up " "${BATS_TMPDIR}/docker_up.log"
+  [ "$output" -eq 1 ]
+
+  STUB_CURL_RC=22 run_reconcile
+  [ "$status" -eq 0 ]
+  [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested" ]
+  run grep -c "^up " "${BATS_TMPDIR}/docker_up.log"
+  [ "$output" -eq 2 ]
+}
+
 @test "reconcile: redeploy marker without current is removed and the normal path runs" {
   render_templates
   prepare_mock_release "v2026.10.16-1" "gcp" "services: {web: {image: 'v1'}}"
@@ -1061,4 +1109,47 @@ PY
   [ "$status" -eq 0 ]
   run grep -F '"{{ docker_compose_service_state_dir }}/redeploy-requested"' "${f}"
   [ "$status" -eq 0 ]
+}
+
+@test "reconcile_on_converge=false is documented as promoting without the check and never deploying" {
+  run grep -F "WITHOUT the check" "${ROLE_DIR}/defaults/main.yml"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"never deploys or redeploys"* ]]
+  run grep -F "WITHOUT the check" "${ROLE_DIR}/meta/argument_specs.yml"
+  [ "$status" -eq 0 ]
+}
+
+@test "converge flow keys redeploys on the previous slot and waits for an idle reconcile unit before each marker" {
+  local f="${ROLE_DIR}/tasks/converge_reconcile.yml"
+  run python3 - "${f}" <<'PY'
+import sys
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    tasks = yaml.safe_load(handle)[0]["block"]
+
+names = [t.get("name", "") for t in tasks]
+stat_idx = next(i for i, n in enumerate(names) if n.startswith("Check whether a previous settings slot"))
+promo_idx = next(i for i, n in enumerate(names) if n.startswith("Promote the staged settings"))
+assert stat_idx < promo_idx, "previous slot must be inspected before promotion"
+
+redeploy = next(t for t in tasks if t.get("name", "").startswith("Redeploy the current release"))
+assert any("previous_before_stat" in str(w) for w in redeploy["when"])
+
+def sequence(task_list):
+    return [t.get("name", "") for t in task_list]
+
+for section in (redeploy["block"], redeploy["rescue"]):
+    seq = sequence(section)
+    wait = next(i for i, n in enumerate(seq) if n.startswith("Wait for an in-flight reconciler run"))
+    marker = next(i for i, n in enumerate(seq) if n.startswith("Request a redeploy"))
+    assert wait < marker
+    wait_task = section[wait]["ansible.builtin.command"]["argv"]
+    assert wait_task == ["systemctl", "show", "homelab-compose-reconcile.service", "--property=ActiveState", "--value"]
+    assert section[wait]["retries"] == 290 and section[wait]["delay"] == 10
+    assert section[wait]["changed_when"] is False
+print("ok")
+PY
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok" ]]
 }

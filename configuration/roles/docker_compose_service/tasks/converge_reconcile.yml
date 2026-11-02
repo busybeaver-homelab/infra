@@ -5,7 +5,16 @@
 # Order, each step only after the previous one succeeded: check the latest release against
 # the staged env -> promote the staged env into the active slot (keeping a .previous copy)
 # -> first-run deploy when there is no current release, or redeploy current when the active
-# env changed (restoring .previous on failure) -> drop .previous.
+# env changed or a .previous slot is left over from an unfinished apply (restoring .previous
+# on failure) -> drop .previous.
+#
+# homelab_compose_env.previous is the durable "apply not finished" signal: it exists from the
+# promotion until the redeploy succeeded, so a run that died in between is finished by the next
+# run even though that run's promotion changes nothing.
+#
+# Before a redeploy marker is written, the role waits until the reconcile unit is idle. A
+# systemctl start on an activating oneshot joins the in-flight job, which may have loaded the
+# old credential and may consume the marker with the old settings.
 #
 # Failure messages written by this file's fail tasks name the unit and the journalctl command
 # and never include env values. Any other failure is reported by task name only, because the
@@ -28,9 +37,15 @@
     - name: Fail when the staged settings did not pass the release check
       ansible.builtin.fail:
         msg: >-
-          homelab-compose-check.service failed: the staged settings do not pass the latest release check, so the active
-          settings and the timers were left unchanged. Inspect it with: journalctl -u homelab-compose-check.service
+          homelab-compose-check.service failed: the latest release check did not pass (staged settings, release
+          integrity, GitHub reachability or the shared lock), so the active settings and the timers were left unchanged.
+          Inspect it with: journalctl -u homelab-compose-check.service
       when: docker_compose_service_check_start.rc != 0
+
+    - name: Check whether a previous settings slot is left over from an unfinished apply
+      ansible.builtin.stat:
+        path: "{{ docker_compose_service_credstore_dir }}/homelab_compose_env.previous"
+      register: docker_compose_service_previous_before_stat
 
     - name: Promote the staged settings into the active credential slot
       ansible.builtin.command:
@@ -82,11 +97,27 @@
         - not docker_compose_service_current_stat.stat.exists
         - docker_compose_service_first_deploy.rc != 0
 
-    - name: Redeploy the current release when the active settings changed
+    - name: Redeploy the current release when the active settings changed or an earlier apply did not finish
       when:
         - docker_compose_service_current_stat.stat.exists
-        - docker_compose_service_env_promotion is changed
+        - >-
+          docker_compose_service_env_promotion is changed
+          or docker_compose_service_previous_before_stat.stat.exists
       block:
+        - name: Wait for an in-flight reconciler run to finish before requesting the redeploy
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - show
+              - homelab-compose-reconcile.service
+              - --property=ActiveState
+              - --value
+          register: docker_compose_service_redeploy_idle
+          until: docker_compose_service_redeploy_idle.stdout not in ['activating', 'active', 'deactivating']
+          retries: 290
+          delay: 10
+          changed_when: false
+
         - name: Request a redeploy of the current release
           ansible.builtin.copy:
             content: ""
@@ -105,10 +136,44 @@
           changed_when: true
           failed_when: false
 
+        - name: Check whether the redeploy request was consumed by the first start
+          ansible.builtin.stat:
+            path: "{{ docker_compose_service_state_dir }}/redeploy-requested"
+          register: docker_compose_service_redeploy_marker_first
+
+        - name: Start the reconciler once more because the first start did not consume the redeploy request # noqa: command-instead-of-module
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - start
+              - homelab-compose-reconcile.service
+          register: docker_compose_service_redeploy_second
+          changed_when: true
+          failed_when: false
+          when: docker_compose_service_redeploy_marker_first.stat.exists
+
+        - name: Check whether the redeploy request was consumed by the second start
+          ansible.builtin.stat:
+            path: "{{ docker_compose_service_state_dir }}/redeploy-requested"
+          register: docker_compose_service_redeploy_marker_second
+          when: docker_compose_service_redeploy_marker_first.stat.exists
+
+        - name: Fail when the redeploy request was never consumed
+          ansible.builtin.fail:
+            msg: >-
+              homelab-compose-reconcile.service did not consume the redeploy request after two starts (an in-flight run
+              or a lock timeout may have interfered). Inspect it with: journalctl -u homelab-compose-reconcile.service
+          when:
+            - docker_compose_service_redeploy_marker_second is not skipped
+            - docker_compose_service_redeploy_marker_second.stat.exists
+
         - name: Fail when the redeploy with the changed settings failed
           ansible.builtin.fail:
             msg: redeploy of the current release failed
-          when: docker_compose_service_redeploy.rc != 0
+          when: >-
+            (docker_compose_service_redeploy_second.rc
+             if docker_compose_service_redeploy_second is not skipped
+             else docker_compose_service_redeploy.rc) != 0
       rescue:
         - name: Check whether previous settings are available to restore
           ansible.builtin.stat:
@@ -126,6 +191,21 @@
           when: docker_compose_service_previous_stat.stat.exists
           no_log: true
           diff: false
+
+        - name: Wait for an in-flight reconciler run to finish before requesting the restore
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - show
+              - homelab-compose-reconcile.service
+              - --property=ActiveState
+              - --value
+          register: docker_compose_service_restore_idle
+          until: docker_compose_service_restore_idle.stdout not in ['activating', 'active', 'deactivating']
+          retries: 290
+          delay: 10
+          changed_when: false
+          when: docker_compose_service_previous_stat.stat.exists
 
         - name: Request a redeploy of the restored settings
           ansible.builtin.copy:
@@ -147,13 +227,47 @@
           failed_when: false
           when: docker_compose_service_previous_stat.stat.exists
 
+        - name: Check whether the restore request was consumed by the first start
+          ansible.builtin.stat:
+            path: "{{ docker_compose_service_state_dir }}/redeploy-requested"
+          register: docker_compose_service_restore_marker_first
+          when: docker_compose_service_previous_stat.stat.exists
+
+        - name: Start the reconciler once more because the first start did not consume the restore request # noqa: command-instead-of-module
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - start
+              - homelab-compose-reconcile.service
+          register: docker_compose_service_restore_second
+          changed_when: true
+          failed_when: false
+          when:
+            - docker_compose_service_previous_stat.stat.exists
+            - docker_compose_service_restore_marker_first.stat.exists
+
+        - name: Check whether the restore request was consumed by the second start
+          ansible.builtin.stat:
+            path: "{{ docker_compose_service_state_dir }}/redeploy-requested"
+          register: docker_compose_service_restore_marker_second
+          when:
+            - docker_compose_service_previous_stat.stat.exists
+            - docker_compose_service_restore_marker_first.stat.exists
+
         - name: Fail after the restore attempt of the failed redeploy
           vars:
+            docker_compose_service_restore_final_rc: >-
+              {{ docker_compose_service_restore_second.rc
+                 if docker_compose_service_restore_second is not skipped
+                 else docker_compose_service_restore.rc }}
+            docker_compose_service_restore_unconsumed: >-
+              {{ docker_compose_service_restore_marker_second is not skipped
+                 and docker_compose_service_restore_marker_second.stat.exists }}
             docker_compose_service_restore_outcome: >-
               {{ 'No previous settings were available to restore, so the stack may be down.'
                  if not docker_compose_service_previous_stat.stat.exists
                  else ('The previous settings were restored and the stack came back healthy.'
-                       if docker_compose_service_restore.rc == 0
+                       if (docker_compose_service_restore_final_rc | int == 0 and not docker_compose_service_restore_unconsumed | bool)
                        else 'The previous settings were restored but the restore start FAILED, so the stack may be down.') }}
           ansible.builtin.fail:
             msg: >-

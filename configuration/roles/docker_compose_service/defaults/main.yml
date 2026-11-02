@@ -11,6 +11,8 @@ docker_compose_service_enabled: >-
   | default(false)) | bool }}
 
 # Whether a converge validates the latest release with the non-deploying check unit and, on success, activates the staged credentials.
+# true: check, promote, then first-run deploy or redeploy of the current release when the settings changed.
+# false: promotes the staged settings WITHOUT the check and never deploys or redeploys; only for test scenarios without a release API.
 docker_compose_service_reconcile_on_converge: true
 
 # Whether this role writes /etc/docker/daemon.json directly.

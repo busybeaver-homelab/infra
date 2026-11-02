@@ -17,7 +17,10 @@ argument_specs:
       docker_compose_service_reconcile_on_converge:
         type: bool
         default: true
-        description: Whether a converge runs the non-deploying release check and activates staged credentials only when it passes.
+        description: >-
+          Whether a converge runs the non-deploying release check and activates staged credentials only when it passes,
+          then deploys or redeploys through the reconciler. When false, the staged settings are promoted WITHOUT the check
+          and the role never deploys or redeploys; use false only in test scenarios that have no release API.
       docker_compose_service_manage_daemon_json:
         type: bool
         default: false
