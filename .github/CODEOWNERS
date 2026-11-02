@@ -2,7 +2,10 @@
 # Paths that Renovate updates (workflows, actions, renovate.json5, mise.toml,
 # mise.lock, uv.lock, pyproject.toml, requirements.yml, *.terraform.lock.hcl)
 # are deliberately NOT listed, so dependency updates keep merging automatically
-# (owner decision D7, docs/runbooks/ci-workflows-standards.md STD-CI-69).
+# (owner decision D7, docs/runbooks/ci-workflows-standards.md STD-CI-69),
+# EXCEPT the ops-bound files below: the backup workflows that declare the 'ops'
+# environment, the composite action they run, and the workflow policy check
+# (owner decision 2026-10-21, design 4.7).
 
 /.agents/hooks.json                 @busybeaver
 /.agent/hooks/                     @busybeaver
@@ -43,6 +46,10 @@
 /SECURITY.md                        @busybeaver
 /skills-lock.json                   @busybeaver
 /.github/CODEOWNERS                 @busybeaver
+/.github/workflows/backup-dr-copy.yml @busybeaver
+/.github/workflows/backup-prune.yml @busybeaver
+/.github/actions/setup-environment/ @busybeaver
+/.github/workflows/workflow-policy.yml @busybeaver
 
 # Renovate-managed files inside owned directories: explicitly unowned (later rules win).
 /infrastructure/github/**/versions.tf

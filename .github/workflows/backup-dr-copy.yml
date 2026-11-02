@@ -41,15 +41,11 @@ jobs:
 
       - name: Setup Environment
         uses: $/.github/actions/setup-environment
-
-      - name: Cache Restic Repository Metadata
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/restic
-          key: restic-dr-copy-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            restic-dr-copy-${{ runner.os }}-
+          cache: "false" # no shared tool cache in jobs holding ops secrets (design 4.7)
 
+      # No restic metadata cache: unowned workflows on main can write Actions caches, and a
+      # crafted archive could overwrite tools before restic runs with the ops secrets (design 4.7).
       - name: Copy Latest Primary Snapshots to Cloudflare R2 DR
         id: copy
         env:

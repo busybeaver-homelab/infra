@@ -217,3 +217,15 @@ RUNBOOK_FILE="${REPO_ROOT}/docs/runbooks/restic-restore-drill.md"
   [[ "${hb_run}" == *'exit 1'* ]] || false
   [[ "${hb_run}" != *'exit 0'* ]] || false
 }
+
+@test "ops jobs install mise without the shared Actions cache, which unowned workflows on main can write (design 4.7)" {
+  run yq eval '[.jobs[].steps[] | select(.uses == "*setup-environment*") | .with.cache] | unique | .[]' "${WORKFLOW_FILE}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "false" ]
+}
+
+@test "backup-prune.yml restores no Actions cache, which unowned workflows on main could poison (design 4.7)" {
+  run yq eval '[.jobs[].steps[] | select(.uses == "actions/cache*")] | length' "${WORKFLOW_FILE}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "0" ]
+}

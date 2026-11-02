@@ -218,6 +218,24 @@
       automerge: false,
     },
 
+    // 3c. GitHub Actions pins in the owner-reviewed, ops-bound files (design 4.7): own group, so these
+    // bumps come as separate PRs that wait for owner approval; keep in sync with .github/CODEOWNERS.
+    // Placed after 3a/3b so its group wins; the later automerge/gate rules still decide automerge.
+    {
+      description: "Group GitHub Actions updates in owner-reviewed (CODEOWNERS) ops-bound files separately",
+      matchManagers: ["github-actions"],
+      matchFileNames: [
+        ".github/workflows/backup-dr-copy.yml",
+        ".github/workflows/backup-prune.yml",
+        ".github/actions/setup-environment/**",
+        ".github/workflows/workflow-policy.yml",
+      ],
+      semanticCommitType: "chore",
+      semanticCommitScope: "deps/actions",
+      groupName: "github actions (owner-reviewed files)",
+      groupSlug: "github-actions-owned",
+    },
+
     // 4a. Mise Toolchain (stable >= 1.0)
     {
       description: "Group and scope stable Mise toolchain updates",

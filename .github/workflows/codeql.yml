@@ -197,7 +197,7 @@ jobs:
       - analyze-codeql
       - analyze-iac-and-scripts
     runs-on: ubuntu-26.04 # pinned to the host and Molecule OS; bump deliberately via PR
-    environment: ops
+    environment: heartbeat
     permissions: {}
     timeout-minutes: 5
     steps:
@@ -212,7 +212,7 @@ jobs:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
           if [ -z "${HEALTHCHECKS_PING_URL:-}" ]; then
-            echo "::error::Missing required ops environment secret: HEALTHCHECKS_CODEQL_SCHEDULE_PING_URL" >&2
+            echo "::error::Missing required heartbeat environment secret: HEALTHCHECKS_CODEQL_SCHEDULE_PING_URL" >&2
             exit 1
           fi
           echo "::add-mask::${HEALTHCHECKS_PING_URL}"

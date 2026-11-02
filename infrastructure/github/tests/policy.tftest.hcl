@@ -70,6 +70,7 @@ run "policy_invariants" {
       module.repository["infra"].actions_permissions.sha_pinning_required == true &&
       module.repository["infra"].backup_deployment_branch_pattern == "main" &&
       module.repository["infra"].ops_deployment_branch_pattern == "main" &&
+      module.repository["infra"].heartbeat_deployment_branch_pattern == "main" &&
       keys(local.ci_environment_secrets) == ["SOPS_AGE_KEY_CI"] &&
       !contains(keys(local.backup_environment_secrets), "SOPS_AGE_KEY_CI") &&
       !contains(keys(local.ops_environment_secrets), "SOPS_AGE_KEY_CI") &&

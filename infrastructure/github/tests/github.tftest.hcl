@@ -135,6 +135,11 @@ run "verify_github_root_hardening" {
   }
 
   assert {
+    condition     = module.repository["infra"].environments.heartbeat == "heartbeat" && module.repository["infra"].heartbeat_deployment_branch_pattern == "main"
+    error_message = "Heartbeat environment must exist and restrict deployments to main"
+  }
+
+  assert {
     condition     = module.repository["infra"].environments.code_quality == "code_quality"
     error_message = "Code quality environment must be defined in outputs"
   }
