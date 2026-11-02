@@ -825,27 +825,27 @@ run_cleanup() {
   STUB_VARIABLES_JSON='{"MISSING_SECRET":{"Name":"MISSING_SECRET","DefaultValue":"","PresenceValue":""}}' \
     run_reconcile --check
   [ "$status" -ne 0 ]
-  [[ "$output" == *"MISSING_SECRET"* ]]
+  [[ "$output" == *"MISSING_SECRET"* ]] || false
 
   jq '.assets |= map(select(.name != "docker-compose.gcp.yaml"))' "${BATS_TMPDIR}/mock_server/latest.json" >"${BATS_TMPDIR}/latest.tmp"
   mv "${BATS_TMPDIR}/latest.tmp" "${BATS_TMPDIR}/mock_server/latest.json"
   run_reconcile --check
   [ "$status" -ne 0 ]
-  [[ "$output" == *"missing required release asset"* ]]
-  [[ "$output" == *"enabled: false"* ]]
+  [[ "$output" == *"missing required release asset"* ]] || false
+  [[ "$output" == *"enabled: false"* ]] || false
 
   prepare_mock_release "v2026.10.16-1" "gcp"
   jq '.assets |= map(select(.name != "SHA256SUMS"))' "${BATS_TMPDIR}/mock_server/latest.json" >"${BATS_TMPDIR}/latest.tmp"
   mv "${BATS_TMPDIR}/latest.tmp" "${BATS_TMPDIR}/mock_server/latest.json"
   run_reconcile --check
   [ "$status" -ne 0 ]
-  [[ "$output" == *"missing required release asset 'SHA256SUMS'"* ]]
-  [[ "$output" != *"enabled: false"* ]]
+  [[ "$output" == *"missing required release asset 'SHA256SUMS'"* ]] || false
+  [[ "$output" != *"enabled: false"* ]] || false
 
   prepare_mock_release "v2026.10.16-1" "gcp"
   STUB_COSIGN_RC=1 run_reconcile --check
   [ "$status" -ne 0 ]
-  [[ "$output" == *"Cosign signature verification failed"* ]]
+  [[ "$output" == *"Cosign signature verification failed"* ]] || false
 
   [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
   [ ! -e "${BATS_TMPDIR}/opt/containers/current" ]
@@ -887,7 +887,7 @@ run_cleanup() {
   prepare_mock_release "v2026.10.16-1" "gcp"
   run_reconcile --bogus
   [ "$status" -eq 2 ]
-  [[ "$output" == *"ERROR: unknown argument"* ]]
+  [[ "$output" == *"ERROR: unknown argument"* ]] || false
   run_reconcile --check extra
   [ "$status" -eq 2 ]
   [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
