@@ -1010,13 +1010,13 @@ for name, (hosts, want) in cases.items():
 print("ok")
 PY
   [ "$status" -eq 0 ]
-  [[ "$output" == *"ok" ]]
+  [[ "$output" == *"ok" ]] || false
 
   run grep -Fx "docker_compose_service_reconcile_on_converge: true" "${ROLE_DIR}/defaults/main.yml"
   [ "$status" -eq 0 ]
   run grep -A2 -Fx "      docker_compose_service_reconcile_on_converge:" "${ROLE_DIR}/meta/argument_specs.yml"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"type: bool"* ]]
+  [[ "$output" == *"type: bool"* ]] || false
   [[ "$output" == *"default: true"* ]]
 }
 
