@@ -1027,6 +1027,15 @@ PY
   [ "$status" -eq 1 ]
 }
 
+@test "role ignores compose.hosts healthchecks_ping_url" {
+  run grep -n "\.healthchecks_ping_url" "${ROLE_DIR}/tasks/main.yml"
+  [ "$status" -eq 1 ]
+  run grep -nE "^ +healthchecks_ping_url:" "${REPO_ROOT}/configuration/molecule/gcp/converge.yml" \
+    "${REPO_ROOT}/configuration/molecule/oci/converge.yml" \
+    "${REPO_ROOT}/configuration/molecule/homelab/converge.yml"
+  [ "$status" -eq 1 ]
+}
+
 @test "check unit loads the staged slot, runs --check and has no OnFailure" {
   local unit="${ROLE_DIR}/templates/homelab-compose-check.service.j2"
   [ -f "${unit}" ]

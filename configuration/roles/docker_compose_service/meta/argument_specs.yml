@@ -31,7 +31,7 @@ argument_specs:
         elements: dict
         default: []
         no_log: true
-        description: List of host-to-target mappings and per-host Healthchecks.io ping URLs from SOPS (compose.hosts).
+        description: List of host-to-target mappings and per-host switches from SOPS (compose.hosts); ping URLs are not read from these entries.
       docker_compose_service_targets:
         type: dict
         default: {}
@@ -50,7 +50,10 @@ argument_specs:
         type: str
         default: ""
         no_log: true
-        description: Optional explicit Healthchecks.io ping URL override (resolved from docker_compose_service_hosts by default).
+        description: >-
+          Healthchecks.io ping URL; required (non-empty) when the role is enabled.
+          Cloud hosts get it from the OpenTofu monitoring output compose_ping_urls via group_vars/cloud.yml;
+          other callers set it explicitly.
       docker_compose_service_project_name:
         type: str
         default: "homelab"

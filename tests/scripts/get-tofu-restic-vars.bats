@@ -62,6 +62,13 @@ EOF
       "h2": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000012"
     }
   },
+  "compose_ping_urls": {
+    "sensitive": true,
+    "value": {
+      "gcp": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000021",
+      "oci-1": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000022"
+    }
+  },
   "backup_prune_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000003" },
   "dr_copy_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000006" },
   "ci_schedule_ping_url": { "sensitive": true, "value": "https://hc-ping.example.test/00000000-0000-0000-0000-000000000004" },
@@ -239,6 +246,56 @@ STUB
   [ "$status" -ne 0 ]
   [ -z "$output" ]
   [[ "$stderr" == *"host_alive_ping_urls"* && "$stderr" == *"h1"* ]] || false
+}
+
+@test "get-tofu-restic-vars.sh writer mode emits tofu_compose_ping_urls from compose_ping_urls" {
+  run --separate-stderr "${SCRIPT}" "${FIXTURE_ARGS[@]}"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.tofu_compose_ping_urls.gcp' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000021" ]
+  [ "$(jq -r '.tofu_compose_ping_urls["oci-1"]' <<<"${output}")" = "https://hc-ping.example.test/00000000-0000-0000-0000-000000000022" ]
+  [ "$(jq -r '.tofu_compose_ping_urls | length' <<<"${output}")" = "2" ]
+}
+
+@test "get-tofu-restic-vars.sh writer mode yields an empty tofu_compose_ping_urls when compose_ping_urls is absent" {
+  jq 'del(.compose_ping_urls)' "${FIXTURE_DIR}/monitoring.json" >"${FIXTURE_DIR}/no-compose.json"
+
+  run --separate-stderr "${SCRIPT}" \
+    --oci-json "${FIXTURE_DIR}/oci.json" \
+    --gcp-json "${FIXTURE_DIR}/gcp.json" \
+    --monitoring-json "${FIXTURE_DIR}/no-compose.json"
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.tofu_compose_ping_urls' <<<"${output}")" = "{}" ]
+}
+
+@test "get-tofu-restic-vars.sh writer mode fails closed with no stdout when compose_ping_urls has an empty or non-string value" {
+  jq '.compose_ping_urls.value["oci-1"] = ""' "${FIXTURE_DIR}/monitoring.json" >"${FIXTURE_DIR}/empty-compose.json"
+
+  run --separate-stderr "${SCRIPT}" \
+    --oci-json "${FIXTURE_DIR}/oci.json" \
+    --gcp-json "${FIXTURE_DIR}/gcp.json" \
+    --monitoring-json "${FIXTURE_DIR}/empty-compose.json"
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *"ERROR: Empty value in OpenTofu output compose_ping_urls in module monitoring. Run tofu apply for infrastructure/monitoring."* ]] || false
+  [[ "$stderr" != *"hc-ping.example.test"* ]] || false
+
+  jq '.compose_ping_urls.value.gcp = 7' "${FIXTURE_DIR}/monitoring.json" >"${FIXTURE_DIR}/nonstring-compose.json"
+  run --separate-stderr "${SCRIPT}" \
+    --oci-json "${FIXTURE_DIR}/oci.json" \
+    --gcp-json "${FIXTURE_DIR}/gcp.json" \
+    --monitoring-json "${FIXTURE_DIR}/nonstring-compose.json"
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *"Empty value in OpenTofu output compose_ping_urls"* ]] || false
+
+  jq '.compose_ping_urls.value = ["x"]' "${FIXTURE_DIR}/monitoring.json" >"${FIXTURE_DIR}/array-compose.json"
+  run --separate-stderr "${SCRIPT}" \
+    --oci-json "${FIXTURE_DIR}/oci.json" \
+    --gcp-json "${FIXTURE_DIR}/gcp.json" \
+    --monitoring-json "${FIXTURE_DIR}/array-compose.json"
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *"Empty value in OpenTofu output compose_ping_urls"* ]] || false
 }
 
 @test "get-tofu-restic-vars.sh live mode reads tofu outputs with SOPS backend credentials, ignoring caller AWS_* keys" {

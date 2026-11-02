@@ -72,3 +72,11 @@ docker_daemon_options:
 docker_compose_service_manage_daemon_json: false
 docker_compose_service_hosts: "{{ compose.hosts | default([]) }}"
 docker_compose_service_targets: "{{ compose.targets | default({}) }}"
+# Ping URL of this host's compose target from the OpenTofu monitoring output (`tofu_compose_ping_urls`).
+# Empty when the fact, the host entry or the key is absent; the role then fails closed for switched-on hosts.
+docker_compose_service_healthchecks_ping_url: >-
+  {{
+    (tofu_compose_ping_urls | default({}))[
+      (docker_compose_service_hosts | selectattr('host', 'equalto', inventory_hostname) | map(attribute='target') | first | default(''))
+    ] | default('')
+  }}

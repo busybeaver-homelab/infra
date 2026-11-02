@@ -32,10 +32,10 @@
     docker_compose_service_targets:
       gcp:
         env: "{{ docker_compose_service_test_base_env }}"
+    docker_compose_service_healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
     docker_compose_service_hosts:
       - host: "{{ inventory_hostname }}"
         target: gcp
-        healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
   tasks:
     # --- 1. Docker daemon.json & Cosign binary/key verification ---------------------
 
@@ -783,10 +783,8 @@
             docker_compose_service_hosts:
               - host: "{{ inventory_hostname }}"
                 target: gcp
-                healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
               - host: "duplicate-host.example.test"
                 target: gcp
-                healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
 
         - name: Fail if duplicate target was not rejected
           ansible.builtin.fail:
@@ -807,7 +805,6 @@
             docker_compose_service_hosts:
               - host: "other-host.example.test"
                 target: gcp
-                healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
 
         - name: Fail if missing host entry was not rejected
           ansible.builtin.fail:
