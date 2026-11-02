@@ -954,7 +954,7 @@ run_cleanup() {
   STUB_VARIABLES_JSON='{"MISSING_SECRET":{"Name":"MISSING_SECRET","DefaultValue":"","PresenceValue":""}}' \
     STUB_CURL_RC=22 run_reconcile
   [ "$status" -ne 0 ]
-  [[ "$output" == *"MISSING_SECRET"* ]]
+  [[ "$output" == *"MISSING_SECRET"* ]] || false
   [ ! -e "${BATS_TMPDIR}/docker_up.log" ]
   [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/redeploy-requested" ]
   [ ! -e "${BATS_TMPDIR}/var/lib/homelab-compose/quarantined-release" ]
@@ -1114,7 +1114,7 @@ PY
 @test "reconcile_on_converge=false is documented as promoting without the check and never deploying" {
   run grep -F "WITHOUT the check" "${ROLE_DIR}/defaults/main.yml"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"never deploys or redeploys"* ]]
+  [[ "$output" == *"never deploys or redeploys"* ]] || false
   run grep -F "WITHOUT the check" "${ROLE_DIR}/meta/argument_specs.yml"
   [ "$status" -eq 0 ]
 }
