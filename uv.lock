@@ -435,7 +435,7 @@ wheels = [
 
 [[package]]
 name = "checkov"
-version = "3.4.0"
+version = "3.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiodns" },
@@ -483,9 +483,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/18/79/2cd68b26af58038463b51ce0af448a5ceb861732ad829b928648df029aa3/checkov-3.4.0.tar.gz", hash = "sha256:02eb8564e8630ad2622f38079e6765aa187282bd023566536467538000b3b912", size = 1016815, upload-time = "2026-10-28T20:30:08.482Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/3e/cfeb4d5c3473db2657d21a845af25815ba178dec93e546437f965163f9f5/checkov-3.4.1.tar.gz", hash = "sha256:9f60e7716515165fb3408f6a6f6f9e5107818fc230466f9b726768935a596d9d", size = 1017488, upload-time = "2026-11-02T11:58:43.654Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6b/ec/5d4d7c2be3f1975cbd493560f2b2a992690b6c30cd1392cbe9de81cfb600/checkov-3.4.0-py3-none-any.whl", hash = "sha256:fae991abfd873266d7dc135d0295b8c66a70be27eeb9191279c1b4f16f5393c2", size = 2330482, upload-time = "2026-10-28T20:30:03.223Z" },
+    { url = "https://files.pythonhosted.org/packages/24/73/4531b0736790b5d6b93108ef95c63b3527a54e31e1e564788eb8185249d4/checkov-3.4.1-py3-none-any.whl", hash = "sha256:3242598de5978f5f37e74515f702020f6f5823c58f76263ebaf6bd1397c060ab", size = 2331785, upload-time = "2026-11-02T11:58:40.169Z" },
 ]
 
 [[package]]
@@ -843,9 +843,9 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "ansible-lint", specifier = "==26.10.1" },
-    { name = "checkov", specifier = "==3.4.0" },
+    { name = "checkov", specifier = "==3.4.1" },
     { name = "molecule", specifier = "==26.10.0" },
-    { name = "molecule-plugins", extras = ["docker"], specifier = "==26.10.12" },
+    { name = "molecule-plugins", extras = ["docker"], specifier = "==26.11.0" },
     { name = "pytest-testinfra", specifier = "==10.2.2" },
     { name = "ruff", specifier = "==0.17.0" },
     { name = "zizmor", specifier = "==1.31.1" },
@@ -1046,14 +1046,14 @@ wheels = [
 
 [[package]]
 name = "molecule-plugins"
-version = "26.10.12"
+version = "26.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "molecule" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9d/a9/0e69e39a9e65a673b0d5f4fc1ea810a2f6fab671162b21b157a0cf124f71/molecule_plugins-26.10.12.tar.gz", hash = "sha256:03f79df9f7d6d6107ad9507f6c58724bbd18c21afb6f020fc532361b343ea333", size = 276741, upload-time = "2026-10-12T21:47:46.334Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/9e/8d3e3e747b68637f76375d9ed1038341f3cc798bab7893f2d87009cc54b4/molecule_plugins-26.11.0.tar.gz", hash = "sha256:194be2c43d950545cc699ab19f1a55b26853809e6e8c855ea1a42edacf5c7ee7", size = 278341, upload-time = "2026-11-02T09:50:26.07Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/79/192c2de4e0d25472182d45ca84bbe4eb9c646396f212c616554c71aec51d/molecule_plugins-26.10.12-py3-none-any.whl", hash = "sha256:a618b60016eac397d8e279eeb5c494a9cee6d33103dbe5222891df81657759f1", size = 88940, upload-time = "2026-10-12T21:47:44.832Z" },
+    { url = "https://files.pythonhosted.org/packages/21/ca/51af9c76e4b61420f8e7e02d8d5e1991e3853acfdeac1a1a2a9a9d446511/molecule_plugins-26.11.0-py3-none-any.whl", hash = "sha256:513808288b7027c465b124e66a2a31002c7c907b2fea9002f63ee90bb2d0ef84", size = 89609, upload-time = "2026-11-02T09:50:24.34Z" },
 ]
 
 [package.optional-dependencies]
