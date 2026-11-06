@@ -41,21 +41,36 @@ compose:
   hosts:
     - host: "<inventory_hostname>"
       target: "homelab"
-      healthchecks_ping_url: "https://hc-ping.com/<uuid>"
+      enabled: true # optional, absent means off
 ```
+
+The Healthchecks ping URL is not stored in SOPS. On cloud hosts `group_vars/cloud.yml` passes it from `tofu_compose_ping_urls` (OpenTofu output `compose_ping_urls` of `infrastructure/monitoring`, via `scripts/get-tofu-restic-vars.sh`) to `docker_compose_service_healthchecks_ping_url`.
 
 ## Key Role Variables
 
-| Variable                                    | Default     | Description                                                                                             |
-| :------------------------------------------ | :---------- | :------------------------------------------------------------------------------------------------------ |
-| `docker_compose_service_enabled`            | `false`     | Enables or disables the role on the target host (`STD-AN-29`).                                          |
-| `docker_compose_service_manage_daemon_json` | `false`     | Set `true` only on hosts where `geerlingguy.docker` does not manage `/etc/docker/daemon.json`.          |
-| `docker_compose_service_allow_macvlan`      | `false`     | Permits `macvlan`/`ipvlan` networks and `mac_address` fields (enabled on `homelab`, disabled on cloud). |
-| `docker_compose_service_credential_key`     | `"host"`    | `systemd-creds` key mode (`"host"` on OCI/homelab, `"host+tpm2"` on GCP Shielded VMs).                  |
-| `docker_compose_service_project_name`       | `"homelab"` | Fixed Docker Compose project name passed via `--project-name`.                                          |
-| `docker_compose_service_wait_timeout`       | `180`       | Timeout in seconds for `docker compose up -d --wait`.                                                   |
-| `docker_compose_service_keep_releases`      | `5`         | Number of verified release directories retained under `/opt/containers/releases/`.                      |
-| `docker_compose_service_cosign_version`     | `"v3.1.3"`  | Renovate-pinned Sigstore `cosign` release version.                                                      |
+| Variable                                       | Default     | Description                                                                                                                                                        |
+| :--------------------------------------------- | :---------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docker_compose_service_enabled`               | per host    | Defaults to `enabled` on this host's `compose.hosts` entry, `false` if the entry or flag is absent (`STD-AN-29`).                                                  |
+| `docker_compose_service_reconcile_on_converge` | `true`      | Runs the check unit, the first deploy and settings redeploys during converge. The `gcp`, `oci` and `homelab` Molecule scenarios set `false` (no mock release API). |
+| `docker_compose_service_healthchecks_ping_url` | `""`        | Healthchecks ping URL. On cloud hosts it comes from `tofu_compose_ping_urls`; never from SOPS.                                                                     |
+| `docker_compose_service_manage_daemon_json`    | `false`     | Set `true` only on hosts where `geerlingguy.docker` does not manage `/etc/docker/daemon.json`.                                                                     |
+| `docker_compose_service_allow_macvlan`         | `false`     | Permits `macvlan`/`ipvlan` networks and `mac_address` fields (enabled on `homelab`, disabled on cloud).                                                            |
+| `docker_compose_service_credential_key`        | `"host"`    | `systemd-creds` key mode (`"host"` on OCI/homelab, `"host+tpm2"` on GCP Shielded VMs).                                                                             |
+| `docker_compose_service_project_name`          | `"homelab"` | Fixed Docker Compose project name passed via `--project-name`.                                                                                                     |
+| `docker_compose_service_wait_timeout`          | `180`       | Timeout in seconds for `docker compose up -d --wait`.                                                                                                              |
+| `docker_compose_service_keep_releases`         | `5`         | Number of verified release directories retained under `/opt/containers/releases/`.                                                                                 |
+| `docker_compose_service_cosign_version`        | `"v3.1.3"`  | Renovate-pinned Sigstore `cosign` release version.                                                                                                                 |
+
+## Check Unit and Credential Slots
+
+- `homelab-compose-check.service` runs `homelab-compose-reconcile --check` against the **staged** env. It validates the latest release (signatures, checksums, manifest, required variables) but never deploys, changes symlinks, writes markers or pings Healthchecks, and has no `OnFailure=` and no timer. The role runs it on every converge before the active credential is touched; a failure fails the run.
+- Credential slots in the credstore, all encrypted under the name `homelab_compose_env`:
+  - `homelab_compose_env.staged`: what this run wants; read only by the check unit.
+  - `homelab_compose_env`: active; read by the reconcile unit. Replaced only after the check passed.
+  - `homelab_compose_env.previous`: copy of the active slot taken before promotion, used to restore on a failed redeploy, removed after success.
+- A settings change on a deployed host is applied by a `redeploy-requested` marker handled by `homelab-compose-reconcile.service`; on failure the role restores the previous slot and fails the run.
+
+Step-by-step procedures (switch on, change a setting, switch off): [`docs/runbooks/compose-cloud-targets.md`](../../../docs/runbooks/compose-cloud-targets.md).
 
 ## Operations
 
