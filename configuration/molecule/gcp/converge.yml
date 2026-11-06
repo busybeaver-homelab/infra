@@ -26,10 +26,11 @@
       gcp-ubuntu-server-26: "https://hc-ping.example.test/00000000-0000-0000-0000-000000000002"
     tofu_host_alive_ping_urls:
       gcp-ubuntu-server-26: "https://hc-ping.example.test/00000000-0000-0000-0000-000000000012"
+    tofu_compose_ping_urls:
+      gcp: "https://hc-ping.example.test/00000000-0000-0000-0000-000000000022"
     docker_compose_service_enabled: true
     docker_compose_service_reconcile_on_converge: false
     docker_compose_service_credential_key: "host"
     docker_compose_service_hosts:
       - host: "gcp-ubuntu-server-26"
         target: "gcp"
-        healthchecks_ping_url: "https://hc-ping.com/00000000-0000-4000-8000-000000009002"

@@ -32,10 +32,10 @@
     docker_compose_service_targets:
       gcp:
         env: "{{ docker_compose_service_test_base_env }}"
+    docker_compose_service_healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
     docker_compose_service_hosts:
       - host: "{{ inventory_hostname }}"
         target: gcp
-        healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
   tasks:
     # --- 1. Docker daemon.json & Cosign binary/key verification ---------------------
 
@@ -244,6 +244,28 @@
 
     # --- 4. Steady state after the staged converge (first deploy already happened) --
 
+    - name: Read timer enablement after the staged converge
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-enabled
+          - homelab-compose-reconcile.timer
+          - homelab-docker-cleanup.timer
+      register: docker_compose_service_converge_timers
+      changed_when: false
+
+    # The reconcile timer (*:0/15, Persistent=true) is enabled and would fire during the cases
+    # below. Stop it so only the explicit starts of this play run the reconciler. Each include_role
+    # starts the timers again (the role does that on every run); the cases that depend on it stop
+    # it once more, and section 10 asserts the timers are enabled and started after a re-enable.
+    - name: Stop the reconcile timer so it cannot race the explicit reconciler starts below
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - stop
+          - homelab-compose-reconcile.timer
+      changed_when: true
+
     - name: Stat /opt/containers/current symlink and the redeploy marker after converge
       ansible.builtin.stat:
         path: "{{ item }}"
@@ -260,6 +282,7 @@
     - name: Assert converge deployed v2026.10.16-1 and pinged success, and enabled the timers
       ansible.builtin.assert:
         that:
+          - docker_compose_service_converge_timers.stdout_lines == ['enabled', 'enabled']
           - docker_compose_service_current_stat.results[0].stat.islnk
           - docker_compose_service_current_stat.results[0].stat.lnk_source == '/opt/containers/releases/v2026.10.16-1'
           - not docker_compose_service_current_stat.results[1].stat.exists
@@ -391,6 +414,163 @@
           - not docker_compose_service_redeploy_stats.results[1].stat.exists
           - not docker_compose_service_redeploy_stats.results[2].stat.exists
           - docker_compose_service_redeploy_stats.results[3].stat.lnk_source == '/opt/containers/releases/v2026.10.16-1'
+
+    # --- 4b2. A reconciler run in flight on the old credential cannot swallow the redeploy --
+
+    - name: Stop the reconcile timer again after the role restarted it
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - stop
+          - homelab-compose-reconcile.timer
+      changed_when: true
+
+    # Right after the check unit of the role run below finished, take the reconciler lock for 12 seconds
+    # and start the reconciler without blocking: it loads the OLD active credential and waits for the
+    # lock, so it is still in flight (and has not looked for a redeploy marker yet) while the role
+    # promotes the new settings. A role that wrote the marker and started the unit without waiting
+    # for it to be idle would have the old-credential run consume the marker with the old settings.
+    - name: Start an old-credential reconciler run behind the lock once the role check is done
+      ansible.builtin.shell: |
+        n=0
+        until [ "$(systemctl show homelab-compose-check.service --property=ActiveState --value)" = activating ] || [ "$n" -ge 1200 ]; do
+          sleep 0.2; n=$((n+1))
+        done
+        n=0
+        while [ "$(systemctl show homelab-compose-check.service --property=ActiveState --value)" = activating ] && [ "$n" -lt 1200 ]; do
+          sleep 0.1; n=$((n+1))
+        done
+        flock {{ docker_compose_service_test_state_dir }}/lock sleep 12 &
+        holder=$!
+        n=0
+        until ! flock --nonblock {{ docker_compose_service_test_state_dir }}/lock true || [ "$n" -ge 100 ]; do
+          sleep 0.1; n=$((n+1))
+        done
+        systemctl start --no-block homelab-compose-reconcile.service
+        wait "$holder"
+      async: 300
+      poll: 0
+      register: docker_compose_service_race_trigger
+      changed_when: false
+
+    - name: Re-apply the role with a changed APP_MARKER while an old-credential run is in flight
+      ansible.builtin.include_role:
+        name: docker_compose_service
+      vars:
+        docker_compose_service_targets:
+          gcp:
+            env: "{{ docker_compose_service_test_base_env | combine({'APP_MARKER': 'molecule-healthy-v3'}) }}"
+
+    - name: Wait for the lock holder and the old-credential trigger to finish
+      ansible.builtin.async_status:
+        jid: "{{ docker_compose_service_race_trigger.ansible_job_id }}"
+      register: docker_compose_service_race_job
+      until: docker_compose_service_race_job.finished
+      retries: 60
+      delay: 2
+
+    - name: Inspect Compose project containers after the redeploy that raced an in-flight run
+      ansible.builtin.command:
+        argv:
+          - sh
+          - -c
+          - docker inspect $(docker ps --quiet --filter label=com.docker.compose.project=homelab)
+      register: docker_compose_service_race_inspect
+      changed_when: false
+
+    - name: Stat previous slot and redeploy marker after the raced redeploy
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.previous"
+        - "{{ docker_compose_service_test_state_dir }}/redeploy-requested"
+      register: docker_compose_service_race_stats
+
+    - name: Assert the new settings are running and nothing is left over
+      ansible.builtin.assert:
+        that:
+          - "'APP_MARKER=molecule-healthy-v3' in (docker_compose_service_race_inspect.stdout | from_json | map(attribute='Config.Env') | flatten)"
+          - "'APP_MARKER=molecule-healthy-v2' not in (docker_compose_service_race_inspect.stdout | from_json | map(attribute='Config.Env') | flatten)"
+          - (docker_compose_service_race_inspect.stdout | from_json | map(attribute='State.Health.Status') | list) == ['healthy']
+          - not docker_compose_service_race_stats.results[0].stat.exists
+          - not docker_compose_service_race_stats.results[1].stat.exists
+
+    # --- 4b3. A leftover previous slot (unfinished apply) forces the redeploy ---------
+
+    - name: Read the reconciler invocation before the pending-apply re-run
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - show
+          - homelab-compose-reconcile.service
+          - --property=InvocationID
+          - --value
+      register: docker_compose_service_pending_before
+      changed_when: false
+
+    - name: Simulate a run that died after the promotion by leaving a previous slot without a marker
+      ansible.builtin.copy:
+        src: "{{ docker_compose_service_test_credstore }}/homelab_compose_env"
+        dest: "{{ docker_compose_service_test_credstore }}/homelab_compose_env.previous"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0400"
+      no_log: true
+      diff: false
+
+    - name: Re-run the role with the same settings that are already active
+      ansible.builtin.include_role:
+        name: docker_compose_service
+      vars:
+        docker_compose_service_targets:
+          gcp:
+            env: "{{ docker_compose_service_test_base_env | combine({'APP_MARKER': 'molecule-healthy-v3'}) }}"
+
+    - name: Read the reconciler invocation after the pending-apply re-run
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - show
+          - homelab-compose-reconcile.service
+          - --property=InvocationID
+          - --value
+      register: docker_compose_service_pending_after
+      changed_when: false
+
+    - name: Inspect Compose project containers after the pending-apply re-run
+      ansible.builtin.command:
+        argv:
+          - sh
+          - -c
+          - docker inspect $(docker ps --quiet --filter label=com.docker.compose.project=homelab)
+      register: docker_compose_service_pending_inspect
+      changed_when: false
+
+    - name: Stat previous slot and redeploy marker after the pending-apply re-run
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ docker_compose_service_test_credstore }}/homelab_compose_env.previous"
+        - "{{ docker_compose_service_test_state_dir }}/redeploy-requested"
+      register: docker_compose_service_pending_stats
+
+    - name: Assert the leftover previous slot triggered a redeploy and was removed
+      ansible.builtin.assert:
+        that:
+          - docker_compose_service_pending_after.stdout != docker_compose_service_pending_before.stdout
+          - "'APP_MARKER=molecule-healthy-v3' in (docker_compose_service_pending_inspect.stdout | from_json | map(attribute='Config.Env') | flatten)"
+          - (docker_compose_service_pending_inspect.stdout | from_json | map(attribute='State.Health.Status') | list) == ['healthy']
+          - not docker_compose_service_pending_stats.results[0].stat.exists
+          - not docker_compose_service_pending_stats.results[1].stat.exists
+
+    - name: Restore the molecule-healthy-v2 settings that the following cases build on
+      ansible.builtin.include_role:
+        name: docker_compose_service
+      vars:
+        docker_compose_service_targets:
+          gcp:
+            env: "{{ docker_compose_service_test_base_env | combine({'APP_MARKER': 'molecule-healthy-v2'}) }}"
 
     # --- 4c. Settings that make the stack unhealthy are rolled back ------------------
 
@@ -531,6 +711,7 @@
       ansible.builtin.assert:
         that:
           - not docker_compose_service_check_accepted
+          - "'latest release check did not pass' in docker_compose_service_check_msg"
           - "'homelab-compose-check.service' in docker_compose_service_check_msg"
           - "'journalctl -u homelab-compose-check.service' in docker_compose_service_check_msg"
           - docker_compose_service_test_secret_token not in docker_compose_service_check_msg
@@ -783,10 +964,8 @@
             docker_compose_service_hosts:
               - host: "{{ inventory_hostname }}"
                 target: gcp
-                healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
               - host: "duplicate-host.example.test"
                 target: gcp
-                healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
 
         - name: Fail if duplicate target was not rejected
           ansible.builtin.fail:
@@ -807,7 +986,6 @@
             docker_compose_service_hosts:
               - host: "other-host.example.test"
                 target: gcp
-                healthchecks_ping_url: "{{ docker_compose_service_test_ping_url }}"
 
         - name: Fail if missing host entry was not rejected
           ansible.builtin.fail:
@@ -817,6 +995,41 @@
           ansible.builtin.assert:
             that:
               - ansible_failed_result is defined
+
+    - name: Stat the staged slot before the empty ping URL case
+      ansible.builtin.stat:
+        path: "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+      register: docker_compose_service_ping_guard_before
+
+    - name: Verify role fails closed on an empty Healthchecks ping URL
+      block:
+        - name: Include role enabled with an empty ping URL
+          ansible.builtin.include_role:
+            name: docker_compose_service
+          vars:
+            docker_compose_service_enabled: true
+            docker_compose_service_healthchecks_ping_url: ""
+
+        - name: Record that the empty ping URL was wrongly accepted
+          ansible.builtin.set_fact:
+            docker_compose_service_ping_guard_accepted: true
+      rescue:
+        - name: Capture the failure message of the empty ping URL case
+          ansible.builtin.set_fact:
+            docker_compose_service_ping_guard_msg: "{{ ansible_failed_result.msg | default('') }}"
+            docker_compose_service_ping_guard_accepted: false
+
+    - name: Stat the staged slot after the empty ping URL case
+      ansible.builtin.stat:
+        path: "{{ docker_compose_service_test_credstore }}/homelab_compose_env.staged"
+      register: docker_compose_service_ping_guard_after
+
+    - name: Assert the empty ping URL failed closed before any credential was written
+      ansible.builtin.assert:
+        that:
+          - not docker_compose_service_ping_guard_accepted
+          - "'infrastructure/monitoring' in docker_compose_service_ping_guard_msg"
+          - docker_compose_service_ping_guard_after.stat.mtime == docker_compose_service_ping_guard_before.stat.mtime
 
     # --- 10. Disablement (STD-AN-29) and re-enablement ------------------------------
 
@@ -895,6 +1108,45 @@
           - docker_compose_service_disable_removed_stats.results | selectattr('stat.exists') | list | length == 0
           - docker_compose_service_disable_kept_stats.results | selectattr('stat.isdir') | list | length == 2
           - "'running' in docker_compose_service_disable_ps.stdout"
+
+    - name: Re-enable with an env that misses the required APP_MARKER
+      block:
+        - name: Include role enabled with an env lacking a required variable
+          ansible.builtin.include_role:
+            name: docker_compose_service
+          vars:
+            docker_compose_service_enabled: true
+            docker_compose_service_targets:
+              gcp:
+                env: "{{ docker_compose_service_test_base_env | dict2items | rejectattr('key', 'equalto', 'APP_MARKER') | items2dict }}"
+
+        - name: Record that the incomplete settings were wrongly accepted on re-enable
+          ansible.builtin.set_fact:
+            docker_compose_service_reenable_bad_accepted: true
+      rescue:
+        - name: Capture the failure message of the failing re-enable
+          ansible.builtin.set_fact:
+            docker_compose_service_reenable_bad_msg: "{{ ansible_failed_result.msg | default('') }}"
+            docker_compose_service_reenable_bad_accepted: false
+
+    - name: Read timer enablement after the failing re-enable
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-enabled
+          - homelab-compose-reconcile.timer
+          - homelab-docker-cleanup.timer
+      register: docker_compose_service_reenable_bad_timers
+      changed_when: false
+      failed_when: false
+
+    - name: Assert the failing re-enable left the timers disabled
+      ansible.builtin.assert:
+        that:
+          - not docker_compose_service_reenable_bad_accepted
+          - "'homelab-compose-check.service' in docker_compose_service_reenable_bad_msg"
+          - "'enabled' not in docker_compose_service_reenable_bad_timers.stdout_lines"
+          - docker_compose_service_reenable_bad_timers.rc != 0
 
     - name: Re-enable docker_compose_service and verify restoration
       ansible.builtin.include_role:

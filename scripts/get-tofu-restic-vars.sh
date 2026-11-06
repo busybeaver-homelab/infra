@@ -8,7 +8,9 @@
 #
 #   --mode writer  append-only primary host writer keys (`tofu_oci_restic`,
 #                  `tofu_gcp_restic`) + per-host Healthchecks ping URLs
-#                  (`tofu_host_backup_ping_urls`, `tofu_host_alive_ping_urls`);
+#                  (`tofu_host_backup_ping_urls`, `tofu_host_alive_ping_urls`)
+#                  + per-target Compose ping URLs (`tofu_compose_ping_urls`,
+#                  `{}` when the monitoring output compose_ping_urls is absent);
 #                  never reads infrastructure/cloudflare outputs
 #                  (consumed by configuration/playbooks/cloud.yml)
 #   --mode prune   delete-capable pruner/DR keys (`tofu_oci_restic`,
@@ -234,6 +236,16 @@ printf '%s\n%s\n%s\n%s\n' "${oci_raw}" "${gcp_raw}" "${cf_raw}" "${mon_raw}" |
           end
       end;
 
+  def opt_map($obj; $mod; $key):
+    ($obj[$key].value? // $obj[$key]? // null) as $m
+    | if $m == null then
+        {}
+      elif ($m | type) != "object" or ([ $m | to_entries[] | select((.value | type) != "string" or (.value | length) == 0) ] | length) > 0 then
+        "ERROR: Empty value in OpenTofu output \($key) in module \($mod). Run tofu apply for infrastructure/\($mod).\n" | halt_error(1)
+      else
+        $m
+      end;
+
   if $mode == "writer" then
     ((req_hosts($oci; "oci") | split(" ")) + (req_hosts($gcp; "gcp") | split(" ")) | unique) as $expected_hosts |
     {
@@ -250,7 +262,8 @@ printf '%s\n%s\n%s\n%s\n' "${oci_raw}" "${gcp_raw}" "${cf_raw}" "${mon_raw}" |
         s3_secret_access_key: req($gcp; "gcp"; "backup_hmac_secret")
       },
       tofu_host_backup_ping_urls: req_host_map($mon; "monitoring"; "host_backup_ping_urls"; $expected_hosts),
-      tofu_host_alive_ping_urls: req_host_map($mon; "monitoring"; "host_alive_ping_urls"; $expected_hosts)
+      tofu_host_alive_ping_urls: req_host_map($mon; "monitoring"; "host_alive_ping_urls"; $expected_hosts),
+      tofu_compose_ping_urls: opt_map($mon; "monitoring"; "compose_ping_urls")
     }
 
   else

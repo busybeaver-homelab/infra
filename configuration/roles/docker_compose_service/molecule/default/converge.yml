@@ -26,9 +26,9 @@
           APP_MARKER: "molecule-healthy-v1"
           APP_SECRET_TOKEN: "{{ docker_compose_service_test_secret_token }}"
           SERVICE_DOMAIN: "app.example.test"
+    docker_compose_service_healthchecks_ping_url: "http://127.0.0.1:18080/molecule-compose-check"
     docker_compose_service_hosts:
       - host: "{{ inventory_hostname }}"
         target: gcp
-        healthchecks_ping_url: "http://127.0.0.1:18080/molecule-compose-check"
   roles:
     - role: docker_compose_service

@@ -251,10 +251,17 @@ fi
 # 2b. Redeploy requested after a settings change: re-run the current release with the
 # active env, without consulting GitHub. The marker is removed only once the outcome is
 # known (so a killed run is retried by the next start) and the release is never
-# quarantined here, because it is not at fault.
+# quarantined here, because it is not at fault. The manifest is re-validated against the
+# active env first (no GitHub needed), so a settings change that breaks it is refused
+# before any container is touched.
 if [ "${CHECK_MODE}" = "false" ] && [ -e "${STATE_DIR}/redeploy-requested" ]; then
   if [ -n "${current_dir}" ] && [ -f "${current_dir}/docker-compose.yaml" ]; then
     log "redeploy requested; re-running current release '${current_tag}'"
+    if ! validate_compose_manifest "${current_dir}/docker-compose.yaml"; then
+      rm -f "${STATE_DIR}/redeploy-requested"
+      log "ERROR: current release '${current_tag}' does not validate against the active settings; not redeploying"
+      exit 1
+    fi
     if compose_cmd "${current_dir}/docker-compose.yaml" up -d --wait --wait-timeout "${COMPOSE_WAIT_TIMEOUT}" --remove-orphans \
        && verify_stack_health "${current_dir}/docker-compose.yaml"; then
       rm -f "${STATE_DIR}/redeploy-requested"

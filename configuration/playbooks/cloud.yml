@@ -73,6 +73,7 @@
         tofu_gcp_restic: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_gcp_restic }}"
         tofu_host_backup_ping_urls: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_host_backup_ping_urls }}"
         tofu_host_alive_ping_urls: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_host_alive_ping_urls }}"
+        tofu_compose_ping_urls: "{{ (_tofu_restic_vars_raw.stdout | from_json).tofu_compose_ping_urls }}"
       no_log: true
       when: not (is_ci_environment | default(false) | bool)
 
