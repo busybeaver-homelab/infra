@@ -181,7 +181,7 @@ EOF
     [ "$output" = "true" ]
   done
 
-  local host_keys=("host" "target" "healthchecks_ping_url")
+  local host_keys=("host" "target" "enabled")
   for idx in 0 1 2; do
     for key in "${host_keys[@]}"; do
       run yq eval "has(\"compose\") and (.compose | has(\"hosts\")) and (.compose.hosts[${idx}] | has(\"${key}\"))" "${REPO_ROOT}/secrets/credentials.ci.sops.yaml"
