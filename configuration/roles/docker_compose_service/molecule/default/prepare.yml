@@ -85,7 +85,7 @@
       environment:
         COSIGN_PASSWORD: ""
 
-    - name: Write healthy Compose fixture (v2026.10.16-1)
+    - name: Write healthy Compose fixture that turns unhealthy for APP_MARKER=molecule-unhealthy (v2026.10.16-1)
       ansible.builtin.copy:
         dest: "{{ docker_compose_service_test_fixtures_dir }}/releases/v2026.10.16-1/docker-compose.gcp.yaml"
         owner: root
@@ -99,7 +99,7 @@
               environment:
                 APP_MARKER: "${APP_MARKER}"
               healthcheck:
-                test: ["CMD", "true"]
+                test: ["CMD-SHELL", "[ \"$$APP_MARKER\" != molecule-unhealthy ]"]
                 interval: 1s
                 timeout: 2s
                 retries: 2

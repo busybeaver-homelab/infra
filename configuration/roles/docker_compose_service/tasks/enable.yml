@@ -122,25 +122,34 @@
   no_log: true
   diff: false
 
-- name: Encrypt docker_compose_service credentials into systemd credential store
+- name: Encrypt the staged docker_compose_service environment into the systemd credential store
   ansible.builtin.command:
     argv:
       - "{{ docker_compose_service_libexec_dir }}/homelab-compose-credential-sync"
-      - "{{ item.name }}"
+      - homelab_compose_env
       - "{{ docker_compose_service_credstore_dir }}"
       - "{{ docker_compose_service_credential_key }}"
-    stdin: "{{ item.value }}"
+      - homelab_compose_env.staged
+    stdin: "{{ docker_compose_service_dotenv_payload }}"
     stdin_add_newline: false
-  loop:
-    - name: homelab_compose_env
-      value: "{{ docker_compose_service_dotenv_payload }}"
-    - name: compose_healthchecks_ping_url
-      value: "{{ docker_compose_service_effective_ping_url }}"
-  loop_control:
-    label: "{{ item.name }}"
   when: not ansible_check_mode
-  register: docker_compose_service_credential_sync
-  changed_when: docker_compose_service_credential_sync.stdout == 'changed'
+  register: docker_compose_service_staged_sync
+  changed_when: docker_compose_service_staged_sync.stdout == 'changed'
+  no_log: true
+  diff: false
+
+- name: Encrypt the docker_compose_service Healthchecks ping URL into the systemd credential store
+  ansible.builtin.command:
+    argv:
+      - "{{ docker_compose_service_libexec_dir }}/homelab-compose-credential-sync"
+      - compose_healthchecks_ping_url
+      - "{{ docker_compose_service_credstore_dir }}"
+      - "{{ docker_compose_service_credential_key }}"
+    stdin: "{{ docker_compose_service_effective_ping_url }}"
+    stdin_add_newline: false
+  when: not ansible_check_mode
+  register: docker_compose_service_ping_sync
+  changed_when: docker_compose_service_ping_sync.stdout == 'changed'
   no_log: true
   diff: false
 
@@ -152,6 +161,7 @@
     group: root
     mode: "0644"
   loop:
+    - homelab-compose-check.service
     - homelab-compose-failure@.service
     - homelab-compose-reconcile.service
     - homelab-compose-reconcile.timer
@@ -161,6 +171,30 @@
 
 - name: Flush handlers before enabling docker_compose_service timers
   ansible.builtin.meta: flush_handlers
+
+- name: Check, promote and apply the staged docker_compose_service settings
+  ansible.builtin.import_tasks: converge_reconcile.yml
+  when:
+    - docker_compose_service_reconcile_on_converge | bool
+    - not ansible_check_mode
+
+- name: Promote the staged docker_compose_service environment without a release check
+  ansible.builtin.command:
+    argv:
+      - "{{ docker_compose_service_libexec_dir }}/homelab-compose-credential-sync"
+      - homelab_compose_env
+      - "{{ docker_compose_service_credstore_dir }}"
+      - "{{ docker_compose_service_credential_key }}"
+      - homelab_compose_env
+    stdin: "{{ docker_compose_service_dotenv_payload }}"
+    stdin_add_newline: false
+  when:
+    - not (docker_compose_service_reconcile_on_converge | bool)
+    - not ansible_check_mode
+  register: docker_compose_service_env_direct_promotion
+  changed_when: docker_compose_service_env_direct_promotion.stdout == 'changed'
+  no_log: true
+  diff: false
 
 - name: Enable and start docker_compose_service systemd timers
   ansible.builtin.systemd_service:

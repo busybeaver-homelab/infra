@@ -983,3 +983,73 @@ run_cleanup() {
   run grep -F "rm -f homelab-hold-" "${BATS_TMPDIR}/docker_holds.log"
   [ "$status" -eq 0 ]
 }
+
+@test "role defaults resolve enabled per host from compose.hosts and argument spec declares reconcile_on_converge" {
+  run python3 - "${ROLE_DIR}/defaults/main.yml" <<'PY'
+import sys
+import jinja2
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    expr = yaml.safe_load(handle)["docker_compose_service_enabled"]
+
+env = jinja2.Environment(undefined=jinja2.StrictUndefined)
+env.filters["bool"] = lambda v: str(v).lower() in ("1", "true", "yes", "on")
+cases = {
+    "enabled true": ([{"host": "h1", "target": "t1", "enabled": True}], True),
+    "enabled false": ([{"host": "h1", "target": "t1", "enabled": False}], False),
+    "no flag": ([{"host": "h1", "target": "t1"}], False),
+    "no entry for host": ([{"host": "other", "target": "t1", "enabled": True}], False),
+    "empty list": ([], False),
+}
+for name, (hosts, want) in cases.items():
+    got = env.from_string(expr).render(
+        docker_compose_service_hosts=hosts, inventory_hostname="h1"
+    )
+    assert got == str(want), f"{name}: got {got!r}, want {want}"
+print("ok")
+PY
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok" ]] || false
+
+  run grep -Fx "docker_compose_service_reconcile_on_converge: true" "${ROLE_DIR}/defaults/main.yml"
+  [ "$status" -eq 0 ]
+  run grep -A2 -Fx "      docker_compose_service_reconcile_on_converge:" "${ROLE_DIR}/meta/argument_specs.yml"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"type: bool"* ]] || false
+  [[ "$output" == *"default: true"* ]]
+}
+
+@test "group vars no longer set docker_compose_service_enabled" {
+  run grep -n "docker_compose_service_enabled:" \
+    "${REPO_ROOT}/configuration/group_vars/cloud.yml" \
+    "${REPO_ROOT}/configuration/group_vars/homelab.yml"
+  [ "$status" -eq 1 ]
+}
+
+@test "check unit loads the staged slot, runs --check and has no OnFailure" {
+  local unit="${ROLE_DIR}/templates/homelab-compose-check.service.j2"
+  [ -f "${unit}" ]
+  run grep -F "LoadCredentialEncrypted=homelab_compose_env:{{ docker_compose_service_credstore_dir }}/homelab_compose_env.staged" "${unit}"
+  [ "$status" -eq 0 ]
+  run grep -F "ExecStart={{ docker_compose_service_libexec_dir }}/homelab-compose-reconcile --check" "${unit}"
+  [ "$status" -eq 0 ]
+  run grep -E "OnFailure=|compose_healthchecks_ping_url|\[Install\]" "${unit}"
+  [ "$status" -eq 1 ]
+  run grep -c "LoadCredentialEncrypted=" "${unit}"
+  [ "$output" = "1" ]
+  run grep -F "ProtectSystem=strict" "${unit}"
+  [ "$status" -eq 0 ]
+}
+
+@test "disable removes the check unit, staged and previous slots and the redeploy marker" {
+  local f="${ROLE_DIR}/tasks/disable.yml"
+  run grep -F "homelab-compose-check.service" "${f}"
+  [ "$status" -eq 0 ]
+  run grep -F '"{{ docker_compose_service_credstore_dir }}/homelab_compose_env.staged"' "${f}"
+  [ "$status" -eq 0 ]
+  run grep -F '"{{ docker_compose_service_credstore_dir }}/homelab_compose_env.previous"' "${f}"
+  [ "$status" -eq 0 ]
+  run grep -F '"{{ docker_compose_service_state_dir }}/redeploy-requested"' "${f}"
+  [ "$status" -eq 0 ]
+}
