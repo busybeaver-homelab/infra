@@ -8,7 +8,7 @@ terraform {
     }
     oci = {
       source  = "oracle/oci"
-      version = "9.9.0"
+      version = "9.12.1"
     }
     sops = {
       source  = "carlpett/sops"
