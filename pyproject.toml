@@ -5,8 +5,8 @@ description = "Homelab & Cloud Infrastructure managed by OpenTofu and Ansible"
 readme = "README.md"
 requires-python = "~=3.14.0"
 dependencies = [
-    "ansible-core==2.21.5",
-    "google-auth==2.62.0",
+    "ansible-core==2.22.0",
+    "google-auth==2.62.2",
     "requests==2.34.2",
     "jmespath==1.1.0",
     "cryptography==50.0.2",
@@ -15,12 +15,12 @@ dependencies = [
 [tool.uv]
 dev-dependencies = [
     "ruff==0.17.0",
-    "ansible-lint==26.10.1",
-    "checkov==3.4.1",
-    "molecule==26.10.0",
+    "ansible-lint==26.11.0",
+    "checkov==3.4.4",
+    "molecule==26.11.0",
     "molecule-plugins[docker]==26.11.0",
     "pytest-testinfra==10.2.2",
-    "zizmor==1.31.1",
+    "zizmor==1.32.0",
 ]
 
 [tool.ruff]
