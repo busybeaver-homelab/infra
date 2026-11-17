@@ -1,62 +1,48 @@
 {
-  $schema: "https://docs.renovatebot.com/renovate-schema.json",
-  description: "Automated dependency management configuration for homelab-infra",
-
-  // Baseline presets
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  description: 'Automated dependency management configuration for homelab-infra',
   extends: [
-    "config:best-practices",
-    ":semanticCommits",
-    ":pinDevDependencies",
-    ":pinAllExceptPeerDependencies",
-    ":enableVulnerabilityAlerts",
-    "security:openssf-scorecard",
-    ":labels(dependencies)",
+    'config:best-practices',
+    ':semanticCommits',
+    ':pinDevDependencies',
+    ':pinAllExceptPeerDependencies',
+    ':enableVulnerabilityAlerts',
+    'security:openssf-scorecard',
+    ':labels(dependencies)',
   ],
-
-  // Global repository controls (R2-REN-05: Dependency Dashboard enabled via GitHub Issues)
-  timezone: "UTC",
-  dependencyDashboard: true,
+  timezone: 'UTC',
+  dependencyDashboard: {
+    enabled: true,
+  },
   prConcurrentLimit: 10,
   prHourlyLimit: 2,
-
-  // Supply-chain cooldown (R2-REN-01, STD-CI-62): every update waits 3 days after its release
-  // before a PR is raised. With "strict" internal checks no branch (and no CI run with the new
-  // dependency code) exists while the age is pending. Set explicitly so a preset cannot relax it.
-  minimumReleaseAge: "3 days",
-  internalChecksFilter: "strict",
-
-  // Security updates bypass the release-age gate by design, so they always get a human review
-  // instead of automerging (STD-CI-62). Applied after packageRules for vulnerability PRs.
+  minimumReleaseAge: '3 days',
+  internalChecksFilter: 'strict',
   vulnerabilityAlerts: {
     automerge: false,
   },
-
-  // Lockfile maintenance schedule
   lockFileMaintenance: {
     enabled: true,
-    schedule: ["before 4am on monday"],
+    schedule: [
+      'before 4am on monday',
+    ],
     automerge: false,
   },
-
-  // Ignored paths across all package managers
-  // Prevents Renovate from scanning and corrupting mise internal lock sidecars
   ignorePaths: [
-    "**/node_modules/**",
-    "**/bower_components/**",
-    "**/vendor/**",
-    "**/examples/**",
-    "**/init.t",
-    "**/.mise/locks/**",
+    '**/node_modules/**',
+    '**/bower_components/**',
+    '**/vendor/**',
+    '**/examples/**',
+    '**/init.t',
+    '**/.mise/locks/**',
   ],
-
-  // Native manager toggles
   terraform: {
     enabled: true,
   },
   ansible: {
     enabled: true,
   },
-  "github-actions": {
+  'github-actions': {
     enabled: true,
   },
   mise: {
@@ -71,364 +57,385 @@
   nodenv: {
     enabled: false,
   },
-
-  // Custom regex managers for shell scripts and toolchain pins
   customManagers: [
     {
-      customType: "regex",
-      description: "Custom dependency version tracking for Bash and Shell scripts via comment annotations",
-      managerFilePatterns: ["^scripts/.*\\.sh$"],
+      customType: 'regex',
+      description: 'Custom dependency version tracking for Bash and Shell scripts via comment annotations',
+      managerFilePatterns: [
+        '^scripts/.*\\.sh$',
+      ],
       matchStrings: [
         '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+[A-Za-z0-9_]+_VERSION="?(?<currentValue>[^"@\\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?"?',
       ],
     },
     {
-      customType: "regex",
-      description: "Track Mise CLI version pins in mise.toml and setup-environment composite action",
+      customType: 'regex',
+      description: 'Track Mise CLI version pins in mise.toml and setup-environment composite action',
       managerFilePatterns: [
-        "^mise\\.toml$",
-        "^\\.github/actions/setup-environment/action\\.ya?ml$",
+        '^mise\\.toml$',
+        '^\\.github/actions/setup-environment/action\\.ya?ml$',
       ],
       matchStrings: [
         '(?:min_version = "|version: ")(?<currentValue>[^"]+)"[^\n]*# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?(?:\\s|$)',
       ],
-      datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
+      datasourceTemplate: '{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}',
     },
     {
-      customType: "regex",
-      description: "Track Sigstore Cosign version pin in docker_compose_service role defaults",
-      managerFilePatterns: ["^configuration/roles/docker_compose_service/defaults/main\\.yml$"],
+      customType: 'regex',
+      description: 'Track Sigstore Cosign version pin in docker_compose_service role defaults',
+      managerFilePatterns: [
+        '^configuration/roles/docker_compose_service/defaults/main\\.yml$',
+      ],
       matchStrings: [
         '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)\\s+docker_compose_service_cosign_version:\\s*"(?<currentValue>[^"]+)"',
       ],
     },
     {
-      customType: "regex",
-      description: "Track Valetudo and Tailscale version pins in valetudo_robot role defaults (SHA-256 checksums are updated by hand)",
-      managerFilePatterns: ["^configuration/roles/valetudo_robot/defaults/main\\.yml$"],
+      customType: 'regex',
+      description: 'Track Valetudo and Tailscale version pins in valetudo_robot role defaults (SHA-256 checksums are updated by hand)',
+      managerFilePatterns: [
+        '^configuration/roles/valetudo_robot/defaults/main\\.yml$',
+      ],
       matchStrings: [
         '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)\\s+valetudo_robot_[a-z]+_version:\\s*"(?<currentValue>[^"]+)"',
       ],
-      extractVersionTemplate: "^v?(?<version>.*)$",
+      extractVersionTemplate: '^v?(?<version>.*)$',
     },
     {
-      customType: "regex",
-      description: "Track OpenTofu required_version constraints in infrastructure/**/{opentofu.tofu,versions.tf} against opentofu/opentofu releases (R2-REN-02)",
+      customType: 'regex',
+      description: 'Track OpenTofu required_version constraints in infrastructure/**/{opentofu.tofu,versions.tf} against opentofu/opentofu releases (R2-REN-02)',
       managerFilePatterns: [
-        "^infrastructure/.+/opentofu\\.tofu$",
-        "^infrastructure/.+/versions\\.tf$",
+        '^infrastructure/.+/opentofu\\.tofu$',
+        '^infrastructure/.+/versions\\.tf$',
       ],
       matchStrings: [
         '(?:# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[a-z-.]+?))?\\s+)?required_version\\s*=\\s*"(?:~>|>=|=)?\\s*(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)"',
       ],
-      depNameTemplate: "{{#if depName}}{{{depName}}}{{else}}opentofu/opentofu{{/if}}",
-      datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
-      extractVersionTemplate: "^v?(?<version>.*)$",
+      depNameTemplate: '{{#if depName}}{{{depName}}}{{else}}opentofu/opentofu{{/if}}',
+      datasourceTemplate: '{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}',
+      extractVersionTemplate: '^v?(?<version>.*)$',
     },
     {
-      customType: "regex",
-      description: "Track Molecule container image tags and digests in configuration/**/molecule/*/molecule.yml (R2-REN-04)",
-      managerFilePatterns: ["^configuration/(?:.+/)?molecule/[^/]+/molecule\\.ya?ml$"],
+      customType: 'regex',
+      description: 'Track Molecule container image tags and digests in configuration/**/molecule/*/molecule.yml (R2-REN-04)',
+      managerFilePatterns: [
+        '^configuration/(?:.+/)?molecule/[^/]+/molecule\\.ya?ml$',
+      ],
       matchStrings: [
         'image:\\s*["\']?(?<depName>[a-z0-9._/-]+):(?<currentValue>[A-Za-z0-9._-]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?["\']?',
       ],
-      datasourceTemplate: "docker",
+      datasourceTemplate: 'docker',
     },
     {
-      customType: "regex",
-      description: "Track npx CLI package versions in mise.toml and Bats tests via comment annotations (R2-MISE-04)",
+      customType: 'regex',
+      description: 'Track npx CLI package versions in mise.toml and Bats tests via comment annotations (R2-MISE-04)',
       managerFilePatterns: [
-        "^mise\\.toml$",
-        "^tests/scripts/.*\\.bats$",
+        '^mise\\.toml$',
+        '^tests/scripts/.*\\.bats$',
       ],
       matchStrings: [
         '# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)\\s+[^\n]*?npx(?:\\s+--[a-z-]+)*\\s+(?:--package\\s+)?[a-z0-9@/._-]+@(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)',
       ],
     },
   ],
-
-  // Package rules for ecosystem-specific grouping, conventional commit scopes, and automerge policies
   packageRules: [
-    // 1a. Terraform / OpenTofu (stable >= 1.0)
     {
-      description: "Group and scope stable Terraform and OpenTofu provider/module updates",
-      matchManagers: ["terraform"],
-      matchCurrentVersion: "!/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/terraform",
-      groupName: "terraform providers and modules",
-      groupSlug: "terraform-deps",
-    },
-
-    // 1b. Terraform / OpenTofu (0.x initial development)
-    {
-      description: "Group and scope 0.x Terraform and OpenTofu provider/module updates separately",
-      matchManagers: ["terraform"],
-      matchCurrentVersion: "/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/terraform",
-      groupName: "terraform providers and modules (initial development)",
-      groupSlug: "terraform-deps-0x",
-      automerge: false,
-    },
-
-    // 2a. Ansible & Ansible Galaxy (stable >= 1.0)
-    {
-      description: "Group and scope stable Ansible Galaxy collection and role updates",
-      matchManagers: ["ansible", "ansible-galaxy"],
-      matchCurrentVersion: "!/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/ansible",
-      groupName: "ansible galaxy roles and collections",
-      groupSlug: "ansible-deps",
-    },
-
-    // 2b. Ansible & Ansible Galaxy (0.x initial development)
-    {
-      description: "Group and scope 0.x Ansible Galaxy collection and role updates separately",
-      matchManagers: ["ansible", "ansible-galaxy"],
-      matchCurrentVersion: "/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/ansible",
-      groupName: "ansible galaxy roles and collections (initial development)",
-      groupSlug: "ansible-deps-0x",
-      automerge: false,
-    },
-
-    // 3a. GitHub Actions (stable >= 1.0)
-    {
-      description: "Group and scope stable GitHub Actions updates",
-      matchManagers: ["github-actions"],
-      matchCurrentVersion: "!/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/actions",
-      groupName: "github actions",
-      groupSlug: "github-actions-deps",
-    },
-
-    // 3b. GitHub Actions (0.x initial development)
-    {
-      description: "Group and scope 0.x GitHub Actions updates separately",
-      matchManagers: ["github-actions"],
-      matchCurrentVersion: "/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/actions",
-      groupName: "github actions (initial development)",
-      groupSlug: "github-actions-deps-0x",
-      automerge: false,
-    },
-
-    // 3c. GitHub Actions pins in the owner-reviewed, ops-bound files (design 4.7): own group, so these
-    // bumps come as separate PRs that wait for owner approval; keep in sync with .github/CODEOWNERS.
-    // Placed after 3a/3b so its group wins; the later automerge/gate rules still decide automerge.
-    {
-      description: "Group GitHub Actions updates in owner-reviewed (CODEOWNERS) ops-bound files separately",
-      matchManagers: ["github-actions"],
-      matchFileNames: [
-        ".github/workflows/backup-dr-copy.yml",
-        ".github/workflows/backup-prune.yml",
-        ".github/actions/setup-environment/**",
-        ".github/workflows/workflow-policy.yml",
+      description: 'Group and scope stable Terraform and OpenTofu provider/module updates',
+      matchManagers: [
+        'terraform',
       ],
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/actions",
-      groupName: "github actions (owner-reviewed files)",
-      groupSlug: "github-actions-owned",
+      matchCurrentVersion: '!/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/terraform',
+      groupName: 'terraform providers and modules',
+      groupSlug: 'terraform-deps',
     },
-
-    // 4a. Mise Toolchain (stable >= 1.0)
     {
-      description: "Group and scope stable Mise toolchain updates",
-      matchManagers: ["mise"],
-      matchCurrentVersion: "!/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/mise",
-      groupName: "mise toolchain",
-      groupSlug: "mise-deps",
-    },
-
-    // 4b. Mise Toolchain (0.x initial development)
-    {
-      description: "Group and scope 0.x Mise toolchain updates separately",
-      matchManagers: ["mise"],
-      matchCurrentVersion: "/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/mise",
-      groupName: "mise toolchain (initial development)",
-      groupSlug: "mise-deps-0x",
+      description: 'Group and scope 0.x Terraform and OpenTofu provider/module updates separately',
+      matchManagers: [
+        'terraform',
+      ],
+      matchCurrentVersion: '/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/terraform',
+      groupName: 'terraform providers and modules (initial development)',
+      groupSlug: 'terraform-deps-0x',
       automerge: false,
     },
-
-    // 4c. Mise CLI (custom regex manager)
     {
-      description: "Group and scope Mise CLI version updates across mise.toml and setup-environment action",
-      matchPackageNames: ["jdx/mise"],
-      semanticCommitType: "chore",
-      semanticCommitScope: "toolchain",
-      groupName: "mise cli",
-      groupSlug: "mise-cli",
+      description: 'Group and scope stable Ansible Galaxy collection and role updates',
+      matchManagers: [
+        'ansible',
+        'ansible-galaxy',
+      ],
+      matchCurrentVersion: '!/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/ansible',
+      groupName: 'ansible galaxy roles and collections',
+      groupSlug: 'ansible-deps',
+    },
+    {
+      description: 'Group and scope 0.x Ansible Galaxy collection and role updates separately',
+      matchManagers: [
+        'ansible',
+        'ansible-galaxy',
+      ],
+      matchCurrentVersion: '/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/ansible',
+      groupName: 'ansible galaxy roles and collections (initial development)',
+      groupSlug: 'ansible-deps-0x',
       automerge: false,
     },
-
-    // 4d. OpenTofu core version across mise.toml, opentofu.tofu, and versions.tf (R2-REN-02)
     {
-      description: "Group OpenTofu core updates across mise.toml, opentofu.tofu, and versions.tf",
-      matchDepNames: ["opentofu/opentofu", "aqua:opentofu/opentofu"],
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/terraform",
-      groupName: "opentofu core",
-      groupSlug: "opentofu-core",
+      description: 'Group and scope stable GitHub Actions updates',
+      matchManagers: [
+        'github-actions',
+      ],
+      matchCurrentVersion: '!/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/actions',
+      groupName: 'github actions',
+      groupSlug: 'github-actions-deps',
     },
-
-    // 5a. Python / UV (stable >= 1.0)
     {
-      description: "Group and scope stable Python / UV dependencies",
-      matchManagers: ["pep621"],
-      matchCurrentVersion: "!/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/python",
-      groupName: "python dependencies",
-      groupSlug: "python-deps",
-    },
-
-    // 5b. Python / UV (0.x initial development)
-    {
-      description: "Group and scope 0.x Python / UV dependencies separately",
-      matchManagers: ["pep621"],
-      matchCurrentVersion: "/^0\\./",
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/python",
-      groupName: "python dependencies (initial development)",
-      groupSlug: "python-deps-0x",
+      description: 'Group and scope 0.x GitHub Actions updates separately',
+      matchManagers: [
+        'github-actions',
+      ],
+      matchCurrentVersion: '/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/actions',
+      groupName: 'github actions (initial development)',
+      groupSlug: 'github-actions-deps-0x',
       automerge: false,
     },
-
-    // 5c. Python runtime requires-python range strategy
     {
-      description: "Ensure PEP 621 requires-python uses bump range strategy to prevent exact patch pinning",
-      matchManagers: ["pep621"],
-      matchPackageNames: ["python"],
-      rangeStrategy: "bump",
+      description: 'Group GitHub Actions updates in owner-reviewed (CODEOWNERS) ops-bound files separately',
+      matchManagers: [
+        'github-actions',
+      ],
+      matchFileNames: [
+        '.github/workflows/backup-dr-copy.yml',
+        '.github/workflows/backup-prune.yml',
+        '.github/actions/setup-environment/**',
+        '.github/workflows/workflow-policy.yml',
+      ],
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/actions',
+      groupName: 'github actions (owner-reviewed files)',
+      groupSlug: 'github-actions-owned',
     },
-
-    // 5d. Unified Python runtime grouping across mise and pyproject.toml
     {
-      description: "Group Python runtime updates across Mise and PEP 621 pyproject.toml",
-      matchManagers: ["mise", "pep621"],
-      matchPackageNames: ["python", "core:python"],
-      semanticCommitType: "chore",
-      semanticCommitScope: "toolchain",
-      groupName: "python runtime",
-      groupSlug: "python-runtime",
+      description: 'Group and scope stable Mise toolchain updates',
+      matchManagers: [
+        'mise',
+      ],
+      matchCurrentVersion: '!/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/mise',
+      groupName: 'mise toolchain',
+      groupSlug: 'mise-deps',
+    },
+    {
+      description: 'Group and scope 0.x Mise toolchain updates separately',
+      matchManagers: [
+        'mise',
+      ],
+      matchCurrentVersion: '/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/mise',
+      groupName: 'mise toolchain (initial development)',
+      groupSlug: 'mise-deps-0x',
       automerge: false,
     },
-
-    // 6. AI Agent Skills
     {
-      description: "Scope AI agent skills updates",
-      matchFileNames: ["skills-lock.json"],
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/skills",
+      description: 'Group and scope Mise CLI version updates across mise.toml and setup-environment action',
+      matchPackageNames: [
+        'jdx/mise',
+      ],
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'toolchain',
+      groupName: 'mise cli',
+      groupSlug: 'mise-cli',
       automerge: false,
     },
-
-    // 7. Automated Merging (Minor & Patch updates for stable releases)
     {
-      description: "Enable platform automerge for safe minor and patch updates on non-0.x versions",
-      matchUpdateTypes: ["minor", "patch"],
-      matchCurrentVersion: "!/^0\\./",
+      description: 'Group OpenTofu core updates across mise.toml, opentofu.tofu, and versions.tf',
+      matchDepNames: [
+        'opentofu/opentofu',
+        'aqua:opentofu/opentofu',
+      ],
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/terraform',
+      groupName: 'opentofu core',
+      groupSlug: 'opentofu-core',
+    },
+    {
+      description: 'Group and scope stable Python / UV dependencies',
+      matchManagers: [
+        'pep621',
+      ],
+      matchCurrentVersion: '!/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/python',
+      groupName: 'python dependencies',
+      groupSlug: 'python-deps',
+    },
+    {
+      description: 'Group and scope 0.x Python / UV dependencies separately',
+      matchManagers: [
+        'pep621',
+      ],
+      matchCurrentVersion: '/^0\\./',
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/python',
+      groupName: 'python dependencies (initial development)',
+      groupSlug: 'python-deps-0x',
+      automerge: false,
+    },
+    {
+      description: 'Ensure PEP 621 requires-python uses bump range strategy to prevent exact patch pinning',
+      matchManagers: [
+        'pep621',
+      ],
+      matchPackageNames: [
+        'python',
+      ],
+      rangeStrategy: 'bump',
+    },
+    {
+      description: 'Group Python runtime updates across Mise and PEP 621 pyproject.toml',
+      matchManagers: [
+        'mise',
+        'pep621',
+      ],
+      matchPackageNames: [
+        'python',
+        'core:python',
+      ],
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'toolchain',
+      groupName: 'python runtime',
+      groupSlug: 'python-runtime',
+      automerge: false,
+    },
+    {
+      description: 'Scope AI agent skills updates',
+      matchFileNames: [
+        'skills-lock.json',
+      ],
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/skills',
+      automerge: false,
+    },
+    {
+      description: 'Enable platform automerge for safe minor and patch updates on non-0.x versions',
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+      ],
+      matchCurrentVersion: '!/^0\\./',
       automerge: true,
-      automergeType: "pr",
+      automergeType: 'pr',
       platformAutomerge: true,
     },
-
-    // 8. Gate 0.x releases (Breaking changes can occur in minor/patch for 0.x)
     {
-      description: "Require human review for 0.x versions",
-      matchCurrentVersion: "/^0\\./",
+      description: 'Require human review for 0.x versions',
+      matchCurrentVersion: '/^0\\./',
       automerge: false,
     },
-
-    // 9. Major Updates (Breaking changes require manual review)
     {
-      description: "Require human review for major version upgrades",
-      matchUpdateTypes: ["major"],
-      automerge: false,
-    },
-
-    // ---- Never-automerge gates: keep LAST. Renovate applies packageRules in order and later
-    // rules win, so a gate placed before rule 7 would be overridden by the automerge rule.
-
-    // 10. Language Runtimes (Python, Node, Go require explicit review) in mise AND PEP 621
-    {
-      description: "Require human review for language runtime upgrades in mise and PEP 621",
-      matchManagers: ["mise", "pep621"],
-      matchPackageNames: ["python", "core:python", "node", "core:node", "go", "core:go"],
-      automerge: false,
-    },
-
-    // 11. Mise CLI (custom regex manager across mise.toml and the setup-environment action)
-    {
-      description: "Require human review for Mise CLI updates",
-      matchPackageNames: ["jdx/mise"],
-      automerge: false,
-    },
-
-    // 12. AI Agent Skills
-    {
-      description: "Require human review for AI agent skill updates",
-      matchFileNames: ["skills-lock.json"],
-      automerge: false,
-    },
-
-    // 13. Security-boundary files (owner-reviewed; see .github/CODEOWNERS)
-    {
-      description: "Never automerge updates that touch security-boundary files",
-      matchFileNames: [
-        ".sops.yaml",
-        ".gitattributes",
-        "lefthook.yml",
-        "scripts/verify-*",
-        "scripts/detect-*",
-        "scripts/check-*",
-        "scripts/block-*",
-        "scripts/guard-*",
+      description: 'Require human review for major version upgrades',
+      matchUpdateTypes: [
+        'major',
       ],
       automerge: false,
     },
-
-    // 14. OpenTofu core version (R2-REN-02): Renovate resolves required_version against
-    // HashiCorp Terraform releases, which says nothing about OpenTofu compatibility.
     {
-      description: "Do not manage the OpenTofu required_version constraint via the Terraform datasource",
-      matchManagers: ["terraform"],
-      matchDepTypes: ["required_version"],
+      description: 'Require human review for language runtime upgrades in mise and PEP 621',
+      matchManagers: [
+        'mise',
+        'pep621',
+      ],
+      matchPackageNames: [
+        'python',
+        'core:python',
+        'node',
+        'core:node',
+        'go',
+        'core:go',
+      ],
+      automerge: false,
+    },
+    {
+      description: 'Require human review for Mise CLI updates',
+      matchPackageNames: [
+        'jdx/mise',
+      ],
+      automerge: false,
+    },
+    {
+      description: 'Require human review for AI agent skill updates',
+      matchFileNames: [
+        'skills-lock.json',
+      ],
+      automerge: false,
+    },
+    {
+      description: 'Never automerge updates that touch security-boundary files',
+      matchFileNames: [
+        '.sops.yaml',
+        '.gitattributes',
+        'lefthook.yml',
+        'scripts/verify-*',
+        'scripts/detect-*',
+        'scripts/check-*',
+        'scripts/block-*',
+        'scripts/guard-*',
+      ],
+      automerge: false,
+    },
+    {
+      description: 'Do not manage the OpenTofu required_version constraint via the Terraform datasource',
+      matchManagers: [
+        'terraform',
+      ],
+      matchDepTypes: [
+        'required_version',
+      ],
       enabled: false,
     },
-    // 15. Sigstore Cosign binary pin (requires updating per-arch SHA-256 checksums in defaults/main.yml)
     {
-      description: "Require human review for Sigstore Cosign updates so per-arch SHA-256 checksums are updated",
-      matchPackageNames: ["sigstore/cosign"],
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/ansible",
+      description: 'Require human review for Sigstore Cosign updates so per-arch SHA-256 checksums are updated',
+      matchPackageNames: [
+        'sigstore/cosign',
+      ],
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/ansible',
       automerge: false,
     },
-
-    // 16. Valetudo and Tailscale robot pins (requires updating SHA-256 checksums in valetudo_robot defaults/main.yml)
     {
-      description: "Require human review for Valetudo and Tailscale robot pins so their SHA-256 checksums are updated",
-      matchPackageNames: ["Hypfer/Valetudo", "tailscale/tailscale"],
-      matchFileNames: ["configuration/roles/valetudo_robot/defaults/main.yml"],
-      semanticCommitType: "chore",
-      semanticCommitScope: "deps/ansible",
+      description: 'Require human review for Valetudo and Tailscale robot pins so their SHA-256 checksums are updated',
+      matchPackageNames: [
+        'Hypfer/Valetudo',
+        'tailscale/tailscale',
+      ],
+      matchFileNames: [
+        'configuration/roles/valetudo_robot/defaults/main.yml',
+      ],
+      semanticCommitType: 'chore',
+      semanticCommitScope: 'deps/ansible',
       automerge: false,
     },
-
-    // 17. Mise lockfile maintenance (R2-REN-05): scripts/mise-lock.sh manages .mise/locks sidecars
     {
-      description: "Disable lockFileMaintenance for mise; scripts/mise-lock.sh manages .mise/locks sidecars",
-      matchManagers: ["mise"],
-      matchUpdateTypes: ["lockFileMaintenance"],
+      description: 'Disable lockFileMaintenance for mise; scripts/mise-lock.sh manages .mise/locks sidecars',
+      matchManagers: [
+        'mise',
+      ],
+      matchUpdateTypes: [
+        'lockFileMaintenance',
+      ],
       enabled: false,
     },
   ],
