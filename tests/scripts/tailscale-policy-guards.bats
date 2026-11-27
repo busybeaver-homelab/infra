@@ -196,3 +196,16 @@ if bad:
     [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
   done < <(iot_policies)
 }
+
+@test "network destinations have exactly the owner grant and specified ports" {
+  while IFS= read -r policy; do
+    run check_iot_policy "$policy" '
+network = {"tag:type-network", "svc:network"}
+targeted = [g for g in grants if network & set(g.get("dst", []))]
+expected = {"src": ["autogroup:owner"], "dst": ["tag:type-network", "svc:network"], "ip": ["22", "tcp:80", "tcp:443"]}
+if len(targeted) != 1 or targeted[0] != expected:
+    sys.exit("network destinations must have exactly the specified owner grant")
+'
+    [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
+  done < <(iot_policies)
+}
