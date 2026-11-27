@@ -209,3 +209,33 @@ if len(targeted) != 1 or targeted[0] != expected:
     [ "$status" -eq 0 ] || { echo "${policy##*/}: $output"; false; }
   done < <(iot_policies)
 }
+
+@test "production NAS grants include both destinations and SSH rules use supported targets" {
+  if [ "$(head -c 10 "$PROD_POLICY" | tail -c 9 | tr -d '\000')" = "GITCRYPT" ]; then
+    skip "production policy is encrypted"
+  fi
+  run check_iot_policy "$PROD_POLICY" '
+nas = {"tag:type-nas", "svc:nas"}
+targeted = [g for g in grants if nas & set(g.get("dst", []))]
+if not targeted or any(not nas <= set(g.get("dst", [])) for g in targeted):
+    sys.exit("grants must include both NAS destinations in every targeted rule")
+if not any("tag:type-nas" in r.get("dst", []) for r in ssh):
+    sys.exit("SSH rules must include a NAS tag destination")
+if any(dst.startswith("svc:") for r in ssh for dst in r.get("dst", [])):
+    sys.exit("SSH rules must not include service destinations")
+'
+  [ "$status" -eq 0 ] || { echo "$output"; false; }
+}
+
+@test "production NAS and robot grants retain stable baseline posture" {
+  if [ "$(head -c 10 "$PROD_POLICY" | tail -c 9 | tr -d '\000')" = "GITCRYPT" ]; then
+    skip "production policy is encrypted"
+  fi
+  run check_iot_policy "$PROD_POLICY" '
+for name, destinations in (("NAS", {"tag:type-nas", "svc:nas"}), ("robot", {"tag:type-iot"})):
+    targeted = [g for g in grants if destinations & set(g.get("dst", []))]
+    if not targeted or any("posture:stableBaseline" not in g.get("srcPosture", policy.get("defaultSrcPosture", [])) for g in targeted):
+        sys.exit("%s grants must retain stable baseline posture" % name)
+'
+  [ "$status" -eq 0 ] || { echo "$output"; false; }
+}
